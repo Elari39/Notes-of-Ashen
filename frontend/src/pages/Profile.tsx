@@ -39,7 +39,7 @@ const Profile: React.FC = () => {
       });
       await fetchUser();
       setMsg('资料已更新');
-    } catch (err: any) {
+    } catch (err: unknown) {
       setMsg(getErrorMessage(err, '更新失败'));
     } finally {
       setProfileSubmitting(false);
@@ -56,7 +56,7 @@ const Profile: React.FC = () => {
       setOldPassword('');
       setNewPassword('');
       setPwdMsg('密码已更新');
-    } catch (err: any) {
+    } catch (err: unknown) {
       setPwdError(getErrorMessage(err, '更新失败'));
     } finally {
       setPasswordSubmitting(false);

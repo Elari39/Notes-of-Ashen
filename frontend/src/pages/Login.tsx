@@ -24,7 +24,7 @@ const Login: React.FC = () => {
       setAuth(null, token); // user will be fetched next
       await fetchUser();
       navigate('/');
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError(getErrorMessage(err, '登录失败，请检查账号密码'));
     } finally {
       setSubmitting(false);

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { getCategories, createCategory, deleteCategory, updateCategory } from '../../api/category';
 import { Category } from '../../types';
 import Pagination from '../../components/Pagination';
@@ -18,7 +18,7 @@ const AdminCategories: React.FC = () => {
   const [busyId, setBusyId] = useState<number | null>(null);
   const size = 10;
 
-  const fetchList = async () => {
+  const fetchList = useCallback(async () => {
     try {
       const res = await getCategories({ page, size });
       setCategories(res.data.items || []);
@@ -26,11 +26,11 @@ const AdminCategories: React.FC = () => {
     } catch (e) {
       setError(getErrorMessage(e, '分类列表加载失败'));
     }
-  };
+  }, [page, size]);
 
   useEffect(() => {
     fetchList();
-  }, [page]);
+  }, [fetchList]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -44,7 +44,7 @@ const AdminCategories: React.FC = () => {
       }
       handleCancel();
       fetchList();
-    } catch (e: any) {
+    } catch (e: unknown) {
       setError(getErrorMessage(e, '操作失败'));
     } finally {
       setSubmitting(false);
@@ -72,7 +72,7 @@ const AdminCategories: React.FC = () => {
       try {
         await deleteCategory(id);
         fetchList();
-      } catch (e: any) {
+      } catch (e: unknown) {
         setError(getErrorMessage(e, '删除失败，可能存在关联文章'));
       } finally {
         setBusyId(null);

@@ -74,7 +74,7 @@ export interface PaginatedResp<T> {
   size: number;
 }
 
-export interface BaseResp<T = any> {
+export interface BaseResp<T = unknown> {
   code: number;
   message: string;
   data: T;

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
+import { Components } from 'react-markdown';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vs } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { getArticleById, createArticle, updateArticle } from '../../api/article';
@@ -9,6 +10,25 @@ import { getTags } from '../../api/tag';
 import { Category, Tag } from '../../types';
 import InlineNotice from '../../components/InlineNotice';
 import { getErrorMessage } from '../../utils/error';
+
+const markdownComponents: Components = {
+  code({ className, children, ...props }) {
+    const match = /language-(\w+)/.exec(className || '')
+    return match ? (
+      <SyntaxHighlighter
+        children={String(children).replace(/\n$/, '')}
+        style={vs}
+        language={match[1]}
+        PreTag="div"
+        className="rounded-sm border border-mountain-grey"
+      />
+    ) : (
+      <code {...props} className="bg-mountain-grey bg-opacity-30 px-1 py-0.5 rounded-sm font-sans text-ink">
+        {children}
+      </code>
+    )
+  }
+};
 
 const ArticleEditor: React.FC = () => {
   const { id } = useParams();
@@ -77,7 +97,7 @@ const ArticleEditor: React.FC = () => {
         await createArticle(payload);
       }
       navigate('/admin/articles');
-    } catch (e: any) {
+    } catch (e: unknown) {
       setError(getErrorMessage(e, '保存失败'));
     } finally {
       setSubmitting(false);
@@ -174,25 +194,7 @@ const ArticleEditor: React.FC = () => {
             prose-blockquote:border-l-4 prose-blockquote:border-mountain-grey prose-blockquote:pl-6 prose-blockquote:italic
           ">
             <ReactMarkdown
-              components={{
-                code({node, inline, className, children, ...props}: any) {
-                  const match = /language-(\w+)/.exec(className || '')
-                  return !inline && match ? (
-                    <SyntaxHighlighter
-                      {...props}
-                      children={String(children).replace(/\n$/, '')}
-                      style={vs}
-                      language={match[1]}
-                      PreTag="div"
-                      className="rounded-sm border border-mountain-grey"
-                    />
-                  ) : (
-                    <code {...props} className="bg-mountain-grey bg-opacity-30 px-1 py-0.5 rounded-sm font-sans text-ink">
-                      {children}
-                    </code>
-                  )
-                }
-              }}
+              components={markdownComponents}
             >
               {content}
             </ReactMarkdown>

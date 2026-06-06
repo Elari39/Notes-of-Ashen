@@ -34,7 +34,7 @@ const Register: React.FC = () => {
       setAuth(null, token);
       await fetchUser();
       navigate('/');
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError(getErrorMessage(err, '注册失败，请检查填写信息'));
     } finally {
       setSubmitting(false);

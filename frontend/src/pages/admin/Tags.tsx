@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { getTags, createTag, deleteTag, updateTag } from '../../api/tag';
 import { Tag } from '../../types';
 import Pagination from '../../components/Pagination';
@@ -19,7 +19,7 @@ const AdminTags: React.FC = () => {
   const [busyId, setBusyId] = useState<number | null>(null);
   const size = 10;
 
-  const fetchList = async () => {
+  const fetchList = useCallback(async () => {
     try {
       const res = await getTags({ page, size });
       setTags(res.data.items || []);
@@ -27,11 +27,11 @@ const AdminTags: React.FC = () => {
     } catch (e) {
       setError(getErrorMessage(e, '标签列表加载失败'));
     }
-  };
+  }, [page, size]);
 
   useEffect(() => {
     fetchList();
-  }, [page]);
+  }, [fetchList]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -45,7 +45,7 @@ const AdminTags: React.FC = () => {
       }
       handleCancel();
       fetchList();
-    } catch (e: any) {
+    } catch (e: unknown) {
       setError(getErrorMessage(e, '操作失败'));
     } finally {
       setSubmitting(false);
@@ -73,7 +73,7 @@ const AdminTags: React.FC = () => {
       try {
         await deleteTag(id);
         fetchList();
-      } catch (e: any) {
+      } catch (e: unknown) {
         setError(getErrorMessage(e, '删除失败'));
       } finally {
         setBusyId(null);

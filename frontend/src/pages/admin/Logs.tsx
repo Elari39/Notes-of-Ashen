@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { getLogs } from '../../api/user';
 import { Log } from '../../types';
 import Pagination from '../../components/Pagination';
@@ -12,7 +12,7 @@ const AdminLogs: React.FC = () => {
   const [error, setError] = useState('');
   const size = 10;
 
-  const fetchList = async () => {
+  const fetchList = useCallback(async () => {
     try {
       const res = await getLogs({ page, size });
       setLogs(res.data.items || []);
@@ -20,11 +20,11 @@ const AdminLogs: React.FC = () => {
     } catch (e) {
       setError(getErrorMessage(e, '日志列表加载失败'));
     }
-  };
+  }, [page, size]);
 
   useEffect(() => {
     fetchList();
-  }, [page]);
+  }, [fetchList]);
 
   return (
     <div>

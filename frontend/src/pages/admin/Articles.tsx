@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { getArticles, updateArticleStatus, deleteArticle } from '../../api/article';
 import { Article } from '../../types';
 import { Link, useNavigate } from 'react-router-dom';
@@ -15,7 +15,7 @@ const AdminArticles: React.FC = () => {
   const size = 10;
   const navigate = useNavigate();
 
-  const fetchList = async () => {
+  const fetchList = useCallback(async () => {
     try {
       const res = await getArticles({ page, size });
       setArticles(res.data.items || []);
@@ -23,11 +23,11 @@ const AdminArticles: React.FC = () => {
     } catch (e) {
       setError(getErrorMessage(e, '文章列表加载失败'));
     }
-  };
+  }, [page, size]);
 
   useEffect(() => {
     fetchList();
-  }, [page]);
+  }, [fetchList]);
 
   const handleStatus = async (id: number, status: string) => {
     setError('');

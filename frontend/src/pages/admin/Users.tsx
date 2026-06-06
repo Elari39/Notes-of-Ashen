@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { getUsers, updateUserStatus } from '../../api/user';
 import { User } from '../../types';
 import Pagination from '../../components/Pagination';
@@ -13,7 +13,7 @@ const AdminUsers: React.FC = () => {
   const [busyId, setBusyId] = useState<number | null>(null);
   const size = 10;
 
-  const fetchList = async () => {
+  const fetchList = useCallback(async () => {
     try {
       const res = await getUsers({ page, size });
       setUsers(res.data.items || []);
@@ -21,11 +21,11 @@ const AdminUsers: React.FC = () => {
     } catch (e) {
       setError(getErrorMessage(e, '用户列表加载失败'));
     }
-  };
+  }, [page, size]);
 
   useEffect(() => {
     fetchList();
-  }, [page]);
+  }, [fetchList]);
 
   const handleStatus = async (id: number, currentStatus: string) => {
     const newStatus = currentStatus === 'active' ? 'disabled' : 'active';
@@ -35,7 +35,7 @@ const AdminUsers: React.FC = () => {
       try {
         await updateUserStatus(id, newStatus);
         fetchList();
-      } catch (e: any) {
+      } catch (e: unknown) {
         setError(getErrorMessage(e, '操作失败'));
       } finally {
         setBusyId(null);

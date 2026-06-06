@@ -5,7 +5,7 @@
 export interface PageParams {
   page?: number;
   size?: number;
-  [key: string]: any;
+  [key: string]: string | number | boolean | undefined;
 }
 
 // Auth

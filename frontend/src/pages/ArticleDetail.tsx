@@ -1,11 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
+import { Components } from 'react-markdown';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vs } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import http from '../utils/http';
 import InlineNotice from '../components/InlineNotice';
 import { getErrorMessage } from '../utils/error';
+import { BaseResp } from '../types';
 
 interface ArticleDetailData {
   id: number;
@@ -18,6 +20,25 @@ interface ArticleDetailData {
   tags?: { name: string }[];
 }
 
+const markdownComponents: Components = {
+  code({ className, children, ...props }) {
+    const match = /language-(\w+)/.exec(className || '')
+    return match ? (
+      <SyntaxHighlighter
+        children={String(children).replace(/\n$/, '')}
+        style={vs}
+        language={match[1]}
+        PreTag="div"
+        className="rounded-sm border border-mountain-grey"
+      />
+    ) : (
+      <code {...props} className="bg-mountain-grey bg-opacity-30 px-1 py-0.5 rounded-sm font-sans text-ink">
+        {children}
+      </code>
+    )
+  }
+};
+
 const ArticleDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const [article, setArticle] = useState<ArticleDetailData | null>(null);
@@ -27,7 +48,7 @@ const ArticleDetail: React.FC = () => {
   useEffect(() => {
     const fetchArticle = async () => {
       try {
-        const res: any = await http.get(`/articles/${id}`);
+        const res = await http.get<unknown, BaseResp<ArticleDetailData>>(`/articles/${id}`);
         setArticle(res.data);
       } catch (err) {
         setError(getErrorMessage(err, '文章加载失败'));
@@ -94,25 +115,7 @@ const ArticleDetail: React.FC = () => {
         prose-strong:text-ink font-serif
       ">
         <ReactMarkdown
-          components={{
-            code({node, inline, className, children, ...props}: any) {
-              const match = /language-(\w+)/.exec(className || '')
-              return !inline && match ? (
-                <SyntaxHighlighter
-                  {...props}
-                  children={String(children).replace(/\n$/, '')}
-                  style={vs}
-                  language={match[1]}
-                  PreTag="div"
-                  className="rounded-sm border border-mountain-grey"
-                />
-              ) : (
-                <code {...props} className="bg-mountain-grey bg-opacity-30 px-1 py-0.5 rounded-sm font-sans text-ink">
-                  {children}
-                </code>
-              )
-            }
-          }}
+          components={markdownComponents}
         >
           {article.content}
         </ReactMarkdown>

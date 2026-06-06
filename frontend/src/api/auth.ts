@@ -3,13 +3,13 @@ import { BaseResp, TokenPair } from '../types';
 import { LoginReq, RegisterReq, RefreshReq } from '../types/api';
 
 export const login = (data: LoginReq) => 
-  http.post<any, BaseResp<TokenPair>>('/auth/login', data);
+  http.post<unknown, BaseResp<TokenPair>>('/auth/login', data);
 
 export const register = (data: RegisterReq) => 
-  http.post<any, BaseResp<TokenPair>>('/auth/register', data);
+  http.post<unknown, BaseResp<TokenPair>>('/auth/register', data);
 
 export const refresh = (data: RefreshReq) => 
-  http.post<any, BaseResp<TokenPair>>('/auth/refresh', data);
+  http.post<unknown, BaseResp<TokenPair>>('/auth/refresh', data);
 
 export const logout = (data: RefreshReq) => 
-  http.post<any, BaseResp>('/auth/logout', data);
+  http.post<unknown, BaseResp>('/auth/logout', data);

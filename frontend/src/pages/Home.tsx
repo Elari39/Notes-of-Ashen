@@ -4,6 +4,7 @@ import Pagination from '../components/Pagination';
 import http from '../utils/http';
 import InlineNotice from '../components/InlineNotice';
 import { getErrorMessage } from '../utils/error';
+import { BaseResp, PaginatedResp } from '../types';
 
 interface Article {
   id: number;
@@ -30,7 +31,7 @@ const Home: React.FC = () => {
       setLoading(true);
       setError('');
       try {
-        const res: any = await http.get('/articles', { params: { status: 'published', page, size } });
+        const res = await http.get<unknown, BaseResp<PaginatedResp<Article>>>('/articles', { params: { status: 'published', page, size } });
         setArticles(res.data.items || []);
         setTotal(res.data.total || 0);
       } catch (err) {
