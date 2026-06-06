@@ -136,8 +136,10 @@ const zh = {
 
   'protected.forbidden': '没有权限访问此页面。',
 
-  'notFound.message': '页面不存在。',
-  'notFound.back': '返回首页',
+  'notFound.kicker': '迷途札',
+  'notFound.title': '此路已入云深处',
+  'notFound.message': '你来时的那一页，像一枚落叶，已被风收入山色。且循墨痕归去，灯下仍有文章等你。',
+  'notFound.back': '循墨归去',
 
   'admin.title': '管理',
   'admin.articles': '文章管理',
@@ -357,8 +359,10 @@ const en: Record<TranslationKey, string> = {
 
   'protected.forbidden': 'You do not have permission to access this page.',
 
-  'notFound.message': 'Page not found.',
-  'notFound.back': 'Back Home',
+  'notFound.kicker': 'Lost Leaf',
+  'notFound.title': 'This path has vanished into cloud.',
+  'notFound.message': 'The page you followed has drifted like a fallen leaf into the hills. Trace the ink back; words are still waiting by the lamp.',
+  'notFound.back': 'Follow the Ink Home',
 
   'admin.title': 'Admin',
   'admin.articles': 'Articles',
