@@ -20,10 +20,12 @@ import AdminLogs from './pages/admin/Logs';
 import NotFound from './pages/NotFound';
 import { usePreferenceStore } from './store/preferences';
 import { useSiteSettingsStore } from './store/siteSettings';
+import { useAuthStore } from './store/auth';
 
 function App() {
   const initializePreferences = usePreferenceStore((state) => state.initializePreferences);
   const fetchSiteSettings = useSiteSettingsStore((state) => state.fetchSettings);
+  const initializeAuth = useAuthStore((state) => state.initializeAuth);
 
   useEffect(() => {
     return initializePreferences();
@@ -32,6 +34,10 @@ function App() {
   useEffect(() => {
     fetchSiteSettings();
   }, [fetchSiteSettings]);
+
+  useEffect(() => {
+    initializeAuth();
+  }, [initializeAuth]);
 
   return (
     <Routes>

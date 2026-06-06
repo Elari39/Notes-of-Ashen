@@ -44,7 +44,7 @@ export interface Tag {
 export interface Article {
   id: number;
   authorId: number;
-  categoryId: number;
+  categoryId?: number;
   title: string;
   slug: string;
   summary: string;
@@ -52,7 +52,7 @@ export interface Article {
   coverUrl: string;
   status: string;
   viewCount: number;
-  publishedAt: string;
+  publishedAt?: string;
   createdAt: string;
   updatedAt: string;
   tags?: Tag[];
@@ -61,11 +61,11 @@ export interface Article {
 
 export interface Log {
   id: number;
-  userId: number;
+  userId?: number;
   eventType: string;
   resourceType: string;
-  resourceId: number;
-  metadata: string;
+  resourceId?: number;
+  metadata?: string;
   ip: string;
   userAgent: string;
   createdAt: string;

@@ -9,7 +9,7 @@ import { isHttpAvatarUrl, normalizeAvatarUrl } from '../utils/avatar';
 import { formatText, translate } from '../i18n';
 
 const Layout: React.FC = () => {
-  const { user, accessToken, fetchUser, logout } = useAuthStore();
+  const { user, logout } = useAuthStore();
   const { language, effectiveTheme, setLanguage, setThemePreference } = usePreferenceStore();
   const registrationEnabled = useSiteSettingsStore((state) => state.registrationEnabled);
   const navigate = useNavigate();
@@ -38,12 +38,6 @@ const Layout: React.FC = () => {
         animate: { opacity: 1, y: 0 },
         exit: { opacity: 0, y: -4 },
       };
-
-  useEffect(() => {
-    if (accessToken && !user) {
-      fetchUser();
-    }
-  }, [accessToken, user, fetchUser]);
 
   useEffect(() => {
     setIsPreferenceOpen(false);

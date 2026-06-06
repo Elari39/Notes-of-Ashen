@@ -9,12 +9,12 @@ interface ProtectedRouteProps {
 }
 
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ requireAdmin = false }) => {
-  const { user, accessToken, isFetching } = useAuthStore();
+  const { user, accessToken, isFetching, isInitialized } = useAuthStore();
   const language = usePreferenceStore((state) => state.language);
   const location = useLocation();
   const t = (key: Parameters<typeof translate>[1]) => translate(language, key);
 
-  if (isFetching) {
+  if (!isInitialized || isFetching) {
     return <div className="flex-grow flex items-center justify-center tracking-widest text-ink-light">{t('common.loadingAuth')}</div>;
   }
 

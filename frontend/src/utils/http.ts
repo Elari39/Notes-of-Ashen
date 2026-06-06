@@ -7,6 +7,14 @@ const http = axios.create({
   timeout: 10000,
 });
 
+const isAuthRetryEndpoint = (url?: string) => {
+  return Boolean(
+    url?.includes('/auth/login') ||
+    url?.includes('/auth/register') ||
+    url?.includes('/auth/refresh'),
+  );
+};
+
 // 请求拦截器
 http.interceptors.request.use((config) => {
   const token = useAuthStore.getState().accessToken;
@@ -27,35 +35,35 @@ http.interceptors.response.use(
   },
   async (error) => {
     const originalRequest = error.config;
-    
-    // 如果是登录或注册接口报 401，直接返回错误，不进行刷新重试
-    if (originalRequest?.url?.includes('/auth/login') || originalRequest?.url?.includes('/auth/register')) {
+
+    if (isAuthRetryEndpoint(originalRequest?.url)) {
       return Promise.reject(toAppError(error));
     }
 
-    // 简单处理 401 自动刷新
+    // 401 自动刷新
     if (error.response?.status === 401 && originalRequest && !originalRequest._retry) {
       originalRequest._retry = true;
       try {
         const refreshToken = localStorage.getItem('refreshToken');
         if (!refreshToken) throw new Error('No refresh token');
-        
+
         const res = await axios.post('/api/v1/auth/refresh', { refreshToken });
         if (res.data.code === 0) {
           const { accessToken, refreshToken: newRefresh } = res.data.data;
           localStorage.setItem('accessToken', accessToken);
           localStorage.setItem('refreshToken', newRefresh);
-          useAuthStore.setState({ accessToken });
+          useAuthStore.setState({ accessToken, isInitialized: true });
+          originalRequest.headers = originalRequest.headers ?? {};
           originalRequest.headers.Authorization = `Bearer ${accessToken}`;
           return http(originalRequest);
         }
-      } catch (e) {
+      } catch {
         useAuthStore.getState().logout();
         return Promise.reject(new AppError('登录已过期，请重新登录', 40100, 401));
       }
     }
     return Promise.reject(toAppError(error));
-  }
+  },
 );
 
 export default http;

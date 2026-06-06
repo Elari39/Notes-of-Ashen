@@ -23,7 +23,7 @@ const fieldNames: Record<string, string> = {
   email: '邮箱',
   nickname: '昵称',
   avatarUrl: '头像 URL',
-  oldPassword: '原密码',
+  oldPassword: '旧密码',
   newPassword: '新密码',
   refreshToken: '登录凭证',
   title: '标题',
@@ -31,6 +31,7 @@ const fieldNames: Record<string, string> = {
   content: '正文',
   coverUrl: '封面 URL',
   status: '状态',
+  q: '搜索关键词',
 };
 
 const exactMessages: Record<string, string> = {
@@ -41,12 +42,18 @@ const exactMessages: Record<string, string> = {
   'email already exists': '邮箱已存在',
   'account or password is incorrect': '账号或密码不正确',
   'user is disabled': '账号已被禁用',
-  'old password is incorrect': '原密码不正确',
+  'old password is incorrect': '旧密码不正确',
   'registration is disabled': '注册已关闭，请联系管理员。',
   'refresh token is invalid': '登录状态无效，请重新登录',
   'refresh token is expired': '登录已过期，请重新登录',
+  'missing authorization header': '请先登录',
+  'invalid authorization header': '登录凭证格式不正确',
+  'invalid or expired token': '登录已过期，请重新登录',
   'resource not found': '资源不存在或已被删除',
   'resource already exists': '资源已存在',
+  'article slug already exists': '文章路径已存在',
+  'tag not found': '标签不存在',
+  'cannot manage other user\'s article': '不能管理其他用户的文章',
   'internal server error': '服务暂时不可用，请稍后重试',
 };
 
