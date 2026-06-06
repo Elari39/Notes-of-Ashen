@@ -10,6 +10,7 @@ import { getErrorMessage } from '../utils/error';
 import { Article, BaseResp } from '../types';
 import { getDateLocale, translate } from '../i18n';
 import { usePreferenceStore } from '../store/preferences';
+import { normalizeCoverUrl } from '../utils/cover';
 
 type ArticleDetailData = Article & { content: string };
 
@@ -38,10 +39,12 @@ const ArticleDetail: React.FC = () => {
   const [article, setArticle] = useState<ArticleDetailData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [coverError, setCoverError] = useState(false);
   const t = (key: Parameters<typeof translate>[1]) => translate(language, key);
 
   useEffect(() => {
     const fetchArticle = async () => {
+      setCoverError(false);
       try {
         const res = await http.get<unknown, BaseResp<ArticleDetailData>>(`/articles/${id}`);
         setArticle(res.data);
@@ -66,13 +69,30 @@ const ArticleDetail: React.FC = () => {
     );
   }
 
+  const coverUrl = normalizeCoverUrl(article.coverUrl);
+  const isCoverHidden = Boolean(coverUrl && coverError);
+
   return (
     <article className="max-w-2xl mx-auto w-full">
       <header className="mb-16 text-center">
-        {article.coverUrl && (
+        {coverUrl && (
           <div className="mb-12 w-full h-64 md:h-80 overflow-hidden relative">
-            <img src={article.coverUrl} alt="cover" className="w-full h-full object-cover grayscale hover:grayscale-0 transition-all duration-700" />
-            <div className="absolute inset-0 bg-paper bg-opacity-20 pointer-events-none"></div>
+            {isCoverHidden ? (
+              <div className="flex h-full items-center justify-center border border-mountain-grey bg-[var(--paper-soft)] text-xs tracking-widest text-ink-light opacity-70">
+                {t('article.coverHidden')}
+              </div>
+            ) : (
+              <>
+                <img
+                  src={coverUrl}
+                  alt={article.title}
+                  onError={() => setCoverError(true)}
+                  onLoad={() => setCoverError(false)}
+                  className="w-full h-full object-cover grayscale hover:grayscale-0 transition-all duration-700"
+                />
+                <div className="absolute inset-0 bg-[var(--cover-wash)] pointer-events-none"></div>
+              </>
+            )}
           </div>
         )}
         <h1 className="text-4xl md:text-5xl font-bold text-ink mb-8 leading-tight">

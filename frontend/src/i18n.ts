@@ -1,6 +1,13 @@
 import type { Language } from './store/preferences';
 
 const zh = {
+  'nav.search': '寻章',
+  'home.searchCurtainPlaceholder': '题名、摘句，或灯下正文',
+  'home.searchSubmit': '循墨',
+  'home.activeSearch': '循「{keyword}」之墨迹',
+  'home.activeFilters': '卷中已留筛痕',
+  'home.clearFiltersPoetic': '拂尘',
+  'article.coverHidden': '封面暂隐',
   'brand.name': '灰之札记',
   'brand.nameEn': 'Notes of Ashen',
   'nav.home': '诗集',
@@ -158,6 +165,13 @@ const zh = {
 type TranslationKey = keyof typeof zh;
 
 const en: Record<TranslationKey, string> = {
+  'nav.search': 'Seek',
+  'home.searchCurtainPlaceholder': 'Title, excerpt, or lamplit body',
+  'home.searchSubmit': 'Follow Ink',
+  'home.activeSearch': 'Following ink for "{keyword}"',
+  'home.activeFilters': 'A quiet filter is resting here',
+  'home.clearFiltersPoetic': 'Dust Off',
+  'article.coverHidden': 'Cover resting',
   'brand.name': 'Notes of Ashen',
   'brand.nameEn': 'Notes of Ashen',
   'nav.home': 'Poems',
