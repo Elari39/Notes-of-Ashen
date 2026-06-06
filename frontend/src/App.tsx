@@ -17,6 +17,7 @@ import AdminCategories from './pages/admin/Categories';
 import AdminTags from './pages/admin/Tags';
 import AdminUsers from './pages/admin/Users';
 import AdminLogs from './pages/admin/Logs';
+import AdminSettings from './pages/admin/Settings';
 import NotFound from './pages/NotFound';
 import { usePreferenceStore } from './store/preferences';
 import { useSiteSettingsStore } from './store/siteSettings';
@@ -62,6 +63,7 @@ function App() {
              <Route path="tags" element={<AdminTags />} />
              <Route path="users" element={<AdminUsers />} />
              <Route path="logs" element={<AdminLogs />} />
+             <Route path="settings" element={<AdminSettings />} />
            </Route>
         </Route>
         <Route path="*" element={<NotFound />} />

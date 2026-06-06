@@ -28,6 +28,7 @@ export interface RefreshReq {
 
 export interface UpdateSiteSettingsReq {
   registrationEnabled: boolean;
+  homeArticleLayout: 'standard' | 'alternating';
 }
 
 // User

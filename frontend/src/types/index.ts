@@ -19,7 +19,10 @@ export interface TokenPair {
 
 export interface SiteSettings {
   registrationEnabled: boolean;
+  homeArticleLayout: HomeArticleLayout;
 }
+
+export type HomeArticleLayout = 'standard' | 'alternating';
 
 export interface Category {
   id: number;

@@ -27,11 +27,13 @@ type RefreshReq struct {
 }
 
 type SiteSettingsResp struct {
-	RegistrationEnabled bool `json:"registrationEnabled"`
+	RegistrationEnabled bool   `json:"registrationEnabled"`
+	HomeArticleLayout   string `json:"homeArticleLayout"`
 }
 
 type UpdateSiteSettingsReq struct {
-	RegistrationEnabled bool `json:"registrationEnabled"`
+	RegistrationEnabled bool   `json:"registrationEnabled"`
+	HomeArticleLayout   string `json:"homeArticleLayout"`
 }
 
 type RequestMeta struct {

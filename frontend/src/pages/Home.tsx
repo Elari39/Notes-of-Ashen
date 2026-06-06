@@ -8,9 +8,11 @@ import { usePreferenceStore } from '../store/preferences';
 import { getArticles } from '../api/article';
 import { Article } from '../types';
 import { normalizeCoverUrl } from '../utils/cover';
+import { useSiteSettingsStore } from '../store/siteSettings';
 
 const Home: React.FC = () => {
   const language = usePreferenceStore((state) => state.language);
+  const homeArticleLayout = useSiteSettingsStore((state) => state.homeArticleLayout);
   const [searchParams, setSearchParams] = useSearchParams();
   const [articles, setArticles] = useState<Article[]>([]);
   const [loading, setLoading] = useState(true);
@@ -102,30 +104,32 @@ const Home: React.FC = () => {
         <div className="text-center text-ink-light italic">{t('common.emptyArticles')}</div>
       ) : (
         <>
-          {articles.map((article) => {
+          {articles.map((article, index) => {
             const coverUrl = normalizeCoverUrl(article.coverUrl);
             const isCoverHidden = Boolean(coverUrl && coverErrors[article.id]);
+            const shouldShowCover = Boolean(coverUrl && !isCoverHidden);
+            const visibleCoverCountBefore = articles
+              .slice(0, index)
+              .filter((item) => {
+                const itemCoverUrl = normalizeCoverUrl(item.coverUrl);
+                return Boolean(itemCoverUrl && !coverErrors[item.id]);
+              }).length;
+            const shouldReverse = homeArticleLayout === 'alternating' && shouldShowCover && visibleCoverCountBefore % 2 === 1;
 
             return (
-              <article key={article.id} className="group relative flex flex-col md:flex-row gap-8 items-start">
-                {coverUrl && (
+              <article key={article.id} className={`group relative flex flex-col gap-8 items-start md:flex-row ${shouldReverse ? 'md:flex-row-reverse' : ''}`}>
+                {shouldShowCover && (
                   <div className="w-full md:w-1/3 shrink-0 h-48 overflow-hidden relative">
                     <Link to={`/article/${article.id}`} className="block h-full">
-                      {isCoverHidden ? (
-                        <div className="flex h-full items-center justify-center border border-mountain-grey bg-[var(--paper-soft)] text-xs tracking-widest text-ink-light opacity-70">
-                          {t('article.coverHidden')}
-                        </div>
-                      ) : (
-                        <img
-                          src={coverUrl}
-                          alt={article.title}
-                          onError={() => handleCoverError(article.id)}
-                          onLoad={() => handleCoverLoad(article.id)}
-                          className="w-full h-full object-cover grayscale opacity-80 group-hover:grayscale-0 group-hover:opacity-100 transition-all duration-700"
-                        />
-                      )}
+                      <img
+                        src={coverUrl}
+                        alt={article.title}
+                        onError={() => handleCoverError(article.id)}
+                        onLoad={() => handleCoverLoad(article.id)}
+                        className="w-full h-full object-cover grayscale opacity-80 group-hover:grayscale-0 group-hover:opacity-100 transition-all duration-700"
+                      />
                     </Link>
-                    {!isCoverHidden && <div className="absolute inset-0 bg-[var(--cover-wash-subtle)] pointer-events-none"></div>}
+                    <div className="absolute inset-0 bg-[var(--cover-wash-subtle)] pointer-events-none"></div>
                   </div>
                 )}
                 <div className="flex-1">

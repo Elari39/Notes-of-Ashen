@@ -1,6 +1,6 @@
 import http from '../utils/http';
-import { BaseResp, SiteSettings } from '../types';
-import { UpdateSiteSettingsReq } from '../types/api';
+import type { BaseResp, SiteSettings } from '../types';
+import type { UpdateSiteSettingsReq } from '../types/api';
 
 export const getSiteSettings = () =>
   http.get<unknown, BaseResp<SiteSettings>>('/site/settings');

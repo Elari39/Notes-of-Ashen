@@ -61,6 +61,12 @@ const AdminLayout: React.FC = () => {
           >
             {t('admin.logs')}
           </NavLink>
+          <NavLink
+            to="/admin/settings"
+            className={({ isActive }) => isActive ? 'text-ochre font-bold' : 'hover:text-ochre transition-colors'}
+          >
+            {t('admin.settings')}
+          </NavLink>
         </nav>
       </aside>
 

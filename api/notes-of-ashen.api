@@ -45,10 +45,12 @@ type TokenResp {
 
 type SiteSettingsResp {
 	RegistrationEnabled bool `json:"registrationEnabled"`
+	HomeArticleLayout string `json:"homeArticleLayout"`
 }
 
 type UpdateSiteSettingsReq {
 	RegistrationEnabled bool `json:"registrationEnabled"`
+	HomeArticleLayout string `json:"homeArticleLayout"`
 }
 
 type UpdateMeReq {

@@ -402,7 +402,7 @@ GET /api/v1/admin/articles
 GET /api/v1/site/settings
 ```
 
-权限：公开。返回当前游客是否可以注册账号。若用户表为空，即使后台开关保存为关闭，也会返回 `registrationEnabled = true`，确保首个注册用户仍可成为管理员。
+权限：公开。返回当前游客是否可以注册账号，以及首页文章列表布局。若用户表为空，即使后台开关保存为关闭，也会返回 `registrationEnabled = true`，确保首个注册用户仍可成为管理员。
 
 响应示例：
 
@@ -411,7 +411,8 @@ GET /api/v1/site/settings
   "code": 0,
   "message": "success",
   "data": {
-    "registrationEnabled": true
+    "registrationEnabled": true,
+    "homeArticleLayout": "standard"
   }
 }
 ```
@@ -422,13 +423,14 @@ GET /api/v1/site/settings
 PUT /api/v1/admin/site/settings
 ```
 
-权限：管理员。用于开启或关闭后续账号注册。
+权限：管理员。用于开启或关闭后续账号注册，并设置首页文章列表布局。`homeArticleLayout` 可选值为 `standard` 或 `alternating`。
 
 请求示例：
 
 ```json
 {
-  "registrationEnabled": false
+  "registrationEnabled": false,
+  "homeArticleLayout": "alternating"
 }
 ```
 
