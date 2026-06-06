@@ -1,27 +1,36 @@
-import { useEffect } from 'react';
+import { Suspense, lazy, useEffect } from 'react';
 import { Routes, Route } from 'react-router-dom';
 import Layout from './components/Layout';
 import Home from './pages/Home';
-import ArticleDetail from './pages/ArticleDetail';
-import Login from './pages/Login';
-import Register from './pages/Register';
-import Archive from './pages/Archive';
-import Search from './pages/Search';
-import Profile from './pages/Profile';
 import ProtectedRoute from './components/ProtectedRoute';
-
-import AdminLayout from './pages/admin/AdminLayout';
-import AdminArticles from './pages/admin/Articles';
-import ArticleEditor from './pages/admin/ArticleEditor';
-import AdminCategories from './pages/admin/Categories';
-import AdminTags from './pages/admin/Tags';
-import AdminUsers from './pages/admin/Users';
-import AdminLogs from './pages/admin/Logs';
-import AdminSettings from './pages/admin/Settings';
-import NotFound from './pages/NotFound';
 import { usePreferenceStore } from './store/preferences';
 import { useSiteSettingsStore } from './store/siteSettings';
 import { useAuthStore } from './store/auth';
+
+const ArticleDetail = lazy(() => import('./pages/ArticleDetail'));
+const Login = lazy(() => import('./pages/Login'));
+const Register = lazy(() => import('./pages/Register'));
+const Archive = lazy(() => import('./pages/Archive'));
+const Search = lazy(() => import('./pages/Search'));
+const Profile = lazy(() => import('./pages/Profile'));
+const AdminLayout = lazy(() => import('./pages/admin/AdminLayout'));
+const AdminArticles = lazy(() => import('./pages/admin/Articles'));
+const ArticleEditor = lazy(() => import('./pages/admin/ArticleEditor'));
+const ArticlePreview = lazy(() => import('./pages/admin/ArticlePreview'));
+const ArticleVersions = lazy(() => import('./pages/admin/ArticleVersions'));
+const AdminDashboard = lazy(() => import('./pages/admin/Dashboard'));
+const AdminCategories = lazy(() => import('./pages/admin/Categories'));
+const AdminTags = lazy(() => import('./pages/admin/Tags'));
+const AdminUsers = lazy(() => import('./pages/admin/Users'));
+const AdminLogs = lazy(() => import('./pages/admin/Logs'));
+const AdminSettings = lazy(() => import('./pages/admin/Settings'));
+const NotFound = lazy(() => import('./pages/NotFound'));
+
+const RouteLoading = () => (
+  <main className="min-h-[60vh] px-6 py-24 text-center text-sm tracking-[0.24em] text-ink-light">
+    LOADING
+  </main>
+);
 
 function App() {
   const initializePreferences = usePreferenceStore((state) => state.initializePreferences);
@@ -41,34 +50,41 @@ function App() {
   }, [initializeAuth]);
 
   return (
-    <Routes>
-      <Route path="/" element={<Layout />}>
-        <Route index element={<Home />} />
-        <Route path="article/:id" element={<ArticleDetail />} />
-        <Route path="archive" element={<Archive />} />
-        <Route path="search" element={<Search />} />
-        <Route path="login" element={<Login />} />
-        <Route path="register" element={<Register />} />
-        
-        <Route element={<ProtectedRoute />}>
-           <Route path="profile" element={<Profile />} />
-        </Route>
+    <Suspense fallback={<RouteLoading />}>
+      <Routes>
+        <Route path="/" element={<Layout />}>
+          <Route index element={<Home />} />
+          <Route path="article/:id" element={<ArticleDetail />} />
+          <Route path="archive" element={<Archive />} />
+          <Route path="search" element={<Search />} />
+          <Route path="login" element={<Login />} />
+          <Route path="register" element={<Register />} />
 
-        <Route path="admin" element={<ProtectedRoute requireAdmin />}>
-           <Route element={<AdminLayout />}>
-             <Route index element={<AdminArticles />} />
-             <Route path="articles" element={<AdminArticles />} />
-             <Route path="editor/:id" element={<ArticleEditor />} />
-             <Route path="categories" element={<AdminCategories />} />
-             <Route path="tags" element={<AdminTags />} />
-             <Route path="users" element={<AdminUsers />} />
-             <Route path="logs" element={<AdminLogs />} />
-             <Route path="settings" element={<AdminSettings />} />
-           </Route>
+          <Route element={<ProtectedRoute />}>
+            <Route path="profile" element={<Profile />} />
+          </Route>
+
+          <Route path="admin" element={<ProtectedRoute allowedRoles={['editor', 'admin']} />}>
+            <Route element={<AdminLayout />}>
+              <Route index element={<AdminDashboard />} />
+              <Route path="dashboard" element={<AdminDashboard />} />
+              <Route path="articles" element={<AdminArticles />} />
+              <Route path="editor/:id" element={<ArticleEditor />} />
+              <Route path="preview/:id" element={<ArticlePreview />} />
+              <Route path="articles/:id/versions" element={<ArticleVersions />} />
+              <Route path="categories" element={<AdminCategories />} />
+              <Route path="tags" element={<AdminTags />} />
+              <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
+                <Route path="users" element={<AdminUsers />} />
+                <Route path="logs" element={<AdminLogs />} />
+                <Route path="settings" element={<AdminSettings />} />
+              </Route>
+            </Route>
+          </Route>
+          <Route path="*" element={<NotFound />} />
         </Route>
-        <Route path="*" element={<NotFound />} />
-      </Route>
-    </Routes>
+      </Routes>
+    </Suspense>
   )
 }
 

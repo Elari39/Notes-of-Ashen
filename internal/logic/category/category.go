@@ -31,7 +31,7 @@ func Create(ctx context.Context, svcCtx *svc.ServiceContext, req types.TaxonomyR
 	if err != nil {
 		return nil, err
 	}
-	if err := authutil.RequireAdmin(ctx); err != nil {
+	if err := authutil.RequireContentManager(ctx); err != nil {
 		return nil, err
 	}
 	if err := validate(req); err != nil {
@@ -58,7 +58,7 @@ func Create(ctx context.Context, svcCtx *svc.ServiceContext, req types.TaxonomyR
 }
 
 func Update(ctx context.Context, svcCtx *svc.ServiceContext, id uint64, req types.TaxonomyReq) (*types.CategoryResp, error) {
-	if err := authutil.RequireAdmin(ctx); err != nil {
+	if err := authutil.RequireContentManager(ctx); err != nil {
 		return nil, err
 	}
 	if err := validate(req); err != nil {
@@ -84,7 +84,7 @@ func Update(ctx context.Context, svcCtx *svc.ServiceContext, id uint64, req type
 }
 
 func Delete(ctx context.Context, svcCtx *svc.ServiceContext, id uint64) error {
-	if err := authutil.RequireAdmin(ctx); err != nil {
+	if err := authutil.RequireContentManager(ctx); err != nil {
 		return err
 	}
 	return logicutil.MapError(svcCtx.Store.DeleteCategory(ctx, id))

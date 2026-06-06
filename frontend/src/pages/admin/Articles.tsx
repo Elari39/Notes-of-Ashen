@@ -27,6 +27,19 @@ const AdminArticles: React.FC = () => {
   const size = 10;
   const navigate = useNavigate();
   const t = (key: Parameters<typeof translate>[1]) => translate(language, key);
+  const getDisplayStatus = (article: Article) => {
+    if (article.status === 'published' && article.scheduledAt && new Date(article.scheduledAt).getTime() > Date.now()) {
+      return 'scheduled';
+    }
+    return article.status;
+  };
+  const getDisplayStatusLabel = (article: Article) => {
+    const displayStatus = getDisplayStatus(article);
+    if (displayStatus === 'scheduled') {
+      return language === 'zh' ? '计划发布' : 'Scheduled';
+    }
+    return getArticleStatusLabel(language, displayStatus);
+  };
 
   const fetchList = useCallback(async () => {
     try {
@@ -141,6 +154,7 @@ const AdminArticles: React.FC = () => {
           <option value="">{t('adminArticles.allStatus')}</option>
           <option value="draft">{getArticleStatusLabel(language, 'draft')}</option>
           <option value="published">{getArticleStatusLabel(language, 'published')}</option>
+          <option value="scheduled">{language === 'zh' ? '计划发布' : 'Scheduled'}</option>
           <option value="archived">{getArticleStatusLabel(language, 'archived')}</option>
         </select>
         <select
@@ -206,15 +220,22 @@ const AdminArticles: React.FC = () => {
                 </div>
               </td>
               <td className="py-4">
-                <span className={`px-2 py-1 text-xs border ${a.status === 'published' ? 'border-ochre text-ochre' : 'border-ink-light text-ink-light'}`}>
-                  {getArticleStatusLabel(language, a.status)}
+                <span className={`px-2 py-1 text-xs border ${getDisplayStatus(a) === 'published' ? 'border-ochre text-ochre' : 'border-ink-light text-ink-light'}`}>
+                  {getDisplayStatusLabel(a)}
                 </span>
+                {a.scheduledAt && (
+                  <div className="mt-2 text-xs text-ink-light opacity-70">
+                    {new Date(a.scheduledAt).toLocaleString(getDateLocale(language))}
+                  </div>
+                )}
               </td>
               <td className="py-4 text-ink-light opacity-80">
                 {new Date(a.createdAt).toLocaleDateString(getDateLocale(language))}
               </td>
               <td className="py-4 text-right space-x-4 tracking-wider">
                 <Link to={`/admin/editor/${a.id}`} className="hover:text-ochre">{t('common.edit')}</Link>
+                <Link to={`/admin/preview/${a.id}`} className="hover:text-ochre">预览</Link>
+                <Link to={`/admin/articles/${a.id}/versions`} className="hover:text-ochre">版本</Link>
                 {a.status !== 'published' && (
                   <button onClick={() => handleStatus(a.id, 'published')} disabled={busyId === a.id} className="hover:text-ochre disabled:opacity-50 disabled:cursor-not-allowed">{t('adminArticles.publish')}</button>
                 )}

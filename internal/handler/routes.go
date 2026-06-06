@@ -23,10 +23,13 @@ func RegisterHandlers(server *rest.Server, svcCtx *svc.ServiceContext) {
 	}
 
 	server.AddRoutes([]rest.Route{
+		{Method: http.MethodGet, Path: "/rss.xml", Handler: sitehandler.RSSHandler(svcCtx)},
+		{Method: http.MethodGet, Path: "/sitemap.xml", Handler: sitehandler.SitemapHandler(svcCtx)},
 		{Method: http.MethodPost, Path: "/api/v1/auth/register", Handler: authhandler.RegisterHandler(svcCtx)},
 		{Method: http.MethodPost, Path: "/api/v1/auth/login", Handler: authhandler.LoginHandler(svcCtx)},
 		{Method: http.MethodPost, Path: "/api/v1/auth/refresh", Handler: authhandler.RefreshHandler(svcCtx)},
 		{Method: http.MethodGet, Path: "/api/v1/articles", Handler: articlehandler.ListHandler(svcCtx)},
+		{Method: http.MethodGet, Path: "/api/v1/articles/:id/context", Handler: articlehandler.ContextHandler(svcCtx)},
 		{Method: http.MethodGet, Path: "/api/v1/articles/:id", Handler: articlehandler.DetailHandler(svcCtx)},
 		{Method: http.MethodGet, Path: "/api/v1/categories", Handler: categoryhandler.ListHandler(svcCtx)},
 		{Method: http.MethodGet, Path: "/api/v1/tags", Handler: taghandler.ListHandler(svcCtx)},
@@ -39,6 +42,10 @@ func RegisterHandlers(server *rest.Server, svcCtx *svc.ServiceContext) {
 		{Method: http.MethodPut, Path: "/api/v1/users/me", Handler: authRequired(userhandler.UpdateMeHandler(svcCtx))},
 		{Method: http.MethodPut, Path: "/api/v1/users/me/password", Handler: authRequired(userhandler.ChangePasswordHandler(svcCtx))},
 		{Method: http.MethodPost, Path: "/api/v1/articles", Handler: authRequired(articlehandler.CreateHandler(svcCtx))},
+		{Method: http.MethodGet, Path: "/api/v1/articles/:id/preview", Handler: authRequired(articlehandler.PreviewHandler(svcCtx))},
+		{Method: http.MethodGet, Path: "/api/v1/articles/:id/versions", Handler: authRequired(articlehandler.ListVersionsHandler(svcCtx))},
+		{Method: http.MethodGet, Path: "/api/v1/articles/:id/versions/:versionNo", Handler: authRequired(articlehandler.VersionDetailHandler(svcCtx))},
+		{Method: http.MethodPost, Path: "/api/v1/articles/:id/versions/:versionNo/restore", Handler: authRequired(articlehandler.RestoreVersionHandler(svcCtx))},
 		{Method: http.MethodPut, Path: "/api/v1/articles/:id", Handler: authRequired(articlehandler.UpdateHandler(svcCtx))},
 		{Method: http.MethodDelete, Path: "/api/v1/articles/:id", Handler: authRequired(articlehandler.DeleteHandler(svcCtx))},
 		{Method: http.MethodPatch, Path: "/api/v1/articles/:id/status", Handler: authRequired(articlehandler.UpdateStatusHandler(svcCtx))},
@@ -49,8 +56,10 @@ func RegisterHandlers(server *rest.Server, svcCtx *svc.ServiceContext) {
 		{Method: http.MethodPut, Path: "/api/v1/tags/:id", Handler: authRequired(taghandler.UpdateHandler(svcCtx))},
 		{Method: http.MethodDelete, Path: "/api/v1/tags/:id", Handler: authRequired(taghandler.DeleteHandler(svcCtx))},
 		{Method: http.MethodGet, Path: "/api/v1/admin/articles", Handler: authRequired(articlehandler.AdminListHandler(svcCtx))},
+		{Method: http.MethodGet, Path: "/api/v1/admin/stats", Handler: authRequired(adminhandler.StatsHandler(svcCtx))},
 		{Method: http.MethodGet, Path: "/api/v1/admin/users", Handler: authRequired(adminhandler.ListUsersHandler(svcCtx))},
 		{Method: http.MethodPatch, Path: "/api/v1/admin/users/:id/status", Handler: authRequired(adminhandler.UpdateUserStatusHandler(svcCtx))},
+		{Method: http.MethodPatch, Path: "/api/v1/admin/users/:id/role", Handler: authRequired(adminhandler.UpdateUserRoleHandler(svcCtx))},
 		{Method: http.MethodGet, Path: "/api/v1/admin/logs", Handler: authRequired(adminhandler.ListLogsHandler(svcCtx))},
 		{Method: http.MethodPut, Path: "/api/v1/admin/site/settings", Handler: authRequired(sitehandler.UpdateSettingsHandler(svcCtx))},
 	})

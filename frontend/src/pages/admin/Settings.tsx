@@ -11,12 +11,20 @@ const AdminSettings: React.FC = () => {
   const {
     registrationEnabled,
     homeArticleLayout,
+    siteTitle,
+    siteDescription,
+    siteKeywords,
+    siteBaseUrl,
     isLoading,
     fetchSettings,
     updateSettings,
   } = useSiteSettingsStore();
   const [draftRegistrationEnabled, setDraftRegistrationEnabled] = useState(registrationEnabled);
   const [draftHomeArticleLayout, setDraftHomeArticleLayout] = useState<HomeArticleLayout>(homeArticleLayout);
+  const [draftSiteTitle, setDraftSiteTitle] = useState(siteTitle);
+  const [draftSiteDescription, setDraftSiteDescription] = useState(siteDescription);
+  const [draftSiteKeywords, setDraftSiteKeywords] = useState(siteKeywords);
+  const [draftSiteBaseUrl, setDraftSiteBaseUrl] = useState(siteBaseUrl);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const t = (key: Parameters<typeof translate>[1]) => translate(language, key);
@@ -28,9 +36,19 @@ const AdminSettings: React.FC = () => {
   useEffect(() => {
     setDraftRegistrationEnabled(registrationEnabled);
     setDraftHomeArticleLayout(homeArticleLayout);
-  }, [registrationEnabled, homeArticleLayout]);
+    setDraftSiteTitle(siteTitle);
+    setDraftSiteDescription(siteDescription);
+    setDraftSiteKeywords(siteKeywords);
+    setDraftSiteBaseUrl(siteBaseUrl);
+  }, [registrationEnabled, homeArticleLayout, siteTitle, siteDescription, siteKeywords, siteBaseUrl]);
 
-  const hasChanges = draftRegistrationEnabled !== registrationEnabled || draftHomeArticleLayout !== homeArticleLayout;
+  const hasChanges =
+    draftRegistrationEnabled !== registrationEnabled ||
+    draftHomeArticleLayout !== homeArticleLayout ||
+    draftSiteTitle !== siteTitle ||
+    draftSiteDescription !== siteDescription ||
+    draftSiteKeywords !== siteKeywords ||
+    draftSiteBaseUrl !== siteBaseUrl;
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -40,6 +58,10 @@ const AdminSettings: React.FC = () => {
       await updateSettings({
         registrationEnabled: draftRegistrationEnabled,
         homeArticleLayout: draftHomeArticleLayout,
+        siteTitle: draftSiteTitle.trim(),
+        siteDescription: draftSiteDescription.trim(),
+        siteKeywords: draftSiteKeywords.trim(),
+        siteBaseUrl: draftSiteBaseUrl.trim(),
       });
       setNotice(t('settings.saved'));
     } catch (e: unknown) {
@@ -50,6 +72,10 @@ const AdminSettings: React.FC = () => {
   const handleReset = () => {
     setDraftRegistrationEnabled(registrationEnabled);
     setDraftHomeArticleLayout(homeArticleLayout);
+    setDraftSiteTitle(siteTitle);
+    setDraftSiteDescription(siteDescription);
+    setDraftSiteKeywords(siteKeywords);
+    setDraftSiteBaseUrl(siteBaseUrl);
     setError('');
     setNotice('');
   };
@@ -123,6 +149,56 @@ const AdminSettings: React.FC = () => {
               <span className="block text-sm font-bold tracking-widest">{t('settings.homeLayoutAlternating')}</span>
               <span className="mt-2 block text-xs leading-relaxed opacity-75">{t('settings.homeLayoutAlternatingDesc')}</span>
             </button>
+          </div>
+        </section>
+
+        <section className="border border-mountain-grey bg-[var(--paper-soft)] p-5">
+          <div className="mb-5">
+            <h4 className="text-base font-bold tracking-widest text-ink">站点 SEO</h4>
+            <p className="mt-2 text-sm leading-relaxed text-ink-light opacity-80">
+              用于页面标题、默认描述、关键词以及 RSS/Sitemap 链接生成。
+            </p>
+          </div>
+          <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+            <label className="block text-sm text-ink-light">
+              <span className="mb-2 block tracking-widest">站点标题</span>
+              <input
+                value={draftSiteTitle}
+                onChange={(event) => setDraftSiteTitle(event.target.value)}
+                disabled={isLoading}
+                className="w-full border border-mountain-grey bg-transparent px-3 py-2 text-ink outline-none focus:border-ochre disabled:cursor-not-allowed disabled:opacity-50"
+              />
+            </label>
+            <label className="block text-sm text-ink-light">
+              <span className="mb-2 block tracking-widest">站点地址</span>
+              <input
+                value={draftSiteBaseUrl}
+                onChange={(event) => setDraftSiteBaseUrl(event.target.value)}
+                disabled={isLoading}
+                placeholder="https://example.com"
+                className="w-full border border-mountain-grey bg-transparent px-3 py-2 text-ink outline-none focus:border-ochre disabled:cursor-not-allowed disabled:opacity-50"
+              />
+            </label>
+            <label className="block text-sm text-ink-light md:col-span-2">
+              <span className="mb-2 block tracking-widest">站点描述</span>
+              <textarea
+                value={draftSiteDescription}
+                onChange={(event) => setDraftSiteDescription(event.target.value)}
+                disabled={isLoading}
+                rows={3}
+                className="w-full resize-none border border-mountain-grey bg-transparent px-3 py-2 text-ink outline-none focus:border-ochre disabled:cursor-not-allowed disabled:opacity-50"
+              />
+            </label>
+            <label className="block text-sm text-ink-light md:col-span-2">
+              <span className="mb-2 block tracking-widest">关键词</span>
+              <input
+                value={draftSiteKeywords}
+                onChange={(event) => setDraftSiteKeywords(event.target.value)}
+                disabled={isLoading}
+                placeholder="blog,notes,writing"
+                className="w-full border border-mountain-grey bg-transparent px-3 py-2 text-ink outline-none focus:border-ochre disabled:cursor-not-allowed disabled:opacity-50"
+              />
+            </label>
           </div>
         </section>
 

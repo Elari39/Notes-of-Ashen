@@ -83,18 +83,22 @@ func TagResp(t model.Tag) types.TagResp {
 
 func ArticleResp(a model.Article, tags []model.Tag, category *model.Category, includeContent bool) types.ArticleResp {
 	resp := types.ArticleResp{
-		ID:          a.ID,
-		AuthorID:    a.AuthorID,
-		CategoryID:  a.CategoryID,
-		Title:       a.Title,
-		Slug:        a.Slug,
-		Summary:     a.Summary,
-		CoverURL:    a.CoverURL,
-		Status:      a.Status,
-		ViewCount:   a.ViewCount,
-		PublishedAt: a.PublishedAt,
-		CreatedAt:   a.CreatedAt,
-		UpdatedAt:   a.UpdatedAt,
+		ID:             a.ID,
+		AuthorID:       a.AuthorID,
+		CategoryID:     a.CategoryID,
+		Title:          a.Title,
+		Slug:           a.Slug,
+		Summary:        a.Summary,
+		CoverURL:       a.CoverURL,
+		Status:         a.Status,
+		ViewCount:      a.ViewCount,
+		ScheduledAt:    a.ScheduledAt,
+		PublishedAt:    a.PublishedAt,
+		SEOTitle:       a.SEOTitle,
+		SEODescription: a.SEODescription,
+		SEOKeywords:    a.SEOKeywords,
+		CreatedAt:      a.CreatedAt,
+		UpdatedAt:      a.UpdatedAt,
 	}
 	if includeContent {
 		resp.Content = a.Content
@@ -105,6 +109,36 @@ func ArticleResp(a model.Article, tags []model.Tag, category *model.Category, in
 	}
 	for _, tag := range tags {
 		resp.Tags = append(resp.Tags, TagResp(tag))
+	}
+	return resp
+}
+
+func ArticleVersionResp(v model.ArticleVersion, includeContent bool) types.ArticleVersionResp {
+	resp := types.ArticleVersionResp{
+		ID:                v.ID,
+		ArticleID:         v.ArticleID,
+		VersionNo:         v.VersionNo,
+		ChangedBy:         v.ChangedBy,
+		AuthorID:          v.AuthorID,
+		CategoryID:        v.CategoryID,
+		Title:             v.Title,
+		Slug:              v.Slug,
+		Summary:           v.Summary,
+		CoverURL:          v.CoverURL,
+		Status:            v.Status,
+		ViewCount:         v.ViewCount,
+		ScheduledAt:       v.ScheduledAt,
+		PublishedAt:       v.PublishedAt,
+		SEOTitle:          v.SEOTitle,
+		SEODescription:    v.SEODescription,
+		SEOKeywords:       v.SEOKeywords,
+		TagIDs:            v.TagIDs,
+		OriginalCreatedAt: v.OriginalCreatedAt,
+		OriginalUpdatedAt: v.OriginalUpdatedAt,
+		CreatedAt:         v.CreatedAt,
+	}
+	if includeContent {
+		resp.Content = v.Content
 	}
 	return resp
 }

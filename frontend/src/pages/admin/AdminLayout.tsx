@@ -3,9 +3,11 @@ import { NavLink, useLocation, useOutlet } from 'react-router-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { translate } from '../../i18n';
 import { usePreferenceStore } from '../../store/preferences';
+import { useAuthStore } from '../../store/auth';
 
 const AdminLayout: React.FC = () => {
   const language = usePreferenceStore((state) => state.language);
+  const user = useAuthStore((state) => state.user);
   const location = useLocation();
   const outlet = useOutlet();
   const shouldReduceMotion = useReducedMotion();
@@ -31,6 +33,12 @@ const AdminLayout: React.FC = () => {
         <h2 className="text-xl font-bold text-ink mb-8 tracking-widest">{t('admin.title')}</h2>
         <nav className="flex flex-col space-y-4 text-ink-light tracking-widest text-sm">
           <NavLink
+            to="/admin/dashboard"
+            className={({ isActive }) => isActive ? 'text-ochre font-bold' : 'hover:text-ochre transition-colors'}
+          >
+            Dashboard
+          </NavLink>
+          <NavLink
             to="/admin/articles"
             className={({ isActive }) => isActive ? 'text-ochre font-bold' : 'hover:text-ochre transition-colors'}
           >
@@ -49,24 +57,28 @@ const AdminLayout: React.FC = () => {
             {t('admin.tags')}
           </NavLink>
           <div className="h-4"></div>
-          <NavLink
-            to="/admin/users"
-            className={({ isActive }) => isActive ? 'text-ochre font-bold' : 'hover:text-ochre transition-colors'}
-          >
-            {t('admin.users')}
-          </NavLink>
-          <NavLink
-            to="/admin/logs"
-            className={({ isActive }) => isActive ? 'text-ochre font-bold' : 'hover:text-ochre transition-colors'}
-          >
-            {t('admin.logs')}
-          </NavLink>
-          <NavLink
-            to="/admin/settings"
-            className={({ isActive }) => isActive ? 'text-ochre font-bold' : 'hover:text-ochre transition-colors'}
-          >
-            {t('admin.settings')}
-          </NavLink>
+          {user?.role === 'admin' && (
+            <>
+              <NavLink
+                to="/admin/users"
+                className={({ isActive }) => isActive ? 'text-ochre font-bold' : 'hover:text-ochre transition-colors'}
+              >
+                {t('admin.users')}
+              </NavLink>
+              <NavLink
+                to="/admin/logs"
+                className={({ isActive }) => isActive ? 'text-ochre font-bold' : 'hover:text-ochre transition-colors'}
+              >
+                {t('admin.logs')}
+              </NavLink>
+              <NavLink
+                to="/admin/settings"
+                className={({ isActive }) => isActive ? 'text-ochre font-bold' : 'hover:text-ochre transition-colors'}
+              >
+                {t('admin.settings')}
+              </NavLink>
+            </>
+          )}
         </nav>
       </aside>
 

@@ -5,6 +5,10 @@ import type { HomeArticleLayout, SiteSettings } from '../types';
 interface SiteSettingsState {
   registrationEnabled: boolean;
   homeArticleLayout: HomeArticleLayout;
+  siteTitle: string;
+  siteDescription: string;
+  siteKeywords: string;
+  siteBaseUrl: string;
   isLoading: boolean;
   hasLoaded: boolean;
   error: string;
@@ -17,6 +21,10 @@ interface SiteSettingsState {
 export const useSiteSettingsStore = create<SiteSettingsState>((set, get) => ({
   registrationEnabled: true,
   homeArticleLayout: 'standard',
+  siteTitle: 'Notes of Ashen',
+  siteDescription: 'A personal blog written slowly by the lamp of ink.',
+  siteKeywords: 'blog,notes,writing',
+  siteBaseUrl: '',
   isLoading: false,
   hasLoaded: false,
   error: '',
@@ -27,6 +35,10 @@ export const useSiteSettingsStore = create<SiteSettingsState>((set, get) => ({
       set({
         registrationEnabled: res.data.registrationEnabled,
         homeArticleLayout: res.data.homeArticleLayout || 'standard',
+        siteTitle: res.data.siteTitle || 'Notes of Ashen',
+        siteDescription: res.data.siteDescription || '',
+        siteKeywords: res.data.siteKeywords || '',
+        siteBaseUrl: res.data.siteBaseUrl || '',
         hasLoaded: true,
       });
     } catch (error) {
@@ -42,6 +54,10 @@ export const useSiteSettingsStore = create<SiteSettingsState>((set, get) => ({
       set({
         registrationEnabled: res.data.registrationEnabled,
         homeArticleLayout: res.data.homeArticleLayout || 'standard',
+        siteTitle: res.data.siteTitle || 'Notes of Ashen',
+        siteDescription: res.data.siteDescription || '',
+        siteKeywords: res.data.siteKeywords || '',
+        siteBaseUrl: res.data.siteBaseUrl || '',
         hasLoaded: true,
       });
     } catch (error) {
@@ -52,11 +68,11 @@ export const useSiteSettingsStore = create<SiteSettingsState>((set, get) => ({
     }
   },
   setRegistrationEnabled: async (enabled) => {
-    const { homeArticleLayout, updateSettings } = get();
-    await updateSettings({ registrationEnabled: enabled, homeArticleLayout });
+    const { homeArticleLayout, siteTitle, siteDescription, siteKeywords, siteBaseUrl, updateSettings } = get();
+    await updateSettings({ registrationEnabled: enabled, homeArticleLayout, siteTitle, siteDescription, siteKeywords, siteBaseUrl });
   },
   setHomeArticleLayout: async (layout) => {
-    const { registrationEnabled, updateSettings } = get();
-    await updateSettings({ registrationEnabled, homeArticleLayout: layout });
+    const { registrationEnabled, siteTitle, siteDescription, siteKeywords, siteBaseUrl, updateSettings } = get();
+    await updateSettings({ registrationEnabled, homeArticleLayout: layout, siteTitle, siteDescription, siteKeywords, siteBaseUrl });
   },
 }));

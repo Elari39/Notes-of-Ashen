@@ -12,6 +12,10 @@ type contextKey string
 const (
 	userIDKey contextKey = "userID"
 	roleKey   contextKey = "role"
+
+	RoleUser   = "user"
+	RoleEditor = "editor"
+	RoleAdmin  = "admin"
 )
 
 func WithUser(ctx context.Context, userID uint64, role string) context.Context {
@@ -44,8 +48,27 @@ func Role(ctx context.Context) string {
 	return role
 }
 
+func IsValidRole(role string) bool {
+	return role == RoleUser || role == RoleEditor || role == RoleAdmin
+}
+
+func IsAdmin(role string) bool {
+	return role == RoleAdmin
+}
+
+func CanManageContent(role string) bool {
+	return role == RoleEditor || role == RoleAdmin
+}
+
+func RequireContentManager(ctx context.Context) error {
+	if !CanManageContent(Role(ctx)) {
+		return apperrors.Forbidden("content manager permission required")
+	}
+	return nil
+}
+
 func RequireAdmin(ctx context.Context) error {
-	if Role(ctx) != "admin" {
+	if !IsAdmin(Role(ctx)) {
 		return apperrors.Forbidden("admin permission required")
 	}
 	return nil

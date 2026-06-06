@@ -32,6 +32,22 @@ INSERT INTO site_settings (setting_key, setting_value)
 VALUES ('home_article_layout', 'standard')
 ON DUPLICATE KEY UPDATE setting_value = setting_value;
 
+INSERT INTO site_settings (setting_key, setting_value)
+VALUES ('site_title', 'Notes of Ashen')
+ON DUPLICATE KEY UPDATE setting_value = setting_value;
+
+INSERT INTO site_settings (setting_key, setting_value)
+VALUES ('site_description', 'A personal blog written slowly by the lamp of ink.')
+ON DUPLICATE KEY UPDATE setting_value = setting_value;
+
+INSERT INTO site_settings (setting_key, setting_value)
+VALUES ('site_keywords', 'blog,notes,writing')
+ON DUPLICATE KEY UPDATE setting_value = setting_value;
+
+INSERT INTO site_settings (setting_key, setting_value)
+VALUES ('site_base_url', '')
+ON DUPLICATE KEY UPDATE setting_value = setting_value;
+
 -- Categories
 CREATE TABLE IF NOT EXISTS categories (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -66,10 +82,43 @@ CREATE TABLE IF NOT EXISTS articles (
     cover_url VARCHAR(255) DEFAULT '',
     status VARCHAR(20) DEFAULT 'draft',
     view_count INT DEFAULT 0,
+    scheduled_at TIMESTAMP NULL,
     published_at TIMESTAMP NULL,
+    seo_title VARCHAR(160) DEFAULT '',
+    seo_description VARCHAR(255) DEFAULT '',
+    seo_keywords VARCHAR(255) DEFAULT '',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_articles_status_schedule (status, scheduled_at),
     FULLTEXT KEY (title, content)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Article versions
+CREATE TABLE IF NOT EXISTS article_versions (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    article_id BIGINT UNSIGNED NOT NULL,
+    version_no INT NOT NULL,
+    changed_by BIGINT UNSIGNED NOT NULL,
+    author_id BIGINT UNSIGNED NOT NULL,
+    category_id BIGINT UNSIGNED,
+    title VARCHAR(160) NOT NULL,
+    slug VARCHAR(180) NOT NULL,
+    summary TEXT,
+    content MEDIUMTEXT NOT NULL,
+    cover_url VARCHAR(255) DEFAULT '',
+    status VARCHAR(20) NOT NULL,
+    view_count INT DEFAULT 0,
+    scheduled_at TIMESTAMP NULL,
+    published_at TIMESTAMP NULL,
+    seo_title VARCHAR(160) DEFAULT '',
+    seo_description VARCHAR(255) DEFAULT '',
+    seo_keywords VARCHAR(255) DEFAULT '',
+    tag_ids JSON,
+    original_created_at TIMESTAMP NULL,
+    original_updated_at TIMESTAMP NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uniq_article_version (article_id, version_no),
+    INDEX idx_article_versions_article (article_id, version_no)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- Article tags

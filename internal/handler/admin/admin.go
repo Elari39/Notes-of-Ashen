@@ -44,10 +44,41 @@ func UpdateUserStatusHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	}
 }
 
+func UpdateUserRoleHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id, err := basehandler.PathID(r)
+		if err != nil {
+			response.Error(w, err)
+			return
+		}
+		var req types.UserRoleReq
+		if err := httpx.Parse(r, &req); err != nil {
+			response.Error(w, err)
+			return
+		}
+		if err := adminlogic.UpdateUserRole(r.Context(), svcCtx, id, req); err != nil {
+			response.Error(w, err)
+			return
+		}
+		response.NoData(w)
+	}
+}
+
 func ListLogsHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		page, size := basehandler.PageSize(r)
 		resp, err := adminlogic.ListLogs(r.Context(), svcCtx, page, size)
+		if err != nil {
+			response.Error(w, err)
+			return
+		}
+		response.Ok(w, resp)
+	}
+}
+
+func StatsHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		resp, err := adminlogic.Stats(r.Context(), svcCtx)
 		if err != nil {
 			response.Error(w, err)
 			return

@@ -10,14 +10,26 @@ import (
 const (
 	RegistrationEnabledKey = "registration_enabled"
 	HomeArticleLayoutKey   = "home_article_layout"
+	SiteTitleKey           = "site_title"
+	SiteDescriptionKey     = "site_description"
+	SiteKeywordsKey        = "site_keywords"
+	SiteBaseURLKey         = "site_base_url"
 
 	HomeArticleLayoutStandard    = "standard"
 	HomeArticleLayoutAlternating = "alternating"
+
+	DefaultSiteTitle       = "Notes of Ashen"
+	DefaultSiteDescription = "A personal blog written slowly by the lamp of ink."
+	DefaultSiteKeywords    = "blog,notes,writing"
 )
 
 type SiteSettings struct {
 	RegistrationEnabled bool
 	HomeArticleLayout   string
+	SiteTitle           string
+	SiteDescription     string
+	SiteKeywords        string
+	SiteBaseURL         string
 }
 
 func (s *Store) SiteSettings(ctx context.Context) (*SiteSettings, error) {
@@ -29,9 +41,29 @@ func (s *Store) SiteSettings(ctx context.Context) (*SiteSettings, error) {
 	if err != nil {
 		return nil, err
 	}
+	title, err := s.GetStringSetting(ctx, SiteTitleKey, DefaultSiteTitle)
+	if err != nil {
+		return nil, err
+	}
+	description, err := s.GetStringSetting(ctx, SiteDescriptionKey, DefaultSiteDescription)
+	if err != nil {
+		return nil, err
+	}
+	keywords, err := s.GetStringSetting(ctx, SiteKeywordsKey, DefaultSiteKeywords)
+	if err != nil {
+		return nil, err
+	}
+	baseURL, err := s.GetStringSetting(ctx, SiteBaseURLKey, "")
+	if err != nil {
+		return nil, err
+	}
 	return &SiteSettings{
 		RegistrationEnabled: enabled,
 		HomeArticleLayout:   NormalizeHomeArticleLayout(layout),
+		SiteTitle:           title,
+		SiteDescription:     description,
+		SiteKeywords:        keywords,
+		SiteBaseURL:         baseURL,
 	}, nil
 }
 
@@ -82,10 +114,14 @@ func (s *Store) UpdateSiteSettings(ctx context.Context, settings SiteSettings) e
 	}
 	_, err := s.db.ExecContext(ctx, `
 INSERT INTO site_settings (setting_key, setting_value)
-VALUES (?, ?), (?, ?)
+VALUES (?, ?), (?, ?), (?, ?), (?, ?), (?, ?), (?, ?)
 ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)`,
 		RegistrationEnabledKey, value,
-		HomeArticleLayoutKey, NormalizeHomeArticleLayout(settings.HomeArticleLayout))
+		HomeArticleLayoutKey, NormalizeHomeArticleLayout(settings.HomeArticleLayout),
+		SiteTitleKey, settings.SiteTitle,
+		SiteDescriptionKey, settings.SiteDescription,
+		SiteKeywordsKey, settings.SiteKeywords,
+		SiteBaseURLKey, settings.SiteBaseURL)
 	return err
 }
 

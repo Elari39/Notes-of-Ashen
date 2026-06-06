@@ -20,6 +20,10 @@ export interface TokenPair {
 export interface SiteSettings {
   registrationEnabled: boolean;
   homeArticleLayout: HomeArticleLayout;
+  siteTitle: string;
+  siteDescription: string;
+  siteKeywords: string;
+  siteBaseUrl: string;
 }
 
 export type HomeArticleLayout = 'standard' | 'alternating';
@@ -55,11 +59,61 @@ export interface Article {
   coverUrl: string;
   status: string;
   viewCount: number;
+  scheduledAt?: string;
   publishedAt?: string;
+  seoTitle: string;
+  seoDescription: string;
+  seoKeywords: string;
   createdAt: string;
   updatedAt: string;
   tags?: Tag[];
   category?: Category;
+}
+
+export interface ArticleContext {
+  previous?: Article;
+  next?: Article;
+  related: Article[];
+}
+
+export interface ArticleVersion {
+  id: number;
+  articleId: number;
+  versionNo: number;
+  changedBy: number;
+  authorId: number;
+  categoryId?: number;
+  title: string;
+  slug: string;
+  summary: string;
+  content?: string;
+  coverUrl: string;
+  status: string;
+  viewCount: number;
+  scheduledAt?: string;
+  publishedAt?: string;
+  seoTitle: string;
+  seoDescription: string;
+  seoKeywords: string;
+  tagIds: number[];
+  originalCreatedAt?: string;
+  originalUpdatedAt?: string;
+  createdAt: string;
+}
+
+export interface AdminStats {
+  articleTotal: number;
+  publishedTotal: number;
+  draftTotal: number;
+  archivedTotal: number;
+  scheduledTotal: number;
+  viewTotal: number;
+  userTotal: number;
+  categoryTotal: number;
+  tagTotal: number;
+  popularArticles: Article[];
+  recentArticles: Article[];
+  recentLogs: Log[];
 }
 
 export interface Log {

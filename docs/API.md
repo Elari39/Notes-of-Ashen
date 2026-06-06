@@ -1,6 +1,6 @@
 # Notes of Ashen API 文档
 
-本文档描述 Notes of Ashen 当前实现的 HTTP API。默认服务地址：
+本文档描述 Notes of Ashen 当前实现的 HTTP API。默认开发服务地址：
 
 ```text
 http://127.0.0.1:19000
@@ -83,6 +83,10 @@ Authorization: Bearer <accessToken>
 2026-06-05T20:00:00+08:00
 ```
 
+## 配置安全提示
+
+`etc/notes-of-ashen.yaml` 是本地开发默认配置，包含示例数据库密码、Redis 密码、JWT Secret 和 RabbitMQ 地址。生产环境部署前必须替换这些值，并通过受控配置或环境注入管理敏感信息，不能直接复用仓库中的默认值。
+
 ## 认证接口
 
 ### 注册
@@ -100,18 +104,6 @@ POST /api/v1/auth/register
 | email | string | 是 | 邮箱，需符合邮箱格式 |
 | nickname | string | 否 | 昵称，非空时长度 1 到 64 |
 | avatarUrl | string | 否 | 头像 URL；为空表示不显示头像，非空必须为 `http://` 或 `https://` URL |
-
-请求示例：
-
-```json
-{
-  "account": "admin",
-  "password": "Password123!",
-  "email": "admin@example.com",
-  "nickname": "站长",
-  "avatarUrl": "https://example.com/avatar.png"
-}
-```
 
 ### 登录
 
@@ -210,18 +202,18 @@ PUT /api/v1/users/me/password
 GET /api/v1/articles
 ```
 
-权限：公开。匿名访问只返回 `published` 状态文章。
+权限：公开。匿名访问只返回已发布且未到未来发布时间的文章。
 
 | 参数 | 类型 | 必填 | 说明 |
 | --- | --- | --- | --- |
 | page | int | 否 | 页码 |
 | size | int | 否 | 每页数量 |
-| status | string | 否 | `draft`、`published`、`archived` |
+| status | string | 否 | `draft`、`published`、`archived`、`scheduled`；公开接口匿名访问仍只返回可见文章 |
 | q | string | 否 | 关键词搜索，匹配标题、摘要、正文 |
 | categoryId | uint64 | 否 | 按分类 ID 筛选 |
 | tagId | uint64 | 否 | 按标签 ID 筛选 |
 
-响应中的 `categoryId`、`publishedAt`、`tags`、`category` 可能被省略。
+`scheduled` 是列表筛选语义，表示 `status = published` 且 `scheduledAt` 在未来。文章创建和更新时仍使用 `published` 状态加未来 `scheduledAt` 表示定时发布。
 
 ### 文章详情
 
@@ -229,7 +221,29 @@ GET /api/v1/articles
 GET /api/v1/articles/:id
 ```
 
-权限：公开。只允许访问 `published` 状态文章，访问成功会增加浏览量。
+权限：公开。只允许访问已公开可见文章，访问成功会增加浏览量。
+
+响应中的 `content` 仅详情、预览和版本详情接口返回。`categoryId`、`scheduledAt`、`publishedAt`、`tags`、`category` 可能被省略。
+
+### 文章上下文
+
+```text
+GET /api/v1/articles/:id/context
+```
+
+权限：公开。返回上一篇、下一篇和相关文章，只针对公开可见文章。
+
+响应示例：
+
+```json
+{
+  "code": 0,
+  "message": "success",
+  "data": {
+    "related": []
+  }
+}
+```
 
 ### 创建文章
 
@@ -248,6 +262,10 @@ POST /api/v1/articles
 | content | string | 是 | Markdown 内容 |
 | coverUrl | string | 否 | 封面 URL，非空必须为 `http://` 或 `https://` URL |
 | status | string | 否 | `draft`、`published`、`archived`，默认 `draft` |
+| scheduledAt | string | 否 | 定时发布时间；配合 `published` 且时间在未来时表现为定时发布 |
+| seoTitle | string | 否 | SEO 标题，非空时最长 160 |
+| seoDescription | string | 否 | SEO 描述，非空时最长 255 |
+| seoKeywords | string | 否 | SEO 关键词，非空时最长 255 |
 | tagIds | uint64[] | 否 | 标签 ID 列表，传入时必须存在 |
 
 ### 更新文章
@@ -256,7 +274,15 @@ POST /api/v1/articles
 PUT /api/v1/articles/:id
 ```
 
-权限：文章作者或管理员。请求体使用完整文章字段，普通用户只能更新自己的文章。
+权限：文章作者、`editor` 或 `admin`。请求体使用完整文章字段。更新前会自动保存一份文章版本。
+
+### 文章预览
+
+```text
+GET /api/v1/articles/:id/preview
+```
+
+权限：文章作者、`editor` 或 `admin`。可查看草稿、归档和定时发布文章的完整内容。
 
 ### 删除文章
 
@@ -264,7 +290,7 @@ PUT /api/v1/articles/:id
 DELETE /api/v1/articles/:id
 ```
 
-权限：文章作者或管理员。
+权限：文章作者、`editor` 或 `admin`。
 
 ### 更新文章状态
 
@@ -272,11 +298,35 @@ DELETE /api/v1/articles/:id
 PATCH /api/v1/articles/:id/status
 ```
 
-权限：文章作者或管理员。
+权限：文章作者、`editor` 或 `admin`。更新前会自动保存一份文章版本。
 
 | 字段 | 类型 | 必填 | 说明 |
 | --- | --- | --- | --- |
 | status | string | 是 | `draft`、`published`、`archived` |
+
+### 文章版本列表
+
+```text
+GET /api/v1/articles/:id/versions
+```
+
+权限：文章作者、`editor` 或 `admin`。支持 `page`、`size`。列表不返回版本正文。
+
+### 文章版本详情
+
+```text
+GET /api/v1/articles/:id/versions/:versionNo
+```
+
+权限：文章作者、`editor` 或 `admin`。返回指定版本的完整内容。
+
+### 恢复文章版本
+
+```text
+POST /api/v1/articles/:id/versions/:versionNo/restore
+```
+
+权限：文章作者、`editor` 或 `admin`。恢复前会先保存当前文章为新版本。
 
 ## 分类接口
 
@@ -294,7 +344,7 @@ GET /api/v1/categories
 POST /api/v1/categories
 ```
 
-权限：管理员。
+权限：`editor` 或 `admin`。
 
 | 字段 | 类型 | 必填 | 说明 |
 | --- | --- | --- | --- |
@@ -308,7 +358,7 @@ POST /api/v1/categories
 PUT /api/v1/categories/:id
 ```
 
-权限：管理员。
+权限：`editor` 或 `admin`。
 
 ### 删除分类
 
@@ -316,7 +366,7 @@ PUT /api/v1/categories/:id
 DELETE /api/v1/categories/:id
 ```
 
-权限：管理员。若分类仍被文章引用，删除可能失败。
+权限：`editor` 或 `admin`。若分类仍被文章引用，删除可能失败。
 
 ## 标签接口
 
@@ -334,7 +384,7 @@ GET /api/v1/tags
 POST /api/v1/tags
 ```
 
-权限：管理员。
+权限：`editor` 或 `admin`。
 
 | 字段 | 类型 | 必填 | 说明 |
 | --- | --- | --- | --- |
@@ -348,7 +398,7 @@ POST /api/v1/tags
 PUT /api/v1/tags/:id
 ```
 
-权限：管理员。
+权限：`editor` 或 `admin`。
 
 ### 删除标签
 
@@ -356,45 +406,9 @@ PUT /api/v1/tags/:id
 DELETE /api/v1/tags/:id
 ```
 
-权限：管理员。
+权限：`editor` 或 `admin`。
 
-## 管理接口
-
-### 用户列表
-
-```text
-GET /api/v1/admin/users
-```
-
-权限：管理员。支持 `page`、`size`。
-
-### 修改用户状态
-
-```text
-PATCH /api/v1/admin/users/:id/status
-```
-
-权限：管理员。
-
-| 字段 | 类型 | 必填 | 说明 |
-| --- | --- | --- | --- |
-| status | string | 是 | `active` 或 `disabled` |
-
-### 操作日志列表
-
-```text
-GET /api/v1/admin/logs
-```
-
-权限：管理员。支持 `page`、`size`。响应中的 `userId`、`resourceId`、`metadata` 可能被省略。
-
-### 后台文章列表
-
-```text
-GET /api/v1/admin/articles
-```
-
-权限：管理员。支持 `page`、`size`、`status`、`q`、`categoryId`、`tagId`。
+## 站点接口
 
 ### 获取站点设置
 
@@ -402,7 +416,7 @@ GET /api/v1/admin/articles
 GET /api/v1/site/settings
 ```
 
-权限：公开。返回当前游客是否可以注册账号，以及首页文章列表布局。若用户表为空，即使后台开关保存为关闭，也会返回 `registrationEnabled = true`，确保首个注册用户仍可成为管理员。
+权限：公开。返回当前游客是否可以注册账号、首页文章列表布局和站点 SEO 信息。若用户表为空，即使后台开关保存为关闭，也会返回 `registrationEnabled = true`，确保首个注册用户仍可成为管理员。
 
 响应示例：
 
@@ -412,10 +426,88 @@ GET /api/v1/site/settings
   "message": "success",
   "data": {
     "registrationEnabled": true,
-    "homeArticleLayout": "standard"
+    "homeArticleLayout": "standard",
+    "siteTitle": "Notes of Ashen",
+    "siteDescription": "A personal blog written slowly by the lamp of ink.",
+    "siteKeywords": "blog,notes,writing",
+    "siteBaseUrl": ""
   }
 }
 ```
+
+### RSS
+
+```text
+GET /rss.xml
+```
+
+权限：公开。返回公开文章的 RSS XML。
+
+### Sitemap
+
+```text
+GET /sitemap.xml
+```
+
+权限：公开。返回站点 XML Sitemap。
+
+## 管理接口
+
+### 后台统计
+
+```text
+GET /api/v1/admin/stats
+```
+
+权限：`editor` 或 `admin`。返回文章、用户、分类、标签数量，以及热门文章、最近文章和最近操作日志。
+
+### 后台文章列表
+
+```text
+GET /api/v1/admin/articles
+```
+
+权限：`editor` 或 `admin`。支持 `page`、`size`、`status`、`q`、`categoryId`、`tagId`。内容管理角色可查看全部文章。
+
+### 用户列表
+
+```text
+GET /api/v1/admin/users
+```
+
+权限：`admin`。支持 `page`、`size`。
+
+### 修改用户状态
+
+```text
+PATCH /api/v1/admin/users/:id/status
+```
+
+权限：`admin`。不能禁用自己，也不能禁用最后一个可用管理员。
+
+| 字段 | 类型 | 必填 | 说明 |
+| --- | --- | --- | --- |
+| status | string | 是 | `active` 或 `disabled` |
+
+### 修改用户角色
+
+```text
+PATCH /api/v1/admin/users/:id/role
+```
+
+权限：`admin`。不能将自己降级，也不能降级最后一个可用管理员。
+
+| 字段 | 类型 | 必填 | 说明 |
+| --- | --- | --- | --- |
+| role | string | 是 | `user`、`editor` 或 `admin` |
+
+### 操作日志列表
+
+```text
+GET /api/v1/admin/logs
+```
+
+权限：`admin`。支持 `page`、`size`。响应中的 `userId`、`resourceId`、`metadata` 可能被省略。
 
 ### 更新站点设置
 
@@ -423,14 +515,27 @@ GET /api/v1/site/settings
 PUT /api/v1/admin/site/settings
 ```
 
-权限：管理员。用于开启或关闭后续账号注册，并设置首页文章列表布局。`homeArticleLayout` 可选值为 `standard` 或 `alternating`。
+权限：`admin`。用于开启或关闭后续账号注册，设置首页文章列表布局和站点 SEO 信息。`homeArticleLayout` 可选值为 `standard` 或 `alternating`。
+
+| 字段 | 类型 | 必填 | 说明 |
+| --- | --- | --- | --- |
+| registrationEnabled | bool | 是 | 是否允许后续用户注册 |
+| homeArticleLayout | string | 是 | `standard` 或 `alternating` |
+| siteTitle | string | 否 | 站点标题，空值表示保留当前值 |
+| siteDescription | string | 否 | 站点描述，空值表示保留当前值 |
+| siteKeywords | string | 否 | 站点关键词，空值表示保留当前值 |
+| siteBaseUrl | string | 否 | 站点公开基础 URL，非空必须为 `http://` 或 `https://` URL |
 
 请求示例：
 
 ```json
 {
   "registrationEnabled": false,
-  "homeArticleLayout": "alternating"
+  "homeArticleLayout": "alternating",
+  "siteTitle": "Notes of Ashen",
+  "siteDescription": "A personal blog written slowly by the lamp of ink.",
+  "siteKeywords": "blog,notes,writing",
+  "siteBaseUrl": "https://example.com"
 }
 ```
 

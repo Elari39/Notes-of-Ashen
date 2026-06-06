@@ -7,6 +7,7 @@ import { useSiteSettingsStore } from '../store/siteSettings';
 import { logout as apiLogout } from '../api/auth';
 import { isHttpAvatarUrl, normalizeAvatarUrl } from '../utils/avatar';
 import { formatText, translate } from '../i18n';
+import { useSEO } from '../utils/seo';
 
 const Layout: React.FC = () => {
   const { user, logout } = useAuthStore();
@@ -24,6 +25,7 @@ const Layout: React.FC = () => {
   const currentLanguageLabel = language === 'zh' ? t('preferences.languageZh') : t('preferences.languageEn');
   const currentThemeLabel = effectiveTheme === 'dark' ? t('preferences.themeDark') : t('preferences.themeLight');
   const pageTransitionKey = location.pathname.startsWith('/admin') ? 'admin' : location.pathname;
+  const usesRouteSEO = location.pathname.startsWith('/article/') || location.pathname.startsWith('/admin/preview/');
   const pageTransition = shouldReduceMotion
     ? { duration: 0.01 }
     : { duration: 0.24, ease: [0.22, 1, 0.36, 1] };
@@ -38,6 +40,8 @@ const Layout: React.FC = () => {
         animate: { opacity: 1, y: 0 },
         exit: { opacity: 0, y: -4 },
       };
+
+  useSEO(undefined, undefined, undefined, !usesRouteSEO);
 
   useEffect(() => {
     setIsPreferenceOpen(false);
@@ -100,7 +104,7 @@ const Layout: React.FC = () => {
           </Link>
           {user ? (
             <>
-              {user.role === 'admin' && (
+              {(user.role === 'admin' || user.role === 'editor') && (
                 <Link to="/admin" className="hover:text-ochre transition-colors font-bold">{t('nav.admin')}</Link>
               )}
               <Link to="/profile" className="flex items-center space-x-2 hover:text-ink transition-colors group">

@@ -29,6 +29,10 @@ export interface RefreshReq {
 export interface UpdateSiteSettingsReq {
   registrationEnabled: boolean;
   homeArticleLayout: 'standard' | 'alternating';
+  siteTitle: string;
+  siteDescription: string;
+  siteKeywords: string;
+  siteBaseUrl: string;
 }
 
 // User
@@ -48,6 +52,10 @@ export interface UpdateUserStatusReq {
   status: string; // 'active' | 'disabled'
 }
 
+export interface UpdateUserRoleReq {
+  role: string; // 'user' | 'editor' | 'admin'
+}
+
 export interface ArticleListParams extends PageParams {
   q?: string;
   categoryId?: number;
@@ -64,6 +72,10 @@ export interface CreateArticleReq {
   content: string;
   coverUrl?: string;
   status?: string; // 'draft' | 'published' | 'archived'
+  scheduledAt?: string;
+  seoTitle?: string;
+  seoDescription?: string;
+  seoKeywords?: string;
   tagIds?: number[];
 }
 

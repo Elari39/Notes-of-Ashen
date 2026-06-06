@@ -2,11 +2,13 @@ package site
 
 import (
 	"context"
+	"strings"
 
 	"notes-of-ashen/internal/authutil"
 	"notes-of-ashen/internal/errors"
 	"notes-of-ashen/internal/svc"
 	"notes-of-ashen/internal/types"
+	"notes-of-ashen/internal/validator"
 	"notes-of-ashen/model"
 )
 
@@ -37,9 +39,38 @@ func UpdateSettings(ctx context.Context, svcCtx *svc.ServiceContext, req types.U
 	if !isValidHomeArticleLayout(layout) {
 		return nil, errors.BadRequest("homeArticleLayout is invalid")
 	}
+	siteTitle := strings.TrimSpace(req.SiteTitle)
+	if siteTitle == "" {
+		siteTitle = currentSettings.SiteTitle
+	}
+	if err := validator.Length(siteTitle, "siteTitle", 1, 160); err != nil {
+		return nil, err
+	}
+	siteDescription := strings.TrimSpace(req.SiteDescription)
+	if siteDescription == "" {
+		siteDescription = currentSettings.SiteDescription
+	}
+	if err := validator.Length(siteDescription, "siteDescription", 1, 255); err != nil {
+		return nil, err
+	}
+	siteKeywords := strings.TrimSpace(req.SiteKeywords)
+	if siteKeywords == "" {
+		siteKeywords = currentSettings.SiteKeywords
+	}
+	if err := validator.Length(siteKeywords, "siteKeywords", 1, 255); err != nil {
+		return nil, err
+	}
+	siteBaseURL := strings.TrimRight(strings.TrimSpace(req.SiteBaseURL), "/")
+	if err := validator.OptionalHTTPURL(siteBaseURL, "siteBaseUrl"); err != nil {
+		return nil, err
+	}
 	if err := svcCtx.Store.UpdateSiteSettings(ctx, model.SiteSettings{
 		RegistrationEnabled: req.RegistrationEnabled,
 		HomeArticleLayout:   layout,
+		SiteTitle:           siteTitle,
+		SiteDescription:     siteDescription,
+		SiteKeywords:        siteKeywords,
+		SiteBaseURL:         siteBaseURL,
 	}); err != nil {
 		return nil, err
 	}
@@ -54,6 +85,10 @@ func siteSettingsResp(settings *model.SiteSettings, forceRegistrationEnabled boo
 	return &types.SiteSettingsResp{
 		RegistrationEnabled: forceRegistrationEnabled || settings.RegistrationEnabled,
 		HomeArticleLayout:   settings.HomeArticleLayout,
+		SiteTitle:           settings.SiteTitle,
+		SiteDescription:     settings.SiteDescription,
+		SiteKeywords:        settings.SiteKeywords,
+		SiteBaseURL:         settings.SiteBaseURL,
 	}
 }
 

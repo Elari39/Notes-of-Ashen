@@ -3,6 +3,7 @@ package model
 import (
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestArticleWherePublicFilters(t *testing.T) {
@@ -13,6 +14,7 @@ func TestArticleWherePublicFilters(t *testing.T) {
 	})
 
 	assertContains(t, where, "status = 'published'")
+	assertContains(t, where, "(scheduled_at IS NULL OR scheduled_at <= NOW())")
 	assertContains(t, where, "MATCH(title, content) AGAINST(? IN NATURAL LANGUAGE MODE)")
 	assertContains(t, where, "summary LIKE ? ESCAPE '!'")
 	assertContains(t, where, "category_id = ?")
@@ -38,6 +40,59 @@ func TestArticleWhereAdminStatus(t *testing.T) {
 	assertContains(t, where, "status = ?")
 	if len(args) != 1 || args[0] != "draft" {
 		t.Fatalf("args = %#v, want draft status arg", args)
+	}
+}
+
+func TestArticleWhereContentRoleScheduledStatus(t *testing.T) {
+	where, args := articleWhere(ArticleFilter{
+		Role:   "editor",
+		Status: ArticleStatusScheduled,
+	})
+
+	assertContains(t, where, "status = 'published' AND scheduled_at > NOW()")
+	if len(args) != 0 {
+		t.Fatalf("args = %#v, want empty args", args)
+	}
+}
+
+func TestIsArticlePubliclyVisible(t *testing.T) {
+	now := time.Date(2026, 6, 6, 12, 0, 0, 0, time.UTC)
+	past := now.Add(-time.Hour)
+	future := now.Add(time.Hour)
+
+	tests := []struct {
+		name string
+		item Article
+		want bool
+	}{
+		{
+			name: "published without schedule is visible",
+			item: Article{Status: ArticleStatusPublished},
+			want: true,
+		},
+		{
+			name: "draft is hidden",
+			item: Article{Status: ArticleStatusDraft},
+			want: false,
+		},
+		{
+			name: "future scheduled published article is hidden",
+			item: Article{Status: ArticleStatusPublished, ScheduledAt: &future},
+			want: false,
+		},
+		{
+			name: "past scheduled published article is visible",
+			item: Article{Status: ArticleStatusPublished, ScheduledAt: &past},
+			want: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := IsArticlePubliclyVisible(tt.item, now); got != tt.want {
+				t.Fatalf("IsArticlePubliclyVisible() = %v, want %v", got, tt.want)
+			}
+		})
 	}
 }
 

@@ -80,6 +80,38 @@ func DetailHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	}
 }
 
+func PreviewHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id, err := basehandler.PathID(r)
+		if err != nil {
+			response.Error(w, err)
+			return
+		}
+		resp, err := articlelogic.Preview(r.Context(), svcCtx, id)
+		if err != nil {
+			response.Error(w, err)
+			return
+		}
+		response.Ok(w, resp)
+	}
+}
+
+func ContextHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id, err := basehandler.PathID(r)
+		if err != nil {
+			response.Error(w, err)
+			return
+		}
+		resp, err := articlelogic.Context(r.Context(), svcCtx, id)
+		if err != nil {
+			response.Error(w, err)
+			return
+		}
+		response.Ok(w, resp)
+	}
+}
+
 func CreateHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req types.ArticleReq
@@ -129,6 +161,65 @@ func DeleteHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 			return
 		}
 		response.NoData(w)
+	}
+}
+
+func ListVersionsHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id, err := basehandler.PathID(r)
+		if err != nil {
+			response.Error(w, err)
+			return
+		}
+		page, size := basehandler.PageSize(r)
+		resp, err := articlelogic.ListVersions(r.Context(), svcCtx, id, page, size)
+		if err != nil {
+			response.Error(w, err)
+			return
+		}
+		response.Ok(w, resp)
+	}
+}
+
+func VersionDetailHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id, err := basehandler.PathID(r)
+		if err != nil {
+			response.Error(w, err)
+			return
+		}
+		versionNo, err := basehandler.PathVersionNo(r)
+		if err != nil {
+			response.Error(w, err)
+			return
+		}
+		resp, err := articlelogic.VersionDetail(r.Context(), svcCtx, id, versionNo)
+		if err != nil {
+			response.Error(w, err)
+			return
+		}
+		response.Ok(w, resp)
+	}
+}
+
+func RestoreVersionHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id, err := basehandler.PathID(r)
+		if err != nil {
+			response.Error(w, err)
+			return
+		}
+		versionNo, err := basehandler.PathVersionNo(r)
+		if err != nil {
+			response.Error(w, err)
+			return
+		}
+		resp, err := articlelogic.RestoreVersion(r.Context(), svcCtx, id, versionNo, basehandler.Meta(r))
+		if err != nil {
+			response.Error(w, err)
+			return
+		}
+		response.Ok(w, resp)
 	}
 }
 

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { getUsers, updateUserStatus } from '../../api/user';
+import { getUsers, updateUserRole, updateUserStatus } from '../../api/user';
 import { User } from '../../types';
 import Pagination from '../../components/Pagination';
 import InlineNotice from '../../components/InlineNotice';
@@ -48,6 +48,19 @@ const AdminUsers: React.FC = () => {
     }
   };
 
+  const handleRole = async (id: number, role: string) => {
+    setError('');
+    setBusyId(id);
+    try {
+      await updateUserRole(id, role);
+      fetchList();
+    } catch (e: unknown) {
+      setError(getErrorMessage(e, t('users.actionError')));
+    } finally {
+      setBusyId(null);
+    }
+  };
+
   return (
     <div>
       <div className="mb-8 border-b border-mountain-grey pb-4">
@@ -71,18 +84,27 @@ const AdminUsers: React.FC = () => {
             <tr key={user.id} className="border-b border-mountain-grey border-opacity-50 hover:bg-mountain-grey hover:bg-opacity-20 transition-colors text-ink">
               <td className="py-4 font-bold">{user.account}</td>
               <td className="py-4 text-ink-light">{user.nickname || '-'}</td>
-              <td className="py-4 text-ink-light opacity-80">{getUserRoleLabel(language, user.role)}</td>
+              <td className="py-4 text-ink-light opacity-80">
+                <select
+                  value={user.role}
+                  disabled={busyId === user.id}
+                  onChange={(event) => handleRole(user.id, event.target.value)}
+                  className="bg-paper border border-mountain-grey px-2 py-1 text-sm text-ink outline-none focus:border-ochre disabled:opacity-50"
+                >
+                  <option value="user">{getUserRoleLabel(language, 'user')}</option>
+                  <option value="editor">{language === 'zh' ? '编辑' : 'Editor'}</option>
+                  <option value="admin">{getUserRoleLabel(language, 'admin')}</option>
+                </select>
+              </td>
               <td className="py-4">
                 <span className={`px-2 py-1 text-xs border ${user.status === 'active' ? 'border-ochre text-ochre' : 'border-ink-light text-ink-light'}`}>
                   {getUserStatusLabel(language, user.status)}
                 </span>
               </td>
               <td className="py-4 text-right space-x-4">
-                {user.role !== 'admin' && (
-                  <button onClick={() => handleStatus(user.id, user.status)} disabled={busyId === user.id} className="text-ochre opacity-80 hover:opacity-100 tracking-wider disabled:opacity-50 disabled:cursor-not-allowed">
-                    {user.status === 'active' ? t('users.disable') : t('users.activate')}
-                  </button>
-                )}
+                <button onClick={() => handleStatus(user.id, user.status)} disabled={busyId === user.id} className="text-ochre opacity-80 hover:opacity-100 tracking-wider disabled:opacity-50 disabled:cursor-not-allowed">
+                  {user.status === 'active' ? t('users.disable') : t('users.activate')}
+                </button>
               </td>
             </tr>
           ))}

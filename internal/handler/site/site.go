@@ -3,6 +3,7 @@ package site
 import (
 	"net/http"
 
+	basehandler "notes-of-ashen/internal/httphelper"
 	sitelogic "notes-of-ashen/internal/logic/site"
 	"notes-of-ashen/internal/response"
 	"notes-of-ashen/internal/svc"
@@ -19,6 +20,30 @@ func SettingsHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 			return
 		}
 		response.Ok(w, resp)
+	}
+}
+
+func RSSHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		body, err := sitelogic.RSS(r.Context(), svcCtx, basehandler.RequestBaseURL(r))
+		if err != nil {
+			response.Error(w, err)
+			return
+		}
+		w.Header().Set("Content-Type", "application/rss+xml; charset=utf-8")
+		_, _ = w.Write(body)
+	}
+}
+
+func SitemapHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		body, err := sitelogic.Sitemap(r.Context(), svcCtx, basehandler.RequestBaseURL(r))
+		if err != nil {
+			response.Error(w, err)
+			return
+		}
+		w.Header().Set("Content-Type", "application/xml; charset=utf-8")
+		_, _ = w.Write(body)
 	}
 }
 

@@ -1,38 +1,17 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
-import { Components } from 'react-markdown';
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
-import { vs } from 'react-syntax-highlighter/dist/esm/styles/prism';
-import { getArticleById, createArticle, updateArticle } from '../../api/article';
+import { getArticlePreview, createArticle, updateArticle } from '../../api/article';
 import { createCategory, getCategories } from '../../api/category';
 import { createTag, getTags } from '../../api/tag';
 import { Category, Tag } from '../../types';
 import InlineNotice from '../../components/InlineNotice';
+import { markdownComponents } from '../../components/MarkdownCode';
 import { getErrorMessage } from '../../utils/error';
 import { generateSlug } from '../../utils/slug';
 import { isValidCoverUrl } from '../../utils/cover';
 import { formatText, getArticleStatusLabel, translate } from '../../i18n';
 import { usePreferenceStore } from '../../store/preferences';
-
-const markdownComponents: Components = {
-  code({ className, children, ...props }) {
-    const match = /language-(\w+)/.exec(className || '');
-    return match ? (
-      <SyntaxHighlighter
-        children={String(children).replace(/\n$/, '')}
-        style={vs}
-        language={match[1]}
-        PreTag="div"
-        className="rounded-sm border border-mountain-grey"
-      />
-    ) : (
-      <code {...props} className="bg-mountain-grey bg-opacity-30 px-1 py-0.5 rounded-sm font-sans text-ink">
-        {children}
-      </code>
-    );
-  },
-};
 
 type TaxonomyOption = {
   id: number;
@@ -251,6 +230,10 @@ const ArticleEditor: React.FC = () => {
   const [content, setContent] = useState('');
   const [coverUrl, setCoverUrl] = useState('');
   const [status, setStatus] = useState('draft');
+  const [scheduledAt, setScheduledAt] = useState('');
+  const [seoTitle, setSeoTitle] = useState('');
+  const [seoDescription, setSeoDescription] = useState('');
+  const [seoKeywords, setSeoKeywords] = useState('');
   const [categoryId, setCategoryId] = useState<number | ''>('');
   const [tagIds, setTagIds] = useState<number[]>([]);
 
@@ -279,7 +262,7 @@ const ArticleEditor: React.FC = () => {
     fetchDeps();
 
     if (isEdit) {
-      getArticleById(id)
+      getArticlePreview(id)
         .then(res => {
           const article = res.data;
           setTitle(article.title);
@@ -288,6 +271,10 @@ const ArticleEditor: React.FC = () => {
           setContent(article.content || '');
           setCoverUrl(article.coverUrl || '');
           setStatus(article.status);
+          setScheduledAt(toDateTimeLocal(article.scheduledAt));
+          setSeoTitle(article.seoTitle || '');
+          setSeoDescription(article.seoDescription || '');
+          setSeoKeywords(article.seoKeywords || '');
           setCategoryId(article.categoryId || '');
           if (article.tags) setTagIds(article.tags.map(tag => tag.id));
         })
@@ -304,6 +291,10 @@ const ArticleEditor: React.FC = () => {
 
     const payload = {
       title, slug, summary, content, coverUrl: trimmedCoverUrl, status,
+      scheduledAt: scheduledAt ? new Date(scheduledAt).toISOString() : undefined,
+      seoTitle: seoTitle.trim(),
+      seoDescription: seoDescription.trim(),
+      seoKeywords: seoKeywords.trim(),
       categoryId: categoryId === '' ? 0 : Number(categoryId),
       tagIds,
     };
@@ -400,6 +391,36 @@ const ArticleEditor: React.FC = () => {
         </select>
       </div>
 
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+        <input
+          type="datetime-local"
+          value={scheduledAt}
+          onChange={e => setScheduledAt(e.target.value)}
+          className="w-full bg-transparent border-b border-mountain-grey py-2 text-ink focus:outline-none focus:border-ochre"
+        />
+        <input
+          type="text"
+          placeholder="SEO Title"
+          value={seoTitle}
+          onChange={e => setSeoTitle(e.target.value)}
+          className="w-full bg-transparent border-b border-mountain-grey py-2 text-ink focus:outline-none focus:border-ochre"
+        />
+        <input
+          type="text"
+          placeholder="SEO Description"
+          value={seoDescription}
+          onChange={e => setSeoDescription(e.target.value)}
+          className="w-full bg-transparent border-b border-mountain-grey py-2 text-ink focus:outline-none focus:border-ochre"
+        />
+        <input
+          type="text"
+          placeholder="SEO Keywords"
+          value={seoKeywords}
+          onChange={e => setSeoKeywords(e.target.value)}
+          className="w-full bg-transparent border-b border-mountain-grey py-2 text-ink focus:outline-none focus:border-ochre"
+        />
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
         <TaxonomyCombobox
           label={t('articleEditor.categoryLabel')}
@@ -479,3 +500,15 @@ const ArticleEditor: React.FC = () => {
 };
 
 export default ArticleEditor;
+
+const toDateTimeLocal = (value?: string) => {
+  if (!value) {
+    return '';
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return '';
+  }
+  const offsetMs = date.getTimezoneOffset() * 60 * 1000;
+  return new Date(date.getTime() - offsetMs).toISOString().slice(0, 16);
+};

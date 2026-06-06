@@ -16,12 +16,39 @@ type idPath struct {
 	ID uint64 `path:"id"`
 }
 
+type versionPath struct {
+	VersionNo int `path:"versionNo"`
+}
+
 func PathID(r *http.Request) (uint64, error) {
 	var path idPath
 	if err := httpx.ParsePath(r, &path); err != nil || path.ID == 0 {
 		return 0, apperrors.BadRequest("invalid id")
 	}
 	return path.ID, nil
+}
+
+func PathVersionNo(r *http.Request) (int, error) {
+	var path versionPath
+	if err := httpx.ParsePath(r, &path); err != nil || path.VersionNo <= 0 {
+		return 0, apperrors.BadRequest("versionNo is invalid")
+	}
+	return path.VersionNo, nil
+}
+
+func RequestBaseURL(r *http.Request) string {
+	proto := strings.TrimSpace(r.Header.Get("X-Forwarded-Proto"))
+	if proto == "" {
+		proto = "http"
+		if r.TLS != nil {
+			proto = "https"
+		}
+	}
+	host := strings.TrimSpace(r.Header.Get("X-Forwarded-Host"))
+	if host == "" {
+		host = r.Host
+	}
+	return strings.TrimRight(proto+"://"+host, "/")
 }
 
 func PageSize(r *http.Request) (int, int) {

@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { useNavigate, Link, useLocation } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { useNavigate, Link, useLocation, type Location } from 'react-router-dom';
 import { login } from '../api/auth';
 import { useAuthStore } from '../store/auth';
 import { usePreferenceStore } from '../store/preferences';
@@ -17,9 +17,19 @@ const Login: React.FC = () => {
   const [submitting, setSubmitting] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
-  const { setAuth, fetchUser } = useAuthStore();
+  const { user, accessToken, isFetching, isInitialized, setAuth, fetchUser } = useAuthStore();
   const t = (key: Parameters<typeof translate>[1]) => translate(language, key);
   const from = (location.state as { from?: Location } | null)?.from;
+  const redirectTo = from && from.pathname !== '/login'
+    ? `${from.pathname}${from.search}${from.hash}`
+    : '/';
+
+  useEffect(() => {
+    if (!isInitialized || isFetching || !accessToken || !user) {
+      return;
+    }
+    navigate(redirectTo, { replace: true });
+  }, [accessToken, isFetching, isInitialized, navigate, redirectTo, user]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -31,7 +41,6 @@ const Login: React.FC = () => {
       localStorage.setItem('refreshToken', res.data.refreshToken);
       setAuth(null, token);
       await fetchUser();
-      const redirectTo = from ? `${from.pathname}${from.search}${from.hash}` : '/';
       navigate(redirectTo, { replace: true });
     } catch (err: unknown) {
       setError(getErrorMessage(err, t('auth.loginError')));
@@ -39,6 +48,14 @@ const Login: React.FC = () => {
       setSubmitting(false);
     }
   };
+
+  if (!isInitialized || isFetching) {
+    return (
+      <div className="flex-grow flex items-center justify-center tracking-widest text-ink-light">
+        {t('common.loadingAuth')}
+      </div>
+    );
+  }
 
   return (
     <div className="flex-grow flex items-center justify-center">

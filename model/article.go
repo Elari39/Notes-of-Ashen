@@ -3,47 +3,67 @@ package model
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"strings"
 	"time"
 )
 
+const (
+	ArticleStatusDraft     = "draft"
+	ArticleStatusPublished = "published"
+	ArticleStatusArchived  = "archived"
+	ArticleStatusScheduled = "scheduled"
+)
+
 type Article struct {
-	ID          uint64
-	AuthorID    uint64
-	CategoryID  uint64
-	Title       string
-	Slug        string
-	Summary     string
-	Content     string
-	CoverURL    string
-	Status      string
-	ViewCount   uint64
-	PublishedAt *time.Time
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
+	ID             uint64
+	AuthorID       uint64
+	CategoryID     uint64
+	Title          string
+	Slug           string
+	Summary        string
+	Content        string
+	CoverURL       string
+	Status         string
+	ViewCount      uint64
+	ScheduledAt    *time.Time
+	PublishedAt    *time.Time
+	SEOTitle       string
+	SEODescription string
+	SEOKeywords    string
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
 }
 
 type ArticleCreate struct {
-	AuthorID   uint64
-	CategoryID uint64
-	Title      string
-	Slug       string
-	Summary    string
-	Content    string
-	CoverURL   string
-	Status     string
-	TagIDs     []uint64
+	AuthorID       uint64
+	CategoryID     uint64
+	Title          string
+	Slug           string
+	Summary        string
+	Content        string
+	CoverURL       string
+	Status         string
+	ScheduledAt    *time.Time
+	SEOTitle       string
+	SEODescription string
+	SEOKeywords    string
+	TagIDs         []uint64
 }
 
 type ArticleUpdate struct {
-	CategoryID uint64
-	Title      string
-	Slug       string
-	Summary    string
-	Content    string
-	CoverURL   string
-	Status     string
-	TagIDs     []uint64
+	CategoryID     uint64
+	Title          string
+	Slug           string
+	Summary        string
+	Content        string
+	CoverURL       string
+	Status         string
+	ScheduledAt    *time.Time
+	SEOTitle       string
+	SEODescription string
+	SEOKeywords    string
+	TagIDs         []uint64
 }
 
 type ArticleFilter struct {
@@ -57,17 +77,40 @@ type ArticleFilter struct {
 	Size       int
 }
 
+type ArticleVersion struct {
+	ID                uint64
+	ArticleID         uint64
+	VersionNo         int
+	ChangedBy         uint64
+	AuthorID          uint64
+	CategoryID        uint64
+	Title             string
+	Slug              string
+	Summary           string
+	Content           string
+	CoverURL          string
+	Status            string
+	ViewCount         uint64
+	ScheduledAt       *time.Time
+	PublishedAt       *time.Time
+	SEOTitle          string
+	SEODescription    string
+	SEOKeywords       string
+	TagIDs            []uint64
+	OriginalCreatedAt *time.Time
+	OriginalUpdatedAt *time.Time
+	CreatedAt         time.Time
+}
+
 func (s *Store) CreateArticle(ctx context.Context, in ArticleCreate) (uint64, error) {
 	var id uint64
 	err := WithTx(ctx, s.db, func(tx *sql.Tx) error {
-		var publishedAt interface{}
-		if in.Status == "published" {
-			publishedAt = time.Now()
-		}
+		publishedAt := publishedAtForCreate(in.Status, in.ScheduledAt)
 		res, err := tx.ExecContext(ctx, `
-INSERT INTO articles (author_id, category_id, title, slug, summary, content, cover_url, status, published_at)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-			in.AuthorID, nullableUint64(in.CategoryID), in.Title, in.Slug, in.Summary, in.Content, in.CoverURL, in.Status, publishedAt)
+INSERT INTO articles (author_id, category_id, title, slug, summary, content, cover_url, status, scheduled_at, published_at, seo_title, seo_description, seo_keywords)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			in.AuthorID, nullableUint64(in.CategoryID), in.Title, in.Slug, in.Summary, in.Content, in.CoverURL, in.Status,
+			nullableTime(in.ScheduledAt), nullableTime(publishedAt), in.SEOTitle, in.SEODescription, in.SEOKeywords)
 		if err != nil {
 			return err
 		}
@@ -81,30 +124,25 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 	return id, err
 }
 
-func (s *Store) UpdateArticle(ctx context.Context, id uint64, in ArticleUpdate) error {
+func (s *Store) UpdateArticle(ctx context.Context, id uint64, in ArticleUpdate, changedBy uint64) error {
 	return WithTx(ctx, s.db, func(tx *sql.Tx) error {
+		if err := createArticleVersion(ctx, tx, id, changedBy); err != nil {
+			return err
+		}
+
 		var currentStatus string
 		var currentPublished sql.NullTime
 		if err := tx.QueryRowContext(ctx, "SELECT status, published_at FROM articles WHERE id = ?", id).Scan(&currentStatus, &currentPublished); err != nil {
 			return scanErr(err)
 		}
-
-		var publishedAt interface{} = nil
-		if currentPublished.Valid {
-			publishedAt = currentPublished.Time
-		}
-		if currentStatus != "published" && in.Status == "published" {
-			publishedAt = time.Now()
-		}
-		if in.Status != "published" {
-			publishedAt = nil
-		}
+		publishedAt := publishedAtForUpdate(currentStatus, timeFromNull(currentPublished), in.Status, in.ScheduledAt)
 
 		res, err := tx.ExecContext(ctx, `
 UPDATE articles
-SET category_id = ?, title = ?, slug = ?, summary = ?, content = ?, cover_url = ?, status = ?, published_at = ?
+SET category_id = ?, title = ?, slug = ?, summary = ?, content = ?, cover_url = ?, status = ?, scheduled_at = ?, published_at = ?, seo_title = ?, seo_description = ?, seo_keywords = ?
 WHERE id = ?`,
-			nullableUint64(in.CategoryID), in.Title, in.Slug, in.Summary, in.Content, in.CoverURL, in.Status, nullableTimePointer(publishedAt), id)
+			nullableUint64(in.CategoryID), in.Title, in.Slug, in.Summary, in.Content, in.CoverURL, in.Status,
+			nullableTime(in.ScheduledAt), nullableTime(publishedAt), in.SEOTitle, in.SEODescription, in.SEOKeywords, id)
 		if err != nil {
 			return err
 		}
@@ -116,31 +154,69 @@ WHERE id = ?`,
 }
 
 func (s *Store) DeleteArticle(ctx context.Context, id uint64) error {
-	res, err := s.db.ExecContext(ctx, "DELETE FROM articles WHERE id = ?", id)
-	if err != nil {
-		return err
-	}
-	return requireAffected(res)
+	return WithTx(ctx, s.db, func(tx *sql.Tx) error {
+		if _, err := tx.ExecContext(ctx, "DELETE FROM article_tags WHERE article_id = ?", id); err != nil {
+			return err
+		}
+		res, err := tx.ExecContext(ctx, "DELETE FROM articles WHERE id = ?", id)
+		if err != nil {
+			return err
+		}
+		return requireAffected(res)
+	})
 }
 
-func (s *Store) UpdateArticleStatus(ctx context.Context, id uint64, status string) error {
-	var publishedAt interface{}
-	if status == "published" {
-		publishedAt = time.Now()
-	}
-	res, err := s.db.ExecContext(ctx, `
+func (s *Store) UpdateArticleStatus(ctx context.Context, id uint64, status string, changedBy uint64) error {
+	return WithTx(ctx, s.db, func(tx *sql.Tx) error {
+		if err := createArticleVersion(ctx, tx, id, changedBy); err != nil {
+			return err
+		}
+		var currentStatus string
+		var currentPublished sql.NullTime
+		var scheduledAt sql.NullTime
+		if err := tx.QueryRowContext(ctx, "SELECT status, published_at, scheduled_at FROM articles WHERE id = ?", id).Scan(&currentStatus, &currentPublished, &scheduledAt); err != nil {
+			return scanErr(err)
+		}
+		publishedAt := publishedAtForUpdate(currentStatus, timeFromNull(currentPublished), status, timeFromNull(scheduledAt))
+		res, err := tx.ExecContext(ctx, `
 UPDATE articles
-SET status = ?, published_at = CASE WHEN ? = 'published' AND published_at IS NULL THEN ? WHEN ? <> 'published' THEN NULL ELSE published_at END
-WHERE id = ?`, status, status, publishedAt, status, id)
-	if err != nil {
-		return err
-	}
-	return requireAffected(res)
+SET status = ?, published_at = ?
+WHERE id = ?`, status, nullableTime(publishedAt), id)
+		if err != nil {
+			return err
+		}
+		return requireAffected(res)
+	})
+}
+
+func (s *Store) RestoreArticleVersion(ctx context.Context, articleID uint64, versionNo int, changedBy uint64) error {
+	return WithTx(ctx, s.db, func(tx *sql.Tx) error {
+		if err := createArticleVersion(ctx, tx, articleID, changedBy); err != nil {
+			return err
+		}
+		version, err := findArticleVersion(ctx, tx, articleID, versionNo)
+		if err != nil {
+			return err
+		}
+		res, err := tx.ExecContext(ctx, `
+UPDATE articles
+SET category_id = ?, title = ?, slug = ?, summary = ?, content = ?, cover_url = ?, status = ?, view_count = ?, scheduled_at = ?, published_at = ?, seo_title = ?, seo_description = ?, seo_keywords = ?
+WHERE id = ?`,
+			nullableUint64(version.CategoryID), version.Title, version.Slug, version.Summary, version.Content, version.CoverURL, version.Status, version.ViewCount,
+			nullableTime(version.ScheduledAt), nullableTime(version.PublishedAt), version.SEOTitle, version.SEODescription, version.SEOKeywords, articleID)
+		if err != nil {
+			return err
+		}
+		if err := requireAffected(res); err != nil {
+			return err
+		}
+		return replaceArticleTags(ctx, tx, articleID, version.TagIDs)
+	})
 }
 
 func (s *Store) FindArticle(ctx context.Context, id uint64) (*Article, error) {
 	row := s.db.QueryRowContext(ctx, `
-SELECT id, author_id, category_id, title, slug, summary, content, cover_url, status, view_count, published_at, created_at, updated_at
+SELECT id, author_id, category_id, title, slug, summary, content, cover_url, status, view_count, scheduled_at, published_at, seo_title, seo_description, seo_keywords, created_at, updated_at
 FROM articles WHERE id = ?`, id)
 	return scanArticle(row)
 }
@@ -161,8 +237,8 @@ func (s *Store) ListArticles(ctx context.Context, filter ArticleFilter) ([]Artic
 	offset := (filter.Page - 1) * filter.Size
 	args = append(args, filter.Size, offset)
 	rows, err := s.db.QueryContext(ctx, `
-SELECT id, author_id, category_id, title, slug, summary, content, cover_url, status, view_count, published_at, created_at, updated_at
-FROM articles `+where+` ORDER BY created_at DESC, id DESC LIMIT ? OFFSET ?`, args...)
+SELECT id, author_id, category_id, title, slug, summary, content, cover_url, status, view_count, scheduled_at, published_at, seo_title, seo_description, seo_keywords, created_at, updated_at
+FROM articles `+where+` ORDER BY COALESCE(published_at, created_at) DESC, id DESC LIMIT ? OFFSET ?`, args...)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -177,6 +253,82 @@ FROM articles `+where+` ORDER BY created_at DESC, id DESC LIMIT ? OFFSET ?`, arg
 		items = append(items, *item)
 	}
 	return items, total, rows.Err()
+}
+
+func (s *Store) ListPublicArticles(ctx context.Context, limit int) ([]Article, error) {
+	if limit < 1 {
+		limit = 20
+	}
+	if limit > 100 {
+		limit = 100
+	}
+	rows, err := s.db.QueryContext(ctx, `
+SELECT id, author_id, category_id, title, slug, summary, content, cover_url, status, view_count, scheduled_at, published_at, seo_title, seo_description, seo_keywords, created_at, updated_at
+FROM articles
+WHERE status = 'published' AND (scheduled_at IS NULL OR scheduled_at <= NOW())
+ORDER BY COALESCE(published_at, created_at) DESC, id DESC
+LIMIT ?`, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	items := make([]Article, 0)
+	for rows.Next() {
+		item, err := scanArticleRows(rows)
+		if err != nil {
+			return nil, err
+		}
+		items = append(items, *item)
+	}
+	return items, rows.Err()
+}
+
+func (s *Store) PublicArticleContext(ctx context.Context, current Article, limit int) (*Article, *Article, []Article, error) {
+	if limit < 1 {
+		limit = 3
+	}
+	refTime := current.CreatedAt
+	if current.PublishedAt != nil {
+		refTime = *current.PublishedAt
+	}
+
+	prev, err := findOneArticle(ctx, s.db.QueryRowContext(ctx, `
+SELECT id, author_id, category_id, title, slug, summary, content, cover_url, status, view_count, scheduled_at, published_at, seo_title, seo_description, seo_keywords, created_at, updated_at
+FROM articles
+WHERE status = 'published' AND (scheduled_at IS NULL OR scheduled_at <= NOW())
+  AND (COALESCE(published_at, created_at) < ? OR (COALESCE(published_at, created_at) = ? AND id < ?))
+ORDER BY COALESCE(published_at, created_at) DESC, id DESC
+LIMIT 1`, refTime, refTime, current.ID))
+	if err != nil && err != ErrNotFound {
+		return nil, nil, nil, err
+	}
+
+	next, err := findOneArticle(ctx, s.db.QueryRowContext(ctx, `
+SELECT id, author_id, category_id, title, slug, summary, content, cover_url, status, view_count, scheduled_at, published_at, seo_title, seo_description, seo_keywords, created_at, updated_at
+FROM articles
+WHERE status = 'published' AND (scheduled_at IS NULL OR scheduled_at <= NOW())
+  AND (COALESCE(published_at, created_at) > ? OR (COALESCE(published_at, created_at) = ? AND id > ?))
+ORDER BY COALESCE(published_at, created_at) ASC, id ASC
+LIMIT 1`, refTime, refTime, current.ID))
+	if err != nil && err != ErrNotFound {
+		return nil, nil, nil, err
+	}
+
+	tags, err := s.ArticleTags(ctx, current.ID)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	tagIDs := make([]uint64, 0, len(tags))
+	for _, tag := range tags {
+		tagIDs = append(tagIDs, tag.ID)
+	}
+
+	related, err := s.relatedPublicArticles(ctx, current.ID, current.CategoryID, tagIDs, limit)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	return prev, next, related, nil
 }
 
 func (s *Store) ArticleTags(ctx context.Context, articleID uint64) ([]Tag, error) {
@@ -206,39 +358,84 @@ func (s *Store) EnsureTagsExist(ctx context.Context, tagIDs []uint64) error {
 	if len(tagIDs) == 0 {
 		return nil
 	}
-	placeholders := strings.TrimRight(strings.Repeat("?,", len(tagIDs)), ",")
-	args := make([]interface{}, 0, len(tagIDs))
-	for _, id := range tagIDs {
+	ids := uniqueUint64(tagIDs)
+	placeholders := strings.TrimRight(strings.Repeat("?,", len(ids)), ",")
+	args := make([]interface{}, 0, len(ids))
+	for _, id := range ids {
 		args = append(args, id)
 	}
 	var count int
 	if err := s.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM tags WHERE id IN ("+placeholders+")", args...).Scan(&count); err != nil {
 		return err
 	}
-	if count != len(uniqueUint64(tagIDs)) {
+	if count != len(ids) {
 		return ErrNotFound
 	}
 	return nil
 }
 
+func (s *Store) ListArticleVersions(ctx context.Context, articleID uint64, page, size int) ([]ArticleVersion, int64, error) {
+	offset := (page - 1) * size
+	var total int64
+	if err := s.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM article_versions WHERE article_id = ?", articleID).Scan(&total); err != nil {
+		return nil, 0, err
+	}
+	rows, err := s.db.QueryContext(ctx, `
+SELECT id, article_id, version_no, changed_by, author_id, category_id, title, slug, summary, content, cover_url, status, view_count, scheduled_at, published_at, seo_title, seo_description, seo_keywords, COALESCE(CAST(tag_ids AS CHAR), '[]'), original_created_at, original_updated_at, created_at
+FROM article_versions
+WHERE article_id = ?
+ORDER BY version_no DESC
+LIMIT ? OFFSET ?`, articleID, size, offset)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+
+	items := make([]ArticleVersion, 0)
+	for rows.Next() {
+		item, err := scanArticleVersionRows(rows)
+		if err != nil {
+			return nil, 0, err
+		}
+		items = append(items, *item)
+	}
+	return items, total, rows.Err()
+}
+
+func (s *Store) FindArticleVersion(ctx context.Context, articleID uint64, versionNo int) (*ArticleVersion, error) {
+	row := s.db.QueryRowContext(ctx, `
+SELECT id, article_id, version_no, changed_by, author_id, category_id, title, slug, summary, content, cover_url, status, view_count, scheduled_at, published_at, seo_title, seo_description, seo_keywords, COALESCE(CAST(tag_ids AS CHAR), '[]'), original_created_at, original_updated_at, created_at
+FROM article_versions
+WHERE article_id = ? AND version_no = ?`, articleID, versionNo)
+	return scanArticleVersion(row)
+}
+
 func articleWhere(filter ArticleFilter) (string, []interface{}) {
 	clauses := make([]string, 0)
 	args := make([]interface{}, 0)
-	if filter.Role == "admin" {
-		if filter.Status != "" {
+	if isContentRole(filter.Role) {
+		switch filter.Status {
+		case ArticleStatusScheduled:
+			clauses = append(clauses, "status = 'published' AND scheduled_at > NOW()")
+		case "":
+		default:
 			clauses = append(clauses, "status = ?")
 			args = append(args, filter.Status)
 		}
 	} else if filter.UserID > 0 {
-		if filter.Status != "" {
+		switch filter.Status {
+		case ArticleStatusScheduled:
+			clauses = append(clauses, "author_id = ? AND status = 'published' AND scheduled_at > NOW()")
+			args = append(args, filter.UserID)
+		case "":
+			clauses = append(clauses, "(status = 'published' AND (scheduled_at IS NULL OR scheduled_at <= NOW()) OR author_id = ?)")
+			args = append(args, filter.UserID)
+		default:
 			clauses = append(clauses, "author_id = ? AND status = ?")
 			args = append(args, filter.UserID, filter.Status)
-		} else {
-			clauses = append(clauses, "(status = 'published' OR author_id = ?)")
-			args = append(args, filter.UserID)
 		}
 	} else {
-		clauses = append(clauses, "status = 'published'")
+		clauses = append(clauses, "status = 'published' AND (scheduled_at IS NULL OR scheduled_at <= NOW())")
 	}
 	if filter.Query != "" {
 		likeQuery := "%" + escapeLike(filter.Query) + "%"
@@ -284,30 +481,199 @@ func replaceArticleTags(ctx context.Context, tx *sql.Tx, articleID uint64, tagID
 	return nil
 }
 
-func scanArticle(row *sql.Row) (*Article, error) {
+type rowScanner interface {
+	Scan(dest ...interface{}) error
+}
+
+func scanArticle(row rowScanner) (*Article, error) {
 	var item Article
 	var categoryID sql.NullInt64
+	var scheduledAt sql.NullTime
 	var publishedAt sql.NullTime
-	err := row.Scan(&item.ID, &item.AuthorID, &categoryID, &item.Title, &item.Slug, &item.Summary, &item.Content, &item.CoverURL, &item.Status, &item.ViewCount, &publishedAt, &item.CreatedAt, &item.UpdatedAt)
+	err := row.Scan(
+		&item.ID, &item.AuthorID, &categoryID, &item.Title, &item.Slug, &item.Summary, &item.Content,
+		&item.CoverURL, &item.Status, &item.ViewCount, &scheduledAt, &publishedAt, &item.SEOTitle,
+		&item.SEODescription, &item.SEOKeywords, &item.CreatedAt, &item.UpdatedAt,
+	)
 	if err != nil {
 		return nil, scanErr(err)
 	}
 	item.CategoryID = uint64FromNull(categoryID)
+	item.ScheduledAt = timeFromNull(scheduledAt)
 	item.PublishedAt = timeFromNull(publishedAt)
 	return &item, nil
 }
 
 func scanArticleRows(rows *sql.Rows) (*Article, error) {
-	var item Article
+	return scanArticle(rows)
+}
+
+func scanArticleVersion(row rowScanner) (*ArticleVersion, error) {
+	var item ArticleVersion
 	var categoryID sql.NullInt64
+	var scheduledAt sql.NullTime
 	var publishedAt sql.NullTime
-	err := rows.Scan(&item.ID, &item.AuthorID, &categoryID, &item.Title, &item.Slug, &item.Summary, &item.Content, &item.CoverURL, &item.Status, &item.ViewCount, &publishedAt, &item.CreatedAt, &item.UpdatedAt)
+	var originalCreatedAt sql.NullTime
+	var originalUpdatedAt sql.NullTime
+	var tagIDsRaw string
+	err := row.Scan(
+		&item.ID, &item.ArticleID, &item.VersionNo, &item.ChangedBy, &item.AuthorID, &categoryID,
+		&item.Title, &item.Slug, &item.Summary, &item.Content, &item.CoverURL, &item.Status,
+		&item.ViewCount, &scheduledAt, &publishedAt, &item.SEOTitle, &item.SEODescription,
+		&item.SEOKeywords, &tagIDsRaw, &originalCreatedAt, &originalUpdatedAt, &item.CreatedAt,
+	)
+	if err != nil {
+		return nil, scanErr(err)
+	}
+	item.CategoryID = uint64FromNull(categoryID)
+	item.ScheduledAt = timeFromNull(scheduledAt)
+	item.PublishedAt = timeFromNull(publishedAt)
+	item.OriginalCreatedAt = timeFromNull(originalCreatedAt)
+	item.OriginalUpdatedAt = timeFromNull(originalUpdatedAt)
+	if err := json.Unmarshal([]byte(tagIDsRaw), &item.TagIDs); err != nil {
+		item.TagIDs = nil
+	}
+	return &item, nil
+}
+
+func scanArticleVersionRows(rows *sql.Rows) (*ArticleVersion, error) {
+	return scanArticleVersion(rows)
+}
+
+func createArticleVersion(ctx context.Context, tx *sql.Tx, articleID, changedBy uint64) error {
+	article, err := scanArticle(tx.QueryRowContext(ctx, `
+SELECT id, author_id, category_id, title, slug, summary, content, cover_url, status, view_count, scheduled_at, published_at, seo_title, seo_description, seo_keywords, created_at, updated_at
+FROM articles WHERE id = ?`, articleID))
+	if err != nil {
+		return err
+	}
+
+	tagIDs, err := articleTagIDs(ctx, tx, articleID)
+	if err != nil {
+		return err
+	}
+	tagIDsJSON, err := json.Marshal(tagIDs)
+	if err != nil {
+		return err
+	}
+	var versionNo int
+	if err := tx.QueryRowContext(ctx, "SELECT COALESCE(MAX(version_no), 0) + 1 FROM article_versions WHERE article_id = ?", articleID).Scan(&versionNo); err != nil {
+		return err
+	}
+	_, err = tx.ExecContext(ctx, `
+INSERT INTO article_versions (article_id, version_no, changed_by, author_id, category_id, title, slug, summary, content, cover_url, status, view_count, scheduled_at, published_at, seo_title, seo_description, seo_keywords, tag_ids, original_created_at, original_updated_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		articleID, versionNo, changedBy, article.AuthorID, nullableUint64(article.CategoryID), article.Title, article.Slug, article.Summary,
+		article.Content, article.CoverURL, article.Status, article.ViewCount, nullableTime(article.ScheduledAt), nullableTime(article.PublishedAt),
+		article.SEOTitle, article.SEODescription, article.SEOKeywords, string(tagIDsJSON), article.CreatedAt, article.UpdatedAt)
+	return err
+}
+
+func findArticleVersion(ctx context.Context, tx *sql.Tx, articleID uint64, versionNo int) (*ArticleVersion, error) {
+	return scanArticleVersion(tx.QueryRowContext(ctx, `
+SELECT id, article_id, version_no, changed_by, author_id, category_id, title, slug, summary, content, cover_url, status, view_count, scheduled_at, published_at, seo_title, seo_description, seo_keywords, COALESCE(CAST(tag_ids AS CHAR), '[]'), original_created_at, original_updated_at, created_at
+FROM article_versions
+WHERE article_id = ? AND version_no = ?`, articleID, versionNo))
+}
+
+func articleTagIDs(ctx context.Context, tx *sql.Tx, articleID uint64) ([]uint64, error) {
+	rows, err := tx.QueryContext(ctx, "SELECT tag_id FROM article_tags WHERE article_id = ? ORDER BY tag_id", articleID)
 	if err != nil {
 		return nil, err
 	}
-	item.CategoryID = uint64FromNull(categoryID)
-	item.PublishedAt = timeFromNull(publishedAt)
-	return &item, nil
+	defer rows.Close()
+
+	tagIDs := make([]uint64, 0)
+	for rows.Next() {
+		var tagID uint64
+		if err := rows.Scan(&tagID); err != nil {
+			return nil, err
+		}
+		tagIDs = append(tagIDs, tagID)
+	}
+	return tagIDs, rows.Err()
+}
+
+func findOneArticle(ctx context.Context, row *sql.Row) (*Article, error) {
+	return scanArticle(row)
+}
+
+func (s *Store) relatedPublicArticles(ctx context.Context, articleID, categoryID uint64, tagIDs []uint64, limit int) ([]Article, error) {
+	clauses := []string{"status = 'published'", "(scheduled_at IS NULL OR scheduled_at <= NOW())", "id <> ?"}
+	args := []interface{}{articleID}
+	relatedClauses := make([]string, 0)
+	if categoryID > 0 {
+		relatedClauses = append(relatedClauses, "category_id = ?")
+		args = append(args, categoryID)
+	}
+	if len(tagIDs) > 0 {
+		placeholders := strings.TrimRight(strings.Repeat("?,", len(tagIDs)), ",")
+		relatedClauses = append(relatedClauses, "EXISTS (SELECT 1 FROM article_tags at WHERE at.article_id = articles.id AND at.tag_id IN ("+placeholders+"))")
+		for _, tagID := range tagIDs {
+			args = append(args, tagID)
+		}
+	}
+	if len(relatedClauses) > 0 {
+		clauses = append(clauses, "("+strings.Join(relatedClauses, " OR ")+")")
+	}
+	args = append(args, limit)
+
+	rows, err := s.db.QueryContext(ctx, `
+SELECT id, author_id, category_id, title, slug, summary, content, cover_url, status, view_count, scheduled_at, published_at, seo_title, seo_description, seo_keywords, created_at, updated_at
+FROM articles
+WHERE `+strings.Join(clauses, " AND ")+`
+ORDER BY COALESCE(published_at, created_at) DESC, id DESC
+LIMIT ?`, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	items := make([]Article, 0)
+	for rows.Next() {
+		item, err := scanArticleRows(rows)
+		if err != nil {
+			return nil, err
+		}
+		items = append(items, *item)
+	}
+	return items, rows.Err()
+}
+
+func publishedAtForCreate(status string, scheduledAt *time.Time) *time.Time {
+	if status != ArticleStatusPublished {
+		return nil
+	}
+	if scheduledAt != nil {
+		return scheduledAt
+	}
+	now := time.Now()
+	return &now
+}
+
+func publishedAtForUpdate(currentStatus string, currentPublished *time.Time, nextStatus string, scheduledAt *time.Time) *time.Time {
+	if nextStatus != ArticleStatusPublished {
+		return nil
+	}
+	if scheduledAt != nil {
+		return scheduledAt
+	}
+	if currentStatus == ArticleStatusPublished && currentPublished != nil {
+		return currentPublished
+	}
+	now := time.Now()
+	return &now
+}
+
+func IsArticlePubliclyVisible(item Article, now time.Time) bool {
+	if item.Status != ArticleStatusPublished {
+		return false
+	}
+	return item.ScheduledAt == nil || !item.ScheduledAt.After(now)
+}
+
+func isContentRole(role string) bool {
+	return role == "admin" || role == "editor"
 }
 
 func uniqueUint64(values []uint64) []uint64 {
@@ -324,8 +690,4 @@ func uniqueUint64(values []uint64) []uint64 {
 		out = append(out, value)
 	}
 	return out
-}
-
-func nullableTimePointer(value interface{}) interface{} {
-	return value
 }

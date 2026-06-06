@@ -110,6 +110,20 @@ func (s *Store) UpdateUserStatus(ctx context.Context, id uint64, status string) 
 	return nil
 }
 
+func (s *Store) UpdateUserRole(ctx context.Context, id uint64, role string) error {
+	res, err := s.db.ExecContext(ctx, "UPDATE users SET role = ? WHERE id = ?", role, id)
+	if err != nil {
+		return err
+	}
+	return requireAffected(res)
+}
+
+func (s *Store) CountActiveAdmins(ctx context.Context) (int64, error) {
+	var count int64
+	err := s.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM users WHERE role = 'admin' AND status = 'active'").Scan(&count)
+	return count, err
+}
+
 func (s *Store) ListUsers(ctx context.Context, page, size int) ([]User, int64, error) {
 	offset := (page - 1) * size
 	var total int64

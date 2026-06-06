@@ -1,60 +1,60 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
-import { Components } from 'react-markdown';
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
-import { vs } from 'react-syntax-highlighter/dist/esm/styles/prism';
-import http from '../utils/http';
 import InlineNotice from '../components/InlineNotice';
+import { markdownComponents } from '../components/MarkdownCode';
 import { getErrorMessage } from '../utils/error';
-import { Article, BaseResp } from '../types';
+import { getArticleById, getArticleContext } from '../api/article';
+import { useSEO } from '../utils/seo';
+import { Article, ArticleContext } from '../types';
 import { getDateLocale, translate } from '../i18n';
 import { usePreferenceStore } from '../store/preferences';
 import { normalizeCoverUrl } from '../utils/cover';
 
 type ArticleDetailData = Article & { content: string };
 
-const markdownComponents: Components = {
-  code({ className, children, ...props }) {
-    const match = /language-(\w+)/.exec(className || '');
-    return match ? (
-      <SyntaxHighlighter
-        children={String(children).replace(/\n$/, '')}
-        style={vs}
-        language={match[1]}
-        PreTag="div"
-        className="rounded-sm border border-mountain-grey"
-      />
-    ) : (
-      <code {...props} className="bg-mountain-grey bg-opacity-30 px-1 py-0.5 rounded-sm font-sans text-ink">
-        {children}
-      </code>
-    );
-  },
-};
-
 const ArticleDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const language = usePreferenceStore((state) => state.language);
   const [article, setArticle] = useState<ArticleDetailData | null>(null);
+  const [articleContext, setArticleContext] = useState<ArticleContext | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [contextError, setContextError] = useState('');
   const [coverError, setCoverError] = useState(false);
   const t = (key: Parameters<typeof translate>[1]) => translate(language, key);
 
+  useSEO(article?.seoTitle || article?.title, article?.seoDescription || article?.summary, article?.seoKeywords);
+
   useEffect(() => {
     const fetchArticle = async () => {
+      if (!id) {
+        setLoading(false);
+        return;
+      }
+
+      setLoading(true);
+      setError('');
+      setContextError('');
+      setArticle(null);
+      setArticleContext(null);
       setCoverError(false);
       try {
-        const res = await http.get<unknown, BaseResp<ArticleDetailData>>(`/articles/${id}`);
-        setArticle(res.data);
+        const res = await getArticleById(id);
+        setArticle({ ...res.data, content: res.data.content || '' });
+        try {
+          const contextRes = await getArticleContext(id);
+          setArticleContext(contextRes.data);
+        } catch (contextErr) {
+          setContextError(getErrorMessage(contextErr, translate(language, 'article.loadError')));
+        }
       } catch (err) {
         setError(getErrorMessage(err, translate(language, 'article.loadError')));
       } finally {
         setLoading(false);
       }
     };
-    if (id) fetchArticle();
+    fetchArticle();
   }, [id, language]);
 
   if (loading) {
@@ -139,7 +139,71 @@ const ArticleDetail: React.FC = () => {
           {t('common.backHome')}
         </Link>
       </div>
+
+      <ArticleContextBlock context={articleContext} error={contextError} />
     </article>
+  );
+};
+
+const ArticleContextBlock: React.FC<{ context: ArticleContext | null; error: string }> = ({ context, error }) => {
+  const hasNavigation = Boolean(context?.previous || context?.next);
+  const hasRelated = Boolean(context?.related?.length);
+
+  if (error) {
+    return <InlineNotice message={error} className="mt-10" />;
+  }
+
+  if (!context || (!hasNavigation && !hasRelated)) {
+    return null;
+  }
+
+  return (
+    <section className="mt-14 border-t border-mountain-grey border-opacity-50 pt-10">
+      {hasNavigation && (
+        <div className="grid gap-4 md:grid-cols-2">
+          <ArticleNavLink label="上一篇" article={context.previous} align="left" />
+          <ArticleNavLink label="下一篇" article={context.next} align="right" />
+        </div>
+      )}
+
+      {hasRelated && (
+        <div className="mt-12">
+          <h2 className="mb-5 text-sm font-bold tracking-widest text-ink">相关文章</h2>
+          <div className="grid gap-4 md:grid-cols-3">
+            {context.related.map((item) => (
+              <Link
+                key={item.id}
+                to={`/article/${item.id}`}
+                className="border border-mountain-grey bg-[var(--paper-soft)] p-4 transition-colors hover:border-ochre"
+              >
+                <h3 className="line-clamp-2 font-bold leading-relaxed text-ink">{item.title}</h3>
+                <p className="mt-3 line-clamp-3 text-sm leading-relaxed text-ink-light">{item.summary}</p>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
+    </section>
+  );
+};
+
+const ArticleNavLink: React.FC<{
+  label: string;
+  article?: Article;
+  align: 'left' | 'right';
+}> = ({ label, article, align }) => {
+  if (!article) {
+    return <div className="hidden md:block" />;
+  }
+
+  return (
+    <Link
+      to={`/article/${article.id}`}
+      className={`block border border-mountain-grey bg-[var(--paper-soft)] p-4 transition-colors hover:border-ochre ${align === 'right' ? 'md:text-right' : ''}`}
+    >
+      <span className="text-xs tracking-widest text-ink-light">{label}</span>
+      <h2 className="mt-2 line-clamp-2 font-bold leading-relaxed text-ink">{article.title}</h2>
+    </Link>
   );
 };
 
