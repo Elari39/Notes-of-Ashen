@@ -1,8 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import ReactMarkdown from 'react-markdown';
 import InlineNotice from '../components/InlineNotice';
-import { markdownComponents } from '../components/MarkdownCode';
+import MarkdownRenderer from '../components/MarkdownRenderer';
 import { getErrorMessage } from '../utils/error';
 import { getArticleById, getArticleContext } from '../api/article';
 import { useSEO } from '../utils/seo';
@@ -122,17 +121,7 @@ const ArticleDetail: React.FC = () => {
         </div>
       </header>
 
-      <div className="prose prose-lg prose-stone mx-auto
-        prose-headings:font-serif prose-headings:font-bold prose-headings:text-ink
-        prose-p:text-ink-light prose-p:leading-loose prose-p:tracking-wide
-        prose-a:text-ochre prose-a:no-underline hover:prose-a:underline
-        prose-blockquote:border-l-4 prose-blockquote:border-mountain-grey prose-blockquote:pl-6 prose-blockquote:italic prose-blockquote:text-ink-light
-        prose-strong:text-ink font-serif
-      ">
-        <ReactMarkdown components={markdownComponents}>
-          {article.content}
-        </ReactMarkdown>
-      </div>
+      <MarkdownRenderer content={article.content} className="prose-lg mx-auto" />
 
       <div className="mt-20 pt-8 border-t border-mountain-grey border-opacity-50 text-center">
         <Link to="/" className="inline-block px-6 py-2 border border-ink text-ink hover:bg-ink hover:text-paper transition-colors duration-300 tracking-widest">

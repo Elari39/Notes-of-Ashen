@@ -15,6 +15,20 @@
     --cover-wash-subtle: rgba(249, 249, 244, 0.1);
     --cover-wash: rgba(249, 249, 244, 0.2);
     --texture-dot: rgba(26, 26, 26, 0.08);
+    --code-bg: rgba(255, 255, 255, 0.7);
+    --code-border: rgba(138, 60, 58, 0.2);
+    --code-shine: rgba(255, 255, 255, 0.84);
+    --code-ink: #25303b;
+    --code-muted: #697282;
+    --code-comment: #8c928a;
+    --code-ochre: #9b4639;
+    --code-green: #486f57;
+    --code-amber: #9b5a2d;
+    --code-blue: #416a8f;
+    --code-purple: #7a587d;
+    --inline-code-bg: rgba(138, 60, 58, 0.08);
+    --table-row: rgba(255, 255, 255, 0.36);
+    --table-head: rgba(138, 60, 58, 0.08);
   }
 
   :root[data-theme='dark'] {
@@ -29,6 +43,20 @@
     --cover-wash-subtle: rgba(17, 19, 20, 0.16);
     --cover-wash: rgba(17, 19, 20, 0.28);
     --texture-dot: rgba(238, 232, 218, 0.08);
+    --code-bg: rgba(238, 232, 218, 0.06);
+    --code-border: rgba(200, 137, 112, 0.24);
+    --code-shine: rgba(238, 232, 218, 0.08);
+    --code-ink: #e8deca;
+    --code-muted: #b5a999;
+    --code-comment: #818b89;
+    --code-ochre: #d59075;
+    --code-green: #a0c49a;
+    --code-amber: #dfb56f;
+    --code-blue: #93b7db;
+    --code-purple: #d8a5d3;
+    --inline-code-bg: rgba(200, 137, 112, 0.14);
+    --table-row: rgba(238, 232, 218, 0.04);
+    --table-head: rgba(200, 137, 112, 0.12);
   }
 
   html {
@@ -91,6 +119,183 @@
     opacity: 0;
     transform-origin: left center;
     animation: page-paper-line 280ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .article-markdown.prose {
+    width: 100%;
+    color: var(--ink-light);
+  }
+
+  .article-markdown.prose :where(h1, h2, h3, h4, h5, h6) {
+    color: var(--ink);
+    font-family: "Noto Serif SC", "Songti SC", SimSun, "Times New Roman", serif;
+    font-weight: 700;
+    line-height: 1.45;
+  }
+
+  .article-markdown.prose :where(h2) {
+    margin-top: 3.2rem;
+    padding-top: 1.6rem;
+    border-top: 1px solid rgba(138, 60, 58, 0.12);
+  }
+
+  .article-markdown.prose :where(h3) {
+    margin-top: 2.4rem;
+  }
+
+  .article-markdown.prose :where(p) {
+    color: var(--ink-light);
+    line-height: 2;
+  }
+
+  .article-markdown.prose :where(a) {
+    color: var(--ochre);
+    text-decoration: none;
+    border-bottom: 1px solid rgba(138, 60, 58, 0.28);
+    transition: color 180ms ease, border-color 180ms ease;
+  }
+
+  .article-markdown.prose :where(a:hover) {
+    color: var(--ink);
+    border-color: var(--ochre);
+  }
+
+  .article-markdown.prose :where(strong) {
+    color: var(--ink);
+  }
+
+  .article-markdown.prose :where(hr) {
+    margin: 3.4rem 0;
+    border: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(138, 60, 58, 0.28), transparent);
+  }
+
+  .article-markdown.prose :where(blockquote) {
+    margin: 2rem 0;
+    border-left: 3px solid var(--ochre);
+    background: linear-gradient(90deg, var(--paper-soft), transparent);
+    color: var(--ink-light);
+    font-style: normal;
+    padding: 0.5rem 0 0.5rem 1.35rem;
+  }
+
+  .article-markdown.prose :where(blockquote p) {
+    margin: 0.65rem 0;
+  }
+
+  .article-markdown.prose :where(ul, ol) {
+    color: var(--ink-light);
+  }
+
+  .article-markdown.prose :where(li)::marker {
+    color: rgba(138, 60, 58, 0.55);
+  }
+
+  .article-markdown.prose :where(input[type='checkbox']) {
+    accent-color: var(--ochre);
+    margin-right: 0.55rem;
+  }
+
+  .article-inline-code {
+    display: inline-block;
+    margin: 0 0.08rem;
+    padding: 0.08rem 0.38rem;
+    border: 1px solid rgba(138, 60, 58, 0.14);
+    border-radius: 4px;
+    color: var(--ink);
+    background: var(--inline-code-bg);
+    font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+    font-size: 0.88em;
+    line-height: 1.55;
+    vertical-align: 0.05em;
+  }
+
+  .article-markdown.prose :where(code)::before,
+  .article-markdown.prose :where(code)::after {
+    content: none;
+  }
+
+  .article-code-block {
+    max-width: 100%;
+    color: var(--code-ink) !important;
+    scrollbar-color: rgba(138, 60, 58, 0.45) transparent;
+    scrollbar-width: thin;
+  }
+
+  .article-code-block code {
+    color: var(--code-ink) !important;
+    font-weight: 400;
+    white-space: pre;
+  }
+
+  .article-table-wrap {
+    max-width: 100%;
+    margin: 2rem 0;
+    overflow-x: auto;
+    border: 1px solid var(--mountain-grey);
+    border-radius: 6px;
+    background:
+      linear-gradient(135deg, var(--table-row), transparent 58%),
+      var(--paper-soft);
+    scrollbar-color: rgba(138, 60, 58, 0.45) transparent;
+    scrollbar-width: thin;
+  }
+
+  .article-markdown.prose .article-table-wrap table {
+    width: 100%;
+    min-width: 34rem;
+    margin: 0;
+    border-collapse: collapse;
+    color: var(--ink-light);
+    font-size: 0.94rem;
+  }
+
+  .article-markdown.prose :where(thead) {
+    background: var(--table-head);
+  }
+
+  .article-markdown.prose :where(th) {
+    color: var(--ink);
+    font-weight: 700;
+  }
+
+  .article-markdown.prose :where(th, td) {
+    border: 0;
+    border-right: 1px solid var(--mountain-grey);
+    border-bottom: 1px solid var(--mountain-grey);
+    padding: 0.85rem 1rem;
+    vertical-align: top;
+  }
+
+  .article-markdown.prose :where(th:last-child, td:last-child) {
+    border-right: 0;
+  }
+
+  .article-markdown.prose :where(tr:last-child td) {
+    border-bottom: 0;
+  }
+
+  .article-markdown.prose :where(tbody tr:nth-child(2n)) {
+    background: var(--table-row);
+  }
+
+  .article-markdown.prose :where(.katex) {
+    color: var(--ink);
+    font-size: 1.02em;
+  }
+
+  .article-markdown.prose :where(.katex-display) {
+    margin: 2rem 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 1rem 1.1rem;
+    border: 1px solid rgba(138, 60, 58, 0.14);
+    border-radius: 6px;
+    background: var(--paper-soft);
+    text-align: center;
+    scrollbar-color: rgba(138, 60, 58, 0.45) transparent;
+    scrollbar-width: thin;
   }
 
   @keyframes page-paper-line {

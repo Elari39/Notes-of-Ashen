@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import ReactMarkdown from 'react-markdown';
 import { getArticlePreview } from '../../api/article';
 import InlineNotice from '../../components/InlineNotice';
+import MarkdownRenderer from '../../components/MarkdownRenderer';
 import { getErrorMessage } from '../../utils/error';
 import { useSEO } from '../../utils/seo';
 import type { Article } from '../../types';
@@ -50,9 +50,7 @@ const ArticlePreview: React.FC = () => {
       </div>
       <h1 className="mb-4 text-4xl font-bold text-ink">{article.title}</h1>
       <p className="mb-10 text-ink-light">{article.summary}</p>
-      <div className="prose prose-stone max-w-none font-serif">
-        <ReactMarkdown>{article.content || ''}</ReactMarkdown>
-      </div>
+      <MarkdownRenderer content={article.content || ''} />
     </article>
   );
 };
