@@ -258,6 +258,9 @@ func validateArticle(ctx context.Context, svcCtx *svc.ServiceContext, req types.
 	if err := validator.Required(req.Content, "content"); err != nil {
 		return err
 	}
+	if err := validator.OptionalHTTPURL(req.CoverURL, "coverUrl"); err != nil {
+		return err
+	}
 	if err := validator.Status(req.Status, statuses, "status"); err != nil {
 		return err
 	}

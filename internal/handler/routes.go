@@ -7,6 +7,7 @@ import (
 	articlehandler "notes-of-ashen/internal/handler/article"
 	authhandler "notes-of-ashen/internal/handler/auth"
 	categoryhandler "notes-of-ashen/internal/handler/category"
+	sitehandler "notes-of-ashen/internal/handler/site"
 	taghandler "notes-of-ashen/internal/handler/tag"
 	userhandler "notes-of-ashen/internal/handler/user"
 	"notes-of-ashen/internal/middleware"
@@ -29,6 +30,7 @@ func RegisterHandlers(server *rest.Server, svcCtx *svc.ServiceContext) {
 		{Method: http.MethodGet, Path: "/api/v1/articles/:id", Handler: articlehandler.DetailHandler(svcCtx)},
 		{Method: http.MethodGet, Path: "/api/v1/categories", Handler: categoryhandler.ListHandler(svcCtx)},
 		{Method: http.MethodGet, Path: "/api/v1/tags", Handler: taghandler.ListHandler(svcCtx)},
+		{Method: http.MethodGet, Path: "/api/v1/site/settings", Handler: sitehandler.SettingsHandler(svcCtx)},
 	})
 
 	server.AddRoutes([]rest.Route{
@@ -50,5 +52,6 @@ func RegisterHandlers(server *rest.Server, svcCtx *svc.ServiceContext) {
 		{Method: http.MethodGet, Path: "/api/v1/admin/users", Handler: authRequired(adminhandler.ListUsersHandler(svcCtx))},
 		{Method: http.MethodPatch, Path: "/api/v1/admin/users/:id/status", Handler: authRequired(adminhandler.UpdateUserStatusHandler(svcCtx))},
 		{Method: http.MethodGet, Path: "/api/v1/admin/logs", Handler: authRequired(adminhandler.ListLogsHandler(svcCtx))},
+		{Method: http.MethodPut, Path: "/api/v1/admin/site/settings", Handler: authRequired(sitehandler.UpdateSettingsHandler(svcCtx))},
 	})
 }

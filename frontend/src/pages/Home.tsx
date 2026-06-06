@@ -20,10 +20,9 @@ const Home: React.FC = () => {
   const size = 10;
   const t = (key: Parameters<typeof translate>[1]) => translate(language, key);
   const page = parsePositiveInt(searchParams.get('page'), 1);
-  const query = (searchParams.get('q') || '').trim();
   const categoryId = parsePositiveInt(searchParams.get('categoryId'), 0);
   const tagId = parsePositiveInt(searchParams.get('tagId'), 0);
-  const hasActiveFilters = Boolean(query || categoryId || tagId);
+  const hasActiveFilters = Boolean(categoryId || tagId);
 
   useEffect(() => {
     const fetchArticles = async () => {
@@ -34,7 +33,6 @@ const Home: React.FC = () => {
           status: 'published',
           page,
           size,
-          ...(query ? { q: query } : {}),
           ...(categoryId ? { categoryId } : {}),
           ...(tagId ? { tagId } : {}),
         });
@@ -48,7 +46,7 @@ const Home: React.FC = () => {
       }
     };
     fetchArticles();
-  }, [page, query, categoryId, tagId, language]);
+  }, [page, categoryId, tagId, language]);
 
   const updateParams = (updates: Record<string, string | number | undefined>) => {
     const next = new URLSearchParams(searchParams);
@@ -86,7 +84,7 @@ const Home: React.FC = () => {
       {hasActiveFilters && (
         <div className="flex flex-col gap-3 border-b border-mountain-grey border-opacity-40 pb-6 text-sm text-ink-light md:flex-row md:items-center md:justify-between">
           <p className="tracking-widest opacity-75">
-            {query ? formatFilterText(t('home.activeSearch'), query) : t('home.activeFilters')}
+            {t('home.activeFilters')}
           </p>
           <button
             type="button"
@@ -182,7 +180,5 @@ const parsePositiveInt = (value: string | null, fallback: number) => {
   const parsed = Number.parseInt(value, 10);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 };
-
-const formatFilterText = (template: string, keyword: string) => template.split('{keyword}').join(keyword);
 
 export default Home;

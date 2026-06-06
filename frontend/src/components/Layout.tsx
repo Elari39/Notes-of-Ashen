@@ -1,24 +1,43 @@
-import React, { useEffect, useState } from 'react';
-import { Outlet, Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import React, { useEffect, useRef, useState } from 'react';
+import { Link, useLocation, useNavigate, useOutlet } from 'react-router-dom';
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { useAuthStore } from '../store/auth';
 import { usePreferenceStore } from '../store/preferences';
+import { useSiteSettingsStore } from '../store/siteSettings';
 import { logout as apiLogout } from '../api/auth';
 import { isHttpAvatarUrl, normalizeAvatarUrl } from '../utils/avatar';
-import { translate } from '../i18n';
+import { formatText, translate } from '../i18n';
 
 const Layout: React.FC = () => {
   const { user, accessToken, fetchUser, logout } = useAuthStore();
-  const { language, effectiveTheme, toggleLanguage, toggleTheme } = usePreferenceStore();
+  const { language, effectiveTheme, setLanguage, setThemePreference } = usePreferenceStore();
+  const registrationEnabled = useSiteSettingsStore((state) => state.registrationEnabled);
   const navigate = useNavigate();
   const location = useLocation();
-  const [searchParams] = useSearchParams();
-  const [isSearchOpen, setIsSearchOpen] = useState(false);
-  const [searchKeyword, setSearchKeyword] = useState('');
+  const outlet = useOutlet();
+  const shouldReduceMotion = useReducedMotion();
+  const [isPreferenceOpen, setIsPreferenceOpen] = useState(false);
+  const preferenceRef = useRef<HTMLDivElement>(null);
   const avatarUrl = normalizeAvatarUrl(user?.avatarUrl);
   const shouldShowAvatar = isHttpAvatarUrl(avatarUrl);
   const t = (key: Parameters<typeof translate>[1]) => translate(language, key);
-  const currentQuery = (searchParams.get('q') || '').trim();
+  const currentLanguageLabel = language === 'zh' ? t('preferences.languageZh') : t('preferences.languageEn');
+  const currentThemeLabel = effectiveTheme === 'dark' ? t('preferences.themeDark') : t('preferences.themeLight');
+  const pageTransitionKey = location.pathname.startsWith('/admin') ? 'admin' : location.pathname;
+  const pageTransition = shouldReduceMotion
+    ? { duration: 0.01 }
+    : { duration: 0.24, ease: [0.22, 1, 0.36, 1] };
+  const pageVariants = shouldReduceMotion
+    ? {
+        initial: { opacity: 1, y: 0 },
+        animate: { opacity: 1, y: 0 },
+        exit: { opacity: 1, y: 0 },
+      }
+    : {
+        initial: { opacity: 0, y: 8 },
+        animate: { opacity: 1, y: 0 },
+        exit: { opacity: 0, y: -4 },
+      };
 
   useEffect(() => {
     if (accessToken && !user) {
@@ -27,17 +46,34 @@ const Layout: React.FC = () => {
   }, [accessToken, user, fetchUser]);
 
   useEffect(() => {
-    setSearchKeyword(currentQuery);
-    if (currentQuery) {
-      setIsSearchOpen(true);
-    }
-  }, [currentQuery]);
+    setIsPreferenceOpen(false);
+  }, [location.pathname]);
 
   useEffect(() => {
-    if (location.pathname !== '/' && !currentQuery) {
-      setSearchKeyword('');
+    if (!isPreferenceOpen) {
+      return undefined;
     }
-  }, [location.pathname, currentQuery]);
+
+    const handlePointerDown = (event: MouseEvent) => {
+      if (!preferenceRef.current?.contains(event.target as Node)) {
+        setIsPreferenceOpen(false);
+      }
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setIsPreferenceOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handlePointerDown);
+    document.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isPreferenceOpen]);
 
   const handleLogout = async () => {
     const refreshToken = localStorage.getItem('refreshToken');
@@ -50,20 +86,6 @@ const Layout: React.FC = () => {
     }
     logout();
     navigate('/');
-  };
-
-  const handleSearchSubmit = (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const nextKeyword = searchKeyword.trim();
-
-    if (!nextKeyword) {
-      navigate('/');
-      setIsSearchOpen(false);
-      return;
-    }
-
-    navigate(`/?q=${encodeURIComponent(nextKeyword)}`);
-    setIsSearchOpen(true);
   };
 
   return (
@@ -79,14 +101,9 @@ const Layout: React.FC = () => {
         <nav className="flex flex-wrap items-center gap-x-6 gap-y-4 text-ink-light tracking-widest text-sm">
           <Link to="/" className="hover:text-ink transition-colors">{t('nav.home')}</Link>
           <Link to="/archive" className="hover:text-ink transition-colors">{t('nav.archive')}</Link>
-          <button
-            type="button"
-            aria-expanded={isSearchOpen}
-            onClick={() => setIsSearchOpen((open) => !open)}
-            className={`${isSearchOpen ? 'text-ochre' : 'hover:text-ink'} transition-colors`}
-          >
+          <Link to="/search" className="hover:text-ink transition-colors">
             {t('nav.search')}
-          </button>
+          </Link>
           {user ? (
             <>
               {user.role === 'admin' && (
@@ -103,60 +120,109 @@ const Layout: React.FC = () => {
                 {t('nav.logout')}
               </button>
             </>
-          ) : (
+          ) : registrationEnabled ? (
             <Link to="/login" className="hover:text-ink transition-colors">{t('nav.login')}</Link>
-          )}
+          ) : null}
 
           <span className="hidden sm:inline opacity-40 select-none">|</span>
-          <button
-            type="button"
-            aria-label={t('toggle.languageLabel')}
-            onClick={toggleLanguage}
-            className="min-w-10 px-3 py-1 border border-mountain-grey text-ink hover:border-ochre hover:text-ochre transition-colors"
-          >
-            {t('toggle.language')}
-          </button>
-          <button
-            type="button"
-            aria-label={effectiveTheme === 'dark' ? t('toggle.themeToLight') : t('toggle.themeToDark')}
-            onClick={toggleTheme}
-            className="min-w-10 px-3 py-1 border border-mountain-grey text-ink hover:border-ochre hover:text-ochre transition-colors"
-          >
-            {effectiveTheme === 'dark' ? t('toggle.themeLight') : t('toggle.themeDark')}
-          </button>
+          <div ref={preferenceRef} className="relative">
+            <button
+              type="button"
+              aria-haspopup="dialog"
+              aria-expanded={isPreferenceOpen}
+              aria-label={t('preferences.openLabel')}
+              onClick={() => setIsPreferenceOpen((open) => !open)}
+              className="group flex items-center gap-2 border border-mountain-grey bg-[var(--paper-soft)] px-3 py-1.5 text-ink transition-colors hover:border-ochre hover:text-ochre"
+            >
+              <span className="h-2 w-2 rounded-full bg-ochre opacity-70 transition-transform group-hover:scale-125"></span>
+              <span>{t('preferences.trigger')}</span>
+              <span className="hidden text-[10px] uppercase tracking-[0.18em] text-ink-light opacity-70 md:inline">
+                {currentLanguageLabel} / {currentThemeLabel}
+              </span>
+            </button>
+
+            {isPreferenceOpen && (
+              <motion.div
+                role="dialog"
+                aria-label={t('preferences.title')}
+                initial={{ opacity: 0, y: -6 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.2, ease: 'easeOut' }}
+                className="absolute right-0 top-full z-50 mt-4 w-[min(20rem,calc(100vw-3rem))] border border-mountain-grey bg-paper p-4 text-left shadow-[0_24px_80px_rgba(0,0,0,0.16)]"
+              >
+                <div className="border-b border-mountain-grey border-opacity-60 pb-3">
+                  <p className="text-sm font-bold tracking-widest text-ink">{t('preferences.title')}</p>
+                  <p className="mt-2 text-xs leading-relaxed tracking-wide text-ink-light opacity-80">
+                    {t('preferences.subtitle')}
+                  </p>
+                  <p className="mt-2 text-[11px] tracking-[0.18em] text-ochre">
+                    {formatText(t('preferences.current'), { value: `${currentLanguageLabel} / ${currentThemeLabel}` })}
+                  </p>
+                </div>
+
+                <div className="mt-4 space-y-4">
+                  <div>
+                    <p className="mb-2 text-xs tracking-widest text-ink-light">{t('preferences.languageTitle')}</p>
+                    <div className="grid grid-cols-2 border border-mountain-grey">
+                      <button
+                        type="button"
+                        onClick={() => setLanguage('zh')}
+                        className={`px-3 py-2 text-sm transition-colors ${language === 'zh' ? 'bg-ink text-paper' : 'text-ink-light hover:text-ochre'}`}
+                      >
+                        {t('preferences.languageZh')}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setLanguage('en')}
+                        className={`border-l border-mountain-grey px-3 py-2 text-sm transition-colors ${language === 'en' ? 'bg-ink text-paper' : 'text-ink-light hover:text-ochre'}`}
+                      >
+                        {t('preferences.languageEn')}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <p className="mb-2 text-xs tracking-widest text-ink-light">{t('preferences.themeTitle')}</p>
+                    <div className="grid grid-cols-2 border border-mountain-grey">
+                      <button
+                        type="button"
+                        aria-label={t('toggle.themeToLight')}
+                        onClick={() => setThemePreference('light')}
+                        className={`px-3 py-2 text-sm transition-colors ${effectiveTheme === 'light' ? 'bg-ink text-paper' : 'text-ink-light hover:text-ochre'}`}
+                      >
+                        {t('preferences.themeLight')}
+                      </button>
+                      <button
+                        type="button"
+                        aria-label={t('toggle.themeToDark')}
+                        onClick={() => setThemePreference('dark')}
+                        className={`border-l border-mountain-grey px-3 py-2 text-sm transition-colors ${effectiveTheme === 'dark' ? 'bg-ink text-paper' : 'text-ink-light hover:text-ochre'}`}
+                      >
+                        {t('preferences.themeDark')}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </div>
         </nav>
       </header>
 
-      {isSearchOpen && (
-        <div className="border-b border-mountain-grey border-opacity-60 bg-[var(--paper-muted)] px-6 py-5 md:px-12">
-          <form onSubmit={handleSearchSubmit} className="mx-auto flex w-full max-w-4xl flex-col gap-3 md:flex-row md:items-center">
-            <input
-              value={searchKeyword}
-              onChange={(event) => setSearchKeyword(event.target.value)}
-              aria-label={t('home.searchCurtainPlaceholder')}
-              placeholder={t('home.searchCurtainPlaceholder')}
-              className="min-w-0 flex-1 border border-mountain-grey bg-transparent px-4 py-3 text-ink outline-none transition-colors placeholder:text-ink-light placeholder:opacity-50 focus:border-ochre"
-            />
-            <button
-              type="submit"
-              className="border border-ink px-5 py-3 text-sm tracking-widest text-ink transition-colors hover:bg-ink hover:text-paper"
-            >
-              {t('home.searchSubmit')}
-            </button>
-          </form>
-        </div>
-      )}
-
       <main className="flex-grow flex flex-col w-full px-6 md:px-12 py-12">
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -10 }}
-          transition={{ duration: 0.8, ease: 'easeInOut' }}
-          className="flex-grow flex flex-col"
-        >
-          <Outlet />
-        </motion.div>
+        <AnimatePresence mode="wait" initial={false}>
+          <motion.div
+            key={pageTransitionKey}
+            variants={pageVariants}
+            initial="initial"
+            animate="animate"
+            exit="exit"
+            transition={pageTransition}
+            className="page-transition-shell page-transition-surface flex-grow flex flex-col"
+          >
+            {outlet}
+          </motion.div>
+        </AnimatePresence>
       </main>
 
       <footer className="py-12 text-center text-ink-light opacity-70 text-sm tracking-widest">

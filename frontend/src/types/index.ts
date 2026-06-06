@@ -17,6 +17,10 @@ export interface TokenPair {
   expiresIn: number;
 }
 
+export interface SiteSettings {
+  registrationEnabled: boolean;
+}
+
 export interface Category {
   id: number;
   name: string;

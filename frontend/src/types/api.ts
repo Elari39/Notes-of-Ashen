@@ -26,6 +26,10 @@ export interface RefreshReq {
   refreshToken: string;
 }
 
+export interface UpdateSiteSettingsReq {
+  registrationEnabled: boolean;
+}
+
 // User
 export interface UpdateUserReq {
   email?: string;

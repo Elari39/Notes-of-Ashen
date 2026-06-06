@@ -38,6 +38,14 @@ func Register(ctx context.Context, svcCtx *svc.ServiceContext, req types.Registe
 	role := "user"
 	if total == 0 {
 		role = "admin"
+	} else {
+		settings, err := svcCtx.Store.SiteSettings(ctx)
+		if err != nil {
+			return nil, err
+		}
+		if !settings.RegistrationEnabled {
+			return nil, apperrors.Forbidden("registration is disabled")
+		}
 	}
 
 	passwordHash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Navigate, Outlet } from 'react-router-dom';
+import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../store/auth';
 import { usePreferenceStore } from '../store/preferences';
 import { translate } from '../i18n';
@@ -11,6 +11,7 @@ interface ProtectedRouteProps {
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ requireAdmin = false }) => {
   const { user, accessToken, isFetching } = useAuthStore();
   const language = usePreferenceStore((state) => state.language);
+  const location = useLocation();
   const t = (key: Parameters<typeof translate>[1]) => translate(language, key);
 
   if (isFetching) {
@@ -18,7 +19,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ requireAdmin = false })
   }
 
   if (!accessToken || !user) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to="/login" replace state={{ from: location }} />;
   }
 
   if (requireAdmin && user.role !== 'admin') {

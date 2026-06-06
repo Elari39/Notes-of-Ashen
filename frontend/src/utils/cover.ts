@@ -5,9 +5,19 @@ export const normalizeCoverUrl = (coverUrl?: string) => {
     return '';
   }
 
-  if (/^https?:\/\//i.test(trimmed) || trimmed.startsWith('/')) {
-    return trimmed;
-  }
+  return isHttpCoverUrl(trimmed) ? trimmed : '';
+};
 
-  return `/${trimmed}`;
+export const isValidCoverUrl = (coverUrl?: string) => {
+  const trimmed = coverUrl?.trim() || '';
+  return trimmed === '' || isHttpCoverUrl(trimmed);
+};
+
+const isHttpCoverUrl = (value: string) => {
+  try {
+    const url = new URL(value);
+    return url.protocol === 'http:' || url.protocol === 'https:';
+  } catch {
+    return false;
+  }
 };

@@ -29,17 +29,20 @@ const fieldNames: Record<string, string> = {
   title: '标题',
   slug: '路径',
   content: '正文',
+  coverUrl: '封面 URL',
   status: '状态',
 };
 
 const exactMessages: Record<string, string> = {
   'avatarUrl format is invalid': '头像 URL 必须以 http:// 或 https:// 开头',
+  'coverUrl format is invalid': '封面 URL 必须以 http:// 或 https:// 开头，或留空',
   'email format is invalid': '邮箱格式不正确',
   'account or email already exists': '账号或邮箱已存在',
   'email already exists': '邮箱已存在',
   'account or password is incorrect': '账号或密码不正确',
   'user is disabled': '账号已被禁用',
   'old password is incorrect': '原密码不正确',
+  'registration is disabled': '注册已关闭，请联系管理员。',
   'refresh token is invalid': '登录状态无效，请重新登录',
   'refresh token is expired': '登录已过期，请重新登录',
   'resource not found': '资源不存在或已被删除',

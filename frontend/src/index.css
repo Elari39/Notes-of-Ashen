@@ -67,3 +67,55 @@
     writing-mode: vertical-rl;
   }
 }
+
+@layer components {
+  .page-transition-surface {
+    will-change: opacity, transform;
+  }
+
+  .page-transition-shell {
+    position: relative;
+    overflow: clip;
+  }
+
+  .page-transition-shell::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 1;
+    width: 100%;
+    height: 1px;
+    pointer-events: none;
+    background: linear-gradient(90deg, transparent, var(--ochre), transparent);
+    opacity: 0;
+    transform-origin: left center;
+    animation: page-paper-line 280ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  @keyframes page-paper-line {
+    0% {
+      opacity: 0;
+      transform: scaleX(0);
+    }
+
+    42% {
+      opacity: 0.45;
+    }
+
+    100% {
+      opacity: 0;
+      transform: scaleX(1);
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page-transition-surface {
+    will-change: auto;
+  }
+
+  .page-transition-shell::before {
+    animation: none;
+  }
+}

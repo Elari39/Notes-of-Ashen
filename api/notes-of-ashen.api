@@ -43,6 +43,14 @@ type TokenResp {
 	ExpiresIn    int64  `json:"expiresIn"`
 }
 
+type SiteSettingsResp {
+	RegistrationEnabled bool `json:"registrationEnabled"`
+}
+
+type UpdateSiteSettingsReq {
+	RegistrationEnabled bool `json:"registrationEnabled"`
+}
+
 type UpdateMeReq {
 	Email     string `json:"email,optional"`
 	AvatarUrl string `json:"avatarUrl,optional"`
@@ -232,6 +240,9 @@ service notesOfAshen-api {
 	@handler tagList
 	get /api/v1/tags (PageReq) returns (TagListResp)
 
+	@handler siteSettings
+	get /api/v1/site/settings returns (SiteSettingsResp)
+
 	@handler logout
 	post /api/v1/auth/logout (RefreshReq) returns (EmptyResp)
 
@@ -285,4 +296,7 @@ service notesOfAshen-api {
 
 	@handler adminLogList
 	get /api/v1/admin/logs (PageReq) returns (OperationLogListResp)
+
+	@handler adminUpdateSiteSettings
+	put /api/v1/admin/site/settings (UpdateSiteSettingsReq) returns (SiteSettingsResp)
 }

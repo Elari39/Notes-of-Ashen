@@ -6,13 +6,22 @@ import InlineNotice from '../../components/InlineNotice';
 import { getErrorMessage } from '../../utils/error';
 import { formatText, getUserRoleLabel, getUserStatusLabel, translate } from '../../i18n';
 import { usePreferenceStore } from '../../store/preferences';
+import { useSiteSettingsStore } from '../../store/siteSettings';
 
 const AdminUsers: React.FC = () => {
   const language = usePreferenceStore((state) => state.language);
+  const {
+    registrationEnabled,
+    isLoading: settingsLoading,
+    fetchSettings,
+    setRegistrationEnabled,
+  } = useSiteSettingsStore();
   const [users, setUsers] = useState<User[]>([]);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [error, setError] = useState('');
+  const [settingsError, setSettingsError] = useState('');
+  const [settingsNotice, setSettingsNotice] = useState('');
   const [busyId, setBusyId] = useState<number | null>(null);
   const size = 10;
   const t = (key: Parameters<typeof translate>[1]) => translate(language, key);
@@ -30,6 +39,22 @@ const AdminUsers: React.FC = () => {
   useEffect(() => {
     fetchList();
   }, [fetchList]);
+
+  useEffect(() => {
+    fetchSettings();
+  }, [fetchSettings]);
+
+  const handleRegistrationToggle = async () => {
+    const nextEnabled = !registrationEnabled;
+    setSettingsError('');
+    setSettingsNotice('');
+    try {
+      await setRegistrationEnabled(nextEnabled);
+      setSettingsNotice(nextEnabled ? t('users.registrationEnabledSaved') : t('users.registrationDisabledSaved'));
+    } catch (e: unknown) {
+      setSettingsError(getErrorMessage(e, t('users.registrationSettingsError')));
+    }
+  };
 
   const handleStatus = async (id: number, currentStatus: string) => {
     const newStatus = currentStatus === 'active' ? 'disabled' : 'active';
@@ -53,6 +78,33 @@ const AdminUsers: React.FC = () => {
       <div className="mb-8 border-b border-mountain-grey pb-4">
         <h3 className="text-2xl font-bold text-ink tracking-widest">{t('admin.users')}</h3>
       </div>
+
+      <section className="mb-8 border border-mountain-grey bg-[var(--paper-soft)] p-5">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div>
+            <h4 className="text-base font-bold tracking-widest text-ink">{t('users.registrationSettingsTitle')}</h4>
+            <p className="mt-2 text-sm leading-relaxed text-ink-light opacity-80">
+              {t('users.registrationSettingsDesc')}
+            </p>
+          </div>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={registrationEnabled}
+            disabled={settingsLoading}
+            onClick={handleRegistrationToggle}
+            className={`min-w-32 border px-4 py-2 text-sm tracking-widest transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+              registrationEnabled
+                ? 'border-ochre text-ochre hover:bg-ochre hover:text-paper'
+                : 'border-ink-light text-ink-light hover:border-ink hover:text-ink'
+            }`}
+          >
+            {settingsLoading ? t('common.saving') : registrationEnabled ? t('users.registrationEnabled') : t('users.registrationDisabled')}
+          </button>
+        </div>
+        <InlineNotice message={settingsError} className="mt-4" />
+        <InlineNotice message={settingsNotice} tone="success" className="mt-4" />
+      </section>
 
       <InlineNotice message={error} className="mb-6" />
 

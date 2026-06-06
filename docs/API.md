@@ -1213,6 +1213,7 @@ GET /api/v1/articles?q=go&categoryId=1&tagId=2&page=1&size=10
 GET /api/v1/admin/articles
 ```
 
+
 权限：管理员。
 
 查询参数：
@@ -1227,3 +1228,57 @@ GET /api/v1/admin/articles
 | tagId | uint64 | 否 | 按标签 ID 筛选 |
 
 该接口用于后台文章管理，可以查看管理员权限下的全量文章集合；非管理员访问返回 `40300`。
+
+## 站点设置与注册开关
+
+### 获取站点设置
+
+```text
+GET /api/v1/site/settings
+```
+
+权限：公开。
+说明：返回当前游客是否可以注册账号。若用户表为空，即使后台开关保存为关闭，也会返回 `registrationEnabled = true`，以确保首个注册用户仍可成为管理员。
+
+响应示例：
+
+```json
+{
+  "code": 0,
+  "message": "success",
+  "data": {
+    "registrationEnabled": true
+  }
+}
+```
+
+### 更新站点设置
+
+```text
+PUT /api/v1/admin/site/settings
+```
+
+权限：管理员。
+说明：用于开启或关闭后续账号注册。关闭后，已有用户仍可登录；首个管理员初始化仍不受影响。
+
+请求示例：
+
+```json
+{
+  "registrationEnabled": false
+}
+```
+
+响应示例：
+
+```json
+{
+  "code": 0,
+  "message": "success",
+  "data": {
+    "registrationEnabled": false
+  }
+}
+```
+
+常见错误：`40100` Token 无效，`40300` 非管理员或注册已关闭。

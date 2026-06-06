@@ -1,16 +1,18 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import { Components } from 'react-markdown';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vs } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { getArticleById, createArticle, updateArticle } from '../../api/article';
-import { getCategories } from '../../api/category';
-import { getTags } from '../../api/tag';
+import { createCategory, getCategories } from '../../api/category';
+import { createTag, getTags } from '../../api/tag';
 import { Category, Tag } from '../../types';
 import InlineNotice from '../../components/InlineNotice';
 import { getErrorMessage } from '../../utils/error';
-import { getArticleStatusLabel, translate } from '../../i18n';
+import { generateSlug } from '../../utils/slug';
+import { isValidCoverUrl } from '../../utils/cover';
+import { formatText, getArticleStatusLabel, translate } from '../../i18n';
 import { usePreferenceStore } from '../../store/preferences';
 
 const markdownComponents: Components = {
@@ -30,6 +32,210 @@ const markdownComponents: Components = {
       </code>
     );
   },
+};
+
+type TaxonomyOption = {
+  id: number;
+  name: string;
+  slug: string;
+};
+
+type TaxonomyComboboxProps<T extends TaxonomyOption> = {
+  label: string;
+  placeholder: string;
+  items: T[];
+  selectedIds: number[];
+  multiple?: boolean;
+  error?: string;
+  creating?: boolean;
+  createLabel: (value: string) => string;
+  noMatchesLabel: string;
+  clearLabel: string;
+  creatingLabel: string;
+  onSelect: (item: T) => void;
+  onRemove: (id: number) => void;
+  onCreate: (name: string) => Promise<boolean>;
+};
+
+const normalizeSearch = (value: string) => value.trim().toLowerCase();
+
+const TaxonomyCombobox = <T extends TaxonomyOption>({
+  label,
+  placeholder,
+  items,
+  selectedIds,
+  multiple = false,
+  error,
+  creating = false,
+  createLabel,
+  noMatchesLabel,
+  clearLabel,
+  creatingLabel,
+  onSelect,
+  onRemove,
+  onCreate,
+}: TaxonomyComboboxProps<T>) => {
+  const [query, setQuery] = useState('');
+  const [open, setOpen] = useState(false);
+  const selectedIdSet = useMemo(() => new Set(selectedIds), [selectedIds]);
+  const selectedItems = useMemo(
+    () => items.filter(item => selectedIdSet.has(item.id)),
+    [items, selectedIdSet],
+  );
+  const selectedCategory = !multiple ? selectedItems[0] : undefined;
+  const selectedCategoryName = selectedCategory?.name;
+  const trimmedQuery = query.trim();
+  const normalizedQuery = normalizeSearch(query);
+
+  useEffect(() => {
+    if (!multiple && selectedCategoryName) {
+      setQuery(selectedCategoryName);
+    }
+  }, [multiple, selectedCategoryName]);
+
+  const availableItems = useMemo(
+    () => multiple ? items.filter(item => !selectedIdSet.has(item.id)) : items,
+    [items, multiple, selectedIdSet],
+  );
+  const filteredItems = useMemo(() => {
+    if (!normalizedQuery) {
+      return availableItems;
+    }
+    return availableItems.filter(item => {
+      const name = item.name.toLowerCase();
+      const slug = item.slug.toLowerCase();
+      return name.includes(normalizedQuery) || slug.includes(normalizedQuery);
+    });
+  }, [availableItems, normalizedQuery]);
+  const exactNameItem = items.find(item => item.name.trim().toLowerCase() === normalizedQuery);
+  const hasSameName = Boolean(exactNameItem);
+  const canCreate = trimmedQuery.length > 0 && !hasSameName;
+
+  const handleSelect = (item: T) => {
+    onSelect(item);
+    setQuery(multiple ? '' : item.name);
+    setOpen(false);
+  };
+
+  const handleCreate = async () => {
+    if (!canCreate || creating) {
+      return;
+    }
+    const created = await onCreate(trimmedQuery);
+    if (created) {
+      setQuery('');
+      setOpen(false);
+    }
+  };
+
+  const handleInputChange = (value: string) => {
+    if (!multiple && selectedCategory) {
+      onRemove(selectedCategory.id);
+    }
+    setQuery(value);
+    setOpen(true);
+  };
+
+  const handleKeyDown = async (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      if (exactNameItem) {
+        handleSelect(exactNameItem);
+        return;
+      }
+      await handleCreate();
+    }
+    if (e.key === 'Escape') {
+      setOpen(false);
+    }
+    if (multiple && e.key === 'Backspace' && query === '' && selectedIds.length > 0) {
+      onRemove(selectedIds[selectedIds.length - 1]);
+    }
+  };
+
+  return (
+    <div
+      className="relative space-y-2"
+      onBlur={e => {
+        const nextTarget = e.relatedTarget as Node | null;
+        if (!nextTarget || !e.currentTarget.contains(nextTarget)) {
+          setOpen(false);
+        }
+      }}
+    >
+      <div className="flex items-center gap-2 border-b border-mountain-grey py-1 focus-within:border-ochre">
+        <span className="text-ink-light text-sm whitespace-nowrap">{label}</span>
+        {multiple && selectedItems.map(item => (
+          <button
+            key={item.id}
+            type="button"
+            onClick={() => onRemove(item.id)}
+            className="shrink-0 px-2 py-1 text-xs border border-ochre text-ochre rounded-sm whitespace-nowrap hover:bg-mountain-grey hover:bg-opacity-20 transition-colors"
+            title={clearLabel}
+          >
+            {item.name} <span aria-hidden="true">&times;</span>
+          </button>
+        ))}
+        <input
+          type="text"
+          value={query}
+          placeholder={multiple || !selectedCategory ? placeholder : ''}
+          onFocus={() => setOpen(true)}
+          onChange={e => handleInputChange(e.target.value)}
+          onKeyDown={handleKeyDown}
+          className="min-w-[8rem] flex-1 bg-transparent py-2 text-ink focus:outline-none"
+        />
+        {!multiple && selectedCategory && (
+          <button
+            type="button"
+            onClick={() => {
+              onRemove(selectedCategory.id);
+              setQuery('');
+              setOpen(false);
+            }}
+            className="shrink-0 px-2 text-ink-light hover:text-ochre transition-colors"
+            title={clearLabel}
+          >
+            <span aria-hidden="true">&times;</span>
+          </button>
+        )}
+      </div>
+
+      <InlineNotice message={error} />
+
+      {open && (filteredItems.length > 0 || canCreate) && (
+        <div className="absolute left-0 right-0 top-full z-20 mt-1 max-h-56 overflow-y-auto border border-mountain-grey bg-paper shadow-sm">
+          {filteredItems.map(item => (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => handleSelect(item)}
+              className="block w-full px-3 py-2 text-left text-sm text-ink hover:bg-mountain-grey hover:bg-opacity-20"
+            >
+              <span className="font-bold">{item.name}</span>
+              <span className="ml-2 text-xs text-ink-light">{item.slug}</span>
+            </button>
+          ))}
+          {canCreate && (
+            <button
+              type="button"
+              onClick={handleCreate}
+              disabled={creating}
+              className="block w-full px-3 py-2 text-left text-sm text-ochre hover:bg-mountain-grey hover:bg-opacity-20 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {creating ? creatingLabel : createLabel(trimmedQuery)}
+            </button>
+          )}
+        </div>
+      )}
+
+      {open && filteredItems.length === 0 && !canCreate && (
+        <div className="absolute left-0 right-0 top-full z-20 mt-1 border border-mountain-grey bg-paper px-3 py-2 text-sm text-ink-light shadow-sm">
+          {noMatchesLabel}
+        </div>
+      )}
+    </div>
+  );
 };
 
 const ArticleEditor: React.FC = () => {
@@ -52,6 +258,10 @@ const ArticleEditor: React.FC = () => {
   const [tags, setTags] = useState<Tag[]>([]);
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [categoryError, setCategoryError] = useState('');
+  const [categorySubmitting, setCategorySubmitting] = useState(false);
+  const [tagError, setTagError] = useState('');
+  const [tagSubmitting, setTagSubmitting] = useState(false);
 
   useEffect(() => {
     const fetchDeps = async () => {
@@ -86,8 +296,14 @@ const ArticleEditor: React.FC = () => {
   }, [id, isEdit, language]);
 
   const handleSave = async () => {
+    const trimmedCoverUrl = coverUrl.trim();
+    if (!isValidCoverUrl(trimmedCoverUrl)) {
+      setError(t('articleEditor.coverUrlError'));
+      return;
+    }
+
     const payload = {
-      title, slug, summary, content, coverUrl, status,
+      title, slug, summary, content, coverUrl: trimmedCoverUrl, status,
       categoryId: categoryId === '' ? 0 : Number(categoryId),
       tagIds,
     };
@@ -108,10 +324,46 @@ const ArticleEditor: React.FC = () => {
     }
   };
 
-  const handleTagToggle = (tagId: number) => {
-    setTagIds(prev =>
-      prev.includes(tagId) ? prev.filter(prevId => prevId !== tagId) : [...prev, tagId],
-    );
+  const handleCreateCategory = async (name: string) => {
+    setCategoryError('');
+    setCategorySubmitting(true);
+    try {
+      const res = await createCategory({
+        name,
+        slug: generateSlug(name),
+        description: '',
+      });
+      const createdCategory = res.data;
+      setCategories(prev => [createdCategory, ...prev.filter(category => category.id !== createdCategory.id)]);
+      setCategoryId(createdCategory.id);
+      return true;
+    } catch (e: unknown) {
+      setCategoryError(getErrorMessage(e, t('articleEditor.createCategoryError')));
+      return false;
+    } finally {
+      setCategorySubmitting(false);
+    }
+  };
+
+  const handleCreateTag = async (name: string) => {
+    setTagError('');
+    setTagSubmitting(true);
+    try {
+      const res = await createTag({
+        name,
+        slug: generateSlug(name),
+        description: '',
+      });
+      const createdTag = res.data;
+      setTags(prev => [createdTag, ...prev.filter(tag => tag.id !== createdTag.id)]);
+      setTagIds(prev => prev.includes(createdTag.id) ? prev : [...prev, createdTag.id]);
+      return true;
+    } catch (e: unknown) {
+      setTagError(getErrorMessage(e, t('articleEditor.createTagError')));
+      return false;
+    } finally {
+      setTagSubmitting(false);
+    }
   };
 
   return (
@@ -149,26 +401,50 @@ const ArticleEditor: React.FC = () => {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-        <select
-          value={categoryId} onChange={e => setCategoryId(e.target.value === '' ? '' : Number(e.target.value))}
-          className="w-full bg-transparent border-b border-mountain-grey py-2 text-ink focus:outline-none focus:border-ochre"
-        >
-          <option value="">{t('articleEditor.chooseCategory')}</option>
-          {categories.map(category => <option key={category.id} value={category.id}>{category.name}</option>)}
-        </select>
+        <TaxonomyCombobox
+          label={t('articleEditor.categoryLabel')}
+          placeholder={t('articleEditor.categorySearchPlaceholder')}
+          items={categories}
+          selectedIds={categoryId === '' ? [] : [Number(categoryId)]}
+          error={categoryError}
+          creating={categorySubmitting}
+          createLabel={value => formatText(t('articleEditor.createCategoryOption'), { value })}
+          noMatchesLabel={t('articleEditor.noCategoryMatches')}
+          clearLabel={t('articleEditor.clearCategory')}
+          creatingLabel={t('common.processing')}
+          onSelect={category => {
+            setCategoryId(category.id);
+            setCategoryError('');
+          }}
+          onRemove={() => {
+            setCategoryId('');
+            setCategoryError('');
+          }}
+          onCreate={handleCreateCategory}
+        />
 
-        <div className="flex items-center space-x-2 overflow-x-auto pb-2 border-b border-mountain-grey">
-          <span className="text-ink-light text-sm whitespace-nowrap">{t('articleEditor.tags')}</span>
-          {tags.map(tag => (
-            <span
-              key={tag.id}
-              onClick={() => handleTagToggle(tag.id)}
-              className={`cursor-pointer px-2 py-1 text-xs border rounded-sm whitespace-nowrap ${tagIds.includes(tag.id) ? 'border-ochre text-ochre' : 'border-mountain-grey text-ink-light'}`}
-            >
-              {tag.name}
-            </span>
-          ))}
-        </div>
+        <TaxonomyCombobox
+          label={t('articleEditor.tags')}
+          placeholder={t('articleEditor.tagSearchPlaceholder')}
+          items={tags}
+          selectedIds={tagIds}
+          multiple
+          error={tagError}
+          creating={tagSubmitting}
+          createLabel={value => formatText(t('articleEditor.createTagOption'), { value })}
+          noMatchesLabel={t('articleEditor.noTagMatches')}
+          clearLabel={t('articleEditor.removeTag')}
+          creatingLabel={t('common.processing')}
+          onSelect={tag => {
+            setTagIds(prev => prev.includes(tag.id) ? prev : [...prev, tag.id]);
+            setTagError('');
+          }}
+          onRemove={tagId => {
+            setTagIds(prev => prev.filter(prevId => prevId !== tagId));
+            setTagError('');
+          }}
+          onCreate={handleCreateTag}
+        />
       </div>
 
       <input

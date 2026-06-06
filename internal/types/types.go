@@ -26,6 +26,14 @@ type RefreshReq struct {
 	RefreshToken string `json:"refreshToken"`
 }
 
+type SiteSettingsResp struct {
+	RegistrationEnabled bool `json:"registrationEnabled"`
+}
+
+type UpdateSiteSettingsReq struct {
+	RegistrationEnabled bool `json:"registrationEnabled"`
+}
+
 type RequestMeta struct {
 	IP        string
 	UserAgent string

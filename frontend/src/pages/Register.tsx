@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { register } from '../api/auth';
 import { useAuthStore } from '../store/auth';
 import { usePreferenceStore } from '../store/preferences';
+import { useSiteSettingsStore } from '../store/siteSettings';
 import { normalizeAvatarUrl } from '../utils/avatar';
 import InlineNotice from '../components/InlineNotice';
 import { getErrorMessage } from '../utils/error';
@@ -10,6 +11,7 @@ import { translate } from '../i18n';
 
 const Register: React.FC = () => {
   const language = usePreferenceStore((state) => state.language);
+  const { registrationEnabled, hasLoaded, isLoading } = useSiteSettingsStore();
   const [account, setAccount] = useState('');
   const [password, setPassword] = useState('');
   const [email, setEmail] = useState('');
@@ -23,6 +25,10 @@ const Register: React.FC = () => {
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (hasLoaded && !registrationEnabled) {
+      setError(t('auth.registrationDisabled'));
+      return;
+    }
     setError('');
     setSubmitting(true);
     try {
@@ -49,6 +55,14 @@ const Register: React.FC = () => {
     <div className="flex-grow flex items-center justify-center">
       <div className="w-full max-w-sm">
         <h1 className="text-3xl font-bold text-ink mb-12 text-center tracking-widest">{t('auth.registerTitle')}</h1>
+        {hasLoaded && !registrationEnabled ? (
+          <div className="space-y-6 text-center">
+            <InlineNotice message={t('auth.registrationDisabled')} />
+            <Link to="/login" className="inline-block text-sm tracking-widest text-ochre hover:text-ink transition-colors">
+              {t('auth.goLogin')}
+            </Link>
+          </div>
+        ) : (
         <form onSubmit={handleRegister} className="space-y-8">
           <div>
             <input
@@ -102,16 +116,17 @@ const Register: React.FC = () => {
           <div className="pt-4">
             <button
               type="submit"
-              disabled={submitting}
+              disabled={submitting || isLoading}
               className="w-full border border-ink text-ink py-3 hover:bg-ink hover:text-paper transition-colors duration-300 tracking-widest disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {submitting ? t('auth.registerSubmitting') : t('auth.registerSubmit')}
+              {submitting || isLoading ? t('auth.registerSubmitting') : t('auth.registerSubmit')}
             </button>
           </div>
           <div className="text-center text-sm text-ink-light opacity-70 mt-4">
             {t('auth.hasAccount')} <Link to="/login" className="hover:text-ochre transition-colors">{t('auth.goLogin')}</Link>
           </div>
         </form>
+        )}
       </div>
     </div>
   );

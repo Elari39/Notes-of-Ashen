@@ -1,12 +1,12 @@
 import { useEffect } from 'react';
-import { Routes, Route, useLocation } from 'react-router-dom';
-import { AnimatePresence } from 'framer-motion';
+import { Routes, Route } from 'react-router-dom';
 import Layout from './components/Layout';
 import Home from './pages/Home';
 import ArticleDetail from './pages/ArticleDetail';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Archive from './pages/Archive';
+import Search from './pages/Search';
 import Profile from './pages/Profile';
 import ProtectedRoute from './components/ProtectedRoute';
 
@@ -19,44 +19,48 @@ import AdminUsers from './pages/admin/Users';
 import AdminLogs from './pages/admin/Logs';
 import NotFound from './pages/NotFound';
 import { usePreferenceStore } from './store/preferences';
+import { useSiteSettingsStore } from './store/siteSettings';
 
 function App() {
-  const location = useLocation();
   const initializePreferences = usePreferenceStore((state) => state.initializePreferences);
+  const fetchSiteSettings = useSiteSettingsStore((state) => state.fetchSettings);
 
   useEffect(() => {
     return initializePreferences();
   }, [initializePreferences]);
 
-  return (
-    <AnimatePresence mode="wait">
-      <Routes location={location} key={location.pathname}>
-        <Route path="/" element={<Layout />}>
-          <Route index element={<Home />} />
-          <Route path="article/:id" element={<ArticleDetail />} />
-          <Route path="archive" element={<Archive />} />
-          <Route path="login" element={<Login />} />
-          <Route path="register" element={<Register />} />
-          
-          <Route element={<ProtectedRoute />}>
-             <Route path="profile" element={<Profile />} />
-          </Route>
+  useEffect(() => {
+    fetchSiteSettings();
+  }, [fetchSiteSettings]);
 
-          <Route path="admin" element={<ProtectedRoute requireAdmin />}>
-             <Route element={<AdminLayout />}>
-               <Route index element={<AdminArticles />} />
-               <Route path="articles" element={<AdminArticles />} />
-               <Route path="editor/:id" element={<ArticleEditor />} />
-               <Route path="categories" element={<AdminCategories />} />
-               <Route path="tags" element={<AdminTags />} />
-               <Route path="users" element={<AdminUsers />} />
-               <Route path="logs" element={<AdminLogs />} />
-             </Route>
-          </Route>
-          <Route path="*" element={<NotFound />} />
+  return (
+    <Routes>
+      <Route path="/" element={<Layout />}>
+        <Route index element={<Home />} />
+        <Route path="article/:id" element={<ArticleDetail />} />
+        <Route path="archive" element={<Archive />} />
+        <Route path="search" element={<Search />} />
+        <Route path="login" element={<Login />} />
+        <Route path="register" element={<Register />} />
+        
+        <Route element={<ProtectedRoute />}>
+           <Route path="profile" element={<Profile />} />
         </Route>
-      </Routes>
-    </AnimatePresence>
+
+        <Route path="admin" element={<ProtectedRoute requireAdmin />}>
+           <Route element={<AdminLayout />}>
+             <Route index element={<AdminArticles />} />
+             <Route path="articles" element={<AdminArticles />} />
+             <Route path="editor/:id" element={<ArticleEditor />} />
+             <Route path="categories" element={<AdminCategories />} />
+             <Route path="tags" element={<AdminTags />} />
+             <Route path="users" element={<AdminUsers />} />
+             <Route path="logs" element={<AdminLogs />} />
+           </Route>
+        </Route>
+        <Route path="*" element={<NotFound />} />
+      </Route>
+    </Routes>
   )
 }
 

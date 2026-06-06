@@ -1,21 +1,25 @@
 import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { login } from '../api/auth';
 import { useAuthStore } from '../store/auth';
 import { usePreferenceStore } from '../store/preferences';
+import { useSiteSettingsStore } from '../store/siteSettings';
 import InlineNotice from '../components/InlineNotice';
 import { getErrorMessage } from '../utils/error';
 import { translate } from '../i18n';
 
 const Login: React.FC = () => {
   const language = usePreferenceStore((state) => state.language);
+  const registrationEnabled = useSiteSettingsStore((state) => state.registrationEnabled);
   const [account, setAccount] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
   const { setAuth, fetchUser } = useAuthStore();
   const t = (key: Parameters<typeof translate>[1]) => translate(language, key);
+  const from = (location.state as { from?: Location } | null)?.from;
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -27,7 +31,8 @@ const Login: React.FC = () => {
       localStorage.setItem('refreshToken', res.data.refreshToken);
       setAuth(null, token);
       await fetchUser();
-      navigate('/');
+      const redirectTo = from ? `${from.pathname}${from.search}${from.hash}` : '/';
+      navigate(redirectTo, { replace: true });
     } catch (err: unknown) {
       setError(getErrorMessage(err, t('auth.loginError')));
     } finally {
@@ -70,9 +75,11 @@ const Login: React.FC = () => {
               {submitting ? t('auth.loginSubmitting') : t('auth.loginSubmit')}
             </button>
           </div>
-          <div className="text-center text-sm text-ink-light opacity-70 mt-4">
-            {t('auth.noAccount')} <Link to="/register" className="hover:text-ochre transition-colors">{t('auth.goRegister')}</Link>
-          </div>
+          {registrationEnabled && (
+            <div className="text-center text-sm text-ink-light opacity-70 mt-4">
+              {t('auth.noAccount')} <Link to="/register" className="hover:text-ochre transition-colors">{t('auth.goRegister')}</Link>
+            </div>
+          )}
         </form>
       </div>
     </div>
