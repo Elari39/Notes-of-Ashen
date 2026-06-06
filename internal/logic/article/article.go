@@ -21,17 +21,51 @@ var statuses = map[string]struct{}{
 }
 
 func List(ctx context.Context, svcCtx *svc.ServiceContext, page, size int, status string) (*types.ArticleListResp, error) {
-	page, size = logicutil.Page(page, size)
-	status = strings.TrimSpace(status)
+	return list(ctx, svcCtx, types.ArticleListReq{
+		Page:   page,
+		Size:   size,
+		Status: status,
+	})
+}
+
+func ListByFilter(ctx context.Context, svcCtx *svc.ServiceContext, req types.ArticleListReq) (*types.ArticleListResp, error) {
+	return list(ctx, svcCtx, req)
+}
+
+func AdminList(ctx context.Context, svcCtx *svc.ServiceContext, req types.ArticleListReq) (*types.ArticleListResp, error) {
+	if err := authutil.RequireAdmin(ctx); err != nil {
+		return nil, err
+	}
+	return listWithFilter(ctx, svcCtx, req, model.ArticleFilter{Role: "admin"})
+}
+
+func list(ctx context.Context, svcCtx *svc.ServiceContext, req types.ArticleListReq) (*types.ArticleListResp, error) {
+	return listWithFilter(ctx, svcCtx, req, model.ArticleFilter{})
+}
+
+func listWithFilter(ctx context.Context, svcCtx *svc.ServiceContext, req types.ArticleListReq, filter model.ArticleFilter) (*types.ArticleListResp, error) {
+	page, size := logicutil.Page(req.Page, req.Size)
+	status := strings.TrimSpace(req.Status)
+	query := strings.TrimSpace(req.Query)
 	if status != "" {
 		if err := validator.Status(status, statuses, "status"); err != nil {
 			return nil, err
 		}
 	}
+	if query != "" {
+		if err := validator.Length(query, "q", 1, 160); err != nil {
+			return nil, err
+		}
+	}
 	items, total, err := svcCtx.Store.ListArticles(ctx, model.ArticleFilter{
-		Status: status,
-		Page:   page,
-		Size:   size,
+		UserID:     filter.UserID,
+		Role:       filter.Role,
+		Status:     status,
+		Query:      query,
+		CategoryID: req.CategoryID,
+		TagID:      req.TagID,
+		Page:       page,
+		Size:       size,
 	})
 	if err != nil {
 		return nil, err

@@ -1,9 +1,12 @@
 import http from '../utils/http';
 import { BaseResp, Article, PaginatedResp } from '../types';
-import { CreateArticleReq, UpdateArticleReq, UpdateArticleStatusReq, PageParams } from '../types/api';
+import { ArticleListParams, CreateArticleReq, UpdateArticleReq, UpdateArticleStatusReq } from '../types/api';
 
-export const getArticles = (params?: PageParams) => 
+export const getArticles = (params?: ArticleListParams) => 
   http.get<unknown, BaseResp<PaginatedResp<Article>>>('/articles', { params });
+
+export const getAdminArticles = (params?: ArticleListParams) => 
+  http.get<unknown, BaseResp<PaginatedResp<Article>>>('/admin/articles', { params });
 
 export const getArticleById = (id: number | string) => 
   http.get<unknown, BaseResp<Article>>(`/articles/${id}`);

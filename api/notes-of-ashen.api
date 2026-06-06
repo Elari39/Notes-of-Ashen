@@ -7,6 +7,17 @@ info (
 	version: "v1"
 )
 
+type EmptyResp {}
+
+type IDPathReq {
+	ID uint64 `path:"id"`
+}
+
+type PageReq {
+	Page int `form:"page,optional"`
+	Size int `form:"size,optional"`
+}
+
 type RegisterReq {
 	Account  string `json:"account"`
 	Password string `json:"password"`
@@ -32,7 +43,174 @@ type TokenResp {
 	ExpiresIn    int64  `json:"expiresIn"`
 }
 
-service notes-of-ashen-api {
+type UpdateMeReq {
+	Email     string `json:"email,optional"`
+	AvatarUrl string `json:"avatarUrl,optional"`
+	Nickname  string `json:"nickname,optional"`
+}
+
+type ChangePasswordReq {
+	OldPassword string `json:"oldPassword"`
+	NewPassword string `json:"newPassword"`
+}
+
+type UserResp {
+	ID        uint64 `json:"id"`
+	Account   string `json:"account"`
+	Email     string `json:"email"`
+	AvatarUrl string `json:"avatarUrl"`
+	Nickname  string `json:"nickname"`
+	Role      string `json:"role"`
+	Status    string `json:"status"`
+	CreatedAt string `json:"createdAt"`
+	UpdatedAt string `json:"updatedAt"`
+}
+
+type UserListResp {
+	Items []UserResp `json:"items"`
+	Total int64      `json:"total"`
+	Page  int        `json:"page"`
+	Size  int        `json:"size"`
+}
+
+type UserStatusReq {
+	Status string `json:"status"`
+}
+
+type ArticleReq {
+	CategoryID uint64   `json:"categoryId,optional"`
+	Title      string   `json:"title"`
+	Slug       string   `json:"slug"`
+	Summary    string   `json:"summary,optional"`
+	Content    string   `json:"content"`
+	CoverURL   string   `json:"coverUrl,optional"`
+	Status     string   `json:"status,optional"`
+	TagIDs     []uint64 `json:"tagIds,optional"`
+}
+
+type ArticleStatusReq {
+	ID uint64 `path:"id"`
+	Status string `json:"status"`
+}
+
+type ArticleListReq {
+	Page       int    `form:"page,optional"`
+	Size       int    `form:"size,optional"`
+	Status     string `form:"status,optional"`
+	Query      string `form:"q,optional"`
+	CategoryID uint64 `form:"categoryId,optional"`
+	TagID      uint64 `form:"tagId,optional"`
+}
+
+type CategoryResp {
+	ID          uint64 `json:"id"`
+	Name        string `json:"name"`
+	Slug        string `json:"slug"`
+	Description string `json:"description"`
+	CreatedBy   uint64 `json:"createdBy"`
+	CreatedAt   string `json:"createdAt"`
+	UpdatedAt   string `json:"updatedAt"`
+}
+
+type CategoryListResp {
+	Items []CategoryResp `json:"items"`
+	Total int64          `json:"total"`
+	Page  int            `json:"page"`
+	Size  int            `json:"size"`
+}
+
+type TagResp {
+	ID          uint64 `json:"id"`
+	Name        string `json:"name"`
+	Slug        string `json:"slug"`
+	Description string `json:"description"`
+	CreatedBy   uint64 `json:"createdBy"`
+	CreatedAt   string `json:"createdAt"`
+	UpdatedAt   string `json:"updatedAt"`
+}
+
+type TagListResp {
+	Items []TagResp `json:"items"`
+	Total int64     `json:"total"`
+	Page  int       `json:"page"`
+	Size  int       `json:"size"`
+}
+
+type ArticleResp {
+	ID          uint64        `json:"id"`
+	AuthorID    uint64        `json:"authorId"`
+	CategoryID  uint64        `json:"categoryId,optional"`
+	Title       string        `json:"title"`
+	Slug        string        `json:"slug"`
+	Summary     string        `json:"summary"`
+	Content     string        `json:"content,optional"`
+	CoverURL    string        `json:"coverUrl"`
+	Status      string        `json:"status"`
+	ViewCount   uint64        `json:"viewCount"`
+	PublishedAt string       `json:"publishedAt,optional"`
+	CreatedAt   string       `json:"createdAt"`
+	UpdatedAt   string       `json:"updatedAt"`
+	Tags        []TagResp    `json:"tags,optional"`
+	Category    CategoryResp  `json:"category,optional"`
+}
+
+type ArticleListResp {
+	Items []ArticleResp `json:"items"`
+	Total int64         `json:"total"`
+	Page  int           `json:"page"`
+	Size  int           `json:"size"`
+}
+
+type TaxonomyReq {
+	Name        string `json:"name"`
+	Slug        string `json:"slug"`
+	Description string `json:"description,optional"`
+}
+
+type TaxonomyWithIDReq {
+	ID          uint64 `path:"id"`
+	Name        string `json:"name"`
+	Slug        string `json:"slug"`
+	Description string `json:"description,optional"`
+}
+
+type ArticleWithIDReq {
+	ID         uint64   `path:"id"`
+	CategoryID uint64  `json:"categoryId,optional"`
+	Title      string  `json:"title"`
+	Slug       string  `json:"slug"`
+	Summary    string  `json:"summary,optional"`
+	Content    string  `json:"content"`
+	CoverURL   string  `json:"coverUrl,optional"`
+	Status     string  `json:"status,optional"`
+	TagIDs     []uint64 `json:"tagIds,optional"`
+}
+
+type UserStatusWithIDReq {
+	ID     uint64 `path:"id"`
+	Status string `json:"status"`
+}
+
+type OperationLogResp {
+	ID           uint64 `json:"id"`
+	UserID       uint64 `json:"userId,optional"`
+	EventType    string `json:"eventType"`
+	ResourceType string `json:"resourceType"`
+	ResourceID   uint64 `json:"resourceId,optional"`
+	Metadata     string `json:"metadata,optional"`
+	IP           string `json:"ip"`
+	UserAgent    string `json:"userAgent"`
+	CreatedAt    string `json:"createdAt"`
+}
+
+type OperationLogListResp {
+	Items []OperationLogResp `json:"items"`
+	Total int64              `json:"total"`
+	Page  int                `json:"page"`
+	Size  int                `json:"size"`
+}
+
+service notesOfAshen-api {
 	@handler register
 	post /api/v1/auth/register (RegisterReq) returns (TokenResp)
 
@@ -41,4 +219,70 @@ service notes-of-ashen-api {
 
 	@handler refresh
 	post /api/v1/auth/refresh (RefreshReq) returns (TokenResp)
+
+	@handler articleList
+	get /api/v1/articles (ArticleListReq) returns (ArticleListResp)
+
+	@handler articleDetail
+	get /api/v1/articles/:id (IDPathReq) returns (ArticleResp)
+
+	@handler categoryList
+	get /api/v1/categories (PageReq) returns (CategoryListResp)
+
+	@handler tagList
+	get /api/v1/tags (PageReq) returns (TagListResp)
+
+	@handler logout
+	post /api/v1/auth/logout (RefreshReq) returns (EmptyResp)
+
+	@handler me
+	get /api/v1/users/me returns (UserResp)
+
+	@handler updateMe
+	put /api/v1/users/me (UpdateMeReq) returns (UserResp)
+
+	@handler changePassword
+	put /api/v1/users/me/password (ChangePasswordReq) returns (EmptyResp)
+
+	@handler articleCreate
+	post /api/v1/articles (ArticleReq) returns (ArticleResp)
+
+	@handler articleUpdate
+	put /api/v1/articles/:id (ArticleWithIDReq) returns (ArticleResp)
+
+	@handler articleDelete
+	delete /api/v1/articles/:id (IDPathReq) returns (EmptyResp)
+
+	@handler articleUpdateStatus
+	patch /api/v1/articles/:id/status (ArticleStatusReq) returns (ArticleResp)
+
+	@handler categoryCreate
+	post /api/v1/categories (TaxonomyReq) returns (CategoryResp)
+
+	@handler categoryUpdate
+	put /api/v1/categories/:id (TaxonomyWithIDReq) returns (CategoryResp)
+
+	@handler categoryDelete
+	delete /api/v1/categories/:id (IDPathReq) returns (EmptyResp)
+
+	@handler tagCreate
+	post /api/v1/tags (TaxonomyReq) returns (TagResp)
+
+	@handler tagUpdate
+	put /api/v1/tags/:id (TaxonomyWithIDReq) returns (TagResp)
+
+	@handler tagDelete
+	delete /api/v1/tags/:id (IDPathReq) returns (EmptyResp)
+
+	@handler adminArticleList
+	get /api/v1/admin/articles (ArticleListReq) returns (ArticleListResp)
+
+	@handler adminUserList
+	get /api/v1/admin/users (PageReq) returns (UserListResp)
+
+	@handler adminUpdateUserStatus
+	patch /api/v1/admin/users/:id/status (UserStatusWithIDReq) returns (EmptyResp)
+
+	@handler adminLogList
+	get /api/v1/admin/logs (PageReq) returns (OperationLogListResp)
 }

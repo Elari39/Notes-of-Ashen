@@ -68,7 +68,7 @@ Port: 19000
 Timeout: 5000
 
 Database:
-  DataSource: "root:123456@tcp(127.0.0.1:3306)/notes-of-ashen?charset=utf8mb4&parseTime=true&loc=Local"
+  DataSource: "root:123456@tcp(127.0.0.1:3306)/notes_of_ashen?charset=utf8mb4&parseTime=true&loc=Local"
   MaxOpenConns: 20
   MaxIdleConns: 10
 
@@ -101,7 +101,7 @@ RabbitMQ:
 
 ## 数据库初始化
 
-如果 `notes-of-ashen` 数据库尚未创建，可在项目根目录执行：
+如果 `notes_of_ashen` 数据库尚未创建，可在项目根目录执行：
 
 ```powershell
 Get-Content deploy\mysql\schema.sql | docker exec -i mysql mysql -uroot -p123456
@@ -110,13 +110,13 @@ Get-Content deploy\mysql\schema.sql | docker exec -i mysql mysql -uroot -p123456
 验证数据库：
 
 ```powershell
-docker exec mysql mysql -uroot -p123456 -N -e "SHOW DATABASES LIKE 'notes-of-ashen';"
+docker exec mysql mysql -uroot -p123456 -N -e "SHOW DATABASES LIKE 'notes_of_ashen';"
 ```
 
 验证数据表：
 
 ```powershell
-docker exec mysql mysql -uroot -p123456 -D notes-of-ashen -N -e "SHOW TABLES;"
+docker exec mysql mysql -uroot -p123456 -D notes_of_ashen -N -e "SHOW TABLES;"
 ```
 
 应包含以下表：
@@ -159,8 +159,8 @@ go build -o notes-of-ashen.exe ./cmd/notes-of-ashen
 
 ```powershell
 cd frontend
-npm install
-npm run dev
+pnpm install
+pnpm dev
 ```
 
 访问：
@@ -172,10 +172,14 @@ http://127.0.0.1:3000
 构建前端：
 
 ```powershell
-npm run build
+pnpm build
 ```
 
-注意：当前 `npm run lint` 脚本仍包含与 ESLint flat config 不兼容的参数，需修正脚本后再作为质量检查使用。
+检查前端代码：
+
+```powershell
+pnpm lint
+```
 
 ## 常用验证命令
 
@@ -303,7 +307,7 @@ docker ps
 
 ```yaml
 Database:
-  DataSource: "root:123456@tcp(127.0.0.1:3306)/notes-of-ashen?charset=utf8mb4&parseTime=true&loc=Local"
+  DataSource: "root:123456@tcp(127.0.0.1:3306)/notes_of_ashen?charset=utf8mb4&parseTime=true&loc=Local"
 ```
 
 ### 管理员接口返回 403

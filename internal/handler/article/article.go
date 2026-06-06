@@ -14,14 +14,54 @@ import (
 
 func ListHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		page, size := basehandler.PageSize(r)
-		resp, err := articlelogic.List(r.Context(), svcCtx, page, size, basehandler.Query(r, "status"))
+		req, err := listReq(r)
+		if err != nil {
+			response.Error(w, err)
+			return
+		}
+		resp, err := articlelogic.ListByFilter(r.Context(), svcCtx, req)
 		if err != nil {
 			response.Error(w, err)
 			return
 		}
 		response.Ok(w, resp)
 	}
+}
+
+func AdminListHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		req, err := listReq(r)
+		if err != nil {
+			response.Error(w, err)
+			return
+		}
+		resp, err := articlelogic.AdminList(r.Context(), svcCtx, req)
+		if err != nil {
+			response.Error(w, err)
+			return
+		}
+		response.Ok(w, resp)
+	}
+}
+
+func listReq(r *http.Request) (types.ArticleListReq, error) {
+	page, size := basehandler.PageSize(r)
+	categoryID, err := basehandler.QueryUint64(r, "categoryId")
+	if err != nil {
+		return types.ArticleListReq{}, err
+	}
+	tagID, err := basehandler.QueryUint64(r, "tagId")
+	if err != nil {
+		return types.ArticleListReq{}, err
+	}
+	return types.ArticleListReq{
+		Page:       page,
+		Size:       size,
+		Status:     basehandler.Query(r, "status"),
+		Query:      basehandler.Query(r, "q"),
+		CategoryID: categoryID,
+		TagID:      tagID,
+	}, nil
 }
 
 func DetailHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {

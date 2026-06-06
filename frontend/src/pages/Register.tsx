@@ -2,11 +2,14 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { register } from '../api/auth';
 import { useAuthStore } from '../store/auth';
+import { usePreferenceStore } from '../store/preferences';
 import { normalizeAvatarUrl } from '../utils/avatar';
 import InlineNotice from '../components/InlineNotice';
 import { getErrorMessage } from '../utils/error';
+import { translate } from '../i18n';
 
 const Register: React.FC = () => {
+  const language = usePreferenceStore((state) => state.language);
   const [account, setAccount] = useState('');
   const [password, setPassword] = useState('');
   const [email, setEmail] = useState('');
@@ -16,6 +19,7 @@ const Register: React.FC = () => {
   const [submitting, setSubmitting] = useState(false);
   const navigate = useNavigate();
   const { setAuth, fetchUser } = useAuthStore();
+  const t = (key: Parameters<typeof translate>[1]) => translate(language, key);
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -35,7 +39,7 @@ const Register: React.FC = () => {
       await fetchUser();
       navigate('/');
     } catch (err: unknown) {
-      setError(getErrorMessage(err, '注册失败，请检查填写信息'));
+      setError(getErrorMessage(err, t('auth.registerError')));
     } finally {
       setSubmitting(false);
     }
@@ -44,12 +48,12 @@ const Register: React.FC = () => {
   return (
     <div className="flex-grow flex items-center justify-center">
       <div className="w-full max-w-sm">
-        <h1 className="text-3xl font-bold text-ink mb-12 text-center tracking-widest">初逢</h1>
+        <h1 className="text-3xl font-bold text-ink mb-12 text-center tracking-widest">{t('auth.registerTitle')}</h1>
         <form onSubmit={handleRegister} className="space-y-8">
           <div>
-            <input 
-              type="text" 
-              placeholder="账号 (3-64字)" 
+            <input
+              type="text"
+              placeholder={t('auth.accountWithHint')}
               value={account}
               onChange={(e) => setAccount(e.target.value)}
               className="w-full bg-transparent border-b border-mountain-grey py-2 px-1 text-ink focus:outline-none focus:border-ochre transition-colors placeholder-ink-light placeholder-opacity-50"
@@ -57,9 +61,9 @@ const Register: React.FC = () => {
             />
           </div>
           <div>
-            <input 
-              type="email" 
-              placeholder="邮箱" 
+            <input
+              type="email"
+              placeholder={t('auth.email')}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="w-full bg-transparent border-b border-mountain-grey py-2 px-1 text-ink focus:outline-none focus:border-ochre transition-colors placeholder-ink-light placeholder-opacity-50"
@@ -67,27 +71,27 @@ const Register: React.FC = () => {
             />
           </div>
           <div>
-            <input 
-              type="text" 
-              placeholder="昵称 (可选)" 
+            <input
+              type="text"
+              placeholder={t('auth.nicknameOptional')}
               value={nickname}
               onChange={(e) => setNickname(e.target.value)}
               className="w-full bg-transparent border-b border-mountain-grey py-2 px-1 text-ink focus:outline-none focus:border-ochre transition-colors placeholder-ink-light placeholder-opacity-50"
             />
           </div>
           <div>
-            <input 
-              type="text" 
-              placeholder="真容 (Avatar URL, 可选)" 
+            <input
+              type="text"
+              placeholder={t('auth.avatarOptional')}
               value={avatarUrl}
               onChange={(e) => setAvatarUrl(e.target.value)}
               className="w-full bg-transparent border-b border-mountain-grey py-2 px-1 text-ink focus:outline-none focus:border-ochre transition-colors placeholder-ink-light placeholder-opacity-50"
             />
           </div>
           <div>
-            <input 
-              type="password" 
-              placeholder="密码 (最少8字)" 
+            <input
+              type="password"
+              placeholder={t('auth.passwordWithHint')}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               className="w-full bg-transparent border-b border-mountain-grey py-2 px-1 text-ink focus:outline-none focus:border-ochre transition-colors placeholder-ink-light placeholder-opacity-50"
@@ -96,16 +100,16 @@ const Register: React.FC = () => {
           </div>
           <InlineNotice message={error} />
           <div className="pt-4">
-            <button 
-              type="submit" 
+            <button
+              type="submit"
               disabled={submitting}
               className="w-full border border-ink text-ink py-3 hover:bg-ink hover:text-paper transition-colors duration-300 tracking-widest disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {submitting ? '结缘中...' : '结缘'}
+              {submitting ? t('auth.registerSubmitting') : t('auth.registerSubmit')}
             </button>
           </div>
           <div className="text-center text-sm text-ink-light opacity-70 mt-4">
-            已有前缘？ <Link to="/login" className="hover:text-ochre transition-colors">去入卷</Link>
+            {t('auth.hasAccount')} <Link to="/login" className="hover:text-ochre transition-colors">{t('auth.goLogin')}</Link>
           </div>
         </form>
       </div>

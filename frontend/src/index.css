@@ -3,13 +3,62 @@
 @tailwind utilities;
 
 @layer base {
-  body {
-    background-image: radial-gradient(#ebebeb 1px, transparent 1px);
-    background-size: 40px 40px;
-    /* 微微的纹理感 */
+  :root {
+    --paper: #f9f9f4;
+    --ink: #1a1a1a;
+    --ink-light: #425066;
+    --ochre: #8a3c3a;
+    --mountain-grey: #ebebeb;
+    --paper-soft: rgba(255, 255, 255, 0.55);
+    --paper-muted: rgba(249, 249, 244, 0.72);
+    --notice-bg: rgba(255, 255, 255, 0.42);
+    --texture-dot: rgba(26, 26, 26, 0.08);
   }
 
-  /* 垂直排版工具类 */
+  :root[data-theme='dark'] {
+    --paper: #111314;
+    --ink: #eee8da;
+    --ink-light: #b7bdc5;
+    --ochre: #c88970;
+    --mountain-grey: #2e3538;
+    --paper-soft: rgba(238, 232, 218, 0.08);
+    --paper-muted: rgba(17, 19, 20, 0.78);
+    --notice-bg: rgba(238, 232, 218, 0.08);
+    --texture-dot: rgba(238, 232, 218, 0.08);
+  }
+
+  html {
+    background: var(--paper);
+  }
+
+  body {
+    min-width: 320px;
+    margin: 0;
+    color: var(--ink);
+    background-color: var(--paper);
+    background-image: radial-gradient(var(--texture-dot) 1px, transparent 1px);
+    background-size: 40px 40px;
+    transition: background-color 240ms ease, color 240ms ease;
+  }
+
+  input,
+  textarea,
+  select,
+  button {
+    font: inherit;
+  }
+
+  input,
+  textarea,
+  select {
+    color: var(--ink);
+  }
+
+  select option {
+    color: var(--ink);
+    background: var(--paper);
+  }
+
   .writing-vertical {
     writing-mode: vertical-rl;
   }

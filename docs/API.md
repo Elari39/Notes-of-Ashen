@@ -1182,3 +1182,48 @@ Invoke-RestMethod -Method Get `
   -Uri "http://127.0.0.1:19000/api/v1/users/me" `
   -Headers $headers
 ```
+
+## 文章搜索与集合筛选补充
+
+### 公开文章列表筛选
+
+```text
+GET /api/v1/articles
+```
+
+新增查询参数：
+
+| 参数 | 类型 | 必填 | 说明 |
+| --- | --- | --- | --- |
+| q | string | 否 | 关键词搜索，匹配标题、摘要、正文 |
+| categoryId | uint64 | 否 | 按分类 ID 筛选 |
+| tagId | uint64 | 否 | 按标签 ID 筛选 |
+
+该接口仍为公开接口，匿名访问只返回 `published` 文章。参数可以与 `page`、`size`、`status` 组合使用。
+
+示例：
+
+```text
+GET /api/v1/articles?q=go&categoryId=1&tagId=2&page=1&size=10
+```
+
+### 后台文章列表
+
+```text
+GET /api/v1/admin/articles
+```
+
+权限：管理员。
+
+查询参数：
+
+| 参数 | 类型 | 必填 | 说明 |
+| --- | --- | --- | --- |
+| page | int | 否 | 页码 |
+| size | int | 否 | 每页数量 |
+| status | string | 否 | `draft`、`published`、`archived` |
+| q | string | 否 | 关键词搜索，匹配标题、摘要、正文 |
+| categoryId | uint64 | 否 | 按分类 ID 筛选 |
+| tagId | uint64 | 否 | 按标签 ID 筛选 |
+
+该接口用于后台文章管理，可以查看管理员权限下的全量文章集合；非管理员访问返回 `40300`。

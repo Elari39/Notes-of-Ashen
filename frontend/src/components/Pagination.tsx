@@ -1,4 +1,6 @@
 import React from 'react';
+import { formatText, translate } from '../i18n';
+import { usePreferenceStore } from '../store/preferences';
 
 interface PaginationProps {
   currentPage: number;
@@ -8,7 +10,9 @@ interface PaginationProps {
 }
 
 const Pagination: React.FC<PaginationProps> = ({ currentPage, total, pageSize, onPageChange }) => {
+  const language = usePreferenceStore((state) => state.language);
   const totalPages = Math.ceil(total / pageSize);
+  const t = (key: Parameters<typeof translate>[1]) => translate(language, key);
 
   if (totalPages <= 1) return null;
 
@@ -19,11 +23,11 @@ const Pagination: React.FC<PaginationProps> = ({ currentPage, total, pageSize, o
         disabled={currentPage === 1}
         className="text-ink-light hover:text-ochre disabled:opacity-30 disabled:hover:text-ink-light transition-colors tracking-widest text-sm"
       >
-        上一卷
+        {t('pagination.prev')}
       </button>
-      
+
       <span className="text-sm text-ink font-serif">
-        第 {currentPage} / {totalPages} 卷
+        {formatText(t('pagination.page'), { current: currentPage, total: totalPages })}
       </span>
 
       <button
@@ -31,7 +35,7 @@ const Pagination: React.FC<PaginationProps> = ({ currentPage, total, pageSize, o
         disabled={currentPage === totalPages}
         className="text-ink-light hover:text-ochre disabled:opacity-30 disabled:hover:text-ink-light transition-colors tracking-widest text-sm"
       >
-        下一卷
+        {t('pagination.next')}
       </button>
     </div>
   );

@@ -69,6 +69,15 @@ type ArticleStatusReq struct {
 	Status string `json:"status"`
 }
 
+type ArticleListReq struct {
+	Page       int    `json:"page,optional"`
+	Size       int    `json:"size,optional"`
+	Status     string `json:"status,optional"`
+	Query      string `json:"q,optional"`
+	CategoryID uint64 `json:"categoryId,optional"`
+	TagID      uint64 `json:"tagId,optional"`
+}
+
 type ArticleResp struct {
 	ID          uint64        `json:"id"`
 	AuthorID    uint64        `json:"authorId"`

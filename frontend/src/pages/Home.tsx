@@ -1,57 +1,104 @@
 import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import Pagination from '../components/Pagination';
-import http from '../utils/http';
 import InlineNotice from '../components/InlineNotice';
 import { getErrorMessage } from '../utils/error';
-import { BaseResp, PaginatedResp } from '../types';
-
-interface Article {
-  id: number;
-  title: string;
-  slug: string;
-  summary: string;
-  coverUrl?: string;
-  createdAt: string;
-  viewCount: number;
-  category?: { name: string };
-  tags?: { name: string }[];
-}
+import { getDateLocale, translate } from '../i18n';
+import { usePreferenceStore } from '../store/preferences';
+import { getArticles } from '../api/article';
+import { Article } from '../types';
 
 const Home: React.FC = () => {
+  const language = usePreferenceStore((state) => state.language);
+  const [searchParams, setSearchParams] = useSearchParams();
   const [articles, setArticles] = useState<Article[]>([]);
   const [loading, setLoading] = useState(true);
-  const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [error, setError] = useState('');
+  const [keyword, setKeyword] = useState(searchParams.get('q') || '');
   const size = 10;
+  const t = (key: Parameters<typeof translate>[1]) => translate(language, key);
+  const page = parsePositiveInt(searchParams.get('page'), 1);
+  const query = (searchParams.get('q') || '').trim();
+  const categoryId = parsePositiveInt(searchParams.get('categoryId'), 0);
+  const tagId = parsePositiveInt(searchParams.get('tagId'), 0);
+  const hasActiveFilters = Boolean(query || categoryId || tagId);
+
+  useEffect(() => {
+    setKeyword(searchParams.get('q') || '');
+  }, [searchParams]);
 
   useEffect(() => {
     const fetchArticles = async () => {
       setLoading(true);
       setError('');
       try {
-        const res = await http.get<unknown, BaseResp<PaginatedResp<Article>>>('/articles', { params: { status: 'published', page, size } });
+        const res = await getArticles({
+          status: 'published',
+          page,
+          size,
+          ...(query ? { q: query } : {}),
+          ...(categoryId ? { categoryId } : {}),
+          ...(tagId ? { tagId } : {}),
+        });
         setArticles(res.data.items || []);
         setTotal(res.data.total || 0);
       } catch (err) {
-        setError(getErrorMessage(err, '文章列表加载失败'));
+        setError(getErrorMessage(err, translate(language, 'home.loadError')));
       } finally {
         setLoading(false);
       }
     };
     fetchArticles();
-  }, [page]);
+  }, [page, query, categoryId, tagId, language]);
 
-  if (loading) {
-    return <div className="flex-grow flex items-center justify-center text-ink-light tracking-widest">研墨中...</div>;
-  }
+  const updateParams = (updates: Record<string, string | number | undefined>) => {
+    const next = new URLSearchParams(searchParams);
+    Object.entries(updates).forEach(([key, value]) => {
+      if (value === undefined || value === '' || value === 0) {
+        next.delete(key);
+      } else {
+        next.set(key, String(value));
+      }
+    });
+    setSearchParams(next);
+  };
+
+  const handleSearch = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    updateParams({ q: keyword.trim(), page: undefined });
+  };
+
+  const handleClear = () => {
+    setKeyword('');
+    updateParams({ q: undefined, categoryId: undefined, tagId: undefined, page: undefined });
+  };
 
   return (
     <div className="space-y-20 mt-8 max-w-4xl mx-auto w-full">
+      <form onSubmit={handleSearch} className="flex flex-col gap-4 border-b border-mountain-grey border-opacity-50 pb-8 md:flex-row md:items-center">
+        <input
+          value={keyword}
+          onChange={(event) => setKeyword(event.target.value)}
+          placeholder={t('home.searchPlaceholder')}
+          className="flex-1 bg-transparent border border-mountain-grey px-4 py-3 text-ink outline-none transition-colors placeholder:text-ink-light placeholder:opacity-50 focus:border-ochre"
+        />
+        <div className="flex gap-3">
+          <button type="submit" className="px-5 py-3 border border-ink text-ink hover:bg-ink hover:text-paper transition-colors tracking-widest text-sm">
+            {t('home.search')}
+          </button>
+          {hasActiveFilters && (
+            <button type="button" onClick={handleClear} className="px-5 py-3 border border-mountain-grey text-ink-light hover:border-ochre hover:text-ochre transition-colors tracking-widest text-sm">
+              {t('home.clearFilters')}
+            </button>
+          )}
+        </div>
+      </form>
       <InlineNotice message={error} />
-      {articles.length === 0 ? (
-        <div className="text-center text-ink-light italic">尚无诗篇。</div>
+      {loading ? (
+        <div className="flex-grow flex items-center justify-center text-ink-light tracking-widest">{t('common.loadingArticles')}</div>
+      ) : articles.length === 0 ? (
+        <div className="text-center text-ink-light italic">{t('common.emptyArticles')}</div>
       ) : (
         <>
           {articles.map((article) => (
@@ -74,39 +121,46 @@ const Home: React.FC = () => {
                   </p>
                 </Link>
                 <div className="flex flex-wrap items-center gap-4 text-xs text-ink-light opacity-70 tracking-wider">
-                  <span>{new Date(article.createdAt).toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' })}</span>
-                  <span>阅 {article.viewCount}</span>
+                  <span>{new Date(article.createdAt).toLocaleDateString(getDateLocale(language), { year: 'numeric', month: 'long', day: 'numeric' })}</span>
+                  <span>{t('common.views')} {article.viewCount}</span>
                   {article.category && (
-                    <span className="px-2 py-0.5 border border-mountain-grey border-opacity-50 group-hover:border-ochre transition-colors">
+                    <Link to={`/?categoryId=${article.category.id}`} className="px-2 py-0.5 border border-mountain-grey border-opacity-50 hover:border-ochre hover:text-ochre transition-colors">
                       {article.category.name}
-                    </span>
+                    </Link>
                   )}
                   {article.tags && article.tags.length > 0 && (
                     <div className="flex space-x-3">
-                      {article.tags.map(t => (
-                        <span key={t.name} className="relative before:content-['#'] before:mr-1 before:opacity-30">
-                          {t.name}
-                        </span>
+                      {article.tags.map(tg => (
+                        <Link key={tg.id} to={`/?tagId=${tg.id}`} className="relative hover:text-ochre transition-colors before:content-['#'] before:mr-1 before:opacity-30">
+                          {tg.name}
+                        </Link>
                       ))}
                     </div>
                   )}
                 </div>
               </div>
-              {/* 水墨风分割线 */}
               <div className="absolute -bottom-10 left-0 w-24 h-px bg-mountain-grey opacity-50 group-hover:w-full group-hover:bg-ochre transition-all duration-700 ease-in-out"></div>
             </article>
           ))}
-          
-          <Pagination 
-            currentPage={page} 
-            total={total} 
-            pageSize={size} 
-            onPageChange={setPage} 
+
+          <Pagination
+            currentPage={page}
+            total={total}
+            pageSize={size}
+            onPageChange={(nextPage) => updateParams({ page: nextPage === 1 ? undefined : nextPage })}
           />
         </>
       )}
     </div>
   );
+};
+
+const parsePositiveInt = (value: string | null, fallback: number) => {
+  if (!value) {
+    return fallback;
+  }
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 };
 
 export default Home;

@@ -43,6 +43,18 @@ func Query(r *http.Request, key string) string {
 	return strings.TrimSpace(r.URL.Query().Get(key))
 }
 
+func QueryUint64(r *http.Request, key string) (uint64, error) {
+	raw := strings.TrimSpace(r.URL.Query().Get(key))
+	if raw == "" {
+		return 0, nil
+	}
+	value, err := strconv.ParseUint(raw, 10, 64)
+	if err != nil || value == 0 {
+		return 0, apperrors.BadRequest(key + " is invalid")
+	}
+	return value, nil
+}
+
 func Parse(r *http.Request, v interface{}) error {
 	if err := httpx.Parse(r, v); err != nil {
 		return apperrors.BadRequest("invalid request body or parameters")

@@ -47,11 +47,14 @@ type ArticleUpdate struct {
 }
 
 type ArticleFilter struct {
-	UserID uint64
-	Role   string
-	Status string
-	Page   int
-	Size   int
+	UserID     uint64
+	Role       string
+	Status     string
+	Query      string
+	CategoryID uint64
+	TagID      uint64
+	Page       int
+	Size       int
 }
 
 func (s *Store) CreateArticle(ctx context.Context, in ArticleCreate) (uint64, error) {
@@ -237,10 +240,36 @@ func articleWhere(filter ArticleFilter) (string, []interface{}) {
 	} else {
 		clauses = append(clauses, "status = 'published'")
 	}
+	if filter.Query != "" {
+		likeQuery := "%" + escapeLike(filter.Query) + "%"
+		clauses = append(clauses, "(MATCH(title, content) AGAINST(? IN NATURAL LANGUAGE MODE) OR title LIKE ? ESCAPE '!' OR summary LIKE ? ESCAPE '!' OR content LIKE ? ESCAPE '!')")
+		args = append(args, filter.Query, likeQuery, likeQuery, likeQuery)
+	}
+	if filter.CategoryID > 0 {
+		clauses = append(clauses, "category_id = ?")
+		args = append(args, filter.CategoryID)
+	}
+	if filter.TagID > 0 {
+		clauses = append(clauses, "EXISTS (SELECT 1 FROM article_tags at WHERE at.article_id = articles.id AND at.tag_id = ?)")
+		args = append(args, filter.TagID)
+	}
 	if len(clauses) == 0 {
 		return "", args
 	}
 	return "WHERE " + strings.Join(clauses, " AND "), args
+}
+
+func escapeLike(value string) string {
+	var b strings.Builder
+	b.Grow(len(value))
+	for _, r := range value {
+		switch r {
+		case '!', '%', '_':
+			b.WriteRune('!')
+		}
+		b.WriteRune(r)
+	}
+	return b.String()
 }
 
 func replaceArticleTags(ctx context.Context, tx *sql.Tx, articleID uint64, tagIDs []uint64) error {

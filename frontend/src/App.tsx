@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { Routes, Route, useLocation } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
 import Layout from './components/Layout';
@@ -17,9 +18,15 @@ import AdminTags from './pages/admin/Tags';
 import AdminUsers from './pages/admin/Users';
 import AdminLogs from './pages/admin/Logs';
 import NotFound from './pages/NotFound';
+import { usePreferenceStore } from './store/preferences';
 
 function App() {
   const location = useLocation();
+  const initializePreferences = usePreferenceStore((state) => state.initializePreferences);
+
+  useEffect(() => {
+    return initializePreferences();
+  }, [initializePreferences]);
 
   return (
     <AnimatePresence mode="wait">

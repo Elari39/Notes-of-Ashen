@@ -43,6 +43,13 @@ export interface UpdateUserStatusReq {
   status: string; // 'active' | 'disabled'
 }
 
+export interface ArticleListParams extends PageParams {
+  q?: string;
+  categoryId?: number;
+  tagId?: number;
+  status?: string;
+}
+
 // Article
 export interface CreateArticleReq {
   categoryId?: number;
