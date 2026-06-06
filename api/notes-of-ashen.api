@@ -1,0 +1,44 @@
+syntax = "v1"
+
+info (
+	title:   "Notes of Ashen API"
+	desc:    "go-zero personal blog backend"
+	author:  "Codex"
+	version: "v1"
+)
+
+type RegisterReq {
+	Account  string `json:"account"`
+	Password string `json:"password"`
+	Email    string `json:"email"`
+	Nickname string `json:"nickname,optional"`
+	// Optional. Empty means no avatar; non-empty must be http(s) URL.
+	AvatarUrl string `json:"avatarUrl,optional"`
+}
+
+type LoginReq {
+	Account  string `json:"account"`
+	Password string `json:"password"`
+}
+
+type RefreshReq {
+	RefreshToken string `json:"refreshToken"`
+}
+
+type TokenResp {
+	AccessToken  string `json:"accessToken"`
+	RefreshToken string `json:"refreshToken"`
+	TokenType    string `json:"tokenType"`
+	ExpiresIn    int64  `json:"expiresIn"`
+}
+
+service notes-of-ashen-api {
+	@handler register
+	post /api/v1/auth/register (RegisterReq) returns (TokenResp)
+
+	@handler login
+	post /api/v1/auth/login (LoginReq) returns (TokenResp)
+
+	@handler refresh
+	post /api/v1/auth/refresh (RefreshReq) returns (TokenResp)
+}

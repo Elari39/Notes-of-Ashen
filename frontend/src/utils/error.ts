@@ -1,0 +1,99 @@
+import axios, { AxiosError } from 'axios';
+
+type ErrorResponse = {
+  code?: number;
+  message?: string;
+};
+
+export class AppError extends Error {
+  code?: number;
+  status?: number;
+
+  constructor(message: string, code?: number, status?: number) {
+    super(message);
+    this.name = 'AppError';
+    this.code = code;
+    this.status = status;
+  }
+}
+
+const fieldNames: Record<string, string> = {
+  account: '账号',
+  password: '密码',
+  email: '邮箱',
+  nickname: '昵称',
+  avatarUrl: '头像 URL',
+  oldPassword: '原密码',
+  newPassword: '新密码',
+  refreshToken: '登录凭证',
+  title: '标题',
+  slug: '路径',
+  content: '正文',
+  status: '状态',
+};
+
+const exactMessages: Record<string, string> = {
+  'avatarUrl format is invalid': '头像 URL 必须以 http:// 或 https:// 开头',
+  'email format is invalid': '邮箱格式不正确',
+  'account or email already exists': '账号或邮箱已存在',
+  'email already exists': '邮箱已存在',
+  'account or password is incorrect': '账号或密码不正确',
+  'user is disabled': '账号已被禁用',
+  'old password is incorrect': '原密码不正确',
+  'refresh token is invalid': '登录状态无效，请重新登录',
+  'refresh token is expired': '登录已过期，请重新登录',
+  'resource not found': '资源不存在或已被删除',
+  'resource already exists': '资源已存在',
+  'internal server error': '服务暂时不可用，请稍后重试',
+};
+
+const translateMessage = (message?: string, fallback = '操作失败，请稍后重试') => {
+  const raw = message?.trim();
+  if (!raw) return fallback;
+  if (exactMessages[raw]) return exactMessages[raw];
+
+  const requiredMatch = raw.match(/^(.+) is required$/);
+  if (requiredMatch) {
+    return `${fieldNames[requiredMatch[1]] || requiredMatch[1]}不能为空`;
+  }
+
+  const lengthMatch = raw.match(/^(.+) length is invalid$/);
+  if (lengthMatch) {
+    return `${fieldNames[lengthMatch[1]] || lengthMatch[1]}长度不符合要求`;
+  }
+
+  const invalidMatch = raw.match(/^(.+) is invalid$/);
+  if (invalidMatch) {
+    return `${fieldNames[invalidMatch[1]] || invalidMatch[1]}不合法`;
+  }
+
+  return raw;
+};
+
+export const toAppError = (error: unknown, fallback?: string) => {
+  if (error instanceof AppError) {
+    return error;
+  }
+
+  if (axios.isAxiosError(error)) {
+    const axiosError = error as AxiosError<ErrorResponse>;
+    if (axiosError.code === 'ECONNABORTED') {
+      return new AppError('请求超时，请稍后重试', undefined, axiosError.response?.status);
+    }
+    if (!axiosError.response) {
+      return new AppError('网络连接异常，请检查后重试');
+    }
+
+    const data = axiosError.response.data;
+    const message = translateMessage(data?.message, fallback);
+    return new AppError(message, data?.code, axiosError.response.status);
+  }
+
+  if (error instanceof Error) {
+    return new AppError(translateMessage(error.message, fallback));
+  }
+
+  return new AppError(fallback || '操作失败，请稍后重试');
+};
+
+export const getErrorMessage = (error: unknown, fallback?: string) => toAppError(error, fallback).message;

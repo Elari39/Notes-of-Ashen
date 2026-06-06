@@ -1,0 +1,33 @@
+package main
+
+import (
+	"flag"
+	"fmt"
+
+	"notes-of-ashen/internal/config"
+	"notes-of-ashen/internal/handler"
+	"notes-of-ashen/internal/svc"
+
+	"github.com/zeromicro/go-zero/core/conf"
+	"github.com/zeromicro/go-zero/rest"
+)
+
+var configFile = flag.String("f", "etc/notes-of-ashen.yaml", "the config file")
+
+func main() {
+	flag.Parse()
+
+	var c config.Config
+	conf.MustLoad(*configFile, &c)
+
+	server := rest.MustNewServer(c.RestConf)
+	defer server.Stop()
+
+	ctx := svc.NewServiceContext(c)
+	defer ctx.Close()
+
+	handler.RegisterHandlers(server, ctx)
+
+	fmt.Printf("Starting server at %s:%d...\n", c.Host, c.Port)
+	server.Start()
+}

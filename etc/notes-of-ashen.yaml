@@ -1,0 +1,26 @@
+Name: notes-of-ashen-api
+Host: 0.0.0.0
+Port: 19000
+Timeout: 5000
+
+Database:
+  DataSource: "root:123456@tcp(127.0.0.1:3306)/notes_of_ashen?charset=utf8mb4&parseTime=true&loc=Local"
+  MaxOpenConns: 20
+  MaxIdleConns: 10
+
+Auth:
+  AccessSecret: "please-change-this-secret-in-production"
+  AccessExpire: 7200
+  RefreshExpire: 604800
+
+Redis:
+  Addr: "127.0.0.1:6379"
+  Password: "123456"
+  DB: 0
+
+RabbitMQ:
+  Enabled: true
+  URL: "amqp://guest:guest@127.0.0.1:5672/"
+  Exchange: "notes-of-ashen.events"
+  Queue: "notes-of-ashen.operation_logs"
+  RoutingKey: "operation.log"

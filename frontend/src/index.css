@@ -1,0 +1,16 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    background-image: radial-gradient(#ebebeb 1px, transparent 1px);
+    background-size: 40px 40px;
+    /* 微微的纹理感 */
+  }
+
+  /* 垂直排版工具类 */
+  .writing-vertical {
+    writing-mode: vertical-rl;
+  }
+}
