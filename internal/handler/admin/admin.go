@@ -8,8 +8,6 @@ import (
 	"notes-of-ashen/internal/response"
 	"notes-of-ashen/internal/svc"
 	"notes-of-ashen/internal/types"
-
-	"github.com/zeromicro/go-zero/rest/httpx"
 )
 
 func ListUsersHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
@@ -32,7 +30,7 @@ func UpdateUserStatusHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 			return
 		}
 		var req types.UserStatusReq
-		if err := httpx.Parse(r, &req); err != nil {
+		if err := basehandler.Parse(r, &req); err != nil {
 			response.Error(w, err)
 			return
 		}
@@ -52,7 +50,7 @@ func UpdateUserRoleHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 			return
 		}
 		var req types.UserRoleReq
-		if err := httpx.Parse(r, &req); err != nil {
+		if err := basehandler.Parse(r, &req); err != nil {
 			response.Error(w, err)
 			return
 		}

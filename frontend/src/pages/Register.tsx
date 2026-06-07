@@ -14,6 +14,9 @@ const Register: React.FC = () => {
   const { registrationEnabled, hasLoaded, isLoading } = useSiteSettingsStore();
   const [account, setAccount] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [email, setEmail] = useState('');
   const [nickname, setNickname] = useState('');
   const [avatarUrl, setAvatarUrl] = useState('');
@@ -27,6 +30,10 @@ const Register: React.FC = () => {
     e.preventDefault();
     if (hasLoaded && !registrationEnabled) {
       setError(t('auth.registrationDisabled'));
+      return;
+    }
+    if (password !== confirmPassword) {
+      setError(t('auth.passwordMismatch'));
       return;
     }
     setError('');
@@ -102,15 +109,43 @@ const Register: React.FC = () => {
               className="w-full bg-transparent border-b border-mountain-grey py-2 px-1 text-ink focus:outline-none focus:border-ochre transition-colors placeholder-ink-light placeholder-opacity-50"
             />
           </div>
-          <div>
+          <div className="relative">
             <input
-              type="password"
+              type={showPassword ? 'text' : 'password'}
               placeholder={t('auth.passwordWithHint')}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full bg-transparent border-b border-mountain-grey py-2 px-1 text-ink focus:outline-none focus:border-ochre transition-colors placeholder-ink-light placeholder-opacity-50"
+              className="w-full bg-transparent border-b border-mountain-grey py-2 pl-1 pr-16 text-ink focus:outline-none focus:border-ochre transition-colors placeholder-ink-light placeholder-opacity-50"
               required
             />
+            <button
+              type="button"
+              onClick={() => setShowPassword((visible) => !visible)}
+              className="absolute right-1 top-1/2 -translate-y-1/2 text-xs tracking-widest text-ink-light hover:text-ochre transition-colors"
+              aria-label={showPassword ? t('auth.hidePassword') : t('auth.showPassword')}
+              title={showPassword ? t('auth.hidePassword') : t('auth.showPassword')}
+            >
+              {showPassword ? t('auth.hidePassword') : t('auth.showPassword')}
+            </button>
+          </div>
+          <div className="relative">
+            <input
+              type={showConfirmPassword ? 'text' : 'password'}
+              placeholder={t('auth.confirmPasswordWithHint')}
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              className="w-full bg-transparent border-b border-mountain-grey py-2 pl-1 pr-16 text-ink focus:outline-none focus:border-ochre transition-colors placeholder-ink-light placeholder-opacity-50"
+              required
+            />
+            <button
+              type="button"
+              onClick={() => setShowConfirmPassword((visible) => !visible)}
+              className="absolute right-1 top-1/2 -translate-y-1/2 text-xs tracking-widest text-ink-light hover:text-ochre transition-colors"
+              aria-label={showConfirmPassword ? t('auth.hidePassword') : t('auth.showPassword')}
+              title={showConfirmPassword ? t('auth.hidePassword') : t('auth.showPassword')}
+            >
+              {showConfirmPassword ? t('auth.hidePassword') : t('auth.showPassword')}
+            </button>
           </div>
           <InlineNotice message={error} />
           <div className="pt-4">

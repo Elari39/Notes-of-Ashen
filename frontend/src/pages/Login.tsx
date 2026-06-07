@@ -13,6 +13,7 @@ const Login: React.FC = () => {
   const registrationEnabled = useSiteSettingsStore((state) => state.registrationEnabled);
   const [account, setAccount] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const navigate = useNavigate();
@@ -72,15 +73,24 @@ const Login: React.FC = () => {
               required
             />
           </div>
-          <div>
+          <div className="relative">
             <input
-              type="password"
+              type={showPassword ? 'text' : 'password'}
               placeholder={t('auth.password')}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full bg-transparent border-b border-mountain-grey py-2 px-1 text-ink focus:outline-none focus:border-ochre transition-colors placeholder-ink-light placeholder-opacity-50"
+              className="w-full bg-transparent border-b border-mountain-grey py-2 pl-1 pr-16 text-ink focus:outline-none focus:border-ochre transition-colors placeholder-ink-light placeholder-opacity-50"
               required
             />
+            <button
+              type="button"
+              onClick={() => setShowPassword((visible) => !visible)}
+              className="absolute right-1 top-1/2 -translate-y-1/2 text-xs tracking-widest text-ink-light hover:text-ochre transition-colors"
+              aria-label={showPassword ? t('auth.hidePassword') : t('auth.showPassword')}
+              title={showPassword ? t('auth.hidePassword') : t('auth.showPassword')}
+            >
+              {showPassword ? t('auth.hidePassword') : t('auth.showPassword')}
+            </button>
           </div>
           <InlineNotice message={error} />
           <div className="pt-4">

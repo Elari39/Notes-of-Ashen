@@ -36,7 +36,7 @@ const AdminLayout: React.FC = () => {
             to="/admin/dashboard"
             className={({ isActive }) => isActive ? 'text-ochre font-bold' : 'hover:text-ochre transition-colors'}
           >
-            Dashboard
+            {t('admin.dashboard')}
           </NavLink>
           <NavLink
             to="/admin/articles"

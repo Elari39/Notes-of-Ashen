@@ -8,8 +8,6 @@ import (
 	"notes-of-ashen/internal/response"
 	"notes-of-ashen/internal/svc"
 	"notes-of-ashen/internal/types"
-
-	"github.com/zeromicro/go-zero/rest/httpx"
 )
 
 func SettingsHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
@@ -50,7 +48,7 @@ func SitemapHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 func UpdateSettingsHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req types.UpdateSiteSettingsReq
-		if err := httpx.Parse(r, &req); err != nil {
+		if err := basehandler.Parse(r, &req); err != nil {
 			response.Error(w, err)
 			return
 		}

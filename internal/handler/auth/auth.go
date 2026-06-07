@@ -8,14 +8,12 @@ import (
 	"notes-of-ashen/internal/response"
 	"notes-of-ashen/internal/svc"
 	"notes-of-ashen/internal/types"
-
-	"github.com/zeromicro/go-zero/rest/httpx"
 )
 
 func RegisterHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req types.RegisterReq
-		if err := httpx.Parse(r, &req); err != nil {
+		if err := basehandler.Parse(r, &req); err != nil {
 			response.Error(w, err)
 			return
 		}
@@ -31,7 +29,7 @@ func RegisterHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 func LoginHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req types.LoginReq
-		if err := httpx.Parse(r, &req); err != nil {
+		if err := basehandler.Parse(r, &req); err != nil {
 			response.Error(w, err)
 			return
 		}
@@ -47,7 +45,7 @@ func LoginHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 func RefreshHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req types.RefreshReq
-		if err := httpx.Parse(r, &req); err != nil {
+		if err := basehandler.Parse(r, &req); err != nil {
 			response.Error(w, err)
 			return
 		}
@@ -63,7 +61,7 @@ func RefreshHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 func LogoutHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req types.RefreshReq
-		if err := httpx.Parse(r, &req); err != nil {
+		if err := basehandler.Parse(r, &req); err != nil {
 			response.Error(w, err)
 			return
 		}

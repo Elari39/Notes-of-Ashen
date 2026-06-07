@@ -3,6 +3,7 @@ package model
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"time"
 )
 
@@ -84,15 +85,21 @@ FROM users WHERE email = ? LIMIT 1`, email)
 }
 
 func (s *Store) UpdateUserProfile(ctx context.Context, id uint64, in UserUpdate) error {
-	_, err := s.db.ExecContext(ctx, `
+	res, err := s.db.ExecContext(ctx, `
 UPDATE users SET email = ?, avatar_url = ?, nickname = ? WHERE id = ?`,
 		in.Email, in.AvatarURL, in.Nickname, id)
-	return err
+	if err != nil {
+		return err
+	}
+	return s.requireUserUpdateAffected(ctx, id, res)
 }
 
 func (s *Store) UpdateUserPassword(ctx context.Context, id uint64, passwordHash string) error {
-	_, err := s.db.ExecContext(ctx, "UPDATE users SET password_hash = ? WHERE id = ?", passwordHash, id)
-	return err
+	res, err := s.db.ExecContext(ctx, "UPDATE users SET password_hash = ? WHERE id = ?", passwordHash, id)
+	if err != nil {
+		return err
+	}
+	return s.requireUserUpdateAffected(ctx, id, res)
 }
 
 func (s *Store) UpdateUserStatus(ctx context.Context, id uint64, status string) error {
@@ -157,4 +164,16 @@ func scanUser(row *sql.Row) (*User, error) {
 		return nil, scanErr(err)
 	}
 	return &u, nil
+}
+
+func (s *Store) requireUserUpdateAffected(ctx context.Context, id uint64, res sql.Result) error {
+	if err := requireAffected(res); err != nil {
+		if !errors.Is(err, ErrNotFound) {
+			return err
+		}
+		if _, findErr := s.FindUserByID(ctx, id); findErr != nil {
+			return findErr
+		}
+	}
+	return nil
 }

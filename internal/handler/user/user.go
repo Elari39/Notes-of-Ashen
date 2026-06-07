@@ -3,12 +3,11 @@ package user
 import (
 	"net/http"
 
+	basehandler "notes-of-ashen/internal/httphelper"
 	userlogic "notes-of-ashen/internal/logic/user"
 	"notes-of-ashen/internal/response"
 	"notes-of-ashen/internal/svc"
 	"notes-of-ashen/internal/types"
-
-	"github.com/zeromicro/go-zero/rest/httpx"
 )
 
 func MeHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
@@ -25,7 +24,7 @@ func MeHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 func UpdateMeHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req types.UpdateMeReq
-		if err := httpx.Parse(r, &req); err != nil {
+		if err := basehandler.Parse(r, &req); err != nil {
 			response.Error(w, err)
 			return
 		}
@@ -41,7 +40,7 @@ func UpdateMeHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 func ChangePasswordHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req types.ChangePasswordReq
-		if err := httpx.Parse(r, &req); err != nil {
+		if err := basehandler.Parse(r, &req); err != nil {
 			response.Error(w, err)
 			return
 		}

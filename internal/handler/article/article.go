@@ -8,8 +8,6 @@ import (
 	"notes-of-ashen/internal/response"
 	"notes-of-ashen/internal/svc"
 	"notes-of-ashen/internal/types"
-
-	"github.com/zeromicro/go-zero/rest/httpx"
 )
 
 func ListHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
@@ -115,7 +113,7 @@ func ContextHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 func CreateHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req types.ArticleReq
-		if err := httpx.Parse(r, &req); err != nil {
+		if err := basehandler.Parse(r, &req); err != nil {
 			response.Error(w, err)
 			return
 		}
@@ -136,7 +134,7 @@ func UpdateHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 			return
 		}
 		var req types.ArticleReq
-		if err := httpx.Parse(r, &req); err != nil {
+		if err := basehandler.Parse(r, &req); err != nil {
 			response.Error(w, err)
 			return
 		}
@@ -231,7 +229,7 @@ func UpdateStatusHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 			return
 		}
 		var req types.ArticleStatusReq
-		if err := httpx.Parse(r, &req); err != nil {
+		if err := basehandler.Parse(r, &req); err != nil {
 			response.Error(w, err)
 			return
 		}
