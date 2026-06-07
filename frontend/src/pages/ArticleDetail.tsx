@@ -1,5 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
+import ImageLightbox, { LightboxImage } from '../components/ImageLightbox';
 import InlineNotice from '../components/InlineNotice';
 import MarkdownRenderer from '../components/MarkdownRenderer';
 import { getErrorMessage } from '../utils/error';
@@ -21,6 +22,8 @@ const ArticleDetail: React.FC = () => {
   const [error, setError] = useState('');
   const [contextError, setContextError] = useState('');
   const [coverError, setCoverError] = useState(false);
+  const [lightboxImage, setLightboxImage] = useState<LightboxImage | null>(null);
+  const closeLightbox = useCallback(() => setLightboxImage(null), []);
   const t = (key: Parameters<typeof translate>[1]) => translate(language, key);
 
   useSEO(article?.seoTitle || article?.title, article?.seoDescription || article?.summary, article?.seoKeywords);
@@ -38,6 +41,7 @@ const ArticleDetail: React.FC = () => {
       setArticle(null);
       setArticleContext(null);
       setCoverError(false);
+      setLightboxImage(null);
       try {
         const res = await getArticleById(id);
         setArticle({ ...res.data, content: res.data.content || '' });
@@ -82,13 +86,20 @@ const ArticleDetail: React.FC = () => {
               </div>
             ) : (
               <>
-                <img
-                  src={coverUrl}
-                  alt={article.title}
-                  onError={() => setCoverError(true)}
-                  onLoad={() => setCoverError(false)}
-                  className="w-full h-full object-cover grayscale hover:grayscale-0 transition-all duration-700"
-                />
+                <button
+                  type="button"
+                  className="block h-full w-full cursor-zoom-in bg-transparent p-0"
+                  aria-label={`查看大图：${article.title}`}
+                  onClick={() => setLightboxImage({ src: coverUrl, alt: article.title })}
+                >
+                  <img
+                    src={coverUrl}
+                    alt={article.title}
+                    onError={() => setCoverError(true)}
+                    onLoad={() => setCoverError(false)}
+                    className="w-full h-full object-cover grayscale hover:grayscale-0 transition-all duration-700"
+                  />
+                </button>
                 <div className="absolute inset-0 bg-[var(--cover-wash)] pointer-events-none"></div>
               </>
             )}
@@ -130,6 +141,7 @@ const ArticleDetail: React.FC = () => {
       </div>
 
       <ArticleContextBlock context={articleContext} error={contextError} />
+      <ImageLightbox image={lightboxImage} onClose={closeLightbox} />
     </article>
   );
 };

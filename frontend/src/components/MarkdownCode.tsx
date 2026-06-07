@@ -1,4 +1,4 @@
-import type { CSSProperties } from 'react';
+import type { CSSProperties, KeyboardEvent, MouseEvent } from 'react';
 import type { Components } from 'react-markdown';
 import SyntaxHighlighter from 'react-syntax-highlighter/dist/esm/prism-light';
 import bash from 'react-syntax-highlighter/dist/esm/languages/prism/bash';
@@ -13,6 +13,7 @@ import sql from 'react-syntax-highlighter/dist/esm/languages/prism/sql';
 import tsx from 'react-syntax-highlighter/dist/esm/languages/prism/tsx';
 import typescript from 'react-syntax-highlighter/dist/esm/languages/prism/typescript';
 import yaml from 'react-syntax-highlighter/dist/esm/languages/prism/yaml';
+import type { LightboxImage } from './ImageLightbox';
 
 SyntaxHighlighter.registerLanguage('bash', bash);
 SyntaxHighlighter.registerLanguage('sh', bash);
@@ -102,7 +103,11 @@ const getLanguage = (className?: string) => {
   return languageAliases[language] || language;
 };
 
-export const markdownComponents: Components = {
+type MarkdownComponentOptions = {
+  onImageClick?: (image: LightboxImage) => void;
+};
+
+export const createMarkdownComponents = ({ onImageClick }: MarkdownComponentOptions = {}): Components => ({
   pre({ children }) {
     return <>{children}</>;
   },
@@ -152,4 +157,62 @@ export const markdownComponents: Components = {
       </code>
     );
   },
-};
+  img({ src, alt, title, className, node, ...props }) {
+    void node;
+
+    const imageSrc = typeof src === 'string' ? src : '';
+    const imageAlt = typeof alt === 'string' ? alt : '';
+    const imageTitle = typeof title === 'string' ? title : undefined;
+    const imageClassName = ['article-image-clickable', className].filter(Boolean).join(' ');
+
+    if (!imageSrc || !onImageClick) {
+      return (
+        <img
+          {...props}
+          src={src}
+          alt={imageAlt}
+          title={imageTitle}
+          className={className}
+        />
+      );
+    }
+
+    const openImage = () => {
+      onImageClick({
+        src: imageSrc,
+        alt: imageAlt || imageTitle || '',
+      });
+    };
+
+    const handleClick = (event: MouseEvent<HTMLImageElement>) => {
+      event.preventDefault();
+      event.stopPropagation();
+      openImage();
+    };
+
+    const handleKeyDown = (event: KeyboardEvent<HTMLImageElement>) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        event.stopPropagation();
+        openImage();
+      }
+    };
+
+    return (
+      <img
+        {...props}
+        src={imageSrc}
+        alt={imageAlt}
+        title={imageTitle}
+        className={imageClassName}
+        role="button"
+        tabIndex={0}
+        aria-label={imageAlt ? `查看大图：${imageAlt}` : '查看大图'}
+        onClick={handleClick}
+        onKeyDown={handleKeyDown}
+      />
+    );
+  },
+});
+
+export const markdownComponents = createMarkdownComponents();

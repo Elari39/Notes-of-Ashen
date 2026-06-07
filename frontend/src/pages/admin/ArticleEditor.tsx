@@ -1,12 +1,11 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import ReactMarkdown from 'react-markdown';
 import { getArticlePreview, createArticle, updateArticle } from '../../api/article';
 import { createCategory, getCategories } from '../../api/category';
 import { createTag, getTags } from '../../api/tag';
 import { Category, Tag } from '../../types';
 import InlineNotice from '../../components/InlineNotice';
-import { markdownComponents } from '../../components/MarkdownCode';
+import MarkdownRenderer from '../../components/MarkdownRenderer';
 import { getErrorMessage } from '../../utils/error';
 import { generateSlug } from '../../utils/slug';
 import { isValidCoverUrl } from '../../utils/cover';
@@ -483,16 +482,7 @@ const ArticleEditor: React.FC = () => {
           ></textarea>
         </div>
         <div className="w-full md:w-1/2 border border-mountain-grey p-4 overflow-y-auto bg-[var(--paper-soft)]">
-          <div className="prose prose-stone max-w-none
-            prose-headings:font-serif prose-headings:font-bold prose-headings:text-ink
-            prose-p:text-ink-light prose-p:leading-loose prose-p:tracking-wide
-            prose-a:text-ochre
-            prose-blockquote:border-l-4 prose-blockquote:border-mountain-grey prose-blockquote:pl-6 prose-blockquote:italic
-          ">
-            <ReactMarkdown components={markdownComponents}>
-              {content}
-            </ReactMarkdown>
-          </div>
+          <MarkdownRenderer content={content} />
         </div>
       </div>
     </div>
