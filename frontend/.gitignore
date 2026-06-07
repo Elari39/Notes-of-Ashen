@@ -1,24 +1,49 @@
-# Logs
-logs
-*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-lerna-debug.log*
-
-node_modules
-dist
-dist-ssr
+# 环境变量
+.env
+.env.*
+!.env.example
 *.local
 
-# Editor directories and files
+# 依赖目录
+node_modules/
+.pnpm-store/
+
+# 构建产物
+dist/
+dist-ssr/
+
+# 工具缓存
+.vite/
+.cache/
+.eslintcache
+*.tsbuildinfo
+coverage/
+
+# 日志
+logs/
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# IDE 与系统文件
 .vscode/*
 !.vscode/extensions.json
-.idea
+.idea/
 .DS_Store
+Thumbs.db
+Desktop.ini
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
+
+# 临时文件
+tmp/
+temp/
+*.tmp
+*.bak
+*.orig

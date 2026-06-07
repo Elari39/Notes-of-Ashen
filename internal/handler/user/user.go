@@ -37,6 +37,21 @@ func UpdateMeHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	}
 }
 
+func SendVerifyCodeHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var req types.UserVerifyCodeReq
+		if err := basehandler.Parse(r, &req); err != nil {
+			response.Error(w, err)
+			return
+		}
+		if err := userlogic.SendVerifyCode(r.Context(), svcCtx, req, basehandler.Meta(r)); err != nil {
+			response.Error(w, err)
+			return
+		}
+		response.NoData(w)
+	}
+}
+
 func ChangePasswordHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req types.ChangePasswordReq

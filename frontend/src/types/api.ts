@@ -13,6 +13,7 @@ export interface RegisterReq {
   account: string;
   password: string;
   email: string;
+  emailCode: string;
   nickname?: string;
   avatarUrl?: string;
 }
@@ -20,10 +21,39 @@ export interface RegisterReq {
 export interface LoginReq {
   account: string;
   password: string;
+  captchaId: string;
+  captchaCode: string;
 }
 
 export interface RefreshReq {
   refreshToken: string;
+}
+
+export type CaptchaPurpose = 'login' | 'register' | 'reset_password' | 'change_password' | 'update_email';
+
+export type VerifyCodePurpose = Exclude<CaptchaPurpose, 'login'>;
+
+export interface CaptchaReq {
+  purpose: CaptchaPurpose;
+}
+
+export interface CaptchaResp {
+  captchaId: string;
+  imageData: string;
+  expiresIn: number;
+}
+
+export interface SendVerifyCodeReq {
+  email: string;
+  purpose: 'register' | 'reset_password';
+  captchaId: string;
+  captchaCode: string;
+}
+
+export interface ResetPasswordReq {
+  email: string;
+  emailCode: string;
+  newPassword: string;
 }
 
 export interface UpdateSiteSettingsReq {
@@ -38,6 +68,7 @@ export interface UpdateSiteSettingsReq {
 // User
 export interface UpdateUserReq {
   email?: string;
+  emailCode?: string;
   avatarUrl?: string;
   nickname?: string;
 }
@@ -45,6 +76,14 @@ export interface UpdateUserReq {
 export interface UpdatePasswordReq {
   oldPassword: string;
   newPassword: string;
+  emailCode: string;
+}
+
+export interface UserVerifyCodeReq {
+  email?: string;
+  purpose: 'change_password' | 'update_email';
+  captchaId: string;
+  captchaCode: string;
 }
 
 // Admin

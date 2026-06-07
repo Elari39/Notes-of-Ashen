@@ -1,6 +1,21 @@
 import type { Language } from './store/preferences';
 
 const zh = {
+  'auth.captcha': '图形验证码',
+  'auth.captchaLoading': '加载中',
+  'auth.refreshCaptcha': '刷新验证码',
+  'auth.captchaError': '图形验证码加载失败',
+  'auth.emailCode': '邮箱验证码',
+  'auth.sendEmailCode': '发送验证码',
+  'auth.sendingEmailCode': '发送中...',
+  'auth.emailCodeSent': '验证码已发送，请查收邮箱。',
+  'auth.sendEmailCodeError': '验证码发送失败',
+  'auth.forgotPassword': '忘记密码？',
+  'auth.forgotPasswordTitle': '找回密码',
+  'auth.resetPasswordSubmit': '重置密码',
+  'auth.resetPasswordSubmitting': '重置中...',
+  'auth.resetPasswordSuccess': '密码已重置，请重新登录。',
+  'auth.resetPasswordError': '密码重置失败',
   'nav.search': '寻章',
   'home.searchCurtainPlaceholder': '标题、摘要，或正文片段',
   'home.searchSubmit': '搜索',
@@ -257,6 +272,21 @@ const zh = {
 type TranslationKey = keyof typeof zh;
 
 const en: Record<TranslationKey, string> = {
+  'auth.captcha': 'Captcha',
+  'auth.captchaLoading': 'Loading',
+  'auth.refreshCaptcha': 'Refresh captcha',
+  'auth.captchaError': 'Failed to load captcha',
+  'auth.emailCode': 'Email code',
+  'auth.sendEmailCode': 'Send Code',
+  'auth.sendingEmailCode': 'Sending...',
+  'auth.emailCodeSent': 'Code sent. Please check your email.',
+  'auth.sendEmailCodeError': 'Failed to send code',
+  'auth.forgotPassword': 'Forgot password?',
+  'auth.forgotPasswordTitle': 'Reset Password',
+  'auth.resetPasswordSubmit': 'Reset Password',
+  'auth.resetPasswordSubmitting': 'Resetting...',
+  'auth.resetPasswordSuccess': 'Password reset. Please sign in again.',
+  'auth.resetPasswordError': 'Password reset failed',
   'nav.search': 'Search',
   'home.searchCurtainPlaceholder': 'Title, summary, or body',
   'home.searchSubmit': 'Search',

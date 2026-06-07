@@ -101,9 +101,34 @@ Copy-Item .env.example .env
 - `REDIS_PASSWORD`：Redis 密码。
 - `RABBITMQ_DEFAULT_USER`：RabbitMQ 用户名。
 - `RABBITMQ_DEFAULT_PASS`：RabbitMQ 密码。
+- `APP_EMAIL_ENABLED`：是否启用邮箱验证码，使用 QQ 邮箱时设置为 `true`。
+- `APP_EMAIL_SMTP_USERNAME`：QQ 邮箱账号，例如 `yourname@qq.com`。
+- `APP_EMAIL_SMTP_PASSWORD`：QQ 邮箱 SMTP 授权码，不是 QQ 登录密码。
+- `APP_EMAIL_FROM`：发件邮箱，通常和 `APP_EMAIL_SMTP_USERNAME` 一致；留空时后端会回退使用 SMTP 用户名。
+- `APP_EMAIL_FROM_NAME`：发件人名称。
 - `WEB_PORT`：本机 Web 访问端口，默认 `1270`。
 
 不要把真实 `.env` 内容写入 README、Issue、提交记录或截图中。
+
+### QQ 邮箱验证码配置
+
+在 QQ 邮箱开启 SMTP 服务后，将授权码写入真实 `.env`：
+
+```env
+APP_EMAIL_ENABLED=true
+APP_EMAIL_SMTP_HOST=smtp.qq.com
+APP_EMAIL_SMTP_PORT=465
+APP_EMAIL_SMTP_USERNAME=yourname@qq.com
+APP_EMAIL_SMTP_PASSWORD=your-qq-mail-auth-code
+APP_EMAIL_FROM=yourname@qq.com
+APP_EMAIL_FROM_NAME="Notes of Ashen"
+```
+
+修改 `.env` 后重新创建 API 容器：
+
+```bash
+docker compose up -d api
+```
 
 ## 本机 Docker 部署
 
@@ -373,6 +398,9 @@ docker compose up -d --build
 
 - `POST /api/v1/auth/register`
 - `POST /api/v1/auth/login`
+- `POST /api/v1/auth/captcha`
+- `POST /api/v1/auth/verify-code/send`
+- `POST /api/v1/auth/password/reset`
 - `POST /api/v1/auth/refresh`
 - `POST /api/v1/auth/logout`
 - `GET /api/v1/articles`

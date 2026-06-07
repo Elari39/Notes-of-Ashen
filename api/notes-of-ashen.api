@@ -24,21 +24,47 @@ type PageReq {
 }
 
 type RegisterReq {
-	Account  string `json:"account"`
-	Password string `json:"password"`
-	Email    string `json:"email"`
-	Nickname string `json:"nickname,optional"`
+	Account   string `json:"account"`
+	Password  string `json:"password"`
+	Email     string `json:"email"`
+	EmailCode string `json:"emailCode"`
+	Nickname  string `json:"nickname,optional"`
 	// Optional. Empty means no avatar; non-empty must be http(s) URL.
 	AvatarUrl string `json:"avatarUrl,optional"`
 }
 
 type LoginReq {
-	Account  string `json:"account"`
-	Password string `json:"password"`
+	Account     string `json:"account"`
+	Password    string `json:"password"`
+	CaptchaID   string `json:"captchaId"`
+	CaptchaCode string `json:"captchaCode"`
 }
 
 type RefreshReq {
 	RefreshToken string `json:"refreshToken"`
+}
+
+type CaptchaReq {
+	Purpose string `json:"purpose,optional"`
+}
+
+type CaptchaResp {
+	CaptchaID string `json:"captchaId"`
+	ImageData string `json:"imageData"`
+	ExpiresIn int64  `json:"expiresIn"`
+}
+
+type SendVerifyCodeReq {
+	Email       string `json:"email"`
+	Purpose     string `json:"purpose"`
+	CaptchaID   string `json:"captchaId"`
+	CaptchaCode string `json:"captchaCode"`
+}
+
+type ResetPasswordReq {
+	Email       string `json:"email"`
+	EmailCode   string `json:"emailCode"`
+	NewPassword string `json:"newPassword"`
 }
 
 type TokenResp {
@@ -68,6 +94,7 @@ type UpdateSiteSettingsReq {
 
 type UpdateMeReq {
 	Email     string `json:"email,optional"`
+	EmailCode string `json:"emailCode,optional"`
 	AvatarUrl string `json:"avatarUrl,optional"`
 	Nickname  string `json:"nickname,optional"`
 }
@@ -75,6 +102,14 @@ type UpdateMeReq {
 type ChangePasswordReq {
 	OldPassword string `json:"oldPassword"`
 	NewPassword string `json:"newPassword"`
+	EmailCode   string `json:"emailCode"`
+}
+
+type UserVerifyCodeReq {
+	Email       string `json:"email,optional"`
+	Purpose     string `json:"purpose"`
+	CaptchaID   string `json:"captchaId"`
+	CaptchaCode string `json:"captchaCode"`
 }
 
 type UserResp {
@@ -318,11 +353,20 @@ service notesOfAshen-api {
 	@handler sitemap
 	get /sitemap.xml
 
+	@handler captcha
+	post /api/v1/auth/captcha (CaptchaReq) returns (CaptchaResp)
+
+	@handler sendVerifyCode
+	post /api/v1/auth/verify-code/send (SendVerifyCodeReq) returns (EmptyResp)
+
 	@handler register
 	post /api/v1/auth/register (RegisterReq) returns (TokenResp)
 
 	@handler login
 	post /api/v1/auth/login (LoginReq) returns (TokenResp)
+
+	@handler resetPassword
+	post /api/v1/auth/password/reset (ResetPasswordReq) returns (EmptyResp)
 
 	@handler refresh
 	post /api/v1/auth/refresh (RefreshReq) returns (TokenResp)
@@ -353,6 +397,9 @@ service notesOfAshen-api {
 
 	@handler updateMe
 	put /api/v1/users/me (UpdateMeReq) returns (UserResp)
+
+	@handler userSendVerifyCode
+	post /api/v1/users/me/verify-code/send (UserVerifyCodeReq) returns (EmptyResp)
 
 	@handler changePassword
 	put /api/v1/users/me/password (ChangePasswordReq) returns (EmptyResp)

@@ -14,6 +14,7 @@ type Config struct {
 	Auth     AuthConf
 	Redis    RedisConf
 	RabbitMQ RabbitMQConf
+	Email    EmailConf
 }
 
 type DatabaseConf struct {
@@ -40,6 +41,16 @@ type RabbitMQConf struct {
 	Exchange   string
 	Queue      string
 	RoutingKey string
+}
+
+type EmailConf struct {
+	Enabled      bool
+	SMTPHost     string
+	SMTPPort     int
+	SMTPUsername string
+	SMTPPassword string
+	From         string
+	FromName     string
 }
 
 func (c *Config) ApplyEnv() error {
@@ -118,6 +129,17 @@ func (c *Config) ApplyEnv() error {
 	setString("APP_RABBITMQ_EXCHANGE", &c.RabbitMQ.Exchange)
 	setString("APP_RABBITMQ_QUEUE", &c.RabbitMQ.Queue)
 	setString("APP_RABBITMQ_ROUTING_KEY", &c.RabbitMQ.RoutingKey)
+	if err := setBool("APP_EMAIL_ENABLED", &c.Email.Enabled); err != nil {
+		return err
+	}
+	setString("APP_EMAIL_SMTP_HOST", &c.Email.SMTPHost)
+	if err := setInt("APP_EMAIL_SMTP_PORT", &c.Email.SMTPPort); err != nil {
+		return err
+	}
+	setString("APP_EMAIL_SMTP_USERNAME", &c.Email.SMTPUsername)
+	setString("APP_EMAIL_SMTP_PASSWORD", &c.Email.SMTPPassword)
+	setString("APP_EMAIL_FROM", &c.Email.From)
+	setString("APP_EMAIL_FROM_NAME", &c.Email.FromName)
 
 	return nil
 }

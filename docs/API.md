@@ -570,3 +570,108 @@ Invoke-RestMethod -Method Get `
   -Uri "http://127.0.0.1:19000/api/v1/users/me" `
   -Headers $headers
 ```
+
+## 邮箱验证码、图片验证码与限流补充
+
+新增错误码：
+
+| code | HTTP 状态码 | 含义 |
+| --- | --- | --- |
+| 42900 | 429 | 请求过于频繁，常见于登录、发送验证码或重置密码限流 |
+
+### 获取图片验证码
+
+```text
+POST /api/v1/auth/captcha
+```
+
+请求字段：
+
+| 字段 | 类型 | 必填 | 说明 |
+| --- | --- | --- | --- |
+| purpose | string | 否 | `login`、`register`、`reset_password`、`change_password`、`update_email`；为空时默认 `login` |
+
+响应 `data`：
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| captchaId | string | 图片验证码 ID |
+| imageData | string | 可直接用于 `<img src>` 的 PNG base64 Data URL |
+| expiresIn | int64 | 有效秒数，默认 300 |
+
+### 发送公开邮箱验证码
+
+```text
+POST /api/v1/auth/verify-code/send
+```
+
+用于注册和找回密码。发送前必须提交同用途图片验证码，同 IP 1 分钟最多 5 次。
+
+| 字段 | 类型 | 必填 | 说明 |
+| --- | --- | --- | --- |
+| email | string | 是 | 接收验证码的邮箱 |
+| purpose | string | 是 | `register` 或 `reset_password` |
+| captchaId | string | 是 | 图片验证码 ID |
+| captchaCode | string | 是 | 图片验证码答案 |
+
+### 注册
+
+`POST /api/v1/auth/register` 新增字段：
+
+| 字段 | 类型 | 必填 | 说明 |
+| --- | --- | --- | --- |
+| emailCode | string | 是 | `register` 用途邮箱验证码；第一个管理员账号也必须校验 |
+
+### 登录
+
+`POST /api/v1/auth/login` 新增字段：
+
+| 字段 | 类型 | 必填 | 说明 |
+| --- | --- | --- | --- |
+| captchaId | string | 是 | `login` 用途图片验证码 ID |
+| captchaCode | string | 是 | 图片验证码答案 |
+
+### 找回密码
+
+```text
+POST /api/v1/auth/password/reset
+```
+
+| 字段 | 类型 | 必填 | 说明 |
+| --- | --- | --- | --- |
+| email | string | 是 | 账号绑定邮箱 |
+| emailCode | string | 是 | `reset_password` 用途邮箱验证码 |
+| newPassword | string | 是 | 新密码，长度 8 到 128 |
+
+重置成功后会撤销该用户已有 Refresh Token，需要重新登录。
+
+### 登录态发送邮箱验证码
+
+```text
+POST /api/v1/users/me/verify-code/send
+```
+
+权限：登录用户。用于修改密码和修改邮箱，发送前必须提交同用途图片验证码，同 IP 1 分钟最多 5 次。
+
+| 字段 | 类型 | 必填 | 说明 |
+| --- | --- | --- | --- |
+| purpose | string | 是 | `change_password` 或 `update_email` |
+| email | string | 条件必填 | `update_email` 时为目标新邮箱；`change_password` 时不用传 |
+| captchaId | string | 是 | 图片验证码 ID |
+| captchaCode | string | 是 | 图片验证码答案 |
+
+### 修改当前用户资料
+
+`PUT /api/v1/users/me` 在修改邮箱时新增字段：
+
+| 字段 | 类型 | 必填 | 说明 |
+| --- | --- | --- | --- |
+| emailCode | string | 条件必填 | 仅当 `email` 变更时必填，校验 `update_email` 用途验证码 |
+
+### 修改密码
+
+`PUT /api/v1/users/me/password` 新增字段：
+
+| 字段 | 类型 | 必填 | 说明 |
+| --- | --- | --- | --- |
+| emailCode | string | 是 | 当前邮箱收到的 `change_password` 用途验证码 |

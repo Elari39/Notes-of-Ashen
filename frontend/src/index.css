@@ -86,6 +86,11 @@
     color: var(--ink);
   }
 
+  input[type='password']::-ms-reveal,
+  input[type='password']::-ms-clear {
+    display: none;
+  }
+
   select option {
     color: var(--ink);
     background: var(--paper);

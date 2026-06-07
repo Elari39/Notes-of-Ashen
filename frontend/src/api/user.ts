@@ -1,12 +1,22 @@
 import http from '../utils/http';
 import { BaseResp, User, Log, PaginatedResp } from '../types';
-import { UpdateUserReq, UpdatePasswordReq, UpdateUserStatusReq, UpdateUserRoleReq, PageParams } from '../types/api';
+import {
+  PageParams,
+  UpdatePasswordReq,
+  UpdateUserReq,
+  UpdateUserRoleReq,
+  UpdateUserStatusReq,
+  UserVerifyCodeReq,
+} from '../types/api';
 
 export const getCurrentUser = () => 
   http.get<unknown, BaseResp<User>>('/users/me');
 
 export const updateCurrentUser = (data: UpdateUserReq) => 
   http.put<unknown, BaseResp<User>>('/users/me', data);
+
+export const sendCurrentUserVerifyCode = (data: UserVerifyCodeReq) =>
+  http.post<unknown, BaseResp>('/users/me/verify-code/send', data);
 
 export const updatePassword = (data: UpdatePasswordReq) => 
   http.put<unknown, BaseResp>('/users/me/password', data);

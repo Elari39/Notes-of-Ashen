@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { register } from '../api/auth';
+import { register, sendVerifyCode } from '../api/auth';
 import { useAuthStore } from '../store/auth';
 import { usePreferenceStore } from '../store/preferences';
 import { useSiteSettingsStore } from '../store/siteSettings';
 import { normalizeAvatarUrl } from '../utils/avatar';
+import CaptchaField from '../components/CaptchaField';
 import InlineNotice from '../components/InlineNotice';
 import { getErrorMessage } from '../utils/error';
 import { translate } from '../i18n';
@@ -18,10 +19,16 @@ const Register: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [email, setEmail] = useState('');
+  const [emailCode, setEmailCode] = useState('');
   const [nickname, setNickname] = useState('');
   const [avatarUrl, setAvatarUrl] = useState('');
+  const [captchaId, setCaptchaId] = useState('');
+  const [captchaCode, setCaptchaCode] = useState('');
+  const [captchaReloadKey, setCaptchaReloadKey] = useState(0);
   const [error, setError] = useState('');
+  const [message, setMessage] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [sendingCode, setSendingCode] = useState(false);
   const navigate = useNavigate();
   const { setAuth, fetchUser } = useAuthStore();
   const t = (key: Parameters<typeof translate>[1]) => translate(language, key);
@@ -37,12 +44,14 @@ const Register: React.FC = () => {
       return;
     }
     setError('');
+    setMessage('');
     setSubmitting(true);
     try {
       const res = await register({
         account: account.trim(),
         password,
         email: email.trim(),
+        emailCode: emailCode.trim(),
         nickname: nickname.trim(),
         avatarUrl: normalizeAvatarUrl(avatarUrl),
       });
@@ -55,6 +64,26 @@ const Register: React.FC = () => {
       setError(getErrorMessage(err, t('auth.registerError')));
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleSendEmailCode = async () => {
+    setError('');
+    setMessage('');
+    setSendingCode(true);
+    try {
+      await sendVerifyCode({
+        email: email.trim(),
+        purpose: 'register',
+        captchaId,
+        captchaCode,
+      });
+      setMessage(t('auth.emailCodeSent'));
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, t('auth.sendEmailCodeError')));
+      setCaptchaReloadKey((value) => value + 1);
+    } finally {
+      setSendingCode(false);
     }
   };
 
@@ -90,6 +119,33 @@ const Register: React.FC = () => {
               className="w-full bg-transparent border-b border-mountain-grey py-2 px-1 text-ink focus:outline-none focus:border-ochre transition-colors placeholder-ink-light placeholder-opacity-50"
               required
             />
+          </div>
+          <CaptchaField
+            purpose="register"
+            captchaId={captchaId}
+            captchaCode={captchaCode}
+            onCaptchaIdChange={setCaptchaId}
+            onCaptchaCodeChange={setCaptchaCode}
+            reloadKey={captchaReloadKey}
+          />
+          <div className="flex items-end gap-3">
+            <input
+              type="text"
+              inputMode="numeric"
+              placeholder={t('auth.emailCode')}
+              value={emailCode}
+              onChange={(e) => setEmailCode(e.target.value.trim())}
+              className="min-w-0 flex-1 bg-transparent border-b border-mountain-grey py-2 px-1 text-ink focus:outline-none focus:border-ochre transition-colors placeholder-ink-light placeholder-opacity-50"
+              required
+            />
+            <button
+              type="button"
+              onClick={handleSendEmailCode}
+              disabled={sendingCode || !email.trim() || !captchaId || !captchaCode.trim()}
+              className="h-10 shrink-0 border border-ink px-4 text-xs tracking-widest text-ink hover:bg-ink hover:text-paper transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {sendingCode ? t('auth.sendingEmailCode') : t('auth.sendEmailCode')}
+            </button>
           </div>
           <div>
             <input
@@ -148,6 +204,7 @@ const Register: React.FC = () => {
             </button>
           </div>
           <InlineNotice message={error} />
+          <InlineNotice message={message} tone="success" />
           <div className="pt-4">
             <button
               type="submit"

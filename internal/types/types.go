@@ -13,17 +13,43 @@ type RegisterReq struct {
 	Account   string `json:"account"`
 	Password  string `json:"password"`
 	Email     string `json:"email"`
+	EmailCode string `json:"emailCode"`
 	Nickname  string `json:"nickname,optional"`
 	AvatarURL string `json:"avatarUrl,optional"`
 }
 
 type LoginReq struct {
-	Account  string `json:"account"`
-	Password string `json:"password"`
+	Account     string `json:"account"`
+	Password    string `json:"password"`
+	CaptchaID   string `json:"captchaId"`
+	CaptchaCode string `json:"captchaCode"`
 }
 
 type RefreshReq struct {
 	RefreshToken string `json:"refreshToken"`
+}
+
+type CaptchaReq struct {
+	Purpose string `json:"purpose,optional"`
+}
+
+type CaptchaResp struct {
+	CaptchaID string `json:"captchaId"`
+	ImageData string `json:"imageData"`
+	ExpiresIn int64  `json:"expiresIn"`
+}
+
+type SendVerifyCodeReq struct {
+	Email       string `json:"email"`
+	Purpose     string `json:"purpose"`
+	CaptchaID   string `json:"captchaId"`
+	CaptchaCode string `json:"captchaCode"`
+}
+
+type ResetPasswordReq struct {
+	Email       string `json:"email"`
+	EmailCode   string `json:"emailCode"`
+	NewPassword string `json:"newPassword"`
 }
 
 type SiteSettingsResp struct {
@@ -63,6 +89,7 @@ type UserResp struct {
 
 type UpdateMeReq struct {
 	Email     string `json:"email,optional"`
+	EmailCode string `json:"emailCode,optional"`
 	AvatarURL string `json:"avatarUrl,optional"`
 	Nickname  string `json:"nickname,optional"`
 }
@@ -70,6 +97,14 @@ type UpdateMeReq struct {
 type ChangePasswordReq struct {
 	OldPassword string `json:"oldPassword"`
 	NewPassword string `json:"newPassword"`
+	EmailCode   string `json:"emailCode"`
+}
+
+type UserVerifyCodeReq struct {
+	Email       string `json:"email,optional"`
+	Purpose     string `json:"purpose"`
+	CaptchaID   string `json:"captchaId"`
+	CaptchaCode string `json:"captchaCode"`
 }
 
 type ArticleReq struct {

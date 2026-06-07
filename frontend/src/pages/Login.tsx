@@ -4,6 +4,7 @@ import { login } from '../api/auth';
 import { useAuthStore } from '../store/auth';
 import { usePreferenceStore } from '../store/preferences';
 import { useSiteSettingsStore } from '../store/siteSettings';
+import CaptchaField from '../components/CaptchaField';
 import InlineNotice from '../components/InlineNotice';
 import { getErrorMessage } from '../utils/error';
 import { translate } from '../i18n';
@@ -13,6 +14,9 @@ const Login: React.FC = () => {
   const registrationEnabled = useSiteSettingsStore((state) => state.registrationEnabled);
   const [account, setAccount] = useState('');
   const [password, setPassword] = useState('');
+  const [captchaId, setCaptchaId] = useState('');
+  const [captchaCode, setCaptchaCode] = useState('');
+  const [captchaReloadKey, setCaptchaReloadKey] = useState(0);
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -37,7 +41,7 @@ const Login: React.FC = () => {
     setError('');
     setSubmitting(true);
     try {
-      const res = await login({ account, password });
+      const res = await login({ account, password, captchaId, captchaCode });
       const token = res.data.accessToken;
       localStorage.setItem('refreshToken', res.data.refreshToken);
       setAuth(null, token);
@@ -45,6 +49,7 @@ const Login: React.FC = () => {
       navigate(redirectTo, { replace: true });
     } catch (err: unknown) {
       setError(getErrorMessage(err, t('auth.loginError')));
+      setCaptchaReloadKey((value) => value + 1);
     } finally {
       setSubmitting(false);
     }
@@ -92,6 +97,14 @@ const Login: React.FC = () => {
               {showPassword ? t('auth.hidePassword') : t('auth.showPassword')}
             </button>
           </div>
+          <CaptchaField
+            purpose="login"
+            captchaId={captchaId}
+            captchaCode={captchaCode}
+            onCaptchaIdChange={setCaptchaId}
+            onCaptchaCodeChange={setCaptchaCode}
+            reloadKey={captchaReloadKey}
+          />
           <InlineNotice message={error} />
           <div className="pt-4">
             <button
@@ -107,6 +120,9 @@ const Login: React.FC = () => {
               {t('auth.noAccount')} <Link to="/register" className="hover:text-ochre transition-colors">{t('auth.goRegister')}</Link>
             </div>
           )}
+          <div className="text-center text-sm text-ink-light opacity-70 mt-4">
+            <Link to="/forgot-password" className="hover:text-ochre transition-colors">{t('auth.forgotPassword')}</Link>
+          </div>
         </form>
       </div>
     </div>

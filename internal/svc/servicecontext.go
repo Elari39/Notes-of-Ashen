@@ -3,6 +3,7 @@ package svc
 import (
 	"notes-of-ashen/internal/authutil"
 	"notes-of-ashen/internal/config"
+	"notes-of-ashen/internal/emailer"
 	"notes-of-ashen/internal/mq"
 	"notes-of-ashen/model"
 
@@ -16,6 +17,7 @@ type ServiceContext struct {
 	Redis  *redis.Client
 	Tokens *authutil.Manager
 	Events *mq.Publisher
+	Mailer *emailer.Sender
 }
 
 func NewServiceContext(c config.Config) *ServiceContext {
@@ -37,6 +39,7 @@ func NewServiceContext(c config.Config) *ServiceContext {
 		Redis:  redisClient,
 		Tokens: authutil.NewManager(c.Auth.AccessSecret, c.Auth.AccessExpire, c.Auth.RefreshExpire),
 		Events: events,
+		Mailer: emailer.NewSender(c.Email),
 	}
 }
 

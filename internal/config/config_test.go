@@ -13,6 +13,13 @@ func TestApplyEnvOverridesConfig(t *testing.T) {
 	t.Setenv("APP_REDIS_ADDR", "redis:6379")
 	t.Setenv("APP_RABBITMQ_ENABLED", "false")
 	t.Setenv("APP_AUTH_ACCESS_SECRET", "production-secret")
+	t.Setenv("APP_EMAIL_ENABLED", "true")
+	t.Setenv("APP_EMAIL_SMTP_HOST", "smtp.qq.com")
+	t.Setenv("APP_EMAIL_SMTP_PORT", "465")
+	t.Setenv("APP_EMAIL_SMTP_USERNAME", "user@qq.com")
+	t.Setenv("APP_EMAIL_SMTP_PASSWORD", "mail-auth-code")
+	t.Setenv("APP_EMAIL_FROM", "user@qq.com")
+	t.Setenv("APP_EMAIL_FROM_NAME", "Notes of Ashen")
 
 	if err := c.ApplyEnv(); err != nil {
 		t.Fatalf("ApplyEnv() error = %v", err)
@@ -32,6 +39,15 @@ func TestApplyEnvOverridesConfig(t *testing.T) {
 	}
 	if c.Auth.AccessSecret != "production-secret" {
 		t.Fatalf("Auth.AccessSecret = %q", c.Auth.AccessSecret)
+	}
+	if !c.Email.Enabled {
+		t.Fatal("Email.Enabled = false, want true")
+	}
+	if c.Email.SMTPHost != "smtp.qq.com" || c.Email.SMTPPort != 465 {
+		t.Fatalf("Email SMTP = %s:%d, want smtp.qq.com:465", c.Email.SMTPHost, c.Email.SMTPPort)
+	}
+	if c.Email.SMTPUsername != "user@qq.com" || c.Email.SMTPPassword != "mail-auth-code" {
+		t.Fatalf("Email credentials were not overridden")
 	}
 }
 

@@ -2,6 +2,7 @@ package handler
 
 import (
 	"net/http"
+	"time"
 
 	adminhandler "notes-of-ashen/internal/handler/admin"
 	articlehandler "notes-of-ashen/internal/handler/article"
@@ -18,6 +19,9 @@ import (
 
 func RegisterHandlers(server *rest.Server, svcCtx *svc.ServiceContext) {
 	authMiddleware := middleware.NewAuthMiddleware(svcCtx.Tokens, svcCtx.Store)
+	loginRateLimit := middleware.NewRateLimitMiddleware(svcCtx.Redis, "auth_login", 5, time.Minute)
+	verifyCodeRateLimit := middleware.NewRateLimitMiddleware(svcCtx.Redis, "verify_code_send", 5, time.Minute)
+	resetPasswordRateLimit := middleware.NewRateLimitMiddleware(svcCtx.Redis, "password_reset", 5, time.Minute)
 	authRequired := func(handler http.HandlerFunc) http.HandlerFunc {
 		return authMiddleware.Handle(handler)
 	}
@@ -25,8 +29,11 @@ func RegisterHandlers(server *rest.Server, svcCtx *svc.ServiceContext) {
 	server.AddRoutes([]rest.Route{
 		{Method: http.MethodGet, Path: "/rss.xml", Handler: sitehandler.RSSHandler(svcCtx)},
 		{Method: http.MethodGet, Path: "/sitemap.xml", Handler: sitehandler.SitemapHandler(svcCtx)},
+		{Method: http.MethodPost, Path: "/api/v1/auth/captcha", Handler: authhandler.CaptchaHandler(svcCtx)},
+		{Method: http.MethodPost, Path: "/api/v1/auth/verify-code/send", Handler: verifyCodeRateLimit.Handle(authhandler.SendVerifyCodeHandler(svcCtx))},
 		{Method: http.MethodPost, Path: "/api/v1/auth/register", Handler: authhandler.RegisterHandler(svcCtx)},
-		{Method: http.MethodPost, Path: "/api/v1/auth/login", Handler: authhandler.LoginHandler(svcCtx)},
+		{Method: http.MethodPost, Path: "/api/v1/auth/login", Handler: loginRateLimit.Handle(authhandler.LoginHandler(svcCtx))},
+		{Method: http.MethodPost, Path: "/api/v1/auth/password/reset", Handler: resetPasswordRateLimit.Handle(authhandler.ResetPasswordHandler(svcCtx))},
 		{Method: http.MethodPost, Path: "/api/v1/auth/refresh", Handler: authhandler.RefreshHandler(svcCtx)},
 		{Method: http.MethodGet, Path: "/api/v1/articles", Handler: articlehandler.ListHandler(svcCtx)},
 		{Method: http.MethodGet, Path: "/api/v1/articles/:id/context", Handler: articlehandler.ContextHandler(svcCtx)},
@@ -40,6 +47,7 @@ func RegisterHandlers(server *rest.Server, svcCtx *svc.ServiceContext) {
 		{Method: http.MethodPost, Path: "/api/v1/auth/logout", Handler: authRequired(authhandler.LogoutHandler(svcCtx))},
 		{Method: http.MethodGet, Path: "/api/v1/users/me", Handler: authRequired(userhandler.MeHandler(svcCtx))},
 		{Method: http.MethodPut, Path: "/api/v1/users/me", Handler: authRequired(userhandler.UpdateMeHandler(svcCtx))},
+		{Method: http.MethodPost, Path: "/api/v1/users/me/verify-code/send", Handler: verifyCodeRateLimit.Handle(authRequired(userhandler.SendVerifyCodeHandler(svcCtx)))},
 		{Method: http.MethodPut, Path: "/api/v1/users/me/password", Handler: authRequired(userhandler.ChangePasswordHandler(svcCtx))},
 		{Method: http.MethodPost, Path: "/api/v1/articles", Handler: authRequired(articlehandler.CreateHandler(svcCtx))},
 		{Method: http.MethodGet, Path: "/api/v1/articles/:id/preview", Handler: authRequired(articlehandler.PreviewHandler(svcCtx))},

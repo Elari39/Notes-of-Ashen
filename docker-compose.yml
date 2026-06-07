@@ -39,6 +39,13 @@ services:
       APP_RABBITMQ_EXCHANGE: "${APP_RABBITMQ_EXCHANGE:-notes-of-ashen.events}"
       APP_RABBITMQ_QUEUE: "${APP_RABBITMQ_QUEUE:-notes-of-ashen.operation_logs}"
       APP_RABBITMQ_ROUTING_KEY: "${APP_RABBITMQ_ROUTING_KEY:-operation.log}"
+      APP_EMAIL_ENABLED: "${APP_EMAIL_ENABLED:-false}"
+      APP_EMAIL_SMTP_HOST: "${APP_EMAIL_SMTP_HOST:-smtp.qq.com}"
+      APP_EMAIL_SMTP_PORT: "${APP_EMAIL_SMTP_PORT:-465}"
+      APP_EMAIL_SMTP_USERNAME: "${APP_EMAIL_SMTP_USERNAME:-}"
+      APP_EMAIL_SMTP_PASSWORD: "${APP_EMAIL_SMTP_PASSWORD:-}"
+      APP_EMAIL_FROM: "${APP_EMAIL_FROM:-}"
+      APP_EMAIL_FROM_NAME: "${APP_EMAIL_FROM_NAME:-Notes of Ashen}"
     expose:
       - "19000"
     depends_on:

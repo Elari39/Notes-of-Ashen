@@ -11,6 +11,7 @@ import (
 	apperrors "notes-of-ashen/internal/errors"
 	"notes-of-ashen/internal/logicutil"
 	"notes-of-ashen/internal/mq"
+	"notes-of-ashen/internal/security"
 	"notes-of-ashen/internal/svc"
 	"notes-of-ashen/internal/types"
 	"notes-of-ashen/internal/validator"
@@ -22,11 +23,76 @@ import (
 
 const refreshPrefix = "notes-of-ashen:refresh:"
 
+func Captcha(ctx context.Context, svcCtx *svc.ServiceContext, req types.CaptchaReq) (*types.CaptchaResp, error) {
+	req.Purpose = trim(req.Purpose)
+	if req.Purpose == "" {
+		req.Purpose = "login"
+	}
+	challenge, err := security.NewCaptcha(ctx, svcCtx.Redis, req.Purpose)
+	if err != nil {
+		return nil, err
+	}
+	return &types.CaptchaResp{
+		CaptchaID: challenge.ID,
+		ImageData: challenge.ImageData,
+		ExpiresIn: challenge.ExpiresIn,
+	}, nil
+}
+
+func SendVerifyCode(ctx context.Context, svcCtx *svc.ServiceContext, req types.SendVerifyCodeReq, meta types.RequestMeta) error {
+	req.Email = security.NormalizeEmail(req.Email)
+	req.Purpose = trim(req.Purpose)
+	req.CaptchaID = trim(req.CaptchaID)
+	req.CaptchaCode = trim(req.CaptchaCode)
+	if err := validator.Required(req.Email, "email"); err != nil {
+		return err
+	}
+	if err := validator.Email(req.Email); err != nil {
+		return err
+	}
+	purpose, err := security.NormalizeEmailPurpose(req.Purpose)
+	if err != nil {
+		return err
+	}
+	if purpose != "register" && purpose != "reset_password" {
+		return apperrors.BadRequest("purpose is invalid")
+	}
+	if err := checkPublicVerifyCodePurpose(ctx, svcCtx, purpose, req.Email); err != nil {
+		return err
+	}
+	if err := security.VerifyCaptcha(ctx, svcCtx.Redis, purpose, req.CaptchaID, req.CaptchaCode); err != nil {
+		return err
+	}
+
+	code, err := security.RandomDigits(6)
+	if err != nil {
+		return err
+	}
+	if err := security.StoreEmailCode(ctx, svcCtx.Redis, purpose, req.Email, code); err != nil {
+		return err
+	}
+	if err := svcCtx.Mailer.SendVerifyCode(ctx, req.Email, purpose, code); err != nil {
+		_ = security.ClearEmailCode(ctx, svcCtx.Redis, purpose, req.Email)
+		return err
+	}
+	publishEvent(ctx, svcCtx, mq.Event{
+		EventType:    "auth.verify_code_sent",
+		ResourceType: "email",
+		Metadata: map[string]string{
+			"purpose": purpose,
+		},
+		IP:        meta.IP,
+		UserAgent: meta.UserAgent,
+	})
+	return nil
+}
+
 func Register(ctx context.Context, svcCtx *svc.ServiceContext, req types.RegisterReq, meta types.RequestMeta) (*types.TokenPair, error) {
 	req.Account = trim(req.Account)
-	req.Email = trim(req.Email)
+	req.Email = security.NormalizeEmail(req.Email)
 	req.Nickname = trim(req.Nickname)
 	req.AvatarURL = trim(req.AvatarURL)
+	req.EmailCode = trim(req.EmailCode)
 	if err := validateRegister(req); err != nil {
 		return nil, err
 	}
@@ -46,6 +112,19 @@ func Register(ctx context.Context, svcCtx *svc.ServiceContext, req types.Registe
 		if !settings.RegistrationEnabled {
 			return nil, apperrors.Forbidden("registration is disabled")
 		}
+	}
+	if _, err := svcCtx.Store.FindUserByAccount(ctx, req.Account); err == nil {
+		return nil, apperrors.Conflict("account or email already exists")
+	} else if !errors.Is(err, model.ErrNotFound) {
+		return nil, err
+	}
+	if _, err := svcCtx.Store.FindUserByEmail(ctx, req.Email); err == nil {
+		return nil, apperrors.Conflict("account or email already exists")
+	} else if !errors.Is(err, model.ErrNotFound) {
+		return nil, err
+	}
+	if err := security.ConsumeEmailCode(ctx, svcCtx.Redis, "register", req.Email, req.EmailCode); err != nil {
+		return nil, err
 	}
 
 	passwordHash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
@@ -84,10 +163,15 @@ func Register(ctx context.Context, svcCtx *svc.ServiceContext, req types.Registe
 
 func Login(ctx context.Context, svcCtx *svc.ServiceContext, req types.LoginReq, meta types.RequestMeta) (*types.TokenPair, error) {
 	req.Account = trim(req.Account)
+	req.CaptchaID = trim(req.CaptchaID)
+	req.CaptchaCode = trim(req.CaptchaCode)
 	if err := validator.Required(req.Account, "account"); err != nil {
 		return nil, err
 	}
 	if err := validator.Required(req.Password, "password"); err != nil {
+		return nil, err
+	}
+	if err := security.VerifyCaptcha(ctx, svcCtx.Redis, "login", req.CaptchaID, req.CaptchaCode); err != nil {
 		return nil, err
 	}
 
@@ -118,6 +202,50 @@ func Login(ctx context.Context, svcCtx *svc.ServiceContext, req types.LoginReq, 
 		UserAgent:    meta.UserAgent,
 	})
 	return pair, nil
+}
+
+func ResetPassword(ctx context.Context, svcCtx *svc.ServiceContext, req types.ResetPasswordReq, meta types.RequestMeta) error {
+	req.Email = security.NormalizeEmail(req.Email)
+	req.EmailCode = trim(req.EmailCode)
+	if err := validator.Required(req.Email, "email"); err != nil {
+		return err
+	}
+	if err := validator.Email(req.Email); err != nil {
+		return err
+	}
+	if err := validator.Length(req.NewPassword, "newPassword", 8, 128); err != nil {
+		return err
+	}
+
+	user, err := svcCtx.Store.FindUserByEmail(ctx, req.Email)
+	if err != nil {
+		return logicutil.MapError(err)
+	}
+	if user.Status != "active" {
+		return apperrors.Forbidden("user is disabled")
+	}
+	if err := security.ConsumeEmailCode(ctx, svcCtx.Redis, "reset_password", req.Email, req.EmailCode); err != nil {
+		return err
+	}
+	hash, err := bcrypt.GenerateFromPassword([]byte(req.NewPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return err
+	}
+	if err := svcCtx.Store.UpdateUserPassword(ctx, user.ID, string(hash)); err != nil {
+		return err
+	}
+	if err := svcCtx.Store.RevokeUserRefreshTokens(ctx, user.ID); err != nil && !errors.Is(err, model.ErrNotFound) {
+		return err
+	}
+	publishEvent(ctx, svcCtx, mq.Event{
+		UserID:       user.ID,
+		EventType:    "user.password_reset",
+		ResourceType: "user",
+		ResourceID:   user.ID,
+		IP:           meta.IP,
+		UserAgent:    meta.UserAgent,
+	})
+	return nil
 }
 
 func Refresh(ctx context.Context, svcCtx *svc.ServiceContext, req types.RefreshReq) (*types.TokenPair, error) {
@@ -228,6 +356,43 @@ func validateRegister(req types.RegisterReq) error {
 	}
 	if err := validator.OptionalHTTPURL(req.AvatarURL, "avatarUrl"); err != nil {
 		return err
+	}
+	return nil
+}
+
+func checkPublicVerifyCodePurpose(ctx context.Context, svcCtx *svc.ServiceContext, purpose, email string) error {
+	switch purpose {
+	case "register":
+		total, err := svcCtx.Store.CountUsers(ctx)
+		if err != nil {
+			return err
+		}
+		if total > 0 {
+			settings, err := svcCtx.Store.SiteSettings(ctx)
+			if err != nil {
+				return err
+			}
+			if !settings.RegistrationEnabled {
+				return apperrors.Forbidden("registration is disabled")
+			}
+		}
+		_, err = svcCtx.Store.FindUserByEmail(ctx, email)
+		if err == nil {
+			return apperrors.Conflict("email already exists")
+		}
+		if !errors.Is(err, model.ErrNotFound) {
+			return err
+		}
+	case "reset_password":
+		user, err := svcCtx.Store.FindUserByEmail(ctx, email)
+		if err != nil {
+			return logicutil.MapError(err)
+		}
+		if user.Status != "active" {
+			return apperrors.Forbidden("user is disabled")
+		}
+	default:
+		return apperrors.BadRequest("purpose is invalid")
 	}
 	return nil
 }

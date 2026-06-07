@@ -26,6 +26,37 @@ func RegisterHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	}
 }
 
+func CaptchaHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var req types.CaptchaReq
+		if err := basehandler.Parse(r, &req); err != nil {
+			response.Error(w, err)
+			return
+		}
+		resp, err := authlogic.Captcha(r.Context(), svcCtx, req)
+		if err != nil {
+			response.Error(w, err)
+			return
+		}
+		response.Ok(w, resp)
+	}
+}
+
+func SendVerifyCodeHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var req types.SendVerifyCodeReq
+		if err := basehandler.Parse(r, &req); err != nil {
+			response.Error(w, err)
+			return
+		}
+		if err := authlogic.SendVerifyCode(r.Context(), svcCtx, req, basehandler.Meta(r)); err != nil {
+			response.Error(w, err)
+			return
+		}
+		response.NoData(w)
+	}
+}
+
 func LoginHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req types.LoginReq
@@ -39,6 +70,21 @@ func LoginHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 			return
 		}
 		response.Ok(w, resp)
+	}
+}
+
+func ResetPasswordHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var req types.ResetPasswordReq
+		if err := basehandler.Parse(r, &req); err != nil {
+			response.Error(w, err)
+			return
+		}
+		if err := authlogic.ResetPassword(r.Context(), svcCtx, req, basehandler.Meta(r)); err != nil {
+			response.Error(w, err)
+			return
+		}
+		response.NoData(w)
 	}
 }
 

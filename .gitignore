@@ -1,36 +1,64 @@
-# Node / Vite
-node_modules/
-frontend/node_modules/
-dist/
-frontend/dist/
-.vite/
-frontend/.vite/
-
-# Go
-*.exe
-*.test
-*.out
-coverage.out
-
-# Environment
+# 环境变量
 .env
 .env.*
 !.env.example
 
-# Logs
+# 前端依赖
+node_modules/
+frontend/node_modules/
+.pnpm-store/
+frontend/.pnpm-store/
+
+# 前端构建与缓存
+dist/
+frontend/dist/
+frontend/dist-ssr/
+.vite/
+frontend/.vite/
+.cache/
+frontend/.cache/
+.eslintcache
+frontend/.eslintcache
+*.tsbuildinfo
+
+# Go 构建与测试产物
+bin/
+notes-of-ashen
+notes-of-ashen.exe
+*.exe
+*.test
+*.out
+coverage.out
+coverage/
+*.coverprofile
+*.prof
+__debug_bin*
+
+# 日志
+logs/
+frontend/logs/
 *.log
 npm-debug.log*
 pnpm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+lerna-debug.log*
 
-# IDE / OS
+# IDE 与系统文件
 .idea/
 .vscode/
 .DS_Store
 Thumbs.db
+Desktop.ini
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
 
-# Temp
+# 临时文件
 tmp/
 temp/
 *.tmp
+*.bak
+*.orig

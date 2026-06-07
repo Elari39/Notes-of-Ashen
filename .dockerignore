@@ -1,21 +1,74 @@
+# Git 与本地配置
 .git
+.git/
+.github/
 .gitignore
+**/.gitignore
+.dockerignore
+docker-compose*.yml
+docker-compose*.yaml
+
+# 环境变量
 .env
 .env.*
-!.env.example
+**/.env
+**/.env.*
+*.local
 
-**/.DS_Store
+# 文档与说明
+README.md
+docs/
+frontend/README.md
+
+# 依赖与前端产物
 **/node_modules
+**/.pnpm-store
+**/dist
+**/dist-ssr
 **/.vite
-**/coverage
-**/*.log
+**/.cache
+**/.eslintcache
+**/*.tsbuildinfo
 
-frontend/dist
-dist
-tmp
+# Go 构建与测试产物
 bin
-
+tmp
+temp
 notes-of-ashen
 notes-of-ashen.exe
-*.test
 *.exe
+*.test
+*.out
+coverage.out
+**/coverage
+*.coverprofile
+*.prof
+__debug_bin*
+
+# 日志
+logs
+**/logs
+*.log
+**/*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# IDE 与系统文件
+.idea
+.vscode
+**/.DS_Store
+**/Thumbs.db
+**/Desktop.ini
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# 临时文件
+*.tmp
+*.bak
+*.orig

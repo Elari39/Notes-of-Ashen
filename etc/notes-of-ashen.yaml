@@ -24,3 +24,12 @@ RabbitMQ:
   Exchange: "notes-of-ashen.events"
   Queue: "notes-of-ashen.operation_logs"
   RoutingKey: "operation.log"
+
+Email:
+  Enabled: false
+  SMTPHost: "smtp.qq.com"
+  SMTPPort: 465
+  SMTPUsername: ""
+  SMTPPassword: ""
+  From: ""
+  FromName: "Notes of Ashen"

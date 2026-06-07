@@ -10,6 +10,7 @@ import { useAuthStore } from './store/auth';
 const ArticleDetail = lazy(() => import('./pages/ArticleDetail'));
 const Login = lazy(() => import('./pages/Login'));
 const Register = lazy(() => import('./pages/Register'));
+const ForgotPassword = lazy(() => import('./pages/ForgotPassword'));
 const Archive = lazy(() => import('./pages/Archive'));
 const Search = lazy(() => import('./pages/Search'));
 const Profile = lazy(() => import('./pages/Profile'));
@@ -59,6 +60,7 @@ function App() {
           <Route path="search" element={<Search />} />
           <Route path="login" element={<Login />} />
           <Route path="register" element={<Register />} />
+          <Route path="forgot-password" element={<ForgotPassword />} />
 
           <Route element={<ProtectedRoute />}>
             <Route path="profile" element={<Profile />} />
