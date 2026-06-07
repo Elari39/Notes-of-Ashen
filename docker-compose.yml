@@ -1,0 +1,126 @@
+name: notes-of-ashen
+
+services:
+  web:
+    image: notes-of-ashen-web:latest
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${WEB_PORT:-1270}:80"
+    depends_on:
+      api:
+        condition: service_started
+    labels:
+      org.opencontainers.image.title: "Notes of Ashen"
+
+  api:
+    image: notes-of-ashen-api:latest
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      TZ: Asia/Shanghai
+      APP_DATABASE_DSN: "${MYSQL_USER:-notes_of_ashen}:${MYSQL_PASSWORD:-notes_of_ashen_password}@tcp(mysql:3306)/notes_of_ashen?charset=utf8mb4&parseTime=true&loc=Local"
+      APP_DATABASE_MAX_OPEN_CONNS: "${APP_DATABASE_MAX_OPEN_CONNS:-20}"
+      APP_DATABASE_MAX_IDLE_CONNS: "${APP_DATABASE_MAX_IDLE_CONNS:-10}"
+      APP_AUTH_ACCESS_SECRET: "${APP_AUTH_ACCESS_SECRET:-please-change-this-secret-in-production}"
+      APP_AUTH_ACCESS_EXPIRE: "${APP_AUTH_ACCESS_EXPIRE:-7200}"
+      APP_AUTH_REFRESH_EXPIRE: "${APP_AUTH_REFRESH_EXPIRE:-604800}"
+      APP_REDIS_ADDR: "redis:6379"
+      APP_REDIS_PASSWORD: "${REDIS_PASSWORD:-notes_of_ashen_redis_password}"
+      APP_REDIS_DB: "${APP_REDIS_DB:-0}"
+      APP_RABBITMQ_ENABLED: "${APP_RABBITMQ_ENABLED:-true}"
+      APP_RABBITMQ_URL: "amqp://${RABBITMQ_DEFAULT_USER:-notes_of_ashen}:${RABBITMQ_DEFAULT_PASS:-notes_of_ashen_rabbitmq_password}@rabbitmq:5672/"
+      APP_RABBITMQ_EXCHANGE: "${APP_RABBITMQ_EXCHANGE:-notes-of-ashen.events}"
+      APP_RABBITMQ_QUEUE: "${APP_RABBITMQ_QUEUE:-notes-of-ashen.operation_logs}"
+      APP_RABBITMQ_ROUTING_KEY: "${APP_RABBITMQ_ROUTING_KEY:-operation.log}"
+    expose:
+      - "19000"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    labels:
+      org.opencontainers.image.title: "Notes of Ashen"
+
+  mysql:
+    image: mysql:8.4
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      MYSQL_ROOT_PASSWORD: "${MYSQL_ROOT_PASSWORD:-notes_of_ashen_root_password}"
+      MYSQL_DATABASE: notes_of_ashen
+      MYSQL_USER: "${MYSQL_USER:-notes_of_ashen}"
+      MYSQL_PASSWORD: "${MYSQL_PASSWORD:-notes_of_ashen_password}"
+      TZ: Asia/Shanghai
+    volumes:
+      - goblog_mysql_data:/var/lib/mysql
+      - ./deploy/mysql/schema.sql:/docker-entrypoint-initdb.d/001_schema.sql:ro
+    expose:
+      - "3306"
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u$${MYSQL_USER} -p$${MYSQL_PASSWORD} --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    labels:
+      org.opencontainers.image.title: "Notes of Ashen"
+
+  redis:
+    image: redis:7.4-alpine
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      REDIS_PASSWORD: "${REDIS_PASSWORD:-notes_of_ashen_redis_password}"
+      TZ: Asia/Shanghai
+    command: ["sh", "-c", "redis-server --appendonly yes --requirepass \"$${REDIS_PASSWORD}\""]
+    volumes:
+      - goblog_redis_data:/data
+    expose:
+      - "6379"
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$${REDIS_PASSWORD}\" ping | grep PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    labels:
+      org.opencontainers.image.title: "Notes of Ashen"
+
+  rabbitmq:
+    image: rabbitmq:4-management-alpine
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      RABBITMQ_DEFAULT_USER: "${RABBITMQ_DEFAULT_USER:-notes_of_ashen}"
+      RABBITMQ_DEFAULT_PASS: "${RABBITMQ_DEFAULT_PASS:-notes_of_ashen_rabbitmq_password}"
+      TZ: Asia/Shanghai
+    volumes:
+      - goblog_rabbitmq_data:/var/lib/rabbitmq
+    expose:
+      - "5672"
+      - "15672"
+    healthcheck:
+      test: ["CMD-SHELL", "rabbitmq-diagnostics -q ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    labels:
+      org.opencontainers.image.title: "Notes of Ashen"
+
+volumes:
+  goblog_mysql_data:
+  goblog_redis_data:
+  goblog_rabbitmq_data:

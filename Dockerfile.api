@@ -1,0 +1,29 @@
+# syntax=docker/dockerfile:1
+
+FROM golang:1.25-alpine AS builder
+
+WORKDIR /src
+
+RUN apk add --no-cache ca-certificates tzdata
+
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY . .
+RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /out/notes-of-ashen ./cmd/notes-of-ashen
+
+FROM alpine:3.22
+
+WORKDIR /app
+
+RUN apk add --no-cache ca-certificates tzdata
+
+ENV TZ=Asia/Shanghai
+
+COPY --from=builder /out/notes-of-ashen /app/notes-of-ashen
+COPY etc /app/etc
+
+EXPOSE 19000
+
+ENTRYPOINT ["/app/notes-of-ashen"]
+CMD ["-f", "/app/etc/notes-of-ashen.yaml"]

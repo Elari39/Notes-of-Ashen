@@ -1,22 +1,29 @@
-# Notes of Ashen
+﻿# Notes of Ashen
 
-Notes of Ashen 是一个前后端分离的个人博客项目。后端使用 Go 与 go-zero 风格组织代码，提供用户认证、文章管理、分类标签、后台管理、站点设置和操作日志等能力；前端使用 React、TypeScript、Vite 与 Tailwind CSS 构建博客展示和后台管理界面。
+`Notes of Ashen` 是一个前后端分离的个人博客系统。后端使用 Go 与 go-zero 风格组织代码，前端使用 React、TypeScript、Vite 与 Tailwind CSS 构建页面，部署侧提供 Docker Compose、Nginx 与 1Panel 友好的运行方案。
+
+本机 Docker 默认访问地址：
+
+```text
+http://127.0.0.1:1270
+```
 
 ## 功能概览
 
 - 用户认证：注册、登录、退出、刷新 Token。
-- 双 Token 机制：Access Token 使用 JWT，Refresh Token 哈希后持久化，并结合 Redis 校验。
-- 文章管理：创建、编辑、删除、发布、归档、草稿预览、版本查看、公开列表与公开详情。
-- Markdown 渲染：支持 GFM、代码高亮、表格、LaTeX 数学公式和正文图片点击放大。
+- 文章管理：创建、编辑、删除、发布、归档、草稿预览、版本查看与版本恢复。
+- 内容展示：公开文章列表、文章详情、归档、搜索、Markdown 渲染、代码高亮、LaTeX 数学公式。
 - 分类与标签：公开读取，后台可创建、更新和删除。
-- 后台能力：用户列表、用户状态管理、站点设置和操作日志查看。
-- 异步日志：通过 RabbitMQ 投递注册、登录、文章操作等事件，并写入 `operation_logs`。
+- 管理后台：用户管理、用户状态管理、站点设置、操作日志查看。
+- 站点能力：RSS、Sitemap、站点标题、描述、关键词等配置。
+- 异步日志：通过 RabbitMQ 投递操作事件，并写入 `operation_logs`。
 - 统一响应：接口成功时返回 `{ "code": 0, "message": "success", "data": ... }`。
 
 ## 技术栈
 
-- 后端：Go 1.25、go-zero REST、MySQL、Redis、RabbitMQ、JWT、bcrypt。
-- 前端：React 18、TypeScript、Vite、Tailwind CSS、Zustand、Axios。
+- 后端：Go、go-zero REST、MySQL、Redis、RabbitMQ、JWT、bcrypt。
+- 前端：React、TypeScript、Vite、Tailwind CSS、Zustand、Axios。
+- 部署：Docker、Docker Compose、Nginx、1Panel。
 - 文档与脚本：API 文档位于 [docs/API.md](docs/API.md)，数据库脚本位于 [deploy/mysql](deploy/mysql)。
 
 ## 项目结构
@@ -25,278 +32,371 @@ Notes of Ashen 是一个前后端分离的个人博客项目。后端使用 Go �
 .
 ├── api/                    # go-zero API 描述文件
 ├── cmd/notes-of-ashen/     # 后端服务入口
-├── deploy/mysql/           # MySQL 初始化与增量脚本
+├── deploy/
+│   ├── mysql/              # MySQL 初始化与增量脚本
+│   └── nginx/              # 前端 Nginx 生产配置
 ├── docs/                   # API 文档
-├── etc/                    # 后端配置文件
+├── etc/                    # 后端默认配置文件
 ├── frontend/               # React 前端应用
 ├── internal/               # 后端内部模块
-│   ├── authutil/           # JWT 与 Token 工具
-│   ├── config/             # 配置结构
-│   ├── handler/            # HTTP handler
-│   ├── logic/              # 业务逻辑
-│   ├── middleware/         # 鉴权中间件
-│   ├── mq/                 # RabbitMQ 发布与消费
-│   ├── response/           # 统一响应
-│   ├── svc/                # 服务依赖上下文
-│   └── validator/          # 参数校验
-└── model/                  # 数据访问层
+├── model/                  # 数据访问层
+├── Dockerfile.api          # Go API 镜像构建文件
+├── Dockerfile.web          # 前端 Nginx 镜像构建文件
+├── docker-compose.yml      # Docker Compose 编排文件
+└── .env.example            # 环境变量模板
 ```
 
-## 环境依赖
+## 从 GitHub 克隆到本地
 
-本地开发默认依赖以下服务：
+### 前置要求
 
-- MySQL 8.0：默认连接 `root / 123456`，端口 `3306`。
-- Redis：默认密码 `123456`，端口 `6379`。
-- RabbitMQ：默认连接 `guest / guest`，端口 `5672`，管理端口 `15672`。
+请先安装：
 
-这些默认账号和密码只适合本地开发，生产环境必须通过安全配置替换。
+- Git
+- Docker Desktop，或 Linux 服务器上的 Docker Engine
+- Docker Compose
+
+如果要进行非 Docker 本地开发，还需要：
+
+- Go 1.25 或兼容版本
+- Node.js 22 或兼容版本
+- pnpm
+
+### Windows PowerShell
 
 ```powershell
-docker ps
+git clone https://github.com/Elari39/Notes-of-Ashen.git
+cd Notes-of-Ashen
 ```
 
-## 后端配置
+### Linux / macOS
 
-配置文件位于 [etc/notes-of-ashen.yaml](etc/notes-of-ashen.yaml)：
-
-```yaml
-Name: notes-of-ashen-api
-Host: 0.0.0.0
-Port: 19000
-Timeout: 5000
-
-Database:
-  DataSource: "root:123456@tcp(127.0.0.1:3306)/notes_of_ashen?charset=utf8mb4&parseTime=true&loc=Local"
-  MaxOpenConns: 20
-  MaxIdleConns: 10
-
-Auth:
-  AccessSecret: "please-change-this-secret-in-production"
-  AccessExpire: 7200
-  RefreshExpire: 604800
-
-Redis:
-  Addr: "127.0.0.1:6379"
-  Password: "123456"
-  DB: 0
-
-RabbitMQ:
-  Enabled: true
-  URL: "amqp://guest:guest@127.0.0.1:5672/"
-  Exchange: "notes-of-ashen.events"
-  Queue: "notes-of-ashen.operation_logs"
-  RoutingKey: "operation.log"
+```bash
+git clone https://github.com/Elari39/Notes-of-Ashen.git
+cd Notes-of-Ashen
 ```
 
-关键字段：
+## 配置环境变量
 
-- `Port`：后端 HTTP 服务端口，默认 `19000`。
-- `Database.DataSource`：MySQL DSN。
-- `Auth.AccessSecret`：JWT 签名密钥，生产环境必须修改。
-- `Auth.AccessExpire`：Access Token 有效期，单位秒。
-- `Auth.RefreshExpire`：Refresh Token 有效期，单位秒。
-- `RabbitMQ.Enabled`：是否启用事件发布与消费。
+项目使用仓库根目录的 `.env` 为 Docker Compose 提供部署配置。`.env` 包含数据库密码、Redis 密码、RabbitMQ 密码和 JWT 密钥，不应提交到 Git。
 
-## 数据库初始化
+从模板复制：
 
-如果 `notes_of_ashen` 数据库尚未创建，可在项目根目录执行：
+```bash
+cp .env.example .env
+```
+
+Windows PowerShell：
 
 ```powershell
-Get-Content deploy\mysql\schema.sql | docker exec -i mysql mysql -uroot -p123456
+Copy-Item .env.example .env
 ```
 
-验证数据库：
+至少需要检查并替换这些值：
 
-```powershell
-docker exec mysql mysql -uroot -p123456 -N -e "SHOW DATABASES LIKE 'notes_of_ashen';"
+- `APP_AUTH_ACCESS_SECRET`：JWT 签名密钥，生产环境必须替换为足够长的随机字符串。
+- `MYSQL_ROOT_PASSWORD`：项目内部 MySQL root 密码。
+- `MYSQL_USER`：项目内部 MySQL 普通用户。
+- `MYSQL_PASSWORD`：项目内部 MySQL 普通用户密码。
+- `REDIS_PASSWORD`：Redis 密码。
+- `RABBITMQ_DEFAULT_USER`：RabbitMQ 用户名。
+- `RABBITMQ_DEFAULT_PASS`：RabbitMQ 密码。
+- `WEB_PORT`：本机 Web 访问端口，默认 `1270`。
+
+不要把真实 `.env` 内容写入 README、Issue、提交记录或截图中。
+
+## 本机 Docker 部署
+
+先校验 Compose 配置：
+
+```bash
+docker compose config --services
+docker compose config --quiet
 ```
 
-验证数据表：
+构建并启动：
 
-```powershell
-docker exec mysql mysql -uroot -p123456 -D notes_of_ashen -N -e "SHOW TABLES;"
+```bash
+docker compose up -d --build
 ```
 
-## 启动后端
+查看容器状态：
 
-在项目根目录执行：
+```bash
+docker compose ps
+```
 
-```powershell
+查看日志：
+
+```bash
+docker compose logs -f api
+docker compose logs -f web
+```
+
+### 端口说明
+
+- Web：`127.0.0.1:1270 -> 80`
+- API：容器内部 `api:19000`
+- MySQL：容器内部 `mysql:3306`
+- Redis：容器内部 `redis:6379`
+- RabbitMQ：容器内部 `rabbitmq:5672`
+
+只有 Web 会暴露到宿主机的 `1270` 端口。API、MySQL、Redis、RabbitMQ 默认只在 Docker 内部网络访问。
+
+### 访问验证
+
+首页：
+
+```text
+http://127.0.0.1:1270
+```
+
+公开文章接口：
+
+```text
+http://127.0.0.1:1270/api/v1/articles?page=1&size=10
+```
+
+如果返回类似下面的 JSON，说明 Nginx 到 Go API 的代理正常：
+
+```json
+{
+  "code": 0,
+  "message": "success",
+  "data": {
+    "items": [],
+    "total": 0,
+    "page": 1,
+    "size": 10
+  }
+}
+```
+
+首次进入站点后，注册第一个用户。默认逻辑下，第一个注册用户会成为管理员。
+
+## 1Panel 部署
+
+1. 将项目推送到 GitHub，或直接使用仓库地址：
+
+   ```text
+   https://github.com/Elari39/Notes-of-Ashen.git
+   ```
+
+2. 在 1Panel 中创建 Docker Compose 项目，选择从 Git 源码构建。
+3. Compose 文件选择仓库根目录的 `docker-compose.yml`。
+4. 在 1Panel 项目目录创建 `.env`，内容可从 `.env.example` 复制后修改。
+5. 启动 Compose 项目。
+6. 在 1Panel 网站反向代理中配置：
+
+   ```text
+   http://127.0.0.1:1270
+   ```
+
+7. 绑定域名并开启 HTTPS。
+
+项目内部 MySQL 不会映射到宿主机 `3306`，因此不会和 1Panel 已有 MySQL 容器端口冲突。Go 后端通过 Docker 内部服务名 `mysql:3306` 连接项目内部 MySQL。
+
+## 本地非 Docker 开发
+
+非 Docker 开发时，需要你自己准备 MySQL、Redis 和 RabbitMQ，并根据 [etc/notes-of-ashen.yaml](etc/notes-of-ashen.yaml) 修改连接信息，或通过环境变量覆盖配置。
+
+### 启动后端
+
+```bash
 go mod tidy
 go run ./cmd/notes-of-ashen -f etc/notes-of-ashen.yaml
 ```
 
-服务默认监听：
+后端默认监听：
 
 ```text
 http://127.0.0.1:19000
 ```
 
-也可以构建后运行：
+### 启动前端
 
-```powershell
-go build -o notes-of-ashen.exe ./cmd/notes-of-ashen
-.\notes-of-ashen.exe -f etc\notes-of-ashen.yaml
-```
+前端必须使用 `pnpm` 管理依赖。
 
-## 启动前端
-
-前端位于 `frontend/`，必须使用 `pnpm` 管理依赖。开发服务器默认监听 `3000`，并将 `/api` 代理到 `http://127.0.0.1:19000`。
-
-```powershell
+```bash
 cd frontend
 pnpm install
 pnpm dev
 ```
 
-访问地址：
+开发服务器默认监听：
 
 ```text
 http://127.0.0.1:3000
 ```
 
-常用前端命令：
-
-```powershell
-pnpm build
-pnpm lint
-pnpm preview
-```
+Vite 开发代理会将 `/api` 转发到 `http://127.0.0.1:19000`。
 
 ## 常用验证命令
 
 后端测试：
 
-```powershell
+```bash
 go test ./...
 ```
 
 后端构建：
 
-```powershell
+```bash
 go build ./...
 ```
 
-Redis 连通性：
+前端生产构建：
 
-```powershell
-docker exec redis redis-cli -a 123456 ping
+```bash
+cd frontend
+pnpm build
 ```
 
-公开文章列表接口：
+Docker 配置校验：
 
-```powershell
-Invoke-RestMethod -Method Get -Uri "http://127.0.0.1:19000/api/v1/articles?page=1&size=10"
+```bash
+docker compose config --quiet
 ```
 
-## 认证流程
+Docker 容器状态：
 
-1. 调用 `POST /api/v1/auth/register` 注册用户。
-2. 第一个注册用户自动成为 `admin`，后续注册用户默认为 `user`。
-3. 注册或登录成功后返回 `accessToken` 与 `refreshToken`。
-4. 访问受保护接口时添加请求头：
-
-```text
-Authorization: Bearer <accessToken>
+```bash
+docker compose ps
 ```
 
-5. Access Token 过期后，调用 `POST /api/v1/auth/refresh` 获取新的 Token。
-6. 调用 `POST /api/v1/auth/logout` 可撤销当前 Refresh Token。
+## 数据持久化
 
-## 权限说明
+Docker 部署会使用独立 volume 保存数据：
 
-- 公开接口：注册、登录、刷新 Token、公开文章列表、公开文章详情、分类列表、标签列表。
-- 登录用户：查看和修改个人资料，修改密码，创建文章，管理自己的文章。
-- 管理员：管理分类、标签、用户状态、站点设置，并查看操作日志。
-- 普通用户不能修改或删除其他用户的文章。
+- `notes-of-ashen_goblog_mysql_data`
+- `notes-of-ashen_goblog_redis_data`
+- `notes-of-ashen_goblog_rabbitmq_data`
 
-## 文章与用户状态
+首次启动时，MySQL 会执行 [deploy/mysql/schema.sql](deploy/mysql/schema.sql) 初始化数据库和表结构。
 
-文章状态：
-
-- `draft`：草稿。
-- `published`：已发布，可在公开文章列表和详情页访问。
-- `archived`：归档。
-
-用户状态：
-
-- `active`：正常。
-- `disabled`：禁用，无法登录或刷新 Token。
-
-## RabbitMQ 行为
-
-服务启动后会创建并绑定：
-
-- Exchange：`notes-of-ashen.events`
-- Queue：`notes-of-ashen.operation_logs`
-- RoutingKey：`operation.log`
-
-以下事件会投递到 RabbitMQ：
-
-- `user.registered`
-- `user.logged_in`
-- `user.logged_out`
-- `article.created`
-- `article.updated`
-- `article.deleted`
-- `article.status_updated`
-
-消费者收到消息后写入 `operation_logs`。RabbitMQ 发布失败不会阻断主业务，但会记录错误日志。
-
-## API 文档
-
-完整接口说明见 [docs/API.md](docs/API.md)。
-
-常用接口：
-
-- `POST /api/v1/auth/register`
-- `POST /api/v1/auth/login`
-- `POST /api/v1/auth/refresh`
-- `GET /api/v1/articles`
-- `GET /api/v1/articles/:id`
-- `GET /api/v1/categories`
-- `GET /api/v1/tags`
-- `GET /api/v1/users/me`
-- `GET /api/v1/admin/users`
-- `GET /api/v1/admin/logs`
+注意：如果容器已经创建过并且 volume 已存在，之后修改 `.env` 中的数据库密码不会自动修改旧数据库中的用户密码。遇到密码不一致时，应手动调整数据库用户，或在确认不需要旧数据后再清理 volume。
 
 ## 常见问题
 
-### Redis 返回 NOAUTH
+### 1270 端口被占用
 
-说明 Redis 开启了密码认证，但配置文件密码不正确。先确认 Redis：
+修改 `.env` 中的 `WEB_PORT`：
 
-```powershell
-docker exec redis redis-cli -a 123456 ping
+```env
+WEB_PORT=1271
 ```
 
-再检查 [etc/notes-of-ashen.yaml](etc/notes-of-ashen.yaml)：
+然后重启：
 
-```yaml
-Redis:
-  Password: "123456"
+```bash
+docker compose up -d
+```
+
+访问地址也要相应改为：
+
+```text
+http://127.0.0.1:1271
 ```
 
 ### MySQL 连接失败
 
-确认容器运行：
+Docker 部署时，API 应连接：
 
-```powershell
-docker ps
+```text
+mysql:3306
 ```
 
-确认配置中的 DSN：
+不要在容器内使用 `127.0.0.1:3306` 连接 MySQL，因为容器里的 `127.0.0.1` 只代表 API 容器自己。
 
-```yaml
-Database:
-  DataSource: "root:123456@tcp(127.0.0.1:3306)/notes_of_ashen?charset=utf8mb4&parseTime=true&loc=Local"
+查看日志：
+
+```bash
+docker compose logs -f mysql
+docker compose logs -f api
 ```
 
-### 管理员接口返回 403
+### Redis 认证失败
 
-只有 `role = admin` 的用户可以访问管理员接口。默认情况下，第一个注册用户会自动成为管理员。
+确认 `.env` 中的 `REDIS_PASSWORD` 与 Redis 容器启动配置一致。
 
-### 文章详情返回 404
+查看日志：
 
-公开文章详情只允许访问 `published` 状态的文章。`draft` 和 `archived` 状态不会对匿名用户开放。
+```bash
+docker compose logs -f redis
+docker compose logs -f api
+```
+
+### RabbitMQ 不可用
+
+查看日志：
+
+```bash
+docker compose logs -f rabbitmq
+docker compose logs -f api
+```
+
+如果只想临时关闭异步日志队列，可以在 `.env` 中设置：
+
+```env
+APP_RABBITMQ_ENABLED=false
+```
+
+然后重启 API：
+
+```bash
+docker compose up -d api
+```
+
+### 前端刷新页面 404
+
+生产环境由 Nginx 提供前端页面，并通过 `try_files` 将 React 路由回退到 `index.html`。如果刷新后台页、登录页或文章页出现 404，请检查：
+
+```text
+deploy/nginx/default.conf
+```
+
+### `.env` 修改后没有生效
+
+修改 `.env` 后，重新创建相关容器：
+
+```bash
+docker compose up -d
+```
+
+如果是镜像构建阶段相关变量，还需要重新构建：
+
+```bash
+docker compose up -d --build
+```
+
+## 常用 API
+
+- `POST /api/v1/auth/register`
+- `POST /api/v1/auth/login`
+- `POST /api/v1/auth/refresh`
+- `POST /api/v1/auth/logout`
+- `GET /api/v1/articles`
+- `GET /api/v1/articles/:id`
+- `GET /api/v1/categories`
+- `GET /api/v1/tags`
+- `GET /api/v1/site/settings`
+- `GET /api/v1/users/me`
+- `GET /api/v1/admin/users`
+- `GET /api/v1/admin/logs`
+
+完整说明见 [docs/API.md](docs/API.md)。
+
+## 维护建议
+
+- 生产环境务必替换 `.env` 中的默认密码和 `APP_AUTH_ACCESS_SECRET`。
+- 前端依赖管理统一使用 `pnpm`，不要混用 `npm` 或 `yarn`。
+- 不要提交 `.env`、数据库备份、日志文件或任何真实密钥。
+- 升级前先备份 Docker volume 中的数据。
+- 修改后建议至少运行：
+
+  ```bash
+  go test ./...
+  go build ./...
+  cd frontend
+  pnpm build
+  ```
