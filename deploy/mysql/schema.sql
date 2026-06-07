@@ -84,12 +84,15 @@ CREATE TABLE IF NOT EXISTS articles (
     view_count INT DEFAULT 0,
     scheduled_at TIMESTAMP NULL,
     published_at TIMESTAMP NULL,
+    is_pinned TINYINT(1) NOT NULL DEFAULT 0,
+    display_priority INT NOT NULL DEFAULT 0,
     seo_title VARCHAR(160) DEFAULT '',
     seo_description VARCHAR(255) DEFAULT '',
     seo_keywords VARCHAR(255) DEFAULT '',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     INDEX idx_articles_status_schedule (status, scheduled_at),
+    INDEX idx_articles_display_order (status, scheduled_at, is_pinned, display_priority, published_at, id),
     FULLTEXT KEY (title, content)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
@@ -110,6 +113,8 @@ CREATE TABLE IF NOT EXISTS article_versions (
     view_count INT DEFAULT 0,
     scheduled_at TIMESTAMP NULL,
     published_at TIMESTAMP NULL,
+    is_pinned TINYINT(1) NOT NULL DEFAULT 0,
+    display_priority INT NOT NULL DEFAULT 0,
     seo_title VARCHAR(160) DEFAULT '',
     seo_description VARCHAR(255) DEFAULT '',
     seo_keywords VARCHAR(255) DEFAULT '',
@@ -150,4 +155,35 @@ CREATE TABLE IF NOT EXISTS operation_logs (
     ip VARCHAR(45),
     user_agent TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Traffic daily stats
+CREATE TABLE IF NOT EXISTS traffic_daily_stats (
+    stat_date DATE NOT NULL PRIMARY KEY,
+    pv BIGINT NOT NULL DEFAULT 0,
+    uv BIGINT NOT NULL DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Traffic daily visitors
+CREATE TABLE IF NOT EXISTS traffic_daily_visitors (
+    stat_date DATE NOT NULL,
+    visitor_hash CHAR(64) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (stat_date, visitor_hash)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Traffic referer stats
+CREATE TABLE IF NOT EXISTS traffic_referer_stats (
+    stat_date DATE NOT NULL,
+    article_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
+    source_type VARCHAR(32) NOT NULL,
+    source_name VARCHAR(128) NOT NULL,
+    pv BIGINT NOT NULL DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (stat_date, article_id, source_type, source_name),
+    INDEX idx_traffic_referer_stats_date (stat_date),
+    INDEX idx_traffic_referer_stats_article (article_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

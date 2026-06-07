@@ -46,6 +46,11 @@ services:
       APP_EMAIL_SMTP_PASSWORD: "${APP_EMAIL_SMTP_PASSWORD:-}"
       APP_EMAIL_FROM: "${APP_EMAIL_FROM:-}"
       APP_EMAIL_FROM_NAME: "${APP_EMAIL_FROM_NAME:-Notes of Ashen}"
+      APP_AI_ENABLED: "${APP_AI_ENABLED:-false}"
+      APP_AI_BASE_URL: "${APP_AI_BASE_URL:-}"
+      APP_AI_API_KEY: "${APP_AI_API_KEY:-}"
+      APP_AI_MODEL: "${APP_AI_MODEL:-}"
+      APP_AI_TIMEOUT_SECONDS: "${APP_AI_TIMEOUT_SECONDS:-30}"
     expose:
       - "19000"
     depends_on:

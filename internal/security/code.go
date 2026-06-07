@@ -174,6 +174,18 @@ func RateLimitKey(name, ip string) string {
 	return fmt.Sprintf("rate_limit:%s:%s", strings.TrimSpace(name), strings.TrimSpace(ip))
 }
 
+func TrafficPVKey(date string) string {
+	return fmt.Sprintf("traffic:pv:%s", strings.TrimSpace(date))
+}
+
+func TrafficUVKey(date string) string {
+	return fmt.Sprintf("traffic:uv:%s", strings.TrimSpace(date))
+}
+
+func TrafficRefererKey(date string) string {
+	return fmt.Sprintf("traffic:referer:%s", strings.TrimSpace(date))
+}
+
 func NormalizeEmail(email string) string {
 	return strings.ToLower(strings.TrimSpace(email))
 }

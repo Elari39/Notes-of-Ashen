@@ -73,6 +73,8 @@ type UpdateSiteSettingsReq struct {
 type RequestMeta struct {
 	IP        string
 	UserAgent string
+	Referrer  string
+	Host      string
 }
 
 type UserResp struct {
@@ -108,22 +110,38 @@ type UserVerifyCodeReq struct {
 }
 
 type ArticleReq struct {
-	CategoryID     uint64     `json:"categoryId,optional"`
-	Title          string     `json:"title"`
-	Slug           string     `json:"slug"`
-	Summary        string     `json:"summary,optional"`
-	Content        string     `json:"content"`
-	CoverURL       string     `json:"coverUrl,optional"`
-	Status         string     `json:"status,optional"`
-	ScheduledAt    *time.Time `json:"scheduledAt,optional"`
-	SEOTitle       string     `json:"seoTitle,optional"`
-	SEODescription string     `json:"seoDescription,optional"`
-	SEOKeywords    string     `json:"seoKeywords,optional"`
-	TagIDs         []uint64   `json:"tagIds,optional"`
+	CategoryID      uint64     `json:"categoryId,optional"`
+	Title           string     `json:"title"`
+	Slug            string     `json:"slug"`
+	Summary         string     `json:"summary,optional"`
+	Content         string     `json:"content"`
+	CoverURL        string     `json:"coverUrl,optional"`
+	Status          string     `json:"status,optional"`
+	ScheduledAt     *time.Time `json:"scheduledAt,optional"`
+	IsPinned        *bool      `json:"isPinned,optional"`
+	DisplayPriority *int       `json:"displayPriority,optional"`
+	SEOTitle        string     `json:"seoTitle,optional"`
+	SEODescription  string     `json:"seoDescription,optional"`
+	SEOKeywords     string     `json:"seoKeywords,optional"`
+	TagIDs          []uint64   `json:"tagIds,optional"`
 }
 
 type ArticleStatusReq struct {
 	Status string `json:"status"`
+}
+
+type AIAssistReq struct {
+	Action  string `json:"action"`
+	Title   string `json:"title,optional"`
+	Content string `json:"content"`
+}
+
+type AIAssistResp struct {
+	Summary        string   `json:"summary,omitempty"`
+	SEODescription string   `json:"seoDescription,omitempty"`
+	SEOKeywords    string   `json:"seoKeywords,omitempty"`
+	RevisedContent string   `json:"revisedContent,omitempty"`
+	Suggestions    []string `json:"suggestions,omitempty"`
 }
 
 type ArticleListReq struct {
@@ -136,25 +154,27 @@ type ArticleListReq struct {
 }
 
 type ArticleResp struct {
-	ID             uint64        `json:"id"`
-	AuthorID       uint64        `json:"authorId"`
-	CategoryID     uint64        `json:"categoryId,omitempty"`
-	Title          string        `json:"title"`
-	Slug           string        `json:"slug"`
-	Summary        string        `json:"summary"`
-	Content        string        `json:"content,omitempty"`
-	CoverURL       string        `json:"coverUrl"`
-	Status         string        `json:"status"`
-	ViewCount      uint64        `json:"viewCount"`
-	ScheduledAt    *time.Time    `json:"scheduledAt,omitempty"`
-	PublishedAt    *time.Time    `json:"publishedAt,omitempty"`
-	SEOTitle       string        `json:"seoTitle"`
-	SEODescription string        `json:"seoDescription"`
-	SEOKeywords    string        `json:"seoKeywords"`
-	CreatedAt      time.Time     `json:"createdAt"`
-	UpdatedAt      time.Time     `json:"updatedAt"`
-	Tags           []TagResp     `json:"tags,omitempty"`
-	Category       *CategoryResp `json:"category,omitempty"`
+	ID              uint64        `json:"id"`
+	AuthorID        uint64        `json:"authorId"`
+	CategoryID      uint64        `json:"categoryId,omitempty"`
+	Title           string        `json:"title"`
+	Slug            string        `json:"slug"`
+	Summary         string        `json:"summary"`
+	Content         string        `json:"content,omitempty"`
+	CoverURL        string        `json:"coverUrl"`
+	Status          string        `json:"status"`
+	ViewCount       uint64        `json:"viewCount"`
+	ScheduledAt     *time.Time    `json:"scheduledAt,omitempty"`
+	PublishedAt     *time.Time    `json:"publishedAt,omitempty"`
+	IsPinned        bool          `json:"isPinned"`
+	DisplayPriority int           `json:"displayPriority"`
+	SEOTitle        string        `json:"seoTitle"`
+	SEODescription  string        `json:"seoDescription"`
+	SEOKeywords     string        `json:"seoKeywords"`
+	CreatedAt       time.Time     `json:"createdAt"`
+	UpdatedAt       time.Time     `json:"updatedAt"`
+	Tags            []TagResp     `json:"tags,omitempty"`
+	Category        *CategoryResp `json:"category,omitempty"`
 }
 
 type ArticleListResp struct {
@@ -204,6 +224,25 @@ type ArticleContextResp struct {
 	Related  []ArticleResp `json:"related"`
 }
 
+type TrafficVisitReq struct {
+	Path      string `json:"path"`
+	RouteType string `json:"routeType"`
+	ArticleID uint64 `json:"articleId,optional"`
+	Referrer  string `json:"referrer,optional"`
+}
+
+type TrafficTrendPointResp struct {
+	Date string `json:"date"`
+	PV   int64  `json:"pv"`
+	UV   int64  `json:"uv"`
+}
+
+type RefererStatResp struct {
+	SourceType string `json:"sourceType"`
+	SourceName string `json:"sourceName"`
+	PV         int64  `json:"pv"`
+}
+
 type ArticleVersionResp struct {
 	ID                uint64     `json:"id"`
 	ArticleID         uint64     `json:"articleId"`
@@ -220,6 +259,8 @@ type ArticleVersionResp struct {
 	ViewCount         uint64     `json:"viewCount"`
 	ScheduledAt       *time.Time `json:"scheduledAt,omitempty"`
 	PublishedAt       *time.Time `json:"publishedAt,omitempty"`
+	IsPinned          bool       `json:"isPinned"`
+	DisplayPriority   int        `json:"displayPriority"`
 	SEOTitle          string     `json:"seoTitle"`
 	SEODescription    string     `json:"seoDescription"`
 	SEOKeywords       string     `json:"seoKeywords"`
@@ -237,18 +278,22 @@ type ArticleVersionListResp struct {
 }
 
 type AdminStatsResp struct {
-	ArticleTotal    int64              `json:"articleTotal"`
-	PublishedTotal  int64              `json:"publishedTotal"`
-	DraftTotal      int64              `json:"draftTotal"`
-	ArchivedTotal   int64              `json:"archivedTotal"`
-	ScheduledTotal  int64              `json:"scheduledTotal"`
-	ViewTotal       uint64             `json:"viewTotal"`
-	UserTotal       int64              `json:"userTotal"`
-	CategoryTotal   int64              `json:"categoryTotal"`
-	TagTotal        int64              `json:"tagTotal"`
-	PopularArticles []ArticleResp      `json:"popularArticles"`
-	RecentArticles  []ArticleResp      `json:"recentArticles"`
-	RecentLogs      []OperationLogResp `json:"recentLogs"`
+	ArticleTotal    int64                   `json:"articleTotal"`
+	PublishedTotal  int64                   `json:"publishedTotal"`
+	DraftTotal      int64                   `json:"draftTotal"`
+	ArchivedTotal   int64                   `json:"archivedTotal"`
+	ScheduledTotal  int64                   `json:"scheduledTotal"`
+	ViewTotal       uint64                  `json:"viewTotal"`
+	TodayPV         int64                   `json:"todayPv"`
+	TodayUV         int64                   `json:"todayUv"`
+	UserTotal       int64                   `json:"userTotal"`
+	CategoryTotal   int64                   `json:"categoryTotal"`
+	TagTotal        int64                   `json:"tagTotal"`
+	TrafficTrend    []TrafficTrendPointResp `json:"trafficTrend"`
+	TopReferers     []RefererStatResp       `json:"topReferers"`
+	PopularArticles []ArticleResp           `json:"popularArticles"`
+	RecentArticles  []ArticleResp           `json:"recentArticles"`
+	RecentLogs      []OperationLogResp      `json:"recentLogs"`
 }
 
 type OperationLogResp struct {

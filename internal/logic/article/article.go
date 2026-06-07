@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"notes-of-ashen/internal/aiclient"
 	"notes-of-ashen/internal/authutil"
 	apperrors "notes-of-ashen/internal/errors"
 	"notes-of-ashen/internal/logicutil"
@@ -27,6 +28,12 @@ var listStatuses = map[string]struct{}{
 	model.ArticleStatusPublished: {},
 	model.ArticleStatusArchived:  {},
 	model.ArticleStatusScheduled: {},
+}
+
+var aiActions = map[string]struct{}{
+	"metadata":  {},
+	"proofread": {},
+	"polish":    {},
 }
 
 func List(ctx context.Context, svcCtx *svc.ServiceContext, page, size int, status string) (*types.ArticleListResp, error) {
@@ -155,20 +162,30 @@ func Create(ctx context.Context, svcCtx *svc.ServiceContext, req types.ArticleRe
 	if err := validateArticle(ctx, svcCtx, req); err != nil {
 		return nil, err
 	}
+	isPinned := false
+	if req.IsPinned != nil {
+		isPinned = *req.IsPinned
+	}
+	displayPriority := 0
+	if req.DisplayPriority != nil {
+		displayPriority = *req.DisplayPriority
+	}
 	id, err := svcCtx.Store.CreateArticle(ctx, model.ArticleCreate{
-		AuthorID:       userID,
-		CategoryID:     req.CategoryID,
-		Title:          strings.TrimSpace(req.Title),
-		Slug:           logicutil.NormalizeSlug(req.Slug),
-		Summary:        strings.TrimSpace(req.Summary),
-		Content:        req.Content,
-		CoverURL:       strings.TrimSpace(req.CoverURL),
-		Status:         req.Status,
-		ScheduledAt:    normalizeScheduledAt(req.ScheduledAt),
-		SEOTitle:       strings.TrimSpace(req.SEOTitle),
-		SEODescription: strings.TrimSpace(req.SEODescription),
-		SEOKeywords:    strings.TrimSpace(req.SEOKeywords),
-		TagIDs:         req.TagIDs,
+		AuthorID:        userID,
+		CategoryID:      req.CategoryID,
+		Title:           strings.TrimSpace(req.Title),
+		Slug:            logicutil.NormalizeSlug(req.Slug),
+		Summary:         strings.TrimSpace(req.Summary),
+		Content:         req.Content,
+		CoverURL:        strings.TrimSpace(req.CoverURL),
+		Status:          req.Status,
+		ScheduledAt:     normalizeScheduledAt(req.ScheduledAt),
+		IsPinned:        isPinned,
+		DisplayPriority: displayPriority,
+		SEOTitle:        strings.TrimSpace(req.SEOTitle),
+		SEODescription:  strings.TrimSpace(req.SEODescription),
+		SEOKeywords:     strings.TrimSpace(req.SEOKeywords),
+		TagIDs:          req.TagIDs,
 	})
 	if err != nil {
 		if logicutil.IsDuplicate(err) {
@@ -210,19 +227,29 @@ func Update(ctx context.Context, svcCtx *svc.ServiceContext, id uint64, req type
 	if err := validateArticle(ctx, svcCtx, req); err != nil {
 		return nil, err
 	}
+	isPinned := current.IsPinned
+	if req.IsPinned != nil {
+		isPinned = *req.IsPinned
+	}
+	displayPriority := current.DisplayPriority
+	if req.DisplayPriority != nil {
+		displayPriority = *req.DisplayPriority
+	}
 	err = svcCtx.Store.UpdateArticle(ctx, id, model.ArticleUpdate{
-		CategoryID:     req.CategoryID,
-		Title:          strings.TrimSpace(req.Title),
-		Slug:           logicutil.NormalizeSlug(req.Slug),
-		Summary:        strings.TrimSpace(req.Summary),
-		Content:        req.Content,
-		CoverURL:       strings.TrimSpace(req.CoverURL),
-		Status:         req.Status,
-		ScheduledAt:    normalizeScheduledAt(req.ScheduledAt),
-		SEOTitle:       strings.TrimSpace(req.SEOTitle),
-		SEODescription: strings.TrimSpace(req.SEODescription),
-		SEOKeywords:    strings.TrimSpace(req.SEOKeywords),
-		TagIDs:         req.TagIDs,
+		CategoryID:      req.CategoryID,
+		Title:           strings.TrimSpace(req.Title),
+		Slug:            logicutil.NormalizeSlug(req.Slug),
+		Summary:         strings.TrimSpace(req.Summary),
+		Content:         req.Content,
+		CoverURL:        strings.TrimSpace(req.CoverURL),
+		Status:          req.Status,
+		ScheduledAt:     normalizeScheduledAt(req.ScheduledAt),
+		IsPinned:        isPinned,
+		DisplayPriority: displayPriority,
+		SEOTitle:        strings.TrimSpace(req.SEOTitle),
+		SEODescription:  strings.TrimSpace(req.SEODescription),
+		SEOKeywords:     strings.TrimSpace(req.SEOKeywords),
+		TagIDs:          req.TagIDs,
 	}, userID)
 	if err != nil {
 		if logicutil.IsDuplicate(err) {
@@ -306,6 +333,50 @@ func UpdateStatus(ctx context.Context, svcCtx *svc.ServiceContext, id uint64, re
 	})
 	resp := articleResp(ctx, svcCtx, *item, true)
 	return &resp, nil
+}
+
+func AIAssist(ctx context.Context, svcCtx *svc.ServiceContext, req types.AIAssistReq) (*types.AIAssistResp, error) {
+	if err := authutil.RequireContentManager(ctx); err != nil {
+		return nil, err
+	}
+	if !svcCtx.Config.AI.Enabled {
+		return nil, apperrors.Forbidden("ai assistant is disabled")
+	}
+	if strings.TrimSpace(svcCtx.Config.AI.BaseURL) == "" || strings.TrimSpace(svcCtx.Config.AI.APIKey) == "" || strings.TrimSpace(svcCtx.Config.AI.Model) == "" {
+		return nil, apperrors.BadRequest("ai assistant is not configured")
+	}
+	req.Action = strings.TrimSpace(req.Action)
+	if _, ok := aiActions[req.Action]; !ok {
+		return nil, apperrors.BadRequest("action is invalid")
+	}
+	if err := validator.Length(strings.TrimSpace(req.Content), "content", 1, 30000); err != nil {
+		return nil, err
+	}
+	if err := validatorOptionalLength(req.Title, "title", 0, 160); err != nil {
+		return nil, err
+	}
+	resp, err := aiclient.Assist(ctx, svcCtx.Config.AI, aiclient.Request{
+		Action:  req.Action,
+		Title:   req.Title,
+		Content: req.Content,
+	})
+	if err != nil {
+		return nil, err
+	}
+	out := &types.AIAssistResp{
+		Summary:        trimRunes(strings.TrimSpace(resp.Summary), 500),
+		SEODescription: trimRunes(strings.TrimSpace(resp.SEODescription), 255),
+		SEOKeywords:    trimRunes(strings.TrimSpace(resp.SEOKeywords), 255),
+		RevisedContent: strings.TrimSpace(resp.RevisedContent),
+		Suggestions:    resp.Suggestions,
+	}
+	if req.Action == "metadata" && out.Summary == "" && out.SEODescription == "" && out.SEOKeywords == "" {
+		return nil, apperrors.BadRequest("ai response is invalid")
+	}
+	if (req.Action == "proofread" || req.Action == "polish") && out.RevisedContent == "" {
+		return nil, apperrors.BadRequest("ai response is invalid")
+	}
+	return out, nil
 }
 
 func ListVersions(ctx context.Context, svcCtx *svc.ServiceContext, articleID uint64, page, size int) (*types.ArticleVersionListResp, error) {
@@ -403,6 +474,9 @@ func validateArticle(ctx context.Context, svcCtx *svc.ServiceContext, req types.
 	if err := validator.Status(req.Status, statuses, "status"); err != nil {
 		return err
 	}
+	if err := validateDisplayPriority(req.DisplayPriority); err != nil {
+		return err
+	}
 	if err := validatorOptionalLength(req.SEOTitle, "seoTitle", 0, 160); err != nil {
 		return err
 	}
@@ -426,12 +500,33 @@ func validateArticle(ctx context.Context, svcCtx *svc.ServiceContext, req types.
 	return nil
 }
 
+func validateDisplayPriority(value *int) error {
+	if value == nil {
+		return nil
+	}
+	if *value < 0 || *value > 9999 {
+		return apperrors.BadRequest("displayPriority is invalid")
+	}
+	return nil
+}
+
 func validatorOptionalLength(value, field string, min, max int) error {
 	value = strings.TrimSpace(value)
 	if value == "" {
 		return nil
 	}
 	return validator.Length(value, field, min, max)
+}
+
+func trimRunes(value string, max int) string {
+	if max <= 0 {
+		return ""
+	}
+	runes := []rune(value)
+	if len(runes) <= max {
+		return value
+	}
+	return string(runes[:max])
 }
 
 func normalizeScheduledAt(value *time.Time) *time.Time {

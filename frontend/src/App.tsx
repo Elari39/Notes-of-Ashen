@@ -1,11 +1,12 @@
-import { Suspense, lazy, useEffect } from 'react';
-import { Routes, Route } from 'react-router-dom';
+import { Suspense, lazy, useEffect, useRef } from 'react';
+import { Routes, Route, useLocation } from 'react-router-dom';
 import Layout from './components/Layout';
 import Home from './pages/Home';
 import ProtectedRoute from './components/ProtectedRoute';
 import { usePreferenceStore } from './store/preferences';
 import { useSiteSettingsStore } from './store/siteSettings';
 import { useAuthStore } from './store/auth';
+import { reportVisit } from './api/traffic';
 
 const ArticleDetail = lazy(() => import('./pages/ArticleDetail'));
 const Login = lazy(() => import('./pages/Login'));
@@ -52,6 +53,7 @@ function App() {
 
   return (
     <Suspense fallback={<RouteLoading />}>
+      <TrafficReporter />
       <Routes>
         <Route path="/" element={<Layout />}>
           <Route index element={<Home />} />
@@ -91,3 +93,38 @@ function App() {
 }
 
 export default App;
+
+const ignoredTrafficPrefixes = ['/admin', '/login', '/register', '/profile', '/forgot-password'];
+
+const TrafficReporter = () => {
+  const location = useLocation();
+  const previousPublicPath = useRef('');
+
+  useEffect(() => {
+    const path = `${location.pathname}${location.search}`;
+    if (ignoredTrafficPrefixes.some((prefix) => location.pathname === prefix || location.pathname.startsWith(`${prefix}/`))) {
+      return;
+    }
+    const duplicateKey = `traffic:${path}`;
+    const lastReported = Number(sessionStorage.getItem(duplicateKey) || 0);
+    if (Date.now() - lastReported < 5000) {
+      return;
+    }
+    sessionStorage.setItem(duplicateKey, String(Date.now()));
+
+    const articleMatch = location.pathname.match(/^\/article\/(\d+)/);
+    const referrer = previousPublicPath.current
+      ? `${window.location.origin}${previousPublicPath.current}`
+      : document.referrer;
+
+    previousPublicPath.current = path;
+    reportVisit({
+      path,
+      routeType: articleMatch ? 'article' : 'page',
+      articleId: articleMatch ? Number(articleMatch[1]) : undefined,
+      referrer,
+    }).catch(() => undefined);
+  }, [location.pathname, location.search]);
+
+  return null;
+};

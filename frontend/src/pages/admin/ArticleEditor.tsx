@@ -1,9 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { getArticlePreview, createArticle, updateArticle } from '../../api/article';
+import { assistArticle, getArticlePreview, createArticle, updateArticle } from '../../api/article';
 import { createCategory, getCategories } from '../../api/category';
 import { createTag, getTags } from '../../api/tag';
 import { Category, Tag } from '../../types';
+import type { AIAssistAction } from '../../types/api';
 import InlineNotice from '../../components/InlineNotice';
 import MarkdownRenderer from '../../components/MarkdownRenderer';
 import { getErrorMessage } from '../../utils/error';
@@ -230,6 +231,8 @@ const ArticleEditor: React.FC = () => {
   const [coverUrl, setCoverUrl] = useState('');
   const [status, setStatus] = useState('draft');
   const [scheduledAt, setScheduledAt] = useState('');
+  const [isPinned, setIsPinned] = useState(false);
+  const [displayPriority, setDisplayPriority] = useState(0);
   const [seoTitle, setSeoTitle] = useState('');
   const [seoDescription, setSeoDescription] = useState('');
   const [seoKeywords, setSeoKeywords] = useState('');
@@ -244,6 +247,16 @@ const ArticleEditor: React.FC = () => {
   const [categorySubmitting, setCategorySubmitting] = useState(false);
   const [tagError, setTagError] = useState('');
   const [tagSubmitting, setTagSubmitting] = useState(false);
+  const [aiMenuOpen, setAiMenuOpen] = useState(false);
+  const [aiAction, setAiAction] = useState<AIAssistAction | null>(null);
+  const [aiNotice, setAiNotice] = useState('');
+  const [aiDraft, setAiDraft] = useState<{
+    action: AIAssistAction;
+    revisedContent: string;
+    suggestions: string[];
+  } | null>(null);
+  const aiText = getAIEditorLabels(language);
+  const pinText = getPinPriorityLabels(language);
 
   useEffect(() => {
     const fetchDeps = async () => {
@@ -271,6 +284,8 @@ const ArticleEditor: React.FC = () => {
           setCoverUrl(article.coverUrl || '');
           setStatus(article.status);
           setScheduledAt(toDateTimeLocal(article.scheduledAt));
+          setIsPinned(Boolean(article.isPinned));
+          setDisplayPriority(article.displayPriority || 0);
           setSeoTitle(article.seoTitle || '');
           setSeoDescription(article.seoDescription || '');
           setSeoKeywords(article.seoKeywords || '');
@@ -291,6 +306,8 @@ const ArticleEditor: React.FC = () => {
     const payload = {
       title, slug, summary, content, coverUrl: trimmedCoverUrl, status,
       scheduledAt: scheduledAt ? new Date(scheduledAt).toISOString() : undefined,
+      isPinned,
+      displayPriority,
       seoTitle: seoTitle.trim(),
       seoDescription: seoDescription.trim(),
       seoKeywords: seoKeywords.trim(),
@@ -312,6 +329,49 @@ const ArticleEditor: React.FC = () => {
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const handleAIAssist = async (action: AIAssistAction) => {
+    if (!content.trim()) {
+      setError(aiText.contentRequired);
+      setAiMenuOpen(false);
+      return;
+    }
+    setError('');
+    setAiNotice('');
+    setAiDraft(null);
+    setAiAction(action);
+    setAiMenuOpen(false);
+    try {
+      const res = await assistArticle({ action, title, content });
+      const data = res.data;
+      if (action === 'metadata') {
+        if (data.summary) setSummary(data.summary);
+        if (data.seoDescription) setSeoDescription(data.seoDescription);
+        if (data.seoKeywords) setSeoKeywords(data.seoKeywords);
+        setAiNotice(aiText.metadataApplied);
+        return;
+      }
+      setAiDraft({
+        action,
+        revisedContent: data.revisedContent || '',
+        suggestions: data.suggestions || [],
+      });
+      setAiNotice(action === 'proofread' ? aiText.proofreadReady : aiText.polishReady);
+    } catch (e: unknown) {
+      setError(getErrorMessage(e, aiText.aiError));
+    } finally {
+      setAiAction(null);
+    }
+  };
+
+  const applyAIContent = () => {
+    if (!aiDraft?.revisedContent) {
+      return;
+    }
+    setContent(aiDraft.revisedContent);
+    setAiDraft(null);
+    setAiNotice(aiText.contentApplied);
   };
 
   const handleCreateCategory = async (name: string) => {
@@ -360,12 +420,66 @@ const ArticleEditor: React.FC = () => {
     <div className="flex flex-col h-[80vh]">
       <div className="flex justify-between items-center mb-6 pb-4 border-b border-mountain-grey">
         <h3 className="text-2xl font-bold text-ink tracking-widest">{isEdit ? t('articleEditor.editTitle') : t('articleEditor.newTitle')}</h3>
-        <button onClick={handleSave} disabled={submitting} className="px-6 py-2 bg-ink text-paper tracking-widest text-sm hover:bg-opacity-80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
-          {submitting ? t('common.saving') : t('articleEditor.save')}
-        </button>
+        <div className="flex items-center gap-3">
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setAiMenuOpen(prev => !prev)}
+              disabled={Boolean(aiAction)}
+              className="border border-ochre px-4 py-2 text-sm tracking-widest text-ochre transition-colors hover:bg-ochre hover:text-paper disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {aiAction ? aiText.processing : aiText.magic}
+            </button>
+            {aiMenuOpen && (
+              <div className="absolute right-0 top-full z-30 mt-2 w-52 border border-mountain-grey bg-paper shadow-sm">
+                <button type="button" onClick={() => handleAIAssist('metadata')} className="block w-full px-3 py-2 text-left text-sm text-ink hover:bg-mountain-grey hover:bg-opacity-20">
+                  {aiText.metadata}
+                </button>
+                <button type="button" onClick={() => handleAIAssist('proofread')} className="block w-full px-3 py-2 text-left text-sm text-ink hover:bg-mountain-grey hover:bg-opacity-20">
+                  {aiText.proofread}
+                </button>
+                <button type="button" onClick={() => handleAIAssist('polish')} className="block w-full px-3 py-2 text-left text-sm text-ink hover:bg-mountain-grey hover:bg-opacity-20">
+                  {aiText.polish}
+                </button>
+              </div>
+            )}
+          </div>
+          <button onClick={handleSave} disabled={submitting} className="px-6 py-2 bg-ink text-paper tracking-widest text-sm hover:bg-opacity-80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+            {submitting ? t('common.saving') : t('articleEditor.save')}
+          </button>
+        </div>
       </div>
 
       <InlineNotice message={error} className="mb-6" />
+      <InlineNotice message={aiNotice} className="mb-6" />
+
+      {aiDraft && (
+        <section className="mb-6 border border-mountain-grey bg-[var(--paper-soft)] p-4">
+          <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <h4 className="text-sm font-bold tracking-widest text-ink">
+              {aiDraft.action === 'proofread' ? aiText.proofreadResult : aiText.polishResult}
+            </h4>
+            <div className="flex gap-3">
+              <button type="button" onClick={applyAIContent} className="border border-ink px-3 py-1.5 text-sm text-ink transition-colors hover:bg-ink hover:text-paper">
+                {aiText.apply}
+              </button>
+              <button type="button" onClick={() => setAiDraft(null)} className="border border-mountain-grey px-3 py-1.5 text-sm text-ink-light transition-colors hover:border-ochre hover:text-ochre">
+                {t('common.cancel')}
+              </button>
+            </div>
+          </div>
+          {aiDraft.suggestions.length > 0 && (
+            <ul className="mb-3 list-disc space-y-1 pl-5 text-sm text-ink-light">
+              {aiDraft.suggestions.map((item, index) => (
+                <li key={`${item}-${index}`}>{item}</li>
+              ))}
+            </ul>
+          )}
+          <pre className="max-h-56 overflow-auto whitespace-pre-wrap border border-mountain-grey bg-paper p-3 text-sm leading-relaxed text-ink-light">
+            {aiDraft.revisedContent}
+          </pre>
+        </section>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
         <input
@@ -395,6 +509,26 @@ const ArticleEditor: React.FC = () => {
           type="datetime-local"
           value={scheduledAt}
           onChange={e => setScheduledAt(e.target.value)}
+          className="w-full bg-transparent border-b border-mountain-grey py-2 text-ink focus:outline-none focus:border-ochre"
+        />
+        <label className="flex items-center gap-3 border-b border-mountain-grey py-2 text-sm text-ink focus-within:border-ochre">
+          <input
+            type="checkbox"
+            checked={isPinned}
+            onChange={e => setIsPinned(e.target.checked)}
+            className="h-4 w-4 accent-ochre"
+          />
+          <span>{pinText.pinned}</span>
+        </label>
+        <input
+          type="number"
+          min={0}
+          max={9999}
+          step={1}
+          value={displayPriority}
+          aria-label={pinText.priority}
+          placeholder={pinText.priority}
+          onChange={e => setDisplayPriority(clampPriority(e.target.value))}
           className="w-full bg-transparent border-b border-mountain-grey py-2 text-ink focus:outline-none focus:border-ochre"
         />
         <input
@@ -502,3 +636,55 @@ const toDateTimeLocal = (value?: string) => {
   const offsetMs = date.getTimezoneOffset() * 60 * 1000;
   return new Date(date.getTime() - offsetMs).toISOString().slice(0, 16);
 };
+
+const clampPriority = (value: string) => {
+  const next = Number.parseInt(value, 10);
+  if (!Number.isFinite(next)) {
+    return 0;
+  }
+  return Math.min(9999, Math.max(0, next));
+};
+
+const getPinPriorityLabels = (language: string) => language === 'zh'
+  ? {
+      pinned: '\u7f6e\u9876',
+      priority: '\u663e\u793a\u4f18\u5148\u7ea7',
+    }
+  : {
+      pinned: 'Pinned',
+      priority: 'Display Priority',
+    };
+
+const getAIEditorLabels = (language: string) => language === 'zh'
+  ? {
+      magic: '✨ AI',
+      metadata: '生成摘要与 SEO',
+      proofread: '语法纠错',
+      polish: '语气润色',
+      processing: 'AI 处理中',
+      contentRequired: '请先填写正文内容。',
+      metadataApplied: 'AI 已填入摘要与 SEO 字段，请检查后再保存。',
+      proofreadReady: 'AI 纠错结果已生成，请确认后应用。',
+      polishReady: 'AI 润色结果已生成，请确认后应用。',
+      proofreadResult: 'AI 纠错结果',
+      polishResult: 'AI 润色结果',
+      apply: '应用到正文',
+      contentApplied: 'AI 结果已应用到正文，请检查后再保存。',
+      aiError: 'AI 辅助失败',
+    }
+  : {
+      magic: '✨ AI',
+      metadata: 'Generate Summary / SEO',
+      proofread: 'Proofread',
+      polish: 'Polish Tone',
+      processing: 'AI Working',
+      contentRequired: 'Please write the article body first.',
+      metadataApplied: 'AI filled summary and SEO fields. Please review before saving.',
+      proofreadReady: 'Proofread result is ready. Review before applying.',
+      polishReady: 'Polished result is ready. Review before applying.',
+      proofreadResult: 'AI Proofread Result',
+      polishResult: 'AI Polish Result',
+      apply: 'Apply to Body',
+      contentApplied: 'AI result was applied to the body. Please review before saving.',
+      aiError: 'AI assist failed',
+    };

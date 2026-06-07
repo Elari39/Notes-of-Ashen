@@ -8,7 +8,7 @@ http://127.0.0.1:19000
 
 ## 通用约定
 
-除 `GET` 接口外，请求体默认使用 JSON：
+除文件上传、Markdown 导出、RSS 和 Sitemap 外，请求体默认使用 JSON：
 
 ```text
 Content-Type: application/json
@@ -54,9 +54,10 @@ Authorization: Bearer <accessToken>
 | --- | --- | --- |
 | 40000 | 400 | 请求参数错误 |
 | 40100 | 401 | 未登录、Token 缺失、Token 无效或过期 |
-| 40300 | 403 | 权限不足、注册关闭或用户被禁用 |
+| 40300 | 403 | 权限不足、注册关闭、用户被禁用或功能未启用 |
 | 40400 | 404 | 资源不存在 |
 | 40900 | 409 | 资源冲突，例如账号、邮箱、slug 重复 |
+| 42900 | 429 | 请求过于频繁 |
 | 50000 | 500 | 服务内部错误 |
 
 列表接口统一支持分页：
@@ -83,11 +84,44 @@ Authorization: Bearer <accessToken>
 2026-06-05T20:00:00+08:00
 ```
 
-## 配置安全提示
-
-`etc/notes-of-ashen.yaml` 是本地开发默认配置，包含示例数据库密码、Redis 密码、JWT Secret 和 RabbitMQ 地址。生产环境部署前必须替换这些值，并通过受控配置或环境注入管理敏感信息，不能直接复用仓库中的默认值。
+`etc/notes-of-ashen.yaml` 是本地开发默认配置，包含示例数据库密码、Redis 密码、JWT Secret、RabbitMQ 地址和 AI 配置占位。生产环境部署前必须替换敏感值，并通过受控配置或环境变量注入管理。
 
 ## 认证接口
+
+### 获取图片验证码
+
+```text
+POST /api/v1/auth/captcha
+```
+
+权限：公开。用于登录、注册、找回密码、修改密码和修改邮箱前的人机校验。
+
+| 字段 | 类型 | 必填 | 说明 |
+| --- | --- | --- | --- |
+| purpose | string | 否 | `login`、`register`、`reset_password`、`change_password`、`update_email`；为空时默认 `login` |
+
+响应 `data`：
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| captchaId | string | 图片验证码 ID |
+| imageData | string | 可直接用于 `<img src>` 的 PNG base64 Data URL |
+| expiresIn | int64 | 有效秒数，默认 300 |
+
+### 发送公开邮箱验证码
+
+```text
+POST /api/v1/auth/verify-code/send
+```
+
+权限：公开。用于注册和找回密码。发送前必须提交同用途图片验证码，同 IP 1 分钟最多 5 次。
+
+| 字段 | 类型 | 必填 | 说明 |
+| --- | --- | --- | --- |
+| email | string | 是 | 接收验证码的邮箱 |
+| purpose | string | 是 | `register` 或 `reset_password` |
+| captchaId | string | 是 | 图片验证码 ID |
+| captchaCode | string | 是 | 图片验证码答案 |
 
 ### 注册
 
@@ -102,6 +136,7 @@ POST /api/v1/auth/register
 | account | string | 是 | 账号，长度 3 到 64 |
 | password | string | 是 | 密码，长度 8 到 128 |
 | email | string | 是 | 邮箱，需符合邮箱格式 |
+| emailCode | string | 是 | `register` 用途邮箱验证码；第一个管理员账号也必须校验 |
 | nickname | string | 否 | 昵称，非空时长度 1 到 64 |
 | avatarUrl | string | 否 | 头像 URL；为空表示不显示头像，非空必须为 `http://` 或 `https://` URL |
 
@@ -111,12 +146,28 @@ POST /api/v1/auth/register
 POST /api/v1/auth/login
 ```
 
-权限：公开。
+权限：公开。登录接口有 IP 限流保护。
 
 | 字段 | 类型 | 必填 | 说明 |
 | --- | --- | --- | --- |
 | account | string | 是 | 账号或邮箱 |
 | password | string | 是 | 密码 |
+| captchaId | string | 是 | `login` 用途图片验证码 ID |
+| captchaCode | string | 是 | 图片验证码答案 |
+
+### 找回密码
+
+```text
+POST /api/v1/auth/password/reset
+```
+
+权限：公开。重置成功后会撤销该用户已有 Refresh Token，需要重新登录。
+
+| 字段 | 类型 | 必填 | 说明 |
+| --- | --- | --- | --- |
+| email | string | 是 | 账号绑定邮箱 |
+| emailCode | string | 是 | `reset_password` 用途邮箱验证码 |
+| newPassword | string | 是 | 新密码，长度 8 到 128 |
 
 ### 刷新 Token
 
@@ -167,17 +218,33 @@ GET /api/v1/users/me
 
 权限：登录用户。
 
+### 发送当前用户邮箱验证码
+
+```text
+POST /api/v1/users/me/verify-code/send
+```
+
+权限：登录用户。用于修改密码和修改邮箱，发送前必须提交同用途图片验证码，同 IP 1 分钟最多 5 次。
+
+| 字段 | 类型 | 必填 | 说明 |
+| --- | --- | --- | --- |
+| purpose | string | 是 | `change_password` 或 `update_email` |
+| email | string | 条件必填 | `update_email` 时为目标新邮箱；`change_password` 时不用传 |
+| captchaId | string | 是 | 图片验证码 ID |
+| captchaCode | string | 是 | 图片验证码答案 |
+
 ### 更新当前用户资料
 
 ```text
 PUT /api/v1/users/me
 ```
 
-权限：登录用户。
+权限：登录用户。修改邮箱时必须先通过 `update_email` 用途邮箱验证码。
 
 | 字段 | 类型 | 必填 | 说明 |
 | --- | --- | --- | --- |
 | email | string | 否 | 邮箱；为空时保留原邮箱 |
+| emailCode | string | 条件必填 | 仅当 `email` 变更时必填 |
 | avatarUrl | string | 否 | 头像 URL；为空表示不显示头像 |
 | nickname | string | 否 | 昵称，非空时长度 1 到 64 |
 
@@ -193,6 +260,7 @@ PUT /api/v1/users/me/password
 | --- | --- | --- | --- |
 | oldPassword | string | 是 | 当前密码 |
 | newPassword | string | 是 | 新密码，长度 8 到 128 |
+| emailCode | string | 是 | 当前邮箱收到的 `change_password` 用途验证码 |
 
 ## 文章接口
 
@@ -202,7 +270,7 @@ PUT /api/v1/users/me/password
 GET /api/v1/articles
 ```
 
-权限：公开。匿名访问只返回已发布且未到未来发布时间的文章。
+权限：公开。匿名访问只返回已发布且未到未来发布时间的文章。列表按置顶、显示优先级、发布时间和 ID 倒序排列。
 
 | 参数 | 类型 | 必填 | 说明 |
 | --- | --- | --- | --- |
@@ -223,7 +291,29 @@ GET /api/v1/articles/:id
 
 权限：公开。只允许访问已公开可见文章，访问成功会增加浏览量。
 
-响应中的 `content` 仅详情、预览和版本详情接口返回。`categoryId`、`scheduledAt`、`publishedAt`、`tags`、`category` 可能被省略。
+文章响应主要字段：
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| id | uint64 | 文章 ID |
+| authorId | uint64 | 作者 ID |
+| categoryId | uint64 | 分类 ID，可能省略 |
+| title | string | 标题 |
+| slug | string | 唯一路径 |
+| summary | string | 摘要 |
+| content | string | 正文，仅详情、预览和版本详情返回 |
+| coverUrl | string | 封面 URL |
+| status | string | `draft`、`published` 或 `archived` |
+| viewCount | uint64 | 浏览量 |
+| scheduledAt | string | 定时发布时间，可能省略 |
+| publishedAt | string | 发布时间，可能省略 |
+| isPinned | bool | 是否置顶 |
+| displayPriority | int | 显示优先级，0 到 9999，数值越大越靠前 |
+| seoTitle | string | SEO 标题 |
+| seoDescription | string | SEO 描述 |
+| seoKeywords | string | SEO 关键词 |
+| tags | Tag[] | 标签列表，可能省略 |
+| category | Category | 分类信息，可能省略 |
 
 ### 文章上下文
 
@@ -231,7 +321,7 @@ GET /api/v1/articles/:id
 GET /api/v1/articles/:id/context
 ```
 
-权限：公开。返回上一篇、下一篇和相关文章，只针对公开可见文章。
+权限：公开。返回上一篇、下一篇和相关文章，只针对公开可见文章，并遵循置顶与优先级排序。
 
 响应示例：
 
@@ -263,6 +353,8 @@ POST /api/v1/articles
 | coverUrl | string | 否 | 封面 URL，非空必须为 `http://` 或 `https://` URL |
 | status | string | 否 | `draft`、`published`、`archived`，默认 `draft` |
 | scheduledAt | string | 否 | 定时发布时间；配合 `published` 且时间在未来时表现为定时发布 |
+| isPinned | bool | 否 | 是否置顶，默认 `false` |
+| displayPriority | int | 否 | 显示优先级，0 到 9999，默认 0 |
 | seoTitle | string | 否 | SEO 标题，非空时最长 160 |
 | seoDescription | string | 否 | SEO 描述，非空时最长 255 |
 | seoKeywords | string | 否 | SEO 关键词，非空时最长 255 |
@@ -304,87 +396,72 @@ PATCH /api/v1/articles/:id/status
 | --- | --- | --- | --- |
 | status | string | 是 | `draft`、`published`、`archived` |
 
-### 文章版本列表
+### AI 辅助创作
+
+```text
+POST /api/v1/articles/ai/assist
+```
+
+权限：`editor` 或 `admin`。需要启用并配置 `APP_AI_ENABLED`、`APP_AI_BASE_URL`、`APP_AI_API_KEY` 和 `APP_AI_MODEL`。接口有 IP 限流保护。
+
+| 字段 | 类型 | 必填 | 说明 |
+| --- | --- | --- | --- |
+| action | string | 是 | `metadata`、`proofread` 或 `polish` |
+| title | string | 否 | 文章标题，最长 160 |
+| content | string | 是 | Markdown 正文，最长 30000 |
+
+响应字段：
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| summary | string | `metadata` 时可能返回的摘要 |
+| seoDescription | string | `metadata` 时可能返回的 SEO 描述 |
+| seoKeywords | string | `metadata` 时可能返回的 SEO 关键词 |
+| revisedContent | string | `proofread` 或 `polish` 时返回的修订正文 |
+| suggestions | string[] | 修改建议 |
+
+### Markdown 导入
+
+```text
+POST /api/v1/articles/import
+```
+
+权限：`editor` 或 `admin`。请求体为 `multipart/form-data`，文件字段名为 `file`，仅支持 `.md`，最大 2 MiB。导入成功后创建草稿文章，若分类或标签不存在会自动创建。
+
+支持的 Front Matter 字段包括：`title`、`slug`、`summary`、`category`、`tags`、`date`、`cover_url`、`pinned`、`priority`、`seo_title`、`seo_description`、`seo_keywords`。若没有 `title`，会尝试使用正文第一个 H1 或文件名。
+
+### Markdown 导出
+
+```text
+GET /api/v1/articles/:id/export
+```
+
+权限：文章作者、`editor` 或 `admin`。响应为 `text/markdown; charset=utf-8` 文件流，不使用统一 JSON 响应包装。
+
+### 文章版本
 
 ```text
 GET /api/v1/articles/:id/versions
-```
-
-权限：文章作者、`editor` 或 `admin`。支持 `page`、`size`。列表不返回版本正文。
-
-### 文章版本详情
-
-```text
 GET /api/v1/articles/:id/versions/:versionNo
-```
-
-权限：文章作者、`editor` 或 `admin`。返回指定版本的完整内容。
-
-### 恢复文章版本
-
-```text
 POST /api/v1/articles/:id/versions/:versionNo/restore
 ```
 
-权限：文章作者、`editor` 或 `admin`。恢复前会先保存当前文章为新版本。
+权限：文章作者、`editor` 或 `admin`。版本列表支持 `page`、`size`；列表不返回版本正文，详情返回完整内容。恢复版本前会先保存当前文章为新版本。
 
-## 分类接口
+版本响应包含文章的主要字段、`tagIds`、`originalCreatedAt`、`originalUpdatedAt`、`isPinned` 和 `displayPriority`。
 
-### 分类列表
+## 分类与标签接口
+
+### 分类
 
 ```text
 GET /api/v1/categories
-```
-
-权限：公开。支持 `page`、`size`。
-
-### 创建分类
-
-```text
 POST /api/v1/categories
-```
-
-权限：`editor` 或 `admin`。
-
-| 字段 | 类型 | 必填 | 说明 |
-| --- | --- | --- | --- |
-| name | string | 是 | 名称，长度 1 到 64 |
-| slug | string | 是 | 唯一路径，长度 1 到 96 |
-| description | string | 否 | 描述 |
-
-### 更新分类
-
-```text
 PUT /api/v1/categories/:id
-```
-
-权限：`editor` 或 `admin`。
-
-### 删除分类
-
-```text
 DELETE /api/v1/categories/:id
 ```
 
-权限：`editor` 或 `admin`。若分类仍被文章引用，删除可能失败。
-
-## 标签接口
-
-### 标签列表
-
-```text
-GET /api/v1/tags
-```
-
-权限：公开。支持 `page`、`size`。
-
-### 创建标签
-
-```text
-POST /api/v1/tags
-```
-
-权限：`editor` 或 `admin`。
+读取权限：公开。写入权限：`editor` 或 `admin`。创建和更新字段如下：
 
 | 字段 | 类型 | 必填 | 说明 |
 | --- | --- | --- | --- |
@@ -392,21 +469,18 @@ POST /api/v1/tags
 | slug | string | 是 | 唯一路径，长度 1 到 96 |
 | description | string | 否 | 描述 |
 
-### 更新标签
+若分类仍被文章引用，删除可能失败。
+
+### 标签
 
 ```text
+GET /api/v1/tags
+POST /api/v1/tags
 PUT /api/v1/tags/:id
-```
-
-权限：`editor` 或 `admin`。
-
-### 删除标签
-
-```text
 DELETE /api/v1/tags/:id
 ```
 
-权限：`editor` 或 `admin`。
+读取权限：公开。写入权限：`editor` 或 `admin`。创建和更新字段同分类。
 
 ## 站点接口
 
@@ -435,87 +509,13 @@ GET /api/v1/site/settings
 }
 ```
 
-### RSS
-
-```text
-GET /rss.xml
-```
-
-权限：公开。返回公开文章的 RSS XML。
-
-### Sitemap
-
-```text
-GET /sitemap.xml
-```
-
-权限：公开。返回站点 XML Sitemap。
-
-## 管理接口
-
-### 后台统计
-
-```text
-GET /api/v1/admin/stats
-```
-
-权限：`editor` 或 `admin`。返回文章、用户、分类、标签数量，以及热门文章、最近文章和最近操作日志。
-
-### 后台文章列表
-
-```text
-GET /api/v1/admin/articles
-```
-
-权限：`editor` 或 `admin`。支持 `page`、`size`、`status`、`q`、`categoryId`、`tagId`。内容管理角色可查看全部文章。
-
-### 用户列表
-
-```text
-GET /api/v1/admin/users
-```
-
-权限：`admin`。支持 `page`、`size`。
-
-### 修改用户状态
-
-```text
-PATCH /api/v1/admin/users/:id/status
-```
-
-权限：`admin`。不能禁用自己，也不能禁用最后一个可用管理员。
-
-| 字段 | 类型 | 必填 | 说明 |
-| --- | --- | --- | --- |
-| status | string | 是 | `active` 或 `disabled` |
-
-### 修改用户角色
-
-```text
-PATCH /api/v1/admin/users/:id/role
-```
-
-权限：`admin`。不能将自己降级，也不能降级最后一个可用管理员。
-
-| 字段 | 类型 | 必填 | 说明 |
-| --- | --- | --- | --- |
-| role | string | 是 | `user`、`editor` 或 `admin` |
-
-### 操作日志列表
-
-```text
-GET /api/v1/admin/logs
-```
-
-权限：`admin`。支持 `page`、`size`。响应中的 `userId`、`resourceId`、`metadata` 可能被省略。
-
 ### 更新站点设置
 
 ```text
 PUT /api/v1/admin/site/settings
 ```
 
-权限：`admin`。用于开启或关闭后续账号注册，设置首页文章列表布局和站点 SEO 信息。`homeArticleLayout` 可选值为 `standard` 或 `alternating`。
+权限：`admin`。
 
 | 字段 | 类型 | 必填 | 说明 |
 | --- | --- | --- | --- |
@@ -526,28 +526,113 @@ PUT /api/v1/admin/site/settings
 | siteKeywords | string | 否 | 站点关键词，空值表示保留当前值 |
 | siteBaseUrl | string | 否 | 站点公开基础 URL，非空必须为 `http://` 或 `https://` URL |
 
-请求示例：
+### RSS 与 Sitemap
 
-```json
-{
-  "registrationEnabled": false,
-  "homeArticleLayout": "alternating",
-  "siteTitle": "Notes of Ashen",
-  "siteDescription": "A personal blog written slowly by the lamp of ink.",
-  "siteKeywords": "blog,notes,writing",
-  "siteBaseUrl": "https://example.com"
-}
+```text
+GET /rss.xml
+GET /sitemap.xml
 ```
+
+权限：公开。分别返回公开文章的 RSS XML 和站点 XML Sitemap。
+
+## 流量接口
+
+### 记录访问
+
+```text
+POST /api/v1/traffic/visit
+```
+
+权限：公开。前端自动上报公开页面访问，接口有 IP 限流保护。后端仅记录公开页面路径，后台、登录、注册、个人资料和找回密码等路径会被忽略。
+
+| 字段 | 类型 | 必填 | 说明 |
+| --- | --- | --- | --- |
+| path | string | 是 | 当前访问路径 |
+| routeType | string | 是 | 前端路由类型，例如 `home`、`article`、`archive`、`search` |
+| articleId | uint64 | 否 | 文章详情页对应的文章 ID |
+| referrer | string | 否 | 浏览器 referrer |
+
+## 管理接口
+
+### 后台统计
+
+```text
+GET /api/v1/admin/stats
+```
+
+权限：`editor` 或 `admin`。返回文章、用户、分类、标签、访问统计、热门文章、最近文章和最近操作日志。
+
+响应 `data` 主要字段：
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| articleTotal | int64 | 文章总数 |
+| publishedTotal | int64 | 已公开发布文章数 |
+| draftTotal | int64 | 草稿数 |
+| archivedTotal | int64 | 归档数 |
+| scheduledTotal | int64 | 定时发布数 |
+| viewTotal | uint64 | 文章浏览总量 |
+| todayPv | int64 | 今日 PV |
+| todayUv | int64 | 今日 UV |
+| trafficTrend | object[] | 最近 30 天 PV / UV 趋势，字段为 `date`、`pv`、`uv` |
+| topReferers | object[] | 最近 30 天访问来源排行，字段为 `sourceType`、`sourceName`、`pv` |
+| userTotal | int64 | 用户数 |
+| categoryTotal | int64 | 分类数 |
+| tagTotal | int64 | 标签数 |
+| popularArticles | Article[] | 热门文章 |
+| recentArticles | Article[] | 最近文章 |
+| recentLogs | OperationLog[] | 最近操作日志 |
+
+### 后台文章列表
+
+```text
+GET /api/v1/admin/articles
+```
+
+权限：`editor` 或 `admin`。支持 `page`、`size`、`status`、`q`、`categoryId`、`tagId`。内容管理角色可查看全部文章。
+
+### 用户管理
+
+```text
+GET /api/v1/admin/users
+PATCH /api/v1/admin/users/:id/status
+PATCH /api/v1/admin/users/:id/role
+```
+
+权限：`admin`。用户列表支持 `page`、`size`。
+
+修改用户状态：
+
+| 字段 | 类型 | 必填 | 说明 |
+| --- | --- | --- | --- |
+| status | string | 是 | `active` 或 `disabled` |
+
+修改用户角色：
+
+| 字段 | 类型 | 必填 | 说明 |
+| --- | --- | --- | --- |
+| role | string | 是 | `user`、`editor` 或 `admin` |
+
+不能禁用自己，不能将自己降级，也不能禁用或降级最后一个可用管理员。
+
+### 操作日志列表
+
+```text
+GET /api/v1/admin/logs
+```
+
+权限：`admin`。支持 `page`、`size`。响应中的 `userId`、`resourceId`、`metadata` 可能被省略。
 
 ## PowerShell 调用示例
 
-注册：
+注册前先获取验证码并发送邮箱验证码，下面示例只展示最终注册请求体结构：
 
 ```powershell
 $body = @{
   account = "admin"
   password = "Password123!"
   email = "admin@example.com"
+  emailCode = "123456"
   nickname = "站长"
   avatarUrl = "https://example.com/avatar.png"
 } | ConvertTo-Json
@@ -570,108 +655,3 @@ Invoke-RestMethod -Method Get `
   -Uri "http://127.0.0.1:19000/api/v1/users/me" `
   -Headers $headers
 ```
-
-## 邮箱验证码、图片验证码与限流补充
-
-新增错误码：
-
-| code | HTTP 状态码 | 含义 |
-| --- | --- | --- |
-| 42900 | 429 | 请求过于频繁，常见于登录、发送验证码或重置密码限流 |
-
-### 获取图片验证码
-
-```text
-POST /api/v1/auth/captcha
-```
-
-请求字段：
-
-| 字段 | 类型 | 必填 | 说明 |
-| --- | --- | --- | --- |
-| purpose | string | 否 | `login`、`register`、`reset_password`、`change_password`、`update_email`；为空时默认 `login` |
-
-响应 `data`：
-
-| 字段 | 类型 | 说明 |
-| --- | --- | --- |
-| captchaId | string | 图片验证码 ID |
-| imageData | string | 可直接用于 `<img src>` 的 PNG base64 Data URL |
-| expiresIn | int64 | 有效秒数，默认 300 |
-
-### 发送公开邮箱验证码
-
-```text
-POST /api/v1/auth/verify-code/send
-```
-
-用于注册和找回密码。发送前必须提交同用途图片验证码，同 IP 1 分钟最多 5 次。
-
-| 字段 | 类型 | 必填 | 说明 |
-| --- | --- | --- | --- |
-| email | string | 是 | 接收验证码的邮箱 |
-| purpose | string | 是 | `register` 或 `reset_password` |
-| captchaId | string | 是 | 图片验证码 ID |
-| captchaCode | string | 是 | 图片验证码答案 |
-
-### 注册
-
-`POST /api/v1/auth/register` 新增字段：
-
-| 字段 | 类型 | 必填 | 说明 |
-| --- | --- | --- | --- |
-| emailCode | string | 是 | `register` 用途邮箱验证码；第一个管理员账号也必须校验 |
-
-### 登录
-
-`POST /api/v1/auth/login` 新增字段：
-
-| 字段 | 类型 | 必填 | 说明 |
-| --- | --- | --- | --- |
-| captchaId | string | 是 | `login` 用途图片验证码 ID |
-| captchaCode | string | 是 | 图片验证码答案 |
-
-### 找回密码
-
-```text
-POST /api/v1/auth/password/reset
-```
-
-| 字段 | 类型 | 必填 | 说明 |
-| --- | --- | --- | --- |
-| email | string | 是 | 账号绑定邮箱 |
-| emailCode | string | 是 | `reset_password` 用途邮箱验证码 |
-| newPassword | string | 是 | 新密码，长度 8 到 128 |
-
-重置成功后会撤销该用户已有 Refresh Token，需要重新登录。
-
-### 登录态发送邮箱验证码
-
-```text
-POST /api/v1/users/me/verify-code/send
-```
-
-权限：登录用户。用于修改密码和修改邮箱，发送前必须提交同用途图片验证码，同 IP 1 分钟最多 5 次。
-
-| 字段 | 类型 | 必填 | 说明 |
-| --- | --- | --- | --- |
-| purpose | string | 是 | `change_password` 或 `update_email` |
-| email | string | 条件必填 | `update_email` 时为目标新邮箱；`change_password` 时不用传 |
-| captchaId | string | 是 | 图片验证码 ID |
-| captchaCode | string | 是 | 图片验证码答案 |
-
-### 修改当前用户资料
-
-`PUT /api/v1/users/me` 在修改邮箱时新增字段：
-
-| 字段 | 类型 | 必填 | 说明 |
-| --- | --- | --- | --- |
-| emailCode | string | 条件必填 | 仅当 `email` 变更时必填，校验 `update_email` 用途验证码 |
-
-### 修改密码
-
-`PUT /api/v1/users/me/password` 新增字段：
-
-| 字段 | 类型 | 必填 | 说明 |
-| --- | --- | --- | --- |
-| emailCode | string | 是 | 当前邮箱收到的 `change_password` 用途验证码 |

@@ -15,6 +15,7 @@ type Config struct {
 	Redis    RedisConf
 	RabbitMQ RabbitMQConf
 	Email    EmailConf
+	AI       AIConf
 }
 
 type DatabaseConf struct {
@@ -51,6 +52,14 @@ type EmailConf struct {
 	SMTPPassword string
 	From         string
 	FromName     string
+}
+
+type AIConf struct {
+	Enabled        bool
+	BaseURL        string
+	APIKey         string
+	Model          string
+	TimeoutSeconds int
 }
 
 func (c *Config) ApplyEnv() error {
@@ -140,6 +149,15 @@ func (c *Config) ApplyEnv() error {
 	setString("APP_EMAIL_SMTP_PASSWORD", &c.Email.SMTPPassword)
 	setString("APP_EMAIL_FROM", &c.Email.From)
 	setString("APP_EMAIL_FROM_NAME", &c.Email.FromName)
+	if err := setBool("APP_AI_ENABLED", &c.AI.Enabled); err != nil {
+		return err
+	}
+	setString("APP_AI_BASE_URL", &c.AI.BaseURL)
+	setString("APP_AI_API_KEY", &c.AI.APIKey)
+	setString("APP_AI_MODEL", &c.AI.Model)
+	if err := setInt("APP_AI_TIMEOUT_SECONDS", &c.AI.TimeoutSeconds); err != nil {
+		return err
+	}
 
 	return nil
 }

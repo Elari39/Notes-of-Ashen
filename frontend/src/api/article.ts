@@ -1,6 +1,14 @@
 import http from '../utils/http';
+import type { AxiosResponse } from 'axios';
 import { BaseResp, Article, ArticleContext, ArticleVersion, PaginatedResp } from '../types';
-import { ArticleListParams, CreateArticleReq, UpdateArticleReq, UpdateArticleStatusReq } from '../types/api';
+import {
+  AIAssistReq,
+  AIAssistResp,
+  ArticleListParams,
+  CreateArticleReq,
+  UpdateArticleReq,
+  UpdateArticleStatusReq,
+} from '../types/api';
 
 export const getArticles = (params?: ArticleListParams) => 
   http.get<unknown, BaseResp<PaginatedResp<Article>>>('/articles', { params });
@@ -29,6 +37,25 @@ export const deleteArticle = (id: number | string) =>
 export const updateArticleStatus = (id: number | string, status: string) => 
   http.patch<unknown, BaseResp<Article>>(`/articles/${id}/status`, { status } as UpdateArticleStatusReq);
 
+export const assistArticle = (data: AIAssistReq) =>
+  http.post<unknown, BaseResp<AIAssistResp>>('/articles/ai/assist', data);
+
+export const importMarkdownArticle = (file: File) => {
+  const form = new FormData();
+  form.append('file', file);
+  return http.post<unknown, BaseResp<Article>>('/articles/import', form);
+};
+
+export const exportArticleMarkdown = async (id: number | string) => {
+  const response = await http.get<unknown, AxiosResponse<Blob>>(`/articles/${id}/export`, {
+    responseType: 'blob',
+  });
+  return {
+    blob: response.data,
+    filename: filenameFromDisposition(response.headers['content-disposition']) || `article-${id}.md`,
+  };
+};
+
 export const getArticleVersions = (id: number | string, params?: { page?: number; size?: number }) =>
   http.get<unknown, BaseResp<PaginatedResp<ArticleVersion>>>(`/articles/${id}/versions`, { params });
 
@@ -37,3 +64,15 @@ export const getArticleVersion = (id: number | string, versionNo: number | strin
 
 export const restoreArticleVersion = (id: number | string, versionNo: number | string) =>
   http.post<unknown, BaseResp<Article>>(`/articles/${id}/versions/${versionNo}/restore`);
+
+const filenameFromDisposition = (value?: string) => {
+  if (!value) {
+    return '';
+  }
+  const utf8Match = value.match(/filename\*=UTF-8''([^;]+)/i);
+  if (utf8Match) {
+    return decodeURIComponent(utf8Match[1]);
+  }
+  const match = value.match(/filename="?([^";]+)"?/i);
+  return match?.[1] || '';
+};

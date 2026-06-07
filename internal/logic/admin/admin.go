@@ -9,7 +9,6 @@ import (
 	"notes-of-ashen/internal/svc"
 	"notes-of-ashen/internal/types"
 	"notes-of-ashen/internal/validator"
-	"notes-of-ashen/model"
 )
 
 var userStatuses = map[string]struct{}{
@@ -113,11 +112,23 @@ func Stats(ctx context.Context, svcCtx *svc.ServiceContext) (*types.AdminStatsRe
 	if err != nil {
 		return nil, err
 	}
-	recent, _, err := svcCtx.Store.ListArticles(ctx, modelArticleAdminList())
+	recent, err := svcCtx.Store.RecentArticles(ctx, 5)
 	if err != nil {
 		return nil, err
 	}
 	logs, _, err := svcCtx.Store.ListOperationLogs(ctx, 1, 5)
+	if err != nil {
+		return nil, err
+	}
+	trend, err := svcCtx.Store.TrafficTrend(ctx, 30)
+	if err != nil {
+		return nil, err
+	}
+	topReferers, err := svcCtx.Store.TopReferers(ctx, 30, 8)
+	if err != nil {
+		return nil, err
+	}
+	today, err := svcCtx.Store.TodayTraffic(ctx, logicutil.TodayDate())
 	if err != nil {
 		return nil, err
 	}
@@ -129,12 +140,30 @@ func Stats(ctx context.Context, svcCtx *svc.ServiceContext) (*types.AdminStatsRe
 		ArchivedTotal:   stats.ArchivedTotal,
 		ScheduledTotal:  stats.ScheduledTotal,
 		ViewTotal:       stats.ViewTotal,
+		TodayPV:         today.PV,
+		TodayUV:         today.UV,
 		UserTotal:       stats.UserTotal,
 		CategoryTotal:   stats.CategoryTotal,
 		TagTotal:        stats.TagTotal,
+		TrafficTrend:    make([]types.TrafficTrendPointResp, 0, len(trend)),
+		TopReferers:     make([]types.RefererStatResp, 0, len(topReferers)),
 		PopularArticles: make([]types.ArticleResp, 0, len(popular)),
 		RecentArticles:  make([]types.ArticleResp, 0, len(recent)),
 		RecentLogs:      make([]types.OperationLogResp, 0, len(logs)),
+	}
+	for _, item := range trend {
+		resp.TrafficTrend = append(resp.TrafficTrend, types.TrafficTrendPointResp{
+			Date: item.Date,
+			PV:   item.PV,
+			UV:   item.UV,
+		})
+	}
+	for _, item := range topReferers {
+		resp.TopReferers = append(resp.TopReferers, types.RefererStatResp{
+			SourceType: item.SourceType,
+			SourceName: item.SourceName,
+			PV:         item.PV,
+		})
 	}
 	for _, item := range popular {
 		resp.PopularArticles = append(resp.PopularArticles, logicutil.ArticleResp(item, nil, nil, false))
@@ -157,8 +186,4 @@ func ensureAnotherActiveAdmin(ctx context.Context, svcCtx *svc.ServiceContext) e
 		return apperrors.Forbidden("at least one active admin is required")
 	}
 	return nil
-}
-
-func modelArticleAdminList() model.ArticleFilter {
-	return model.ArticleFilter{Role: authutil.RoleAdmin, Page: 1, Size: 5}
 }

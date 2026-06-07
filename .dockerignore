@@ -45,6 +45,14 @@ coverage.out
 *.prof
 __debug_bin*
 
+# 数据库备份与转储
+*_backup.sql
+*_dump.sql
+*.dump.sql
+*.sql.gz
+*.sql.zip
+*.sql.7z
+
 # 日志
 logs
 **/logs

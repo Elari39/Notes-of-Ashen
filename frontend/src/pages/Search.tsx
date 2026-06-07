@@ -20,6 +20,7 @@ const Search: React.FC = () => {
   const [coverErrors, setCoverErrors] = useState<Record<number, boolean>>({});
   const size = 10;
   const t = (key: Parameters<typeof translate>[1]) => translate(language, key);
+  const pinnedLabel = language === 'zh' ? '\u7f6e\u9876' : 'Pinned';
   const query = (searchParams.get('q') || '').trim();
   const page = parsePositiveInt(searchParams.get('page'), 1);
   const categoryId = parsePositiveInt(searchParams.get('categoryId'), 0);
@@ -228,6 +229,9 @@ const Search: React.FC = () => {
                           </Link>
 
                           <div className="mt-5 flex flex-wrap items-center gap-4 text-xs tracking-wider text-ink-light opacity-75">
+                            {article.isPinned && (
+                              <span className="border border-ochre px-2 py-0.5 text-ochre opacity-90">{pinnedLabel}</span>
+                            )}
                             <span>{new Date(article.createdAt).toLocaleDateString(getDateLocale(language), { year: 'numeric', month: 'long', day: 'numeric' })}</span>
                             <span>{t('common.views')} {article.viewCount}</span>
                             {article.category && (

@@ -1,11 +1,21 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import {
+  CartesianGrid,
+  Legend,
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts';
 import { getAdminStats } from '../../api/admin';
 import InlineNotice from '../../components/InlineNotice';
 import { getArticleStatusLabel, getDateLocale, translate } from '../../i18n';
 import { usePreferenceStore, type Language } from '../../store/preferences';
 import { getErrorMessage } from '../../utils/error';
-import type { AdminStats, Article, Log } from '../../types';
+import type { AdminStats, Article, Log, RefererStat, TrafficTrendPoint } from '../../types';
 
 const statItems = [
   'articleTotal',
@@ -64,6 +74,14 @@ const AdminDashboard: React.FC = () => {
             ))}
           </div>
 
+          <TrafficOverview
+            trend={stats.trafficTrend || []}
+            referers={stats.topReferers || []}
+            todayPv={stats.todayPv || 0}
+            todayUv={stats.todayUv || 0}
+            language={language}
+          />
+
           <div className="grid gap-8 lg:grid-cols-2">
             <ArticleList
               title={t('dashboard.popularArticles')}
@@ -95,6 +113,86 @@ const AdminDashboard: React.FC = () => {
         </div>
       )}
     </div>
+  );
+};
+
+const TrafficOverview: React.FC<{
+  trend: TrafficTrendPoint[];
+  referers: RefererStat[];
+  todayPv: number;
+  todayUv: number;
+  language: Language;
+}> = ({ trend, referers, todayPv, todayUv, language }) => {
+  const labels = dashboardTrafficLabels(language);
+  const sourceTotal = referers.reduce((sum, item) => sum + item.pv, 0);
+
+  return (
+    <section>
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h4 className="text-sm font-bold tracking-widest text-ink">{labels.title}</h4>
+          <p className="mt-2 text-xs text-ink-light">{labels.subtitle}</p>
+        </div>
+        <div className="grid grid-cols-2 gap-2 text-sm">
+          <div className="border border-mountain-grey px-3 py-2">
+            <span className="block text-xs text-ink-light">{labels.todayPv}</span>
+            <strong className="mt-1 block text-xl text-ink">{todayPv}</strong>
+          </div>
+          <div className="border border-mountain-grey px-3 py-2">
+            <span className="block text-xs text-ink-light">{labels.todayUv}</span>
+            <strong className="mt-1 block text-xl text-ink">{todayUv}</strong>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(16rem,1fr)]">
+        <div className="h-72 border border-mountain-grey bg-[var(--paper-soft)] p-3">
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={trend} margin={{ top: 12, right: 12, bottom: 0, left: -18 }}>
+              <CartesianGrid stroke="var(--mountain-grey)" strokeDasharray="3 3" />
+              <XAxis dataKey="date" tickFormatter={(value) => shortDate(value, language)} tick={{ fill: 'var(--ink-light)', fontSize: 11 }} />
+              <YAxis tick={{ fill: 'var(--ink-light)', fontSize: 11 }} allowDecimals={false} />
+              <Tooltip
+                labelFormatter={(value) => fullDate(String(value), language)}
+                contentStyle={{
+                  background: 'var(--paper)',
+                  border: '1px solid var(--mountain-grey)',
+                  borderRadius: 4,
+                  color: 'var(--ink)',
+                }}
+              />
+              <Legend />
+              <Line type="monotone" dataKey="pv" name="PV" stroke="var(--ochre)" strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
+              <Line type="monotone" dataKey="uv" name="UV" stroke="var(--code-blue)" strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+
+        <div className="border border-mountain-grey bg-[var(--paper-soft)] p-4">
+          <h5 className="mb-4 text-xs font-bold tracking-widest text-ink">{labels.referers}</h5>
+          {referers.length === 0 ? (
+            <p className="text-sm text-ink-light">{labels.empty}</p>
+          ) : (
+            <div className="space-y-3">
+              {referers.map((item) => (
+                <div key={`${item.sourceType}:${item.sourceName}`}>
+                  <div className="mb-1 flex items-center justify-between gap-3 text-sm">
+                    <span className="min-w-0 truncate text-ink">{sourceLabel(item, language)}</span>
+                    <span className="shrink-0 text-ink-light">{item.pv}</span>
+                  </div>
+                  <div className="h-1.5 overflow-hidden bg-[var(--mountain-grey)]">
+                    <div
+                      className="h-full bg-[var(--ochre)]"
+                      style={{ width: `${sourceTotal > 0 ? Math.max(4, (item.pv / sourceTotal) * 100) : 0}%` }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </section>
   );
 };
 
@@ -134,5 +232,56 @@ const LogRow: React.FC<{ log: Log; language: Language }> = ({ log, language }) =
     <time className="text-xs text-ink-light">{new Date(log.createdAt).toLocaleString(getDateLocale(language))}</time>
   </div>
 );
+
+const dashboardTrafficLabels = (language: Language) => language === 'zh'
+  ? {
+      title: '访问趋势',
+      subtitle: '过去 30 天公开页面 PV / UV',
+      todayPv: '今日 PV',
+      todayUv: '今日 UV',
+      referers: '访问来源',
+      empty: '暂无访问数据',
+      direct: '直接访问',
+      internal: '站内跳转',
+      search: '搜索引擎',
+      external: '外部网站',
+    }
+  : {
+      title: 'Traffic Trend',
+      subtitle: 'Public page PV / UV over the last 30 days',
+      todayPv: 'Today PV',
+      todayUv: 'Today UV',
+      referers: 'Referers',
+      empty: 'No traffic data yet',
+      direct: 'Direct',
+      internal: 'Internal',
+      search: 'Search',
+      external: 'External',
+    };
+
+const shortDate = (value: string, language: Language) => {
+  const date = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+  return date.toLocaleDateString(getDateLocale(language), { month: '2-digit', day: '2-digit' });
+};
+
+const fullDate = (value: string, language: Language) => {
+  const date = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+  return date.toLocaleDateString(getDateLocale(language));
+};
+
+const sourceLabel = (item: RefererStat, language: Language) => {
+  const labels = dashboardTrafficLabels(language);
+  if (item.sourceType === 'direct') return labels.direct;
+  if (item.sourceType === 'internal') return labels.internal;
+  if (item.sourceType === 'search') return `${labels.search}: ${item.sourceName}`;
+  if (item.sourceType === 'external') return `${labels.external}: ${item.sourceName}`;
+  return item.sourceName;
+};
 
 export default AdminDashboard;

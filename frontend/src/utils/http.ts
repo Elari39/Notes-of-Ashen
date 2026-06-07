@@ -54,7 +54,6 @@ const getRefreshTokenTask = () => {
   return refreshTokenTask;
 };
 
-// 请求拦截器
 http.interceptors.request.use((config) => {
   const token = useAuthStore.getState().accessToken;
   if (token && config.headers) {
@@ -63,10 +62,11 @@ http.interceptors.request.use((config) => {
   return config;
 });
 
-// 响应拦截器
 http.interceptors.response.use(
   (response) => {
-    // 根据通用响应格式解包数据
+    if (response.config.responseType === 'blob') {
+      return response;
+    }
     if (response.data.code === 0) {
       return response.data;
     }
@@ -79,7 +79,6 @@ http.interceptors.response.use(
       return Promise.reject(toAppError(error));
     }
 
-    // 401 自动刷新
     if (error.response?.status === 401 && originalRequest && !originalRequest._retry) {
       originalRequest._retry = true;
       try {

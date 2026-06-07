@@ -43,11 +43,28 @@ func (s *Store) PopularArticles(ctx context.Context, limit int) ([]Article, erro
 	if limit < 1 {
 		limit = 5
 	}
-	rows, err := s.db.QueryContext(ctx, `
-SELECT id, author_id, category_id, title, slug, summary, content, cover_url, status, view_count, scheduled_at, published_at, seo_title, seo_description, seo_keywords, created_at, updated_at
-FROM articles
-ORDER BY view_count DESC, id DESC
-LIMIT ?`, limit)
+	rows, err := s.db.QueryContext(ctx, "SELECT "+articleSelectFields+" FROM articles ORDER BY view_count DESC, id DESC LIMIT ?", limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	items := make([]Article, 0)
+	for rows.Next() {
+		item, err := scanArticleRows(rows)
+		if err != nil {
+			return nil, err
+		}
+		items = append(items, *item)
+	}
+	return items, rows.Err()
+}
+
+func (s *Store) RecentArticles(ctx context.Context, limit int) ([]Article, error) {
+	if limit < 1 {
+		limit = 5
+	}
+	rows, err := s.db.QueryContext(ctx, "SELECT "+articleSelectFields+" FROM articles ORDER BY "+articleTimeOrder+" LIMIT ?", limit)
 	if err != nil {
 		return nil, err
 	}

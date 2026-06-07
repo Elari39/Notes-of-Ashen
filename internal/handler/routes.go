@@ -10,6 +10,7 @@ import (
 	categoryhandler "notes-of-ashen/internal/handler/category"
 	sitehandler "notes-of-ashen/internal/handler/site"
 	taghandler "notes-of-ashen/internal/handler/tag"
+	traffichandler "notes-of-ashen/internal/handler/traffic"
 	userhandler "notes-of-ashen/internal/handler/user"
 	"notes-of-ashen/internal/middleware"
 	"notes-of-ashen/internal/svc"
@@ -22,6 +23,8 @@ func RegisterHandlers(server *rest.Server, svcCtx *svc.ServiceContext) {
 	loginRateLimit := middleware.NewRateLimitMiddleware(svcCtx.Redis, "auth_login", 5, time.Minute)
 	verifyCodeRateLimit := middleware.NewRateLimitMiddleware(svcCtx.Redis, "verify_code_send", 5, time.Minute)
 	resetPasswordRateLimit := middleware.NewRateLimitMiddleware(svcCtx.Redis, "password_reset", 5, time.Minute)
+	trafficRateLimit := middleware.NewRateLimitMiddleware(svcCtx.Redis, "traffic_visit", 120, time.Minute)
+	aiRateLimit := middleware.NewRateLimitMiddleware(svcCtx.Redis, "ai_assist", 20, time.Minute)
 	authRequired := func(handler http.HandlerFunc) http.HandlerFunc {
 		return authMiddleware.Handle(handler)
 	}
@@ -35,6 +38,7 @@ func RegisterHandlers(server *rest.Server, svcCtx *svc.ServiceContext) {
 		{Method: http.MethodPost, Path: "/api/v1/auth/login", Handler: loginRateLimit.Handle(authhandler.LoginHandler(svcCtx))},
 		{Method: http.MethodPost, Path: "/api/v1/auth/password/reset", Handler: resetPasswordRateLimit.Handle(authhandler.ResetPasswordHandler(svcCtx))},
 		{Method: http.MethodPost, Path: "/api/v1/auth/refresh", Handler: authhandler.RefreshHandler(svcCtx)},
+		{Method: http.MethodPost, Path: "/api/v1/traffic/visit", Handler: trafficRateLimit.Handle(traffichandler.VisitHandler(svcCtx))},
 		{Method: http.MethodGet, Path: "/api/v1/articles", Handler: articlehandler.ListHandler(svcCtx)},
 		{Method: http.MethodGet, Path: "/api/v1/articles/:id/context", Handler: articlehandler.ContextHandler(svcCtx)},
 		{Method: http.MethodGet, Path: "/api/v1/articles/:id", Handler: articlehandler.DetailHandler(svcCtx)},
@@ -50,7 +54,10 @@ func RegisterHandlers(server *rest.Server, svcCtx *svc.ServiceContext) {
 		{Method: http.MethodPost, Path: "/api/v1/users/me/verify-code/send", Handler: verifyCodeRateLimit.Handle(authRequired(userhandler.SendVerifyCodeHandler(svcCtx)))},
 		{Method: http.MethodPut, Path: "/api/v1/users/me/password", Handler: authRequired(userhandler.ChangePasswordHandler(svcCtx))},
 		{Method: http.MethodPost, Path: "/api/v1/articles", Handler: authRequired(articlehandler.CreateHandler(svcCtx))},
+		{Method: http.MethodPost, Path: "/api/v1/articles/ai/assist", Handler: aiRateLimit.Handle(authRequired(articlehandler.AIAssistHandler(svcCtx)))},
+		{Method: http.MethodPost, Path: "/api/v1/articles/import", Handler: authRequired(articlehandler.ImportMarkdownHandler(svcCtx))},
 		{Method: http.MethodGet, Path: "/api/v1/articles/:id/preview", Handler: authRequired(articlehandler.PreviewHandler(svcCtx))},
+		{Method: http.MethodGet, Path: "/api/v1/articles/:id/export", Handler: authRequired(articlehandler.ExportMarkdownHandler(svcCtx))},
 		{Method: http.MethodGet, Path: "/api/v1/articles/:id/versions", Handler: authRequired(articlehandler.ListVersionsHandler(svcCtx))},
 		{Method: http.MethodGet, Path: "/api/v1/articles/:id/versions/:versionNo", Handler: authRequired(articlehandler.VersionDetailHandler(svcCtx))},
 		{Method: http.MethodPost, Path: "/api/v1/articles/:id/versions/:versionNo/restore", Handler: authRequired(articlehandler.RestoreVersionHandler(svcCtx))},

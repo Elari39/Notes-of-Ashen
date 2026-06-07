@@ -21,6 +21,7 @@ const Home: React.FC = () => {
   const [coverErrors, setCoverErrors] = useState<Record<number, boolean>>({});
   const size = 10;
   const t = (key: Parameters<typeof translate>[1]) => translate(language, key);
+  const pinnedLabel = language === 'zh' ? '\u7f6e\u9876' : 'Pinned';
   const page = parsePositiveInt(searchParams.get('page'), 1);
   const categoryId = parsePositiveInt(searchParams.get('categoryId'), 0);
   const tagId = parsePositiveInt(searchParams.get('tagId'), 0);
@@ -142,6 +143,9 @@ const Home: React.FC = () => {
                     </p>
                   </Link>
                   <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-ink-light opacity-70 tracking-wider">
+                    {article.isPinned && (
+                      <span className="border border-ochre px-2 py-0.5 text-ochre opacity-90">{pinnedLabel}</span>
+                    )}
                     <span>{new Date(article.createdAt).toLocaleDateString(getDateLocale(language), { year: 'numeric', month: 'long', day: 'numeric' })}</span>
                     <span>{t('common.views')} {article.viewCount}</span>
                     {article.category && (

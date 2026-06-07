@@ -20,6 +20,11 @@ func TestApplyEnvOverridesConfig(t *testing.T) {
 	t.Setenv("APP_EMAIL_SMTP_PASSWORD", "mail-auth-code")
 	t.Setenv("APP_EMAIL_FROM", "user@qq.com")
 	t.Setenv("APP_EMAIL_FROM_NAME", "Notes of Ashen")
+	t.Setenv("APP_AI_ENABLED", "true")
+	t.Setenv("APP_AI_BASE_URL", "https://api.example.com/v1")
+	t.Setenv("APP_AI_API_KEY", "ai-key")
+	t.Setenv("APP_AI_MODEL", "chat-model")
+	t.Setenv("APP_AI_TIMEOUT_SECONDS", "45")
 
 	if err := c.ApplyEnv(); err != nil {
 		t.Fatalf("ApplyEnv() error = %v", err)
@@ -48,6 +53,9 @@ func TestApplyEnvOverridesConfig(t *testing.T) {
 	}
 	if c.Email.SMTPUsername != "user@qq.com" || c.Email.SMTPPassword != "mail-auth-code" {
 		t.Fatalf("Email credentials were not overridden")
+	}
+	if !c.AI.Enabled || c.AI.BaseURL != "https://api.example.com/v1" || c.AI.APIKey != "ai-key" || c.AI.Model != "chat-model" || c.AI.TimeoutSeconds != 45 {
+		t.Fatalf("AI config was not overridden: %#v", c.AI)
 	}
 }
 

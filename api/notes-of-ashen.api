@@ -150,34 +150,38 @@ type UserRoleWithIDReq {
 }
 
 type ArticleReq {
-	CategoryID     uint64   `json:"categoryId,optional"`
-	Title          string   `json:"title"`
-	Slug           string   `json:"slug"`
-	Summary        string   `json:"summary,optional"`
-	Content        string   `json:"content"`
-	CoverURL       string   `json:"coverUrl,optional"`
-	Status         string   `json:"status,optional"`
-	ScheduledAt    string   `json:"scheduledAt,optional"`
-	SEOTitle       string   `json:"seoTitle,optional"`
-	SEODescription string   `json:"seoDescription,optional"`
-	SEOKeywords    string   `json:"seoKeywords,optional"`
-	TagIDs         []uint64 `json:"tagIds,optional"`
+	CategoryID      uint64   `json:"categoryId,optional"`
+	Title           string   `json:"title"`
+	Slug            string   `json:"slug"`
+	Summary         string   `json:"summary,optional"`
+	Content         string   `json:"content"`
+	CoverURL        string   `json:"coverUrl,optional"`
+	Status          string   `json:"status,optional"`
+	ScheduledAt     string   `json:"scheduledAt,optional"`
+	IsPinned        bool     `json:"isPinned,optional"`
+	DisplayPriority int      `json:"displayPriority,optional"`
+	SEOTitle        string   `json:"seoTitle,optional"`
+	SEODescription  string   `json:"seoDescription,optional"`
+	SEOKeywords     string   `json:"seoKeywords,optional"`
+	TagIDs          []uint64 `json:"tagIds,optional"`
 }
 
 type ArticleWithIDReq {
-	ID             uint64   `path:"id"`
-	CategoryID     uint64   `json:"categoryId,optional"`
-	Title          string   `json:"title"`
-	Slug           string   `json:"slug"`
-	Summary        string   `json:"summary,optional"`
-	Content        string   `json:"content"`
-	CoverURL       string   `json:"coverUrl,optional"`
-	Status         string   `json:"status,optional"`
-	ScheduledAt    string   `json:"scheduledAt,optional"`
-	SEOTitle       string   `json:"seoTitle,optional"`
-	SEODescription string   `json:"seoDescription,optional"`
-	SEOKeywords    string   `json:"seoKeywords,optional"`
-	TagIDs         []uint64 `json:"tagIds,optional"`
+	ID              uint64   `path:"id"`
+	CategoryID      uint64   `json:"categoryId,optional"`
+	Title           string   `json:"title"`
+	Slug            string   `json:"slug"`
+	Summary         string   `json:"summary,optional"`
+	Content         string   `json:"content"`
+	CoverURL        string   `json:"coverUrl,optional"`
+	Status          string   `json:"status,optional"`
+	ScheduledAt     string   `json:"scheduledAt,optional"`
+	IsPinned        bool     `json:"isPinned,optional"`
+	DisplayPriority int      `json:"displayPriority,optional"`
+	SEOTitle        string   `json:"seoTitle,optional"`
+	SEODescription  string   `json:"seoDescription,optional"`
+	SEOKeywords     string   `json:"seoKeywords,optional"`
+	TagIDs          []uint64 `json:"tagIds,optional"`
 }
 
 type ArticleStatusReq {
@@ -187,6 +191,20 @@ type ArticleStatusReq {
 type ArticleStatusWithIDReq {
 	ID     uint64 `path:"id"`
 	Status string `json:"status"`
+}
+
+type AIAssistReq {
+	Action  string `json:"action"`
+	Title   string `json:"title,optional"`
+	Content string `json:"content"`
+}
+
+type AIAssistResp {
+	Summary        string   `json:"summary,optional"`
+	SEODescription string   `json:"seoDescription,optional"`
+	SEOKeywords    string   `json:"seoKeywords,optional"`
+	RevisedContent string   `json:"revisedContent,optional"`
+	Suggestions    []string `json:"suggestions,optional"`
 }
 
 type ArticleListReq {
@@ -233,25 +251,27 @@ type TagListResp {
 }
 
 type ArticleResp {
-	ID             uint64       `json:"id"`
-	AuthorID       uint64       `json:"authorId"`
-	CategoryID     uint64       `json:"categoryId,optional"`
-	Title          string       `json:"title"`
-	Slug           string       `json:"slug"`
-	Summary        string       `json:"summary"`
-	Content        string       `json:"content,optional"`
-	CoverURL       string       `json:"coverUrl"`
-	Status         string       `json:"status"`
-	ViewCount      uint64       `json:"viewCount"`
-	ScheduledAt    string       `json:"scheduledAt,optional"`
-	PublishedAt    string       `json:"publishedAt,optional"`
-	SEOTitle       string       `json:"seoTitle"`
-	SEODescription string       `json:"seoDescription"`
-	SEOKeywords    string       `json:"seoKeywords"`
-	CreatedAt      string       `json:"createdAt"`
-	UpdatedAt      string       `json:"updatedAt"`
-	Tags           []TagResp    `json:"tags,optional"`
-	Category       CategoryResp `json:"category,optional"`
+	ID              uint64       `json:"id"`
+	AuthorID        uint64       `json:"authorId"`
+	CategoryID      uint64       `json:"categoryId,optional"`
+	Title           string       `json:"title"`
+	Slug            string       `json:"slug"`
+	Summary         string       `json:"summary"`
+	Content         string       `json:"content,optional"`
+	CoverURL        string       `json:"coverUrl"`
+	Status          string       `json:"status"`
+	ViewCount       uint64       `json:"viewCount"`
+	ScheduledAt     string       `json:"scheduledAt,optional"`
+	PublishedAt     string       `json:"publishedAt,optional"`
+	IsPinned        bool         `json:"isPinned"`
+	DisplayPriority int          `json:"displayPriority"`
+	SEOTitle        string       `json:"seoTitle"`
+	SEODescription  string       `json:"seoDescription"`
+	SEOKeywords     string       `json:"seoKeywords"`
+	CreatedAt       string       `json:"createdAt"`
+	UpdatedAt       string       `json:"updatedAt"`
+	Tags            []TagResp    `json:"tags,optional"`
+	Category        CategoryResp `json:"category,optional"`
 }
 
 type ArticleListResp {
@@ -283,6 +303,8 @@ type ArticleVersionResp {
 	ViewCount         uint64   `json:"viewCount"`
 	ScheduledAt       string   `json:"scheduledAt,optional"`
 	PublishedAt       string   `json:"publishedAt,optional"`
+	IsPinned          bool     `json:"isPinned"`
+	DisplayPriority   int      `json:"displayPriority"`
 	SEOTitle          string   `json:"seoTitle"`
 	SEODescription    string   `json:"seoDescription"`
 	SEOKeywords       string   `json:"seoKeywords"`
@@ -299,19 +321,42 @@ type ArticleVersionListResp {
 	Size  int                  `json:"size"`
 }
 
+type TrafficVisitReq {
+	Path      string `json:"path"`
+	RouteType string `json:"routeType"`
+	ArticleID uint64 `json:"articleId,optional"`
+	Referrer  string `json:"referrer,optional"`
+}
+
+type TrafficTrendPointResp {
+	Date string `json:"date"`
+	PV   int64  `json:"pv"`
+	UV   int64  `json:"uv"`
+}
+
+type RefererStatResp {
+	SourceType string `json:"sourceType"`
+	SourceName string `json:"sourceName"`
+	PV         int64  `json:"pv"`
+}
+
 type AdminStatsResp {
-	ArticleTotal    int64              `json:"articleTotal"`
-	PublishedTotal  int64              `json:"publishedTotal"`
-	DraftTotal      int64              `json:"draftTotal"`
-	ArchivedTotal   int64              `json:"archivedTotal"`
-	ScheduledTotal  int64              `json:"scheduledTotal"`
-	ViewTotal       uint64             `json:"viewTotal"`
-	UserTotal       int64              `json:"userTotal"`
-	CategoryTotal   int64              `json:"categoryTotal"`
-	TagTotal        int64              `json:"tagTotal"`
-	PopularArticles []ArticleResp      `json:"popularArticles"`
-	RecentArticles  []ArticleResp      `json:"recentArticles"`
-	RecentLogs      []OperationLogResp `json:"recentLogs"`
+	ArticleTotal    int64                   `json:"articleTotal"`
+	PublishedTotal  int64                   `json:"publishedTotal"`
+	DraftTotal      int64                   `json:"draftTotal"`
+	ArchivedTotal   int64                   `json:"archivedTotal"`
+	ScheduledTotal  int64                   `json:"scheduledTotal"`
+	ViewTotal       uint64                  `json:"viewTotal"`
+	TodayPV         int64                   `json:"todayPv"`
+	TodayUV         int64                   `json:"todayUv"`
+	UserTotal       int64                   `json:"userTotal"`
+	CategoryTotal   int64                   `json:"categoryTotal"`
+	TagTotal        int64                   `json:"tagTotal"`
+	TrafficTrend    []TrafficTrendPointResp `json:"trafficTrend"`
+	TopReferers     []RefererStatResp       `json:"topReferers"`
+	PopularArticles []ArticleResp           `json:"popularArticles"`
+	RecentArticles  []ArticleResp           `json:"recentArticles"`
+	RecentLogs      []OperationLogResp      `json:"recentLogs"`
 }
 
 type TaxonomyReq {
@@ -371,6 +416,9 @@ service notesOfAshen-api {
 	@handler refresh
 	post /api/v1/auth/refresh (RefreshReq) returns (TokenResp)
 
+	@handler trafficVisit
+	post /api/v1/traffic/visit (TrafficVisitReq) returns (EmptyResp)
+
 	@handler articleList
 	get /api/v1/articles (ArticleListReq) returns (ArticleListResp)
 
@@ -407,8 +455,17 @@ service notesOfAshen-api {
 	@handler articleCreate
 	post /api/v1/articles (ArticleReq) returns (ArticleResp)
 
+	@handler articleAIAssist
+	post /api/v1/articles/ai/assist (AIAssistReq) returns (AIAssistResp)
+
+	@handler articleImportMarkdown
+	post /api/v1/articles/import returns (ArticleResp)
+
 	@handler articlePreview
 	get /api/v1/articles/:id/preview (IDPathReq) returns (ArticleResp)
+
+	@handler articleExportMarkdown
+	get /api/v1/articles/:id/export (IDPathReq)
 
 	@handler articleListVersions
 	get /api/v1/articles/:id/versions (IDPathReq) returns (ArticleVersionListResp)

@@ -1,5 +1,5 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { getAdminArticles, updateArticleStatus, deleteArticle } from '../../api/article';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { deleteArticle, exportArticleMarkdown, getAdminArticles, importMarkdownArticle, updateArticleStatus } from '../../api/article';
 import { getCategories } from '../../api/category';
 import { getTags } from '../../api/tag';
 import { Article, Category, Tag } from '../../types';
@@ -25,9 +25,13 @@ const AdminArticles: React.FC = () => {
   const [tagId, setTagId] = useState(0);
   const [categories, setCategories] = useState<Category[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
+  const [importing, setImporting] = useState(false);
   const size = 10;
   const navigate = useNavigate();
   const t = (key: Parameters<typeof translate>[1]) => translate(language, key);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const extraLabels = adminArticleExtraLabels(language);
+  const pinLabels = articlePinLabels(language);
   const getDisplayStatus = (article: Article) => {
     if (article.status === 'published' && article.scheduledAt && new Date(article.scheduledAt).getTime() > Date.now()) {
       return 'scheduled';
@@ -130,13 +134,61 @@ const AdminArticles: React.FC = () => {
     }
   };
 
+  const handleImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) {
+      return;
+    }
+    setError('');
+    setImporting(true);
+    try {
+      const res = await importMarkdownArticle(file);
+      navigate(`/admin/editor/${res.data.id}`);
+    } catch (e) {
+      setError(getErrorMessage(e, extraLabels.importError));
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  const handleExport = async (id: number) => {
+    setError('');
+    setBusyId(id);
+    try {
+      const { blob, filename } = await exportArticleMarkdown(id);
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      setError(getErrorMessage(e, extraLabels.exportError));
+    } finally {
+      setBusyId(null);
+    }
+  };
+
   return (
     <div>
       <div className="mb-8 flex flex-col gap-3 border-b border-mountain-grey pb-4 sm:flex-row sm:items-center sm:justify-between">
         <h3 className="text-2xl font-bold text-ink tracking-widest">{t('admin.articles')}</h3>
-        <button onClick={() => navigate('/admin/editor/new')} className="px-4 py-2 border border-ink text-ink hover:bg-ink hover:text-paper tracking-widest text-sm transition-colors">
-          {t('adminArticles.new')}
-        </button>
+        <div className="flex flex-wrap gap-3">
+          <input ref={fileInputRef} type="file" accept=".md,text/markdown,text/plain" onChange={handleImport} className="hidden" />
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={importing}
+            className="px-4 py-2 border border-mountain-grey text-ink hover:border-ochre hover:text-ochre tracking-widest text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {importing ? extraLabels.importing : extraLabels.import}
+          </button>
+          <button onClick={() => navigate('/admin/editor/new')} className="px-4 py-2 border border-ink text-ink hover:bg-ink hover:text-paper tracking-widest text-sm transition-colors">
+            {t('adminArticles.new')}
+          </button>
+        </div>
       </div>
 
       <InlineNotice message={error} className="mb-6" />
@@ -217,7 +269,21 @@ const AdminArticles: React.FC = () => {
             <tbody>
               {articles.map(a => (
                 <tr key={a.id} className="border-b border-mountain-grey border-opacity-50 hover:bg-mountain-grey hover:bg-opacity-20 transition-colors text-ink">
-                  <td data-label={t('adminArticles.title')} className="admin-card-title py-4 font-bold">{a.title}</td>
+                  <td data-label={t('adminArticles.title')} className="admin-card-title py-4">
+                    <div className="font-bold">{a.title}</div>
+                    {(a.isPinned || a.displayPriority > 0) && (
+                      <div className="mt-2 flex flex-wrap gap-2 text-xs font-normal tracking-wider">
+                        {a.isPinned && (
+                          <span className="border border-ochre px-2 py-0.5 text-ochre">{pinLabels.pinned}</span>
+                        )}
+                        {a.displayPriority > 0 && (
+                          <span className="border border-mountain-grey px-2 py-0.5 text-ink-light">
+                            {pinLabels.priority} {a.displayPriority}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </td>
                   <td data-label={t('adminArticles.taxonomy')} className="py-4">
                     <div className="flex flex-col space-y-1">
                       {a.category && (
@@ -248,6 +314,7 @@ const AdminArticles: React.FC = () => {
                       <Link to={`/admin/editor/${a.id}`} className="hover:text-ochre">{t('common.edit')}</Link>
                       <Link to={`/admin/preview/${a.id}`} className="hover:text-ochre">预览</Link>
                       <Link to={`/admin/articles/${a.id}/versions`} className="hover:text-ochre">版本</Link>
+                      <button onClick={() => handleExport(a.id)} disabled={busyId === a.id} className="hover:text-ochre disabled:opacity-50 disabled:cursor-not-allowed">{extraLabels.export}</button>
                       {a.status !== 'published' && (
                         <button onClick={() => handleStatus(a.id, 'published')} disabled={busyId === a.id} className="hover:text-ochre disabled:opacity-50 disabled:cursor-not-allowed">{t('adminArticles.publish')}</button>
                       )}
@@ -272,5 +339,31 @@ const AdminArticles: React.FC = () => {
     </div>
   );
 };
+
+const adminArticleExtraLabels = (language: string) => language === 'zh'
+  ? {
+      import: '导入 Markdown',
+      importing: '导入中...',
+      importError: 'Markdown 导入失败',
+      export: '导出',
+      exportError: 'Markdown 导出失败',
+    }
+  : {
+      import: 'Import Markdown',
+      importing: 'Importing...',
+      importError: 'Markdown import failed',
+      export: 'Export',
+      exportError: 'Markdown export failed',
+    };
+
+const articlePinLabels = (language: string) => language === 'zh'
+  ? {
+      pinned: '\u7f6e\u9876',
+      priority: '\u4f18\u5148\u7ea7',
+    }
+  : {
+      pinned: 'Pinned',
+      priority: 'Priority',
+    };
 
 export default AdminArticles;

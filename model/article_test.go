@@ -55,6 +55,18 @@ func TestArticleWhereContentRoleScheduledStatus(t *testing.T) {
 	}
 }
 
+func TestArticleDisplayOrder(t *testing.T) {
+	assertContains(t, articleDisplayOrder, "is_pinned DESC")
+	assertContains(t, articleDisplayOrder, "display_priority DESC")
+	assertContains(t, articleDisplayOrder, "COALESCE(published_at, created_at) DESC")
+	assertContains(t, articleDisplayOrder, "id DESC")
+}
+
+func TestArticleVersionSelectFieldsIncludeDisplayFields(t *testing.T) {
+	assertContains(t, articleVersionSelectFields, "is_pinned")
+	assertContains(t, articleVersionSelectFields, "display_priority")
+}
+
 func TestIsArticlePubliclyVisible(t *testing.T) {
 	now := time.Date(2026, 6, 6, 12, 0, 0, 0, time.UTC)
 	past := now.Add(-time.Hour)

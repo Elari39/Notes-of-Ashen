@@ -105,9 +105,15 @@ func Meta(r *http.Request) types.RequestMeta {
 			ip = r.RemoteAddr
 		}
 	}
+	host := strings.TrimSpace(r.Header.Get("X-Forwarded-Host"))
+	if host == "" {
+		host = strings.TrimSpace(r.Host)
+	}
 	return types.RequestMeta{
 		IP:        ip,
 		UserAgent: r.UserAgent(),
+		Referrer:  r.Referer(),
+		Host:      host,
 	}
 }
 

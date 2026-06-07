@@ -75,6 +75,16 @@ FROM categories WHERE id = ?`, id)
 	return scanCategory(row)
 }
 
+func (s *Store) FindCategoryByNameOrSlug(ctx context.Context, name, slug string) (*Category, error) {
+	row := s.db.QueryRowContext(ctx, `
+SELECT id, name, slug, description, created_by, created_at, updated_at
+FROM categories
+WHERE name = ? OR slug = ?
+ORDER BY CASE WHEN slug = ? THEN 0 ELSE 1 END
+LIMIT 1`, name, slug, slug)
+	return scanCategory(row)
+}
+
 func (s *Store) ListCategories(ctx context.Context, page, size int) ([]Category, int64, error) {
 	offset := (page - 1) * size
 	var total int64
@@ -133,6 +143,16 @@ func (s *Store) FindTag(ctx context.Context, id uint64) (*Tag, error) {
 	row := s.db.QueryRowContext(ctx, `
 SELECT id, name, slug, description, created_by, created_at, updated_at
 FROM tags WHERE id = ?`, id)
+	return scanTag(row)
+}
+
+func (s *Store) FindTagByNameOrSlug(ctx context.Context, name, slug string) (*Tag, error) {
+	row := s.db.QueryRowContext(ctx, `
+SELECT id, name, slug, description, created_by, created_at, updated_at
+FROM tags
+WHERE name = ? OR slug = ?
+ORDER BY CASE WHEN slug = ? THEN 0 ELSE 1 END
+LIMIT 1`, name, slug, slug)
 	return scanTag(row)
 }
 

@@ -61,6 +61,8 @@ export interface Article {
   viewCount: number;
   scheduledAt?: string;
   publishedAt?: string;
+  isPinned: boolean;
+  displayPriority: number;
   seoTitle: string;
   seoDescription: string;
   seoKeywords: string;
@@ -92,6 +94,8 @@ export interface ArticleVersion {
   viewCount: number;
   scheduledAt?: string;
   publishedAt?: string;
+  isPinned: boolean;
+  displayPriority: number;
   seoTitle: string;
   seoDescription: string;
   seoKeywords: string;
@@ -101,6 +105,18 @@ export interface ArticleVersion {
   createdAt: string;
 }
 
+export interface TrafficTrendPoint {
+  date: string;
+  pv: number;
+  uv: number;
+}
+
+export interface RefererStat {
+  sourceType: string;
+  sourceName: string;
+  pv: number;
+}
+
 export interface AdminStats {
   articleTotal: number;
   publishedTotal: number;
@@ -108,9 +124,13 @@ export interface AdminStats {
   archivedTotal: number;
   scheduledTotal: number;
   viewTotal: number;
+  todayPv: number;
+  todayUv: number;
   userTotal: number;
   categoryTotal: number;
   tagTotal: number;
+  trafficTrend: TrafficTrendPoint[];
+  topReferers: RefererStat[];
   popularArticles: Article[];
   recentArticles: Article[];
   recentLogs: Log[];

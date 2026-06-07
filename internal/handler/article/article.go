@@ -1,14 +1,21 @@
 package article
 
 import (
+	"io"
+	"mime"
 	"net/http"
+	"path/filepath"
+	"strings"
 
+	apperrors "notes-of-ashen/internal/errors"
 	basehandler "notes-of-ashen/internal/httphelper"
 	articlelogic "notes-of-ashen/internal/logic/article"
 	"notes-of-ashen/internal/response"
 	"notes-of-ashen/internal/svc"
 	"notes-of-ashen/internal/types"
 )
+
+const maxMarkdownUploadBytes = 2 << 20
 
 func ListHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -239,5 +246,75 @@ func UpdateStatusHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 			return
 		}
 		response.Ok(w, resp)
+	}
+}
+
+func AIAssistHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var req types.AIAssistReq
+		if err := basehandler.Parse(r, &req); err != nil {
+			response.Error(w, err)
+			return
+		}
+		resp, err := articlelogic.AIAssist(r.Context(), svcCtx, req)
+		if err != nil {
+			response.Error(w, err)
+			return
+		}
+		response.Ok(w, resp)
+	}
+}
+
+func ImportMarkdownHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		r.Body = http.MaxBytesReader(w, r.Body, maxMarkdownUploadBytes+1024)
+		if err := r.ParseMultipartForm(maxMarkdownUploadBytes); err != nil {
+			response.Error(w, apperrors.BadRequest("markdown file is invalid"))
+			return
+		}
+		file, header, err := r.FormFile("file")
+		if err != nil {
+			response.Error(w, apperrors.BadRequest("markdown file is required"))
+			return
+		}
+		defer file.Close()
+		filename := strings.TrimSpace(header.Filename)
+		if strings.ToLower(filepath.Ext(filename)) != ".md" {
+			response.Error(w, apperrors.BadRequest("markdown file must be .md"))
+			return
+		}
+		raw, err := io.ReadAll(io.LimitReader(file, maxMarkdownUploadBytes+1))
+		if err != nil {
+			response.Error(w, err)
+			return
+		}
+		if len(raw) > maxMarkdownUploadBytes {
+			response.Error(w, apperrors.BadRequest("markdown file is too large"))
+			return
+		}
+		resp, err := articlelogic.ImportMarkdown(r.Context(), svcCtx, filename, string(raw), basehandler.Meta(r))
+		if err != nil {
+			response.Error(w, err)
+			return
+		}
+		response.Ok(w, resp)
+	}
+}
+
+func ExportMarkdownHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id, err := basehandler.PathID(r)
+		if err != nil {
+			response.Error(w, err)
+			return
+		}
+		filename, content, err := articlelogic.ExportMarkdown(r.Context(), svcCtx, id)
+		if err != nil {
+			response.Error(w, err)
+			return
+		}
+		w.Header().Set("Content-Type", "text/markdown; charset=utf-8")
+		w.Header().Set("Content-Disposition", mime.FormatMediaType("attachment", map[string]string{"filename": filename}))
+		_, _ = w.Write([]byte(content))
 	}
 }

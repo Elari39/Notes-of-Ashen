@@ -33,3 +33,10 @@ Email:
   SMTPPassword: ""
   From: ""
   FromName: "Notes of Ashen"
+
+AI:
+  Enabled: false
+  BaseURL: ""
+  APIKey: ""
+  Model: ""
+  TimeoutSeconds: 30

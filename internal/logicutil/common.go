@@ -3,6 +3,7 @@ package logicutil
 import (
 	"errors"
 	"strings"
+	"time"
 
 	apperrors "notes-of-ashen/internal/errors"
 	"notes-of-ashen/internal/types"
@@ -83,22 +84,24 @@ func TagResp(t model.Tag) types.TagResp {
 
 func ArticleResp(a model.Article, tags []model.Tag, category *model.Category, includeContent bool) types.ArticleResp {
 	resp := types.ArticleResp{
-		ID:             a.ID,
-		AuthorID:       a.AuthorID,
-		CategoryID:     a.CategoryID,
-		Title:          a.Title,
-		Slug:           a.Slug,
-		Summary:        a.Summary,
-		CoverURL:       a.CoverURL,
-		Status:         a.Status,
-		ViewCount:      a.ViewCount,
-		ScheduledAt:    a.ScheduledAt,
-		PublishedAt:    a.PublishedAt,
-		SEOTitle:       a.SEOTitle,
-		SEODescription: a.SEODescription,
-		SEOKeywords:    a.SEOKeywords,
-		CreatedAt:      a.CreatedAt,
-		UpdatedAt:      a.UpdatedAt,
+		ID:              a.ID,
+		AuthorID:        a.AuthorID,
+		CategoryID:      a.CategoryID,
+		Title:           a.Title,
+		Slug:            a.Slug,
+		Summary:         a.Summary,
+		CoverURL:        a.CoverURL,
+		Status:          a.Status,
+		ViewCount:       a.ViewCount,
+		ScheduledAt:     a.ScheduledAt,
+		PublishedAt:     a.PublishedAt,
+		IsPinned:        a.IsPinned,
+		DisplayPriority: a.DisplayPriority,
+		SEOTitle:        a.SEOTitle,
+		SEODescription:  a.SEODescription,
+		SEOKeywords:     a.SEOKeywords,
+		CreatedAt:       a.CreatedAt,
+		UpdatedAt:       a.UpdatedAt,
 	}
 	if includeContent {
 		resp.Content = a.Content
@@ -129,6 +132,8 @@ func ArticleVersionResp(v model.ArticleVersion, includeContent bool) types.Artic
 		ViewCount:         v.ViewCount,
 		ScheduledAt:       v.ScheduledAt,
 		PublishedAt:       v.PublishedAt,
+		IsPinned:          v.IsPinned,
+		DisplayPriority:   v.DisplayPriority,
 		SEOTitle:          v.SEOTitle,
 		SEODescription:    v.SEODescription,
 		SEOKeywords:       v.SEOKeywords,
@@ -159,4 +164,8 @@ func OperationLogResp(l model.OperationLog) types.OperationLogResp {
 
 func NormalizeSlug(slug string) string {
 	return strings.ToLower(strings.TrimSpace(slug))
+}
+
+func TodayDate() string {
+	return time.Now().Format("2006-01-02")
 }

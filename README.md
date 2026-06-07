@@ -11,11 +11,12 @@ http://127.0.0.1:1270
 ## 功能概览
 
 - 用户认证：注册、登录、退出、刷新 Token。
-- 文章管理：创建、编辑、删除、发布、归档、草稿预览、版本查看与版本恢复。
+- 文章管理：创建、编辑、删除、发布、归档、草稿预览、版本查看、版本恢复、Markdown 导入/导出、AI 辅助创作、置顶与显示优先级。
 - 内容展示：公开文章列表、文章详情、归档、搜索、Markdown 渲染、代码高亮、LaTeX 数学公式。
 - 分类与标签：公开读取，后台可创建、更新和删除。
-- 管理后台：用户管理、用户状态管理、站点设置、操作日志查看。
+- 管理后台：用户管理、用户状态管理、站点设置、操作日志查看、访问趋势与来源统计。
 - 站点能力：RSS、Sitemap、站点标题、描述、关键词等配置。
+- 流量统计：公开页面自动上报 PV、UV 与来源，后台展示最近 30 天趋势。
 - 异步日志：通过 RabbitMQ 投递操作事件，并写入 `operation_logs`。
 - 统一响应：接口成功时返回 `{ "code": 0, "message": "success", "data": ... }`。
 
@@ -106,6 +107,11 @@ Copy-Item .env.example .env
 - `APP_EMAIL_SMTP_PASSWORD`：QQ 邮箱 SMTP 授权码，不是 QQ 登录密码。
 - `APP_EMAIL_FROM`：发件邮箱，通常和 `APP_EMAIL_SMTP_USERNAME` 一致；留空时后端会回退使用 SMTP 用户名。
 - `APP_EMAIL_FROM_NAME`：发件人名称。
+- `APP_AI_ENABLED`：是否启用文章 AI 辅助创作。
+- `APP_AI_BASE_URL`：兼容 OpenAI Chat Completions 的接口基础地址。
+- `APP_AI_API_KEY`：AI 服务 API Key，只能写入真实 `.env` 或受控环境变量。
+- `APP_AI_MODEL`：AI 辅助使用的模型名称。
+- `APP_AI_TIMEOUT_SECONDS`：AI 请求超时时间，默认 `30` 秒。
 - `WEB_PORT`：本机 Web 访问端口，默认 `1270`。
 
 不要把真实 `.env` 内容写入 README、Issue、提交记录或截图中。
@@ -129,6 +135,20 @@ APP_EMAIL_FROM_NAME="Notes of Ashen"
 ```bash
 docker compose up -d api
 ```
+
+### AI 辅助创作配置
+
+后台文章编辑页提供摘要/SEO 元数据生成、纠错和润色能力。该功能默认关闭，生产启用时只在真实 `.env` 中填写密钥：
+
+```env
+APP_AI_ENABLED=true
+APP_AI_BASE_URL=https://api.example.com/v1/chat/completions
+APP_AI_API_KEY=your-ai-api-key
+APP_AI_MODEL=your-model-name
+APP_AI_TIMEOUT_SECONDS=30
+```
+
+`APP_AI_BASE_URL` 需要指向兼容 OpenAI Chat Completions 响应格式的接口。不要把真实 API Key 写入 README、Issue、提交记录或截图中。
 
 ## 本机 Docker 部署
 
@@ -264,10 +284,23 @@ Vite 开发代理会将 `/api` 转发到 `http://127.0.0.1:19000`。
 go test ./...
 ```
 
+后端静态检查：
+
+```bash
+go vet ./...
+```
+
 后端构建：
 
 ```bash
 go build ./...
+```
+
+前端 lint：
+
+```bash
+cd frontend
+pnpm lint
 ```
 
 前端生产构建：
@@ -403,8 +436,12 @@ docker compose up -d --build
 - `POST /api/v1/auth/password/reset`
 - `POST /api/v1/auth/refresh`
 - `POST /api/v1/auth/logout`
+- `POST /api/v1/traffic/visit`
 - `GET /api/v1/articles`
 - `GET /api/v1/articles/:id`
+- `POST /api/v1/articles/ai/assist`
+- `POST /api/v1/articles/import`
+- `GET /api/v1/articles/:id/export`
 - `GET /api/v1/categories`
 - `GET /api/v1/tags`
 - `GET /api/v1/site/settings`
@@ -418,13 +455,16 @@ docker compose up -d --build
 
 - 生产环境务必替换 `.env` 中的默认密码和 `APP_AUTH_ACCESS_SECRET`。
 - 前端依赖管理统一使用 `pnpm`，不要混用 `npm` 或 `yarn`。
-- 不要提交 `.env`、数据库备份、日志文件或任何真实密钥。
+- 不要提交 `.env`、数据库备份、日志文件或任何真实密钥；数据库备份建议放在仓库目录外。
 - 升级前先备份 Docker volume 中的数据。
 - 修改后建议至少运行：
 
   ```bash
   go test ./...
+  go vet ./...
   go build ./...
   cd frontend
+  pnpm lint
   pnpm build
+  docker compose config --quiet
   ```

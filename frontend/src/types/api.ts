@@ -112,6 +112,8 @@ export interface CreateArticleReq {
   coverUrl?: string;
   status?: string; // 'draft' | 'published' | 'archived'
   scheduledAt?: string;
+  isPinned?: boolean;
+  displayPriority?: number;
   seoTitle?: string;
   seoDescription?: string;
   seoKeywords?: string;
@@ -122,6 +124,29 @@ export interface UpdateArticleReq extends Partial<CreateArticleReq> {}
 
 export interface UpdateArticleStatusReq {
   status: string;
+}
+
+export type AIAssistAction = 'metadata' | 'proofread' | 'polish';
+
+export interface AIAssistReq {
+  action: AIAssistAction;
+  title?: string;
+  content: string;
+}
+
+export interface AIAssistResp {
+  summary?: string;
+  seoDescription?: string;
+  seoKeywords?: string;
+  revisedContent?: string;
+  suggestions?: string[];
+}
+
+export interface TrafficVisitReq {
+  path: string;
+  routeType: string;
+  articleId?: number;
+  referrer?: string;
 }
 
 // Category
