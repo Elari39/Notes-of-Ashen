@@ -82,7 +82,7 @@ const Home: React.FC = () => {
   };
 
   return (
-    <div className="space-y-20 mt-8 max-w-4xl mx-auto w-full">
+    <div className="mx-auto mt-4 w-full max-w-4xl space-y-14 md:mt-8 md:space-y-20">
       {hasActiveFilters && (
         <div className="flex flex-col gap-3 border-b border-mountain-grey border-opacity-40 pb-6 text-sm text-ink-light md:flex-row md:items-center md:justify-between">
           <p className="tracking-widest opacity-75">
@@ -117,9 +117,9 @@ const Home: React.FC = () => {
             const shouldReverse = homeArticleLayout === 'alternating' && shouldShowCover && visibleCoverCountBefore % 2 === 1;
 
             return (
-              <article key={article.id} className={`group relative flex flex-col gap-8 items-start md:flex-row ${shouldReverse ? 'md:flex-row-reverse' : ''}`}>
+              <article key={article.id} className={`group relative flex flex-col gap-5 pb-2 items-start md:flex-row md:gap-8 md:pb-0 ${shouldReverse ? 'md:flex-row-reverse' : ''}`}>
                 {shouldShowCover && (
-                  <div className="w-full md:w-1/3 shrink-0 h-48 overflow-hidden relative">
+                  <div className="relative aspect-[16/9] w-full shrink-0 overflow-hidden md:h-48 md:w-1/3 md:aspect-auto">
                     <Link to={`/article/${article.id}`} className="block h-full">
                       <img
                         src={coverUrl}
@@ -134,14 +134,14 @@ const Home: React.FC = () => {
                 )}
                 <div className="flex-1">
                   <Link to={`/article/${article.id}`} className="block">
-                    <h2 className="text-3xl font-bold text-ink mb-4 group-hover:text-ochre transition-colors duration-500">
+                    <h2 className="mb-4 text-2xl font-bold leading-tight text-ink transition-colors duration-500 group-hover:text-ochre md:text-3xl">
                       {article.title}
                     </h2>
                     <p className="text-ink-light leading-relaxed mb-6 whitespace-pre-line line-clamp-3">
                       {article.summary}
                     </p>
                   </Link>
-                  <div className="flex flex-wrap items-center gap-4 text-xs text-ink-light opacity-70 tracking-wider">
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-ink-light opacity-70 tracking-wider">
                     <span>{new Date(article.createdAt).toLocaleDateString(getDateLocale(language), { year: 'numeric', month: 'long', day: 'numeric' })}</span>
                     <span>{t('common.views')} {article.viewCount}</span>
                     {article.category && (
@@ -150,7 +150,7 @@ const Home: React.FC = () => {
                       </Link>
                     )}
                     {article.tags && article.tags.length > 0 && (
-                      <div className="flex space-x-3">
+                      <div className="flex flex-wrap gap-x-3 gap-y-2">
                         {article.tags.map(tg => (
                           <Link key={tg.id} to={`/?tagId=${tg.id}`} className="relative hover:text-ochre transition-colors before:content-['#'] before:mr-1 before:opacity-30">
                             {tg.name}

@@ -28,10 +28,10 @@ const AdminLayout: React.FC = () => {
       };
 
   return (
-    <div className="flex flex-col md:flex-row gap-8 max-w-7xl mx-auto w-full">
-      <aside className="w-full md:w-48 shrink-0 border-r border-mountain-grey md:min-h-[60vh] pr-6">
-        <h2 className="text-xl font-bold text-ink mb-8 tracking-widest">{t('admin.title')}</h2>
-        <nav className="flex flex-col space-y-4 text-ink-light tracking-widest text-sm">
+    <div className="flex flex-col gap-6 md:flex-row md:gap-8 max-w-7xl mx-auto w-full">
+      <aside className="w-full shrink-0 border-b border-mountain-grey pb-4 md:w-48 md:border-b-0 md:border-r md:min-h-[60vh] md:pb-0 md:pr-6">
+        <h2 className="mb-4 text-xl font-bold text-ink tracking-widest md:mb-8">{t('admin.title')}</h2>
+        <nav className="flex gap-4 overflow-x-auto whitespace-nowrap pb-1 text-sm tracking-widest text-ink-light md:flex-col md:gap-0 md:space-y-4 md:overflow-visible md:whitespace-normal md:pb-0">
           <NavLink
             to="/admin/dashboard"
             className={({ isActive }) => isActive ? 'text-ochre font-bold' : 'hover:text-ochre transition-colors'}
@@ -56,7 +56,7 @@ const AdminLayout: React.FC = () => {
           >
             {t('admin.tags')}
           </NavLink>
-          <div className="h-4"></div>
+          <div className="hidden h-4 md:block"></div>
           {user?.role === 'admin' && (
             <>
               <NavLink

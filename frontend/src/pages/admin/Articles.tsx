@@ -15,6 +15,7 @@ const AdminArticles: React.FC = () => {
   const [articles, setArticles] = useState<Article[]>([]);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [busyId, setBusyId] = useState<number | null>(null);
   const [keyword, setKeyword] = useState('');
@@ -42,6 +43,8 @@ const AdminArticles: React.FC = () => {
   };
 
   const fetchList = useCallback(async () => {
+    setLoading(true);
+    setError('');
     try {
       const res = await getAdminArticles({
         page,
@@ -55,6 +58,8 @@ const AdminArticles: React.FC = () => {
       setTotal(res.data.total || 0);
     } catch (e) {
       setError(getErrorMessage(e, translate(language, 'adminArticles.loadError')));
+    } finally {
+      setLoading(false);
     }
   }, [page, size, appliedKeyword, status, categoryId, tagId, language]);
 
@@ -102,7 +107,7 @@ const AdminArticles: React.FC = () => {
     setBusyId(id);
     try {
       await updateArticleStatus(id, status);
-      fetchList();
+      await fetchList();
     } catch (e) {
       setError(getErrorMessage(e, t('adminArticles.statusError')));
     } finally {
@@ -116,7 +121,7 @@ const AdminArticles: React.FC = () => {
       setBusyId(id);
       try {
         await deleteArticle(id);
-        fetchList();
+        await fetchList();
       } catch (e) {
         setError(getErrorMessage(e, t('adminArticles.deleteError')));
       } finally {
@@ -127,7 +132,7 @@ const AdminArticles: React.FC = () => {
 
   return (
     <div>
-      <div className="flex justify-between items-center mb-8 border-b border-mountain-grey pb-4">
+      <div className="mb-8 flex flex-col gap-3 border-b border-mountain-grey pb-4 sm:flex-row sm:items-center sm:justify-between">
         <h3 className="text-2xl font-bold text-ink tracking-widest">{t('admin.articles')}</h3>
         <button onClick={() => navigate('/admin/editor/new')} className="px-4 py-2 border border-ink text-ink hover:bg-ink hover:text-paper tracking-widest text-sm transition-colors">
           {t('adminArticles.new')}
@@ -183,7 +188,7 @@ const AdminArticles: React.FC = () => {
             <option key={tag.id} value={tag.id}>#{tag.name}</option>
           ))}
         </select>
-        <div className="flex gap-3 md:col-span-5">
+        <div className="flex flex-wrap gap-3 md:col-span-5">
           <button type="submit" className="px-4 py-2 border border-ink text-ink hover:bg-ink hover:text-paper tracking-widest text-sm transition-colors">
             {t('home.search')}
           </button>
@@ -193,67 +198,77 @@ const AdminArticles: React.FC = () => {
         </div>
       </form>
 
-      <table className="w-full text-left border-collapse text-sm">
-        <thead>
-          <tr className="border-b border-mountain-grey text-ink-light opacity-80 tracking-widest">
-            <th className="py-3 font-normal">{t('adminArticles.title')}</th>
-            <th className="py-3 font-normal">{t('adminArticles.taxonomy')}</th>
-            <th className="py-3 font-normal">{t('common.status')}</th>
-            <th className="py-3 font-normal">{t('common.time')}</th>
-            <th className="py-3 font-normal text-right">{t('common.action')}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {articles.map(a => (
-            <tr key={a.id} className="border-b border-mountain-grey border-opacity-50 hover:bg-mountain-grey hover:bg-opacity-20 transition-colors text-ink">
-              <td className="py-4 font-bold">{a.title}</td>
-              <td className="py-4">
-                <div className="flex flex-col space-y-1">
-                  {a.category && (
-                    <span className="text-ochre text-xs">{a.category.name}</span>
-                  )}
-                  {a.tags && a.tags.length > 0 && (
-                    <div className="flex space-x-2 text-xs text-ink-light opacity-80">
-                      {a.tags.map(tg => <span key={tg.name}>#{tg.name}</span>)}
+      {loading ? (
+        <div className="py-16 text-center tracking-widest text-ink-light">{t('common.loading')}</div>
+      ) : articles.length === 0 ? (
+        <div className="py-16 text-center tracking-widest text-ink-light">{t('common.empty')}</div>
+      ) : (
+        <>
+          <table className="admin-responsive-table w-full text-left border-collapse text-sm">
+            <thead>
+              <tr className="border-b border-mountain-grey text-ink-light opacity-80 tracking-widest">
+                <th className="py-3 font-normal">{t('adminArticles.title')}</th>
+                <th className="py-3 font-normal">{t('adminArticles.taxonomy')}</th>
+                <th className="w-[5.5rem] min-w-[5.5rem] py-3 font-normal">{t('common.status')}</th>
+                <th className="py-3 font-normal">{t('common.time')}</th>
+                <th className="py-3 font-normal text-right">{t('common.action')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {articles.map(a => (
+                <tr key={a.id} className="border-b border-mountain-grey border-opacity-50 hover:bg-mountain-grey hover:bg-opacity-20 transition-colors text-ink">
+                  <td data-label={t('adminArticles.title')} className="admin-card-title py-4 font-bold">{a.title}</td>
+                  <td data-label={t('adminArticles.taxonomy')} className="py-4">
+                    <div className="flex flex-col space-y-1">
+                      {a.category && (
+                        <span className="text-ochre text-xs">{a.category.name}</span>
+                      )}
+                      {a.tags && a.tags.length > 0 && (
+                        <div className="flex flex-wrap gap-x-2 gap-y-1 text-xs text-ink-light opacity-80">
+                          {a.tags.map(tg => <span key={tg.name}>#{tg.name}</span>)}
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
-              </td>
-              <td className="py-4">
-                <span className={`px-2 py-1 text-xs border ${getDisplayStatus(a) === 'published' ? 'border-ochre text-ochre' : 'border-ink-light text-ink-light'}`}>
-                  {getDisplayStatusLabel(a)}
-                </span>
-                {a.scheduledAt && (
-                  <div className="mt-2 text-xs text-ink-light opacity-70">
-                    {new Date(a.scheduledAt).toLocaleString(getDateLocale(language))}
-                  </div>
-                )}
-              </td>
-              <td className="py-4 text-ink-light opacity-80">
-                {new Date(a.createdAt).toLocaleDateString(getDateLocale(language))}
-              </td>
-              <td className="py-4 text-right space-x-4 tracking-wider">
-                <Link to={`/admin/editor/${a.id}`} className="hover:text-ochre">{t('common.edit')}</Link>
-                <Link to={`/admin/preview/${a.id}`} className="hover:text-ochre">预览</Link>
-                <Link to={`/admin/articles/${a.id}/versions`} className="hover:text-ochre">版本</Link>
-                {a.status !== 'published' && (
-                  <button onClick={() => handleStatus(a.id, 'published')} disabled={busyId === a.id} className="hover:text-ochre disabled:opacity-50 disabled:cursor-not-allowed">{t('adminArticles.publish')}</button>
-                )}
-                {a.status === 'published' && (
-                  <button onClick={() => handleStatus(a.id, 'archived')} disabled={busyId === a.id} className="hover:text-ochre disabled:opacity-50 disabled:cursor-not-allowed">{t('adminArticles.archive')}</button>
-                )}
-                <button onClick={() => handleDelete(a.id)} disabled={busyId === a.id} className="text-ochre opacity-80 hover:opacity-100 disabled:opacity-50 disabled:cursor-not-allowed">{t('common.delete')}</button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      <Pagination
-        currentPage={page}
-        total={total}
-        pageSize={size}
-        onPageChange={setPage}
-      />
+                  </td>
+                  <td data-label={t('common.status')} className="py-4 md:w-[5.5rem] md:min-w-[5.5rem]">
+                    <span className={`inline-flex min-w-[3.75rem] items-center justify-center whitespace-nowrap px-2 py-1 text-xs border ${getDisplayStatus(a) === 'published' ? 'border-ochre text-ochre' : 'border-ink-light text-ink-light'}`}>
+                      {getDisplayStatusLabel(a)}
+                    </span>
+                    {a.scheduledAt && (
+                      <div className="mt-2 text-xs text-ink-light opacity-70">
+                        {new Date(a.scheduledAt).toLocaleString(getDateLocale(language))}
+                      </div>
+                    )}
+                  </td>
+                  <td data-label={t('common.time')} className="py-4 text-ink-light opacity-80">
+                    {new Date(a.createdAt).toLocaleDateString(getDateLocale(language))}
+                  </td>
+                  <td data-label={t('common.action')} className="admin-card-actions py-4 text-right tracking-wider">
+                    <div className="admin-action-list">
+                      <Link to={`/admin/editor/${a.id}`} className="hover:text-ochre">{t('common.edit')}</Link>
+                      <Link to={`/admin/preview/${a.id}`} className="hover:text-ochre">预览</Link>
+                      <Link to={`/admin/articles/${a.id}/versions`} className="hover:text-ochre">版本</Link>
+                      {a.status !== 'published' && (
+                        <button onClick={() => handleStatus(a.id, 'published')} disabled={busyId === a.id} className="hover:text-ochre disabled:opacity-50 disabled:cursor-not-allowed">{t('adminArticles.publish')}</button>
+                      )}
+                      {a.status === 'published' && (
+                        <button onClick={() => handleStatus(a.id, 'archived')} disabled={busyId === a.id} className="hover:text-ochre disabled:opacity-50 disabled:cursor-not-allowed">{t('adminArticles.archive')}</button>
+                      )}
+                      <button onClick={() => handleDelete(a.id)} disabled={busyId === a.id} className="text-ochre opacity-80 hover:opacity-100 disabled:opacity-50 disabled:cursor-not-allowed">{t('common.delete')}</button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <Pagination
+            currentPage={page}
+            total={total}
+            pageSize={size}
+            onPageChange={setPage}
+          />
+        </>
+      )}
     </div>
   );
 };

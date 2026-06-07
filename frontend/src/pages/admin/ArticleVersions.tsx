@@ -76,7 +76,7 @@ const ArticleVersions: React.FC = () => {
 
   return (
     <div>
-      <div className="mb-8 flex items-center justify-between border-b border-mountain-grey pb-4">
+      <div className="mb-8 flex flex-col gap-3 border-b border-mountain-grey pb-4 sm:flex-row sm:items-center sm:justify-between">
         <h3 className="text-2xl font-bold tracking-widest text-ink">版本历史</h3>
         {id && <Link to={`/admin/editor/${id}`} className="text-sm tracking-widest text-ochre">返回编辑</Link>}
       </div>
@@ -87,7 +87,7 @@ const ArticleVersions: React.FC = () => {
         <div className="py-16 text-center tracking-widest text-ink-light">版本加载中...</div>
       ) : (
         <>
-          <table className="w-full border-collapse text-left text-sm">
+          <table className="admin-responsive-table w-full border-collapse text-left text-sm">
             <thead>
               <tr className="border-b border-mountain-grey text-ink-light">
                 <th className="py-3 font-normal">版本</th>
@@ -105,27 +105,29 @@ const ArticleVersions: React.FC = () => {
               )}
               {versions.map((version) => (
                 <tr key={version.id} className="border-b border-mountain-grey border-opacity-50">
-                  <td className="py-4">#{version.versionNo}</td>
-                  <td className="py-4 font-bold">{version.title}</td>
-                  <td className="py-4 text-ink-light">{version.status}</td>
-                  <td className="py-4 text-ink-light">{new Date(version.createdAt).toLocaleString()}</td>
-                  <td className="space-x-4 py-4 text-right">
-                    <button
-                      type="button"
-                      disabled={detailLoading}
-                      onClick={() => handleInspect(version.versionNo)}
-                      className="text-ink-light hover:text-ochre disabled:opacity-50"
-                    >
-                      查看
-                    </button>
-                    <button
-                      type="button"
-                      disabled={busyVersion === version.versionNo}
-                      onClick={() => handleRestore(version.versionNo)}
-                      className="text-ochre disabled:opacity-50"
-                    >
-                      恢复
-                    </button>
+                  <td data-label="版本" className="py-4">#{version.versionNo}</td>
+                  <td data-label="标题" className="admin-card-title py-4 font-bold">{version.title}</td>
+                  <td data-label="状态" className="py-4 text-ink-light">{version.status}</td>
+                  <td data-label="保存时间" className="py-4 text-ink-light">{new Date(version.createdAt).toLocaleString()}</td>
+                  <td data-label="操作" className="admin-card-actions py-4 text-right">
+                    <div className="admin-action-list">
+                      <button
+                        type="button"
+                        disabled={detailLoading}
+                        onClick={() => handleInspect(version.versionNo)}
+                        className="text-ink-light hover:text-ochre disabled:opacity-50"
+                      >
+                        查看
+                      </button>
+                      <button
+                        type="button"
+                        disabled={busyVersion === version.versionNo}
+                        onClick={() => handleRestore(version.versionNo)}
+                        className="text-ochre disabled:opacity-50"
+                      >
+                        恢复
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}

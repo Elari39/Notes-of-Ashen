@@ -348,6 +348,116 @@
     cursor: default;
   }
 
+  .admin-responsive-table {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: left;
+    font-size: 0.875rem;
+  }
+
+  .admin-action-list {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.5rem 1rem;
+  }
+
+  @media (max-width: 767px) {
+    .admin-responsive-table,
+    .admin-responsive-table thead,
+    .admin-responsive-table tbody,
+    .admin-responsive-table tr,
+    .admin-responsive-table th,
+    .admin-responsive-table td {
+      display: block;
+    }
+
+    .admin-responsive-table thead {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0 0 0 0);
+      white-space: nowrap;
+      border: 0;
+      padding: 0;
+    }
+
+    .admin-responsive-table tbody {
+      display: grid;
+      gap: 0.75rem;
+    }
+
+    .admin-responsive-table tbody tr {
+      display: flex;
+      flex-direction: column;
+      border: 1px solid var(--mountain-grey) !important;
+      background: var(--paper-soft);
+      padding: 0.875rem;
+    }
+
+    .admin-responsive-table tbody tr:hover {
+      background: var(--paper-soft);
+    }
+
+    .admin-responsive-table td {
+      border: 0 !important;
+      padding: 0.45rem 0 !important;
+      text-align: left !important;
+    }
+
+    .admin-responsive-table td[data-label] {
+      display: grid;
+      grid-template-columns: 5.5rem minmax(0, 1fr);
+      gap: 0.75rem;
+      align-items: start;
+    }
+
+    .admin-responsive-table td[data-label]::before {
+      content: attr(data-label);
+      color: var(--ink-light);
+      font-size: 0.75rem;
+      letter-spacing: 0.12em;
+      opacity: 0.72;
+    }
+
+    .admin-responsive-table td[data-label] > * {
+      min-width: 0;
+    }
+
+    .admin-responsive-table td.admin-card-title {
+      display: block;
+      order: -1;
+      margin-bottom: 0.35rem;
+      border-bottom: 1px solid var(--mountain-grey) !important;
+      padding-bottom: 0.75rem !important;
+      font-size: 1rem;
+      line-height: 1.65;
+    }
+
+    .admin-responsive-table td.admin-card-title::before,
+    .admin-responsive-table td.admin-card-actions::before {
+      display: block;
+      margin-bottom: 0.35rem;
+    }
+
+    .admin-responsive-table td.admin-card-actions {
+      display: block;
+      margin-top: 0.35rem;
+      border-top: 1px solid var(--mountain-grey) !important;
+      padding-top: 0.75rem !important;
+    }
+
+    .admin-action-list {
+      display: flex;
+      justify-content: flex-start;
+      gap: 0.5rem 0.875rem;
+      text-align: left;
+    }
+  }
+
   @keyframes page-paper-line {
     0% {
       opacity: 0;

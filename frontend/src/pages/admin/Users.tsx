@@ -12,18 +12,23 @@ const AdminUsers: React.FC = () => {
   const [users, setUsers] = useState<User[]>([]);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [busyId, setBusyId] = useState<number | null>(null);
   const size = 10;
   const t = (key: Parameters<typeof translate>[1]) => translate(language, key);
 
   const fetchList = useCallback(async () => {
+    setLoading(true);
+    setError('');
     try {
       const res = await getUsers({ page, size });
       setUsers(res.data.items || []);
       setTotal(res.data.total || 0);
     } catch (e) {
       setError(getErrorMessage(e, translate(language, 'users.loadError')));
+    } finally {
+      setLoading(false);
     }
   }, [page, size, language]);
 
@@ -39,7 +44,7 @@ const AdminUsers: React.FC = () => {
       setBusyId(id);
       try {
         await updateUserStatus(id, newStatus);
-        fetchList();
+        await fetchList();
       } catch (e: unknown) {
         setError(getErrorMessage(e, t('users.actionError')));
       } finally {
@@ -53,7 +58,7 @@ const AdminUsers: React.FC = () => {
     setBusyId(id);
     try {
       await updateUserRole(id, role);
-      fetchList();
+      await fetchList();
     } catch (e: unknown) {
       setError(getErrorMessage(e, t('users.actionError')));
     } finally {
@@ -69,53 +74,63 @@ const AdminUsers: React.FC = () => {
 
       <InlineNotice message={error} className="mb-6" />
 
-      <table className="w-full text-left border-collapse text-sm">
-        <thead>
-          <tr className="border-b border-mountain-grey text-ink-light opacity-80 tracking-widest">
-            <th className="py-3 font-normal">{t('users.account')}</th>
-            <th className="py-3 font-normal">{t('users.nickname')}</th>
-            <th className="py-3 font-normal">{t('users.role')}</th>
-            <th className="py-3 font-normal">{t('common.status')}</th>
-            <th className="py-3 font-normal text-right">{t('common.action')}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {users.map(user => (
-            <tr key={user.id} className="border-b border-mountain-grey border-opacity-50 hover:bg-mountain-grey hover:bg-opacity-20 transition-colors text-ink">
-              <td className="py-4 font-bold">{user.account}</td>
-              <td className="py-4 text-ink-light">{user.nickname || '-'}</td>
-              <td className="py-4 text-ink-light opacity-80">
-                <select
-                  value={user.role}
-                  disabled={busyId === user.id}
-                  onChange={(event) => handleRole(user.id, event.target.value)}
-                  className="bg-paper border border-mountain-grey px-2 py-1 text-sm text-ink outline-none focus:border-ochre disabled:opacity-50"
-                >
-                  <option value="user">{getUserRoleLabel(language, 'user')}</option>
-                  <option value="editor">{language === 'zh' ? '编辑' : 'Editor'}</option>
-                  <option value="admin">{getUserRoleLabel(language, 'admin')}</option>
-                </select>
-              </td>
-              <td className="py-4">
-                <span className={`px-2 py-1 text-xs border ${user.status === 'active' ? 'border-ochre text-ochre' : 'border-ink-light text-ink-light'}`}>
-                  {getUserStatusLabel(language, user.status)}
-                </span>
-              </td>
-              <td className="py-4 text-right space-x-4">
-                <button onClick={() => handleStatus(user.id, user.status)} disabled={busyId === user.id} className="text-ochre opacity-80 hover:opacity-100 tracking-wider disabled:opacity-50 disabled:cursor-not-allowed">
-                  {user.status === 'active' ? t('users.disable') : t('users.activate')}
-                </button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      <Pagination
-        currentPage={page}
-        total={total}
-        pageSize={size}
-        onPageChange={setPage}
-      />
+      {loading ? (
+        <div className="py-16 text-center tracking-widest text-ink-light">{t('common.loading')}</div>
+      ) : users.length === 0 ? (
+        <div className="py-16 text-center tracking-widest text-ink-light">{t('common.empty')}</div>
+      ) : (
+        <>
+          <table className="admin-responsive-table w-full text-left border-collapse text-sm">
+            <thead>
+              <tr className="border-b border-mountain-grey text-ink-light opacity-80 tracking-widest">
+                <th className="py-3 font-normal">{t('users.account')}</th>
+                <th className="py-3 font-normal">{t('users.nickname')}</th>
+                <th className="py-3 font-normal">{t('users.role')}</th>
+                <th className="py-3 font-normal">{t('common.status')}</th>
+                <th className="py-3 font-normal text-right">{t('common.action')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {users.map(user => (
+                <tr key={user.id} className="border-b border-mountain-grey border-opacity-50 hover:bg-mountain-grey hover:bg-opacity-20 transition-colors text-ink">
+                  <td data-label={t('users.account')} className="admin-card-title py-4 font-bold">{user.account}</td>
+                  <td data-label={t('users.nickname')} className="py-4 text-ink-light">{user.nickname || '-'}</td>
+                  <td data-label={t('users.role')} className="py-4 text-ink-light opacity-80">
+                    <select
+                      value={user.role}
+                      disabled={busyId === user.id}
+                      onChange={(event) => handleRole(user.id, event.target.value)}
+                      className="bg-paper border border-mountain-grey px-2 py-1 text-sm text-ink outline-none focus:border-ochre disabled:opacity-50"
+                    >
+                      <option value="user">{getUserRoleLabel(language, 'user')}</option>
+                      <option value="editor">{language === 'zh' ? '编辑' : 'Editor'}</option>
+                      <option value="admin">{getUserRoleLabel(language, 'admin')}</option>
+                    </select>
+                  </td>
+                  <td data-label={t('common.status')} className="py-4">
+                    <span className={`px-2 py-1 text-xs border ${user.status === 'active' ? 'border-ochre text-ochre' : 'border-ink-light text-ink-light'}`}>
+                      {getUserStatusLabel(language, user.status)}
+                    </span>
+                  </td>
+                  <td data-label={t('common.action')} className="admin-card-actions py-4 text-right">
+                    <div className="admin-action-list">
+                      <button onClick={() => handleStatus(user.id, user.status)} disabled={busyId === user.id} className="text-ochre opacity-80 hover:opacity-100 tracking-wider disabled:opacity-50 disabled:cursor-not-allowed">
+                        {user.status === 'active' ? t('users.disable') : t('users.activate')}
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <Pagination
+            currentPage={page}
+            total={total}
+            pageSize={size}
+            onPageChange={setPage}
+          />
+        </>
+      )}
     </div>
   );
 };

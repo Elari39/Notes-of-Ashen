@@ -17,7 +17,7 @@ import (
 )
 
 func RegisterHandlers(server *rest.Server, svcCtx *svc.ServiceContext) {
-	authMiddleware := middleware.NewAuthMiddleware(svcCtx.Tokens)
+	authMiddleware := middleware.NewAuthMiddleware(svcCtx.Tokens, svcCtx.Store)
 	authRequired := func(handler http.HandlerFunc) http.HandlerFunc {
 		return authMiddleware.Handle(handler)
 	}

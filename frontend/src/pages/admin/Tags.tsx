@@ -17,6 +17,7 @@ const AdminTags: React.FC = () => {
 
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [busyId, setBusyId] = useState<number | null>(null);
@@ -24,12 +25,16 @@ const AdminTags: React.FC = () => {
   const t = (key: Parameters<typeof translate>[1]) => translate(language, key);
 
   const fetchList = useCallback(async () => {
+    setLoading(true);
+    setError('');
     try {
       const res = await getTags({ page, size });
       setTags(res.data.items || []);
       setTotal(res.data.total || 0);
     } catch (e) {
       setError(getErrorMessage(e, translate(language, 'taxonomy.listTagError')));
+    } finally {
+      setLoading(false);
     }
   }, [page, size, language]);
 
@@ -48,7 +53,7 @@ const AdminTags: React.FC = () => {
         await createTag({ name, slug, description });
       }
       handleCancel();
-      fetchList();
+      await fetchList();
     } catch (e: unknown) {
       setError(getErrorMessage(e, t('taxonomy.submitError')));
     } finally {
@@ -76,7 +81,7 @@ const AdminTags: React.FC = () => {
       setBusyId(id);
       try {
         await deleteTag(id);
-        fetchList();
+        await fetchList();
       } catch (e: unknown) {
         setError(getErrorMessage(e, t('taxonomy.deleteTagError')));
       } finally {
@@ -103,7 +108,7 @@ const AdminTags: React.FC = () => {
         <div className="flex-1">
           <input type="text" placeholder={t('common.description')} value={description} onChange={e => setDescription(e.target.value)} className="w-full bg-transparent border-b border-mountain-grey py-2 focus:outline-none focus:border-ochre text-ink" />
         </div>
-        <div className="flex space-x-2">
+        <div className="flex flex-wrap gap-2">
           <button type="submit" disabled={submitting} className="px-4 py-2 bg-ink text-paper tracking-widest text-sm hover:bg-opacity-80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
             {submitting ? t('common.processing') : editingId ? t('common.save') : t('taxonomy.add')}
           </button>
@@ -115,33 +120,43 @@ const AdminTags: React.FC = () => {
         </div>
       </form>
 
-      <table className="w-full text-left border-collapse text-sm">
-        <thead>
-          <tr className="border-b border-mountain-grey text-ink-light opacity-80 tracking-widest">
-            <th className="py-3 font-normal">{t('common.name')}</th>
-            <th className="py-3 font-normal">Slug</th>
-            <th className="py-3 font-normal text-right">{t('common.action')}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {tags.map(tag => (
-            <tr key={tag.id} className="border-b border-mountain-grey border-opacity-50 hover:bg-mountain-grey hover:bg-opacity-20 transition-colors text-ink">
-              <td className="py-4 font-bold relative before:content-['#'] before:mr-1 before:opacity-30">{tag.name}</td>
-              <td className="py-4 text-ink-light">{tag.slug}</td>
-              <td className="py-4 text-right space-x-4">
-                <button onClick={() => handleEdit(tag)} className="text-ink opacity-80 hover:text-ochre hover:opacity-100 tracking-wider">{t('common.edit')}</button>
-                <button onClick={() => handleDelete(tag.id)} disabled={busyId === tag.id} className="text-ochre opacity-80 hover:opacity-100 tracking-wider disabled:opacity-50 disabled:cursor-not-allowed">{t('common.delete')}</button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      <Pagination
-        currentPage={page}
-        total={total}
-        pageSize={size}
-        onPageChange={setPage}
-      />
+      {loading ? (
+        <div className="py-16 text-center tracking-widest text-ink-light">{t('common.loading')}</div>
+      ) : tags.length === 0 ? (
+        <div className="py-16 text-center tracking-widest text-ink-light">{t('common.empty')}</div>
+      ) : (
+        <>
+          <table className="admin-responsive-table w-full text-left border-collapse text-sm">
+            <thead>
+              <tr className="border-b border-mountain-grey text-ink-light opacity-80 tracking-widest">
+                <th className="py-3 font-normal">{t('common.name')}</th>
+                <th className="py-3 font-normal">Slug</th>
+                <th className="py-3 font-normal text-right">{t('common.action')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {tags.map(tag => (
+                <tr key={tag.id} className="border-b border-mountain-grey border-opacity-50 hover:bg-mountain-grey hover:bg-opacity-20 transition-colors text-ink">
+                  <td data-label={t('common.name')} className="admin-card-title py-4 font-bold relative before:content-['#'] before:mr-1 before:opacity-30">{tag.name}</td>
+                  <td data-label="Slug" className="py-4 text-ink-light">{tag.slug}</td>
+                  <td data-label={t('common.action')} className="admin-card-actions py-4 text-right">
+                    <div className="admin-action-list">
+                      <button onClick={() => handleEdit(tag)} className="text-ink opacity-80 hover:text-ochre hover:opacity-100 tracking-wider">{t('common.edit')}</button>
+                      <button onClick={() => handleDelete(tag.id)} disabled={busyId === tag.id} className="text-ochre opacity-80 hover:opacity-100 tracking-wider disabled:opacity-50 disabled:cursor-not-allowed">{t('common.delete')}</button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <Pagination
+            currentPage={page}
+            total={total}
+            pageSize={size}
+            onPageChange={setPage}
+          />
+        </>
+      )}
     </div>
   );
 };
