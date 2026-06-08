@@ -57,7 +57,7 @@ export interface ResetPasswordReq {
 }
 
 export interface UpdateSiteSettingsReq {
-  registrationEnabled: boolean;
+  registrationEnabled?: boolean;
   homeArticleLayout: 'standard' | 'alternating';
   siteTitle: string;
   siteDescription: string;

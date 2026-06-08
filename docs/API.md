@@ -519,7 +519,7 @@ PUT /api/v1/admin/site/settings
 
 | 字段 | 类型 | 必填 | 说明 |
 | --- | --- | --- | --- |
-| registrationEnabled | bool | 是 | 是否允许后续用户注册 |
+| registrationEnabled | bool | 否 | 是否允许后续用户注册；不传时保留当前值 |
 | homeArticleLayout | string | 是 | `standard` 或 `alternating` |
 | siteTitle | string | 否 | 站点标题，空值表示保留当前值 |
 | siteDescription | string | 否 | 站点描述，空值表示保留当前值 |

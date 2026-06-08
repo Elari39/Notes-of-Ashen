@@ -298,7 +298,20 @@ func Logout(ctx context.Context, svcCtx *svc.ServiceContext, req types.RefreshRe
 		return err
 	}
 	hash := authutil.HashRefreshToken(req.RefreshToken)
-	if err := svcCtx.Store.RevokeRefreshToken(ctx, hash); err != nil {
+	token, err := svcCtx.Store.FindRefreshToken(ctx, hash)
+	if err != nil {
+		if errors.Is(err, model.ErrNotFound) {
+			return apperrors.Unauthorized("refresh token is invalid")
+		}
+		return err
+	}
+	if err := validateLogoutRefreshToken(token, userID, time.Now()); err != nil {
+		return err
+	}
+	if err := svcCtx.Store.RevokeRefreshTokenForUser(ctx, hash, userID); err != nil {
+		if errors.Is(err, model.ErrNotFound) {
+			return apperrors.Unauthorized("refresh token is invalid")
+		}
 		return err
 	}
 	_ = svcCtx.Redis.Del(ctx, refreshKey(hash)).Err()
@@ -326,6 +339,7 @@ func issueTokens(ctx context.Context, svcCtx *svc.ServiceContext, userID uint64,
 		return nil, err
 	}
 	if err := svcCtx.Redis.Set(ctx, refreshKey(refreshHash), strconv.FormatUint(userID, 10), svcCtx.Tokens.RefreshTTL()).Err(); err != nil {
+		revokeRefreshTokenBestEffort(svcCtx, refreshHash)
 		return nil, err
 	}
 	return &types.TokenPair{
@@ -356,6 +370,22 @@ func validateRegister(req types.RegisterReq) error {
 	}
 	if err := validator.OptionalHTTPURL(req.AvatarURL, "avatarUrl"); err != nil {
 		return err
+	}
+	return nil
+}
+
+func revokeRefreshTokenBestEffort(svcCtx *svc.ServiceContext, refreshHash string) {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	_ = svcCtx.Store.RevokeRefreshToken(ctx, refreshHash)
+}
+
+func validateLogoutRefreshToken(token *model.RefreshToken, userID uint64, now time.Time) error {
+	if token.UserID != userID {
+		return apperrors.Unauthorized("refresh token is invalid")
+	}
+	if token.RevokedAt != nil || now.After(token.ExpiresAt) {
+		return apperrors.Unauthorized("refresh token is expired")
 	}
 	return nil
 }

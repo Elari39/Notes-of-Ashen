@@ -43,3 +43,22 @@ func TestIsValidHomeArticleLayout(t *testing.T) {
 		}
 	}
 }
+
+func TestRegistrationEnabledForUpdate(t *testing.T) {
+	if got := registrationEnabledForUpdate(true, nil); !got {
+		t.Fatal("registrationEnabledForUpdate should keep true when request is nil")
+	}
+	if got := registrationEnabledForUpdate(false, nil); got {
+		t.Fatal("registrationEnabledForUpdate should keep false when request is nil")
+	}
+
+	enabled := true
+	if got := registrationEnabledForUpdate(false, &enabled); !got {
+		t.Fatal("registrationEnabledForUpdate should use explicit true")
+	}
+
+	disabled := false
+	if got := registrationEnabledForUpdate(true, &disabled); got {
+		t.Fatal("registrationEnabledForUpdate should use explicit false")
+	}
+}

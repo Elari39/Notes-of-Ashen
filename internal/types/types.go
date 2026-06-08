@@ -62,7 +62,7 @@ type SiteSettingsResp struct {
 }
 
 type UpdateSiteSettingsReq struct {
-	RegistrationEnabled bool   `json:"registrationEnabled"`
+	RegistrationEnabled *bool  `json:"registrationEnabled,optional"`
 	HomeArticleLayout   string `json:"homeArticleLayout"`
 	SiteTitle           string `json:"siteTitle,optional"`
 	SiteDescription     string `json:"siteDescription,optional"`

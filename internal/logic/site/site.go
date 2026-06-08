@@ -64,8 +64,9 @@ func UpdateSettings(ctx context.Context, svcCtx *svc.ServiceContext, req types.U
 	if err := validator.OptionalHTTPURL(siteBaseURL, "siteBaseUrl"); err != nil {
 		return nil, err
 	}
+	registrationEnabled := registrationEnabledForUpdate(currentSettings.RegistrationEnabled, req.RegistrationEnabled)
 	if err := svcCtx.Store.UpdateSiteSettings(ctx, model.SiteSettings{
-		RegistrationEnabled: req.RegistrationEnabled,
+		RegistrationEnabled: registrationEnabled,
 		HomeArticleLayout:   layout,
 		SiteTitle:           siteTitle,
 		SiteDescription:     siteDescription,
@@ -79,6 +80,13 @@ func UpdateSettings(ctx context.Context, svcCtx *svc.ServiceContext, req types.U
 		return nil, err
 	}
 	return siteSettingsResp(settings, false), nil
+}
+
+func registrationEnabledForUpdate(current bool, requested *bool) bool {
+	if requested == nil {
+		return current
+	}
+	return *requested
 }
 
 func siteSettingsResp(settings *model.SiteSettings, forceRegistrationEnabled bool) *types.SiteSettingsResp {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"time"
 
 	"notes-of-ashen/internal/config"
@@ -112,69 +113,90 @@ func StartConsumer(conf config.RabbitMQConf, db *sql.DB) {
 		return
 	}
 	go func() {
-		conn, err := amqp.Dial(conf.URL)
-		if err != nil {
-			logx.Errorf("rabbitmq consumer connect failed: %v", err)
-			return
-		}
-		defer conn.Close()
-
-		ch, err := conn.Channel()
-		if err != nil {
-			logx.Errorf("rabbitmq consumer channel failed: %v", err)
-			return
-		}
-		defer ch.Close()
-
-		if err := ch.ExchangeDeclare(conf.Exchange, "direct", true, false, false, false, nil); err != nil {
-			logx.Errorf("rabbitmq consumer exchange failed: %v", err)
-			return
-		}
-		if _, err := ch.QueueDeclare(conf.Queue, true, false, false, false, nil); err != nil {
-			logx.Errorf("rabbitmq consumer queue failed: %v", err)
-			return
-		}
-		if err := ch.QueueBind(conf.Queue, conf.RoutingKey, conf.Exchange, false, nil); err != nil {
-			logx.Errorf("rabbitmq consumer bind failed: %v", err)
-			return
-		}
-
-		msgs, err := ch.Consume(conf.Queue, "", false, false, false, false, nil)
-		if err != nil {
-			logx.Errorf("rabbitmq consumer consume failed: %v", err)
-			return
-		}
-
-		for msg := range msgs {
-			var event Event
-			if err := json.Unmarshal(msg.Body, &event); err != nil {
-				logx.Errorf("unmarshal operation event failed: %v", err)
-				_ = msg.Nack(false, false)
-				continue
+		backoff := time.Second
+		for {
+			if err := consumeOperationLogs(conf, db); err != nil {
+				logx.Errorf("rabbitmq consumer stopped: %v", err)
 			}
-			metadata, _ := json.Marshal(event.Metadata)
-			var metadataValue interface{}
-			if len(event.Metadata) > 0 {
-				metadataValue = string(metadata)
-			}
-			var userID interface{}
-			if event.UserID > 0 {
-				userID = event.UserID
-			}
-			var resourceID interface{}
-			if event.ResourceID > 0 {
-				resourceID = event.ResourceID
-			}
-			_, err := db.Exec(`
-INSERT INTO operation_logs (user_id, event_type, resource_type, resource_id, metadata, ip, user_agent)
-VALUES (?, ?, ?, ?, ?, ?, ?)`,
-				userID, event.EventType, event.ResourceType, resourceID, metadataValue, event.IP, event.UserAgent)
-			if err != nil {
-				logx.Errorf("write operation log failed: %v", err)
-				_ = msg.Nack(false, true)
-				continue
-			}
-			_ = msg.Ack(false)
+			time.Sleep(backoff)
+			backoff = nextConsumerBackoff(backoff)
 		}
 	}()
+}
+
+func nextConsumerBackoff(current time.Duration) time.Duration {
+	if current <= 0 {
+		return time.Second
+	}
+	next := current * 2
+	if next > 30*time.Second {
+		return 30 * time.Second
+	}
+	return next
+}
+
+func consumeOperationLogs(conf config.RabbitMQConf, db *sql.DB) error {
+	conn, err := amqp.Dial(conf.URL)
+	if err != nil {
+		return fmt.Errorf("connect failed: %w", err)
+	}
+	defer conn.Close()
+
+	ch, err := conn.Channel()
+	if err != nil {
+		return fmt.Errorf("channel failed: %w", err)
+	}
+	defer ch.Close()
+
+	if err := ch.ExchangeDeclare(conf.Exchange, "direct", true, false, false, false, nil); err != nil {
+		return fmt.Errorf("exchange declare failed: %w", err)
+	}
+	if _, err := ch.QueueDeclare(conf.Queue, true, false, false, false, nil); err != nil {
+		return fmt.Errorf("queue declare failed: %w", err)
+	}
+	if err := ch.QueueBind(conf.Queue, conf.RoutingKey, conf.Exchange, false, nil); err != nil {
+		return fmt.Errorf("queue bind failed: %w", err)
+	}
+
+	msgs, err := ch.Consume(conf.Queue, "", false, false, false, false, nil)
+	if err != nil {
+		return fmt.Errorf("consume failed: %w", err)
+	}
+
+	for msg := range msgs {
+		writeOperationLogMessage(db, msg)
+	}
+	return fmt.Errorf("delivery channel closed")
+}
+
+func writeOperationLogMessage(db *sql.DB, msg amqp.Delivery) {
+	var event Event
+	if err := json.Unmarshal(msg.Body, &event); err != nil {
+		logx.Errorf("unmarshal operation event failed: %v", err)
+		_ = msg.Nack(false, false)
+		return
+	}
+	metadata, _ := json.Marshal(event.Metadata)
+	var metadataValue interface{}
+	if len(event.Metadata) > 0 {
+		metadataValue = string(metadata)
+	}
+	var userID interface{}
+	if event.UserID > 0 {
+		userID = event.UserID
+	}
+	var resourceID interface{}
+	if event.ResourceID > 0 {
+		resourceID = event.ResourceID
+	}
+	_, err := db.Exec(`
+INSERT INTO operation_logs (user_id, event_type, resource_type, resource_id, metadata, ip, user_agent)
+VALUES (?, ?, ?, ?, ?, ?, ?)`,
+		userID, event.EventType, event.ResourceType, resourceID, metadataValue, event.IP, event.UserAgent)
+	if err != nil {
+		logx.Errorf("write operation log failed: %v", err)
+		_ = msg.Nack(false, true)
+		return
+	}
+	_ = msg.Ack(false)
 }

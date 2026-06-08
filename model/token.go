@@ -42,6 +42,16 @@ WHERE token_hash = ? AND revoked_at IS NULL`, tokenHash)
 	return err
 }
 
+func (s *Store) RevokeRefreshTokenForUser(ctx context.Context, tokenHash string, userID uint64) error {
+	res, err := s.db.ExecContext(ctx, `
+UPDATE refresh_tokens SET revoked_at = NOW()
+WHERE token_hash = ? AND user_id = ? AND revoked_at IS NULL`, tokenHash, userID)
+	if err != nil {
+		return err
+	}
+	return requireAffected(res)
+}
+
 func (s *Store) RevokeUserRefreshTokens(ctx context.Context, userID uint64) error {
 	_, err := s.db.ExecContext(ctx, `
 UPDATE refresh_tokens SET revoked_at = NOW()
