@@ -152,6 +152,9 @@ func Context(ctx context.Context, svcCtx *svc.ServiceContext, id uint64) (*types
 }
 
 func Create(ctx context.Context, svcCtx *svc.ServiceContext, req types.ArticleReq, meta types.RequestMeta) (*types.ArticleResp, error) {
+	if err := requireArticleCreatePermission(ctx); err != nil {
+		return nil, err
+	}
 	userID, err := authutil.UserID(ctx)
 	if err != nil {
 		return nil, err
@@ -542,6 +545,10 @@ func currentActor(ctx context.Context) (uint64, string, error) {
 		return 0, "", err
 	}
 	return userID, authutil.Role(ctx), nil
+}
+
+func requireArticleCreatePermission(ctx context.Context) error {
+	return authutil.RequireContentManager(ctx)
 }
 
 func canManageArticle(userID uint64, role string, item model.Article) error {

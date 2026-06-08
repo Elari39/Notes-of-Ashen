@@ -341,7 +341,7 @@ GET /api/v1/articles/:id/context
 POST /api/v1/articles
 ```
 
-权限：登录用户。
+权限：`editor` 或 `admin`。
 
 | 字段 | 类型 | 必填 | 说明 |
 | --- | --- | --- | --- |
