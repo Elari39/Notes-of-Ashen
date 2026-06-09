@@ -3,7 +3,6 @@ package model
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"time"
 )
 
@@ -107,14 +106,7 @@ func (s *Store) UpdateUserStatus(ctx context.Context, id uint64, status string) 
 	if err != nil {
 		return err
 	}
-	affected, err := res.RowsAffected()
-	if err != nil {
-		return err
-	}
-	if affected == 0 {
-		return ErrNotFound
-	}
-	return nil
+	return s.requireUserUpdateAffected(ctx, id, res)
 }
 
 func (s *Store) UpdateUserRole(ctx context.Context, id uint64, role string) error {
@@ -122,7 +114,7 @@ func (s *Store) UpdateUserRole(ctx context.Context, id uint64, role string) erro
 	if err != nil {
 		return err
 	}
-	return requireAffected(res)
+	return s.requireUserUpdateAffected(ctx, id, res)
 }
 
 func (s *Store) CountActiveAdmins(ctx context.Context) (int64, error) {
@@ -167,13 +159,8 @@ func scanUser(row *sql.Row) (*User, error) {
 }
 
 func (s *Store) requireUserUpdateAffected(ctx context.Context, id uint64, res sql.Result) error {
-	if err := requireAffected(res); err != nil {
-		if !errors.Is(err, ErrNotFound) {
-			return err
-		}
-		if _, findErr := s.FindUserByID(ctx, id); findErr != nil {
-			return findErr
-		}
-	}
-	return nil
+	return requireUpdateAffected(ctx, res, func(ctx context.Context) error {
+		_, err := s.FindUserByID(ctx, id)
+		return err
+	})
 }

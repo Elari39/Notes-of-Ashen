@@ -13,6 +13,8 @@ import (
 	"notes-of-ashen/internal/response"
 	"notes-of-ashen/internal/svc"
 	"notes-of-ashen/internal/types"
+
+	"github.com/zeromicro/go-zero/core/logx"
 )
 
 const maxMarkdownUploadBytes = 2 << 20
@@ -315,6 +317,8 @@ func ExportMarkdownHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 		}
 		w.Header().Set("Content-Type", "text/markdown; charset=utf-8")
 		w.Header().Set("Content-Disposition", mime.FormatMediaType("attachment", map[string]string{"filename": filename}))
-		_, _ = w.Write([]byte(content))
+		if _, err := w.Write([]byte(content)); err != nil {
+			logx.Errorf("write markdown export failed: %v", err)
+		}
 	}
 }

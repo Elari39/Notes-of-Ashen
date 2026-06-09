@@ -25,7 +25,9 @@ func Length(value, field string, min, max int) error {
 }
 
 func Email(value string) error {
-	if _, err := mail.ParseAddress(value); err != nil {
+	value = strings.TrimSpace(value)
+	parsed, err := mail.ParseAddress(value)
+	if err != nil || parsed.Address != value {
 		return apperrors.BadRequest("email format is invalid")
 	}
 	return nil

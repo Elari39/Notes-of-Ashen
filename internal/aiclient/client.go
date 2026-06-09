@@ -67,7 +67,7 @@ func Assist(ctx context.Context, conf config.AIConf, req Request) (*Response, er
 		return nil, err
 	}
 
-	endpoint := strings.TrimRight(strings.TrimSpace(conf.BaseURL), "/") + "/chat/completions"
+	endpoint := chatCompletionsEndpoint(conf.BaseURL)
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(body))
 	if err != nil {
 		return nil, err
@@ -106,6 +106,14 @@ func Assist(ctx context.Context, conf config.AIConf, req Request) (*Response, er
 		return nil, err
 	}
 	return parsed, nil
+}
+
+func chatCompletionsEndpoint(baseURL string) string {
+	endpoint := strings.TrimRight(strings.TrimSpace(baseURL), "/")
+	if strings.HasSuffix(endpoint, "/chat/completions") {
+		return endpoint
+	}
+	return endpoint + "/chat/completions"
 }
 
 func ParseAssistantJSON(content string) (*Response, error) {

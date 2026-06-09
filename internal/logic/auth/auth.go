@@ -282,6 +282,9 @@ func Refresh(ctx context.Context, svcCtx *svc.ServiceContext, req types.RefreshR
 	}
 
 	if err := svcCtx.Store.RevokeRefreshToken(ctx, hash); err != nil {
+		if errors.Is(err, model.ErrNotFound) {
+			return nil, apperrors.Unauthorized("refresh token is invalid")
+		}
 		return nil, err
 	}
 	_ = svcCtx.Redis.Del(ctx, refreshKey(hash)).Err()

@@ -142,13 +142,13 @@ docker compose up -d api
 
 ```env
 APP_AI_ENABLED=true
-APP_AI_BASE_URL=https://api.example.com/v1/chat/completions
+APP_AI_BASE_URL=https://api.example.com/v1
 APP_AI_API_KEY=your-ai-api-key
 APP_AI_MODEL=your-model-name
 APP_AI_TIMEOUT_SECONDS=30
 ```
 
-`APP_AI_BASE_URL` 需要指向兼容 OpenAI Chat Completions 响应格式的接口。不要把真实 API Key 写入 README、Issue、提交记录或截图中。
+`APP_AI_BASE_URL` 可以填写兼容 OpenAI Chat Completions 的基础地址，例如 `https://api.example.com/v1`；如果服务商只提供完整端点，也可以填写到 `/chat/completions`。不要把真实 API Key 写入 README、Issue、提交记录或截图中。
 
 ## 本机 Docker 部署
 

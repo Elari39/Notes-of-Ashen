@@ -160,7 +160,9 @@ WHERE id = ?`,
 		if err != nil {
 			return err
 		}
-		if err := requireAffected(res); err != nil {
+		if err := requireUpdateAffected(ctx, res, func(ctx context.Context) error {
+			return articleExistsTx(ctx, tx, id)
+		}); err != nil {
 			return err
 		}
 		return replaceArticleTags(ctx, tx, id, in.TagIDs)
@@ -199,7 +201,9 @@ WHERE id = ?`, status, nullableTime(publishedAt), id)
 		if err != nil {
 			return err
 		}
-		return requireAffected(res)
+		return requireUpdateAffected(ctx, res, func(ctx context.Context) error {
+			return articleExistsTx(ctx, tx, id)
+		})
 	})
 }
 
@@ -221,7 +225,9 @@ WHERE id = ?`,
 		if err != nil {
 			return err
 		}
-		if err := requireAffected(res); err != nil {
+		if err := requireUpdateAffected(ctx, res, func(ctx context.Context) error {
+			return articleExistsTx(ctx, tx, articleID)
+		}); err != nil {
 			return err
 		}
 		return replaceArticleTags(ctx, tx, articleID, version.TagIDs)
@@ -610,6 +616,14 @@ func articleTagIDs(ctx context.Context, tx *sql.Tx, articleID uint64) ([]uint64,
 
 func findOneArticle(ctx context.Context, row *sql.Row) (*Article, error) {
 	return scanArticle(row)
+}
+
+func articleExistsTx(ctx context.Context, tx *sql.Tx, articleID uint64) error {
+	var exists int
+	if err := tx.QueryRowContext(ctx, "SELECT 1 FROM articles WHERE id = ? LIMIT 1", articleID).Scan(&exists); err != nil {
+		return scanErr(err)
+	}
+	return nil
 }
 
 func (s *Store) relatedPublicArticles(ctx context.Context, articleID, categoryID uint64, tagIDs []uint64, limit int) ([]Article, error) {

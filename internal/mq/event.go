@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"sync"
 	"time"
 
 	"notes-of-ashen/internal/config"
@@ -26,6 +27,7 @@ type Event struct {
 
 type Publisher struct {
 	conf config.RabbitMQConf
+	mu   sync.Mutex
 	conn *amqp.Connection
 	ch   *amqp.Channel
 }
@@ -83,28 +85,42 @@ func (p *Publisher) Publish(ctx context.Context, event Event) {
 		logx.Errorf("marshal event failed: %v", err)
 		return
 	}
+	p.mu.Lock()
+	defer p.mu.Unlock()
 	if p.ch == nil {
 		if err := p.connect(); err != nil {
 			logx.Errorf("rabbitmq reconnect failed: %v", err)
 			return
 		}
 	}
-	err = p.ch.PublishWithContext(ctx, p.conf.Exchange, p.conf.RoutingKey, false, false, amqp.Publishing{
+	if err := p.publish(ctx, body); err != nil {
+		logx.Errorf("publish event failed: %v", err)
+		p.resetConnection()
+	}
+}
+
+func (p *Publisher) publish(ctx context.Context, body []byte) error {
+	return p.ch.PublishWithContext(ctx, p.conf.Exchange, p.conf.RoutingKey, false, false, amqp.Publishing{
 		ContentType:  "application/json",
 		DeliveryMode: amqp.Persistent,
 		Body:         body,
 	})
-	if err != nil {
-		logx.Errorf("publish event failed: %v", err)
-	}
 }
 
 func (p *Publisher) Close() {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.resetConnection()
+}
+
+func (p *Publisher) resetConnection() {
 	if p.ch != nil {
 		_ = p.ch.Close()
+		p.ch = nil
 	}
 	if p.conn != nil {
 		_ = p.conn.Close()
+		p.conn = nil
 	}
 }
 

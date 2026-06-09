@@ -23,7 +23,7 @@ frontend/.eslintcache
 
 # Go 构建与测试产物
 bin/
-notes-of-ashen
+/notes-of-ashen
 notes-of-ashen.exe
 *.exe
 *.test

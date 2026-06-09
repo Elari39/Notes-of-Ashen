@@ -57,7 +57,10 @@ UPDATE categories SET name = ?, slug = ?, description = ? WHERE id = ?`,
 	if err != nil {
 		return err
 	}
-	return requireAffected(res)
+	return requireUpdateAffected(ctx, res, func(ctx context.Context) error {
+		_, err := s.FindCategory(ctx, id)
+		return err
+	})
 }
 
 func (s *Store) DeleteCategory(ctx context.Context, id uint64) error {
@@ -128,7 +131,10 @@ UPDATE tags SET name = ?, slug = ?, description = ? WHERE id = ?`,
 	if err != nil {
 		return err
 	}
-	return requireAffected(res)
+	return requireUpdateAffected(ctx, res, func(ctx context.Context) error {
+		_, err := s.FindTag(ctx, id)
+		return err
+	})
 }
 
 func (s *Store) DeleteTag(ctx context.Context, id uint64) error {
@@ -208,4 +214,15 @@ func requireAffected(res sql.Result) error {
 		return ErrNotFound
 	}
 	return nil
+}
+
+func requireUpdateAffected(ctx context.Context, res sql.Result, exists func(context.Context) error) error {
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if affected > 0 {
+		return nil
+	}
+	return exists(ctx)
 }

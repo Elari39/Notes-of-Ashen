@@ -30,3 +30,28 @@ func TestOptionalHTTPURL(t *testing.T) {
 		})
 	}
 }
+
+func TestEmailRequiresPlainAddress(t *testing.T) {
+	tests := []struct {
+		name    string
+		value   string
+		wantErr bool
+	}{
+		{name: "plain email", value: "user@example.com", wantErr: false},
+		{name: "trimmed plain email", value: " user@example.com ", wantErr: false},
+		{name: "display name is rejected", value: "User <user@example.com>", wantErr: true},
+		{name: "invalid email is rejected", value: "not-an-email", wantErr: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := Email(tt.value)
+			if tt.wantErr && err == nil {
+				t.Fatal("expected error")
+			}
+			if !tt.wantErr && err != nil {
+				t.Fatalf("expected nil error, got %v", err)
+			}
+		})
+	}
+}
