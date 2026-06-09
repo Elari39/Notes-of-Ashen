@@ -64,11 +64,9 @@ UPDATE categories SET name = ?, slug = ?, description = ? WHERE id = ?`,
 }
 
 func (s *Store) DeleteCategory(ctx context.Context, id uint64) error {
-	res, err := s.db.ExecContext(ctx, "DELETE FROM categories WHERE id = ?", id)
-	if err != nil {
-		return err
-	}
-	return requireAffected(res)
+	return WithTx(ctx, s.db, func(tx *sql.Tx) error {
+		return deleteCategoryTx(ctx, tx, id)
+	})
 }
 
 func (s *Store) FindCategory(ctx context.Context, id uint64) (*Category, error) {
@@ -138,11 +136,9 @@ UPDATE tags SET name = ?, slug = ?, description = ? WHERE id = ?`,
 }
 
 func (s *Store) DeleteTag(ctx context.Context, id uint64) error {
-	res, err := s.db.ExecContext(ctx, "DELETE FROM tags WHERE id = ?", id)
-	if err != nil {
-		return err
-	}
-	return requireAffected(res)
+	return WithTx(ctx, s.db, func(tx *sql.Tx) error {
+		return deleteTagTx(ctx, tx, id)
+	})
 }
 
 func (s *Store) FindTag(ctx context.Context, id uint64) (*Tag, error) {
@@ -203,6 +199,35 @@ func scanTag(row *sql.Row) (*Tag, error) {
 		return nil, scanErr(err)
 	}
 	return &item, nil
+}
+
+type execContexter interface {
+	ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error)
+}
+
+func deleteCategoryTx(ctx context.Context, execer execContexter, id uint64) error {
+	if _, err := execer.ExecContext(ctx, "UPDATE articles SET category_id = NULL WHERE category_id = ?", id); err != nil {
+		return err
+	}
+	res, err := execer.ExecContext(ctx, "DELETE FROM categories WHERE id = ?", id)
+	if err != nil {
+		return err
+	}
+	return requireAffected(res)
+}
+
+func deleteTagTx(ctx context.Context, execer execContexter, id uint64) error {
+	if _, err := execer.ExecContext(ctx, "DELETE FROM article_tags WHERE tag_id = ?", id); err != nil {
+		return err
+	}
+	if _, err := execer.ExecContext(ctx, "DELETE FROM project_tags WHERE tag_id = ?", id); err != nil {
+		return err
+	}
+	res, err := execer.ExecContext(ctx, "DELETE FROM tags WHERE id = ?", id)
+	if err != nil {
+		return err
+	}
+	return requireAffected(res)
 }
 
 func requireAffected(res sql.Result) error {

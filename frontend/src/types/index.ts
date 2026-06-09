@@ -161,6 +161,7 @@ export interface ArticleVersion {
   coverUrl: string;
   status: string;
   viewCount: number;
+  likeCount: number;
   scheduledAt?: string;
   publishedAt?: string;
   isPinned: boolean;

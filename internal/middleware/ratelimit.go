@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"context"
 	"net/http"
 	"time"
 
@@ -10,18 +11,28 @@ import (
 	"notes-of-ashen/internal/security"
 
 	"github.com/redis/go-redis/v9"
+	"github.com/zeromicro/go-zero/core/logx"
 )
 
+type redisLimiter interface {
+	Incr(ctx context.Context, key string) *redis.IntCmd
+	Expire(ctx context.Context, key string, expiration time.Duration) *redis.BoolCmd
+}
+
 type RateLimitMiddleware struct {
-	redisClient *redis.Client
+	redisClient redisLimiter
 	name        string
 	limit       int64
 	window      time.Duration
 }
 
 func NewRateLimitMiddleware(redisClient *redis.Client, name string, limit int64, window time.Duration) *RateLimitMiddleware {
+	var limiter redisLimiter
+	if redisClient != nil {
+		limiter = redisClient
+	}
 	return &RateLimitMiddleware{
-		redisClient: redisClient,
+		redisClient: limiter,
 		name:        name,
 		limit:       limit,
 		window:      window,
@@ -30,16 +41,24 @@ func NewRateLimitMiddleware(redisClient *redis.Client, name string, limit int64,
 
 func (m *RateLimitMiddleware) Handle(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		if m.redisClient == nil {
+			logx.Errorf("rate limit skipped: redis client is nil, name=%s", m.name)
+			next(w, r)
+			return
+		}
+
 		ip := basehandler.Meta(r).IP
 		key := security.RateLimitKey(m.name, ip)
 		count, err := m.redisClient.Incr(r.Context(), key).Result()
 		if err != nil {
-			response.Error(w, err)
+			logx.Errorf("rate limit skipped: redis incr failed, name=%s, err=%v", m.name, err)
+			next(w, r)
 			return
 		}
 		if count == 1 {
 			if err := m.redisClient.Expire(r.Context(), key, m.window).Err(); err != nil {
-				response.Error(w, err)
+				logx.Errorf("rate limit expire failed, name=%s, err=%v", m.name, err)
+				next(w, r)
 				return
 			}
 		}

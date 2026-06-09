@@ -56,6 +56,13 @@ func uint64FromNull(v sql.NullInt64) uint64 {
 	return uint64(v.Int64)
 }
 
+func stringFromNull(v sql.NullString) string {
+	if !v.Valid {
+		return ""
+	}
+	return v.String
+}
+
 func timeFromNull(v sql.NullTime) *time.Time {
 	if !v.Valid {
 		return nil

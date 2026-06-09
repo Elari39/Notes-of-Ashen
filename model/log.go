@@ -34,15 +34,31 @@ FROM operation_logs ORDER BY id DESC LIMIT ? OFFSET ?`, size, offset)
 
 	items := make([]OperationLog, 0)
 	for rows.Next() {
-		var item OperationLog
-		var userID sql.NullInt64
-		var resourceID sql.NullInt64
-		if err := rows.Scan(&item.ID, &userID, &item.EventType, &item.ResourceType, &resourceID, &item.Metadata, &item.IP, &item.UserAgent, &item.CreatedAt); err != nil {
+		item, err := scanOperationLog(rows)
+		if err != nil {
 			return nil, 0, err
 		}
-		item.UserID = uint64FromNull(userID)
-		item.ResourceID = uint64FromNull(resourceID)
 		items = append(items, item)
 	}
 	return items, total, rows.Err()
+}
+
+type operationLogScanner interface {
+	Scan(dest ...interface{}) error
+}
+
+func scanOperationLog(scanner operationLogScanner) (OperationLog, error) {
+	var item OperationLog
+	var userID sql.NullInt64
+	var resourceID sql.NullInt64
+	var ip sql.NullString
+	var userAgent sql.NullString
+	if err := scanner.Scan(&item.ID, &userID, &item.EventType, &item.ResourceType, &resourceID, &item.Metadata, &ip, &userAgent, &item.CreatedAt); err != nil {
+		return OperationLog{}, err
+	}
+	item.UserID = uint64FromNull(userID)
+	item.ResourceID = uint64FromNull(resourceID)
+	item.IP = stringFromNull(ip)
+	item.UserAgent = stringFromNull(userAgent)
+	return item, nil
 }

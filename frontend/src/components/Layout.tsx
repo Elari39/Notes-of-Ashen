@@ -91,8 +91,8 @@ const Layout: React.FC = () => {
     if (refreshToken) {
       try {
         await apiLogout({ refreshToken });
-      } catch (e) {
-        console.error(e);
+      } catch {
+        // Local logout should still complete if the server-side token revoke fails.
       }
     }
     logout();
