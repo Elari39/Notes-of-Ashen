@@ -15,6 +15,10 @@ const AdminSettings: React.FC = () => {
     siteDescription,
     siteKeywords,
     siteBaseUrl,
+    resumePageEnabled,
+    resumeNavHidden,
+    projectsPageEnabled,
+    projectsNavHidden,
     isLoading,
     fetchSettings,
     updateSettings,
@@ -25,6 +29,10 @@ const AdminSettings: React.FC = () => {
   const [draftSiteDescription, setDraftSiteDescription] = useState(siteDescription);
   const [draftSiteKeywords, setDraftSiteKeywords] = useState(siteKeywords);
   const [draftSiteBaseUrl, setDraftSiteBaseUrl] = useState(siteBaseUrl);
+  const [draftResumePageEnabled, setDraftResumePageEnabled] = useState(resumePageEnabled);
+  const [draftResumeNavHidden, setDraftResumeNavHidden] = useState(resumeNavHidden);
+  const [draftProjectsPageEnabled, setDraftProjectsPageEnabled] = useState(projectsPageEnabled);
+  const [draftProjectsNavHidden, setDraftProjectsNavHidden] = useState(projectsNavHidden);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const t = (key: Parameters<typeof translate>[1]) => translate(language, key);
@@ -40,7 +48,11 @@ const AdminSettings: React.FC = () => {
     setDraftSiteDescription(siteDescription);
     setDraftSiteKeywords(siteKeywords);
     setDraftSiteBaseUrl(siteBaseUrl);
-  }, [registrationEnabled, homeArticleLayout, siteTitle, siteDescription, siteKeywords, siteBaseUrl]);
+    setDraftResumePageEnabled(resumePageEnabled);
+    setDraftResumeNavHidden(resumeNavHidden);
+    setDraftProjectsPageEnabled(projectsPageEnabled);
+    setDraftProjectsNavHidden(projectsNavHidden);
+  }, [registrationEnabled, homeArticleLayout, siteTitle, siteDescription, siteKeywords, siteBaseUrl, resumePageEnabled, resumeNavHidden, projectsPageEnabled, projectsNavHidden]);
 
   const hasChanges =
     draftRegistrationEnabled !== registrationEnabled ||
@@ -48,7 +60,11 @@ const AdminSettings: React.FC = () => {
     draftSiteTitle !== siteTitle ||
     draftSiteDescription !== siteDescription ||
     draftSiteKeywords !== siteKeywords ||
-    draftSiteBaseUrl !== siteBaseUrl;
+    draftSiteBaseUrl !== siteBaseUrl ||
+    draftResumePageEnabled !== resumePageEnabled ||
+    draftResumeNavHidden !== resumeNavHidden ||
+    draftProjectsPageEnabled !== projectsPageEnabled ||
+    draftProjectsNavHidden !== projectsNavHidden;
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -62,6 +78,10 @@ const AdminSettings: React.FC = () => {
         siteDescription: draftSiteDescription.trim(),
         siteKeywords: draftSiteKeywords.trim(),
         siteBaseUrl: draftSiteBaseUrl.trim(),
+        resumePageEnabled: draftResumePageEnabled,
+        resumeNavHidden: draftResumeNavHidden,
+        projectsPageEnabled: draftProjectsPageEnabled,
+        projectsNavHidden: draftProjectsNavHidden,
       });
       setNotice(t('settings.saved'));
     } catch (e: unknown) {
@@ -76,6 +96,10 @@ const AdminSettings: React.FC = () => {
     setDraftSiteDescription(siteDescription);
     setDraftSiteKeywords(siteKeywords);
     setDraftSiteBaseUrl(siteBaseUrl);
+    setDraftResumePageEnabled(resumePageEnabled);
+    setDraftResumeNavHidden(resumeNavHidden);
+    setDraftProjectsPageEnabled(projectsPageEnabled);
+    setDraftProjectsNavHidden(projectsNavHidden);
     setError('');
     setNotice('');
   };
@@ -112,6 +136,90 @@ const AdminSettings: React.FC = () => {
             >
               {draftRegistrationEnabled ? t('settings.registrationEnabled') : t('settings.registrationDisabled')}
             </button>
+          </div>
+        </section>
+
+        <section className="border border-mountain-grey bg-[var(--paper-soft)] p-5">
+          <div className="mb-5">
+            <h4 className="text-base font-bold tracking-widest text-ink">前台页面控制</h4>
+            <p className="mt-2 text-sm leading-relaxed text-ink-light opacity-80">
+              启用决定路由是否可访问；隐藏只控制是否出现在前台导航中。
+            </p>
+          </div>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div className="border border-mountain-grey p-4">
+              <div className="mb-4">
+                <p className="text-sm font-bold tracking-widest text-ink">简介页面</p>
+                <p className="mt-2 text-xs leading-relaxed text-ink-light opacity-80">控制 /resume 页面和导航入口。</p>
+              </div>
+              <div className="flex flex-wrap gap-3">
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={draftResumePageEnabled}
+                  disabled={isLoading}
+                  onClick={() => setDraftResumePageEnabled((enabled) => !enabled)}
+                  className={`min-w-28 border px-4 py-2 text-sm tracking-widest transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+                    draftResumePageEnabled
+                      ? 'border-ochre text-ochre hover:bg-ochre hover:text-paper'
+                      : 'border-ink-light text-ink-light hover:border-ink hover:text-ink'
+                  }`}
+                >
+                  {draftResumePageEnabled ? '已启用' : '已禁用'}
+                </button>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={!draftResumeNavHidden}
+                  disabled={isLoading}
+                  onClick={() => setDraftResumeNavHidden((hidden) => !hidden)}
+                  className={`min-w-28 border px-4 py-2 text-sm tracking-widest transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+                    !draftResumeNavHidden
+                      ? 'border-ochre text-ochre hover:bg-ochre hover:text-paper'
+                      : 'border-ink-light text-ink-light hover:border-ink hover:text-ink'
+                  }`}
+                >
+                  {draftResumeNavHidden ? '导航隐藏' : '导航显示'}
+                </button>
+              </div>
+            </div>
+
+            <div className="border border-mountain-grey p-4">
+              <div className="mb-4">
+                <p className="text-sm font-bold tracking-widest text-ink">项目页面</p>
+                <p className="mt-2 text-xs leading-relaxed text-ink-light opacity-80">控制 /projects 页面和导航入口。</p>
+              </div>
+              <div className="flex flex-wrap gap-3">
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={draftProjectsPageEnabled}
+                  disabled={isLoading}
+                  onClick={() => setDraftProjectsPageEnabled((enabled) => !enabled)}
+                  className={`min-w-28 border px-4 py-2 text-sm tracking-widest transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+                    draftProjectsPageEnabled
+                      ? 'border-ochre text-ochre hover:bg-ochre hover:text-paper'
+                      : 'border-ink-light text-ink-light hover:border-ink hover:text-ink'
+                  }`}
+                >
+                  {draftProjectsPageEnabled ? '已启用' : '已禁用'}
+                </button>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={!draftProjectsNavHidden}
+                  disabled={isLoading}
+                  onClick={() => setDraftProjectsNavHidden((hidden) => !hidden)}
+                  className={`min-w-28 border px-4 py-2 text-sm tracking-widest transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+                    !draftProjectsNavHidden
+                      ? 'border-ochre text-ochre hover:bg-ochre hover:text-paper'
+                      : 'border-ink-light text-ink-light hover:border-ink hover:text-ink'
+                  }`}
+                >
+                  {draftProjectsNavHidden ? '导航隐藏' : '导航显示'}
+                </button>
+              </div>
+            </div>
           </div>
         </section>
 

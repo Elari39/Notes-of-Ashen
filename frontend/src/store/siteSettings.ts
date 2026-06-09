@@ -9,6 +9,10 @@ interface SiteSettingsState {
   siteDescription: string;
   siteKeywords: string;
   siteBaseUrl: string;
+  resumePageEnabled: boolean;
+  resumeNavHidden: boolean;
+  projectsPageEnabled: boolean;
+  projectsNavHidden: boolean;
   isLoading: boolean;
   hasLoaded: boolean;
   error: string;
@@ -25,6 +29,10 @@ export const useSiteSettingsStore = create<SiteSettingsState>((set, get) => ({
   siteDescription: 'A personal blog written slowly by the lamp of ink.',
   siteKeywords: 'blog,notes,writing',
   siteBaseUrl: '',
+  resumePageEnabled: false,
+  resumeNavHidden: true,
+  projectsPageEnabled: false,
+  projectsNavHidden: true,
   isLoading: false,
   hasLoaded: false,
   error: '',
@@ -39,6 +47,10 @@ export const useSiteSettingsStore = create<SiteSettingsState>((set, get) => ({
         siteDescription: res.data.siteDescription || '',
         siteKeywords: res.data.siteKeywords || '',
         siteBaseUrl: res.data.siteBaseUrl || '',
+        resumePageEnabled: Boolean(res.data.resumePageEnabled),
+        resumeNavHidden: res.data.resumeNavHidden ?? true,
+        projectsPageEnabled: Boolean(res.data.projectsPageEnabled),
+        projectsNavHidden: res.data.projectsNavHidden ?? true,
         hasLoaded: true,
       });
     } catch (error) {
@@ -58,6 +70,10 @@ export const useSiteSettingsStore = create<SiteSettingsState>((set, get) => ({
         siteDescription: res.data.siteDescription || '',
         siteKeywords: res.data.siteKeywords || '',
         siteBaseUrl: res.data.siteBaseUrl || '',
+        resumePageEnabled: Boolean(res.data.resumePageEnabled),
+        resumeNavHidden: res.data.resumeNavHidden ?? true,
+        projectsPageEnabled: Boolean(res.data.projectsPageEnabled),
+        projectsNavHidden: res.data.projectsNavHidden ?? true,
         hasLoaded: true,
       });
     } catch (error) {
@@ -68,11 +84,11 @@ export const useSiteSettingsStore = create<SiteSettingsState>((set, get) => ({
     }
   },
   setRegistrationEnabled: async (enabled) => {
-    const { homeArticleLayout, siteTitle, siteDescription, siteKeywords, siteBaseUrl, updateSettings } = get();
-    await updateSettings({ registrationEnabled: enabled, homeArticleLayout, siteTitle, siteDescription, siteKeywords, siteBaseUrl });
+    const { homeArticleLayout, siteTitle, siteDescription, siteKeywords, siteBaseUrl, resumePageEnabled, resumeNavHidden, projectsPageEnabled, projectsNavHidden, updateSettings } = get();
+    await updateSettings({ registrationEnabled: enabled, homeArticleLayout, siteTitle, siteDescription, siteKeywords, siteBaseUrl, resumePageEnabled, resumeNavHidden, projectsPageEnabled, projectsNavHidden });
   },
   setHomeArticleLayout: async (layout) => {
-    const { registrationEnabled, siteTitle, siteDescription, siteKeywords, siteBaseUrl, updateSettings } = get();
-    await updateSettings({ registrationEnabled, homeArticleLayout: layout, siteTitle, siteDescription, siteKeywords, siteBaseUrl });
+    const { registrationEnabled, siteTitle, siteDescription, siteKeywords, siteBaseUrl, resumePageEnabled, resumeNavHidden, projectsPageEnabled, projectsNavHidden, updateSettings } = get();
+    await updateSettings({ registrationEnabled, homeArticleLayout: layout, siteTitle, siteDescription, siteKeywords, siteBaseUrl, resumePageEnabled, resumeNavHidden, projectsPageEnabled, projectsNavHidden });
   },
 }));

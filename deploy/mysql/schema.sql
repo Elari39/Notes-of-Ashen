@@ -19,7 +19,7 @@ CREATE TABLE IF NOT EXISTS users (
 -- 站点设置
 CREATE TABLE IF NOT EXISTS site_settings (
     setting_key VARCHAR(64) NOT NULL PRIMARY KEY,
-    setting_value TEXT NOT NULL,
+    setting_value MEDIUMTEXT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -46,6 +46,46 @@ ON DUPLICATE KEY UPDATE setting_value = setting_value;
 
 INSERT INTO site_settings (setting_key, setting_value)
 VALUES ('site_base_url', '')
+ON DUPLICATE KEY UPDATE setting_value = setting_value;
+
+INSERT INTO site_settings (setting_key, setting_value)
+VALUES ('resume_page_enabled', 'false')
+ON DUPLICATE KEY UPDATE setting_value = setting_value;
+
+INSERT INTO site_settings (setting_key, setting_value)
+VALUES ('resume_nav_hidden', 'true')
+ON DUPLICATE KEY UPDATE setting_value = setting_value;
+
+INSERT INTO site_settings (setting_key, setting_value)
+VALUES ('projects_page_enabled', 'false')
+ON DUPLICATE KEY UPDATE setting_value = setting_value;
+
+INSERT INTO site_settings (setting_key, setting_value)
+VALUES ('projects_nav_hidden', 'true')
+ON DUPLICATE KEY UPDATE setting_value = setting_value;
+
+INSERT INTO site_settings (setting_key, setting_value)
+VALUES ('resume_title', '简介')
+ON DUPLICATE KEY UPDATE setting_value = setting_value;
+
+INSERT INTO site_settings (setting_key, setting_value)
+VALUES ('resume_subtitle', '')
+ON DUPLICATE KEY UPDATE setting_value = setting_value;
+
+INSERT INTO site_settings (setting_key, setting_value)
+VALUES ('resume_content_markdown', '')
+ON DUPLICATE KEY UPDATE setting_value = setting_value;
+
+INSERT INTO site_settings (setting_key, setting_value)
+VALUES ('projects_title', '项目')
+ON DUPLICATE KEY UPDATE setting_value = setting_value;
+
+INSERT INTO site_settings (setting_key, setting_value)
+VALUES ('projects_subtitle', '')
+ON DUPLICATE KEY UPDATE setting_value = setting_value;
+
+INSERT INTO site_settings (setting_key, setting_value)
+VALUES ('projects_items_json', '[]')
 ON DUPLICATE KEY UPDATE setting_value = setting_value;
 
 -- Categories

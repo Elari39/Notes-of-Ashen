@@ -21,6 +21,28 @@ func SettingsHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	}
 }
 
+func ResumePageHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		resp, err := sitelogic.ResumePage(r.Context(), svcCtx)
+		if err != nil {
+			response.Error(w, err)
+			return
+		}
+		response.Ok(w, resp)
+	}
+}
+
+func ProjectsPageHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		resp, err := sitelogic.ProjectsPage(r.Context(), svcCtx)
+		if err != nil {
+			response.Error(w, err)
+			return
+		}
+		response.Ok(w, resp)
+	}
+}
+
 func RSSHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		body, err := sitelogic.RSS(r.Context(), svcCtx, basehandler.RequestBaseURL(r))
@@ -42,6 +64,60 @@ func SitemapHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 		}
 		w.Header().Set("Content-Type", "application/xml; charset=utf-8")
 		_, _ = w.Write(body)
+	}
+}
+
+func AdminResumePageHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		resp, err := sitelogic.AdminResumePage(r.Context(), svcCtx)
+		if err != nil {
+			response.Error(w, err)
+			return
+		}
+		response.Ok(w, resp)
+	}
+}
+
+func UpdateResumePageHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var req types.UpdateResumePageReq
+		if err := basehandler.Parse(r, &req); err != nil {
+			response.Error(w, err)
+			return
+		}
+		resp, err := sitelogic.UpdateResumePage(r.Context(), svcCtx, req)
+		if err != nil {
+			response.Error(w, err)
+			return
+		}
+		response.Ok(w, resp)
+	}
+}
+
+func AdminProjectsPageHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		resp, err := sitelogic.AdminProjectsPage(r.Context(), svcCtx)
+		if err != nil {
+			response.Error(w, err)
+			return
+		}
+		response.Ok(w, resp)
+	}
+}
+
+func UpdateProjectsPageHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var req types.UpdateProjectsPageReq
+		if err := basehandler.Parse(r, &req); err != nil {
+			response.Error(w, err)
+			return
+		}
+		resp, err := sitelogic.UpdateProjectsPage(r.Context(), svcCtx, req)
+		if err != nil {
+			response.Error(w, err)
+			return
+		}
+		response.Ok(w, resp)
 	}
 }
 

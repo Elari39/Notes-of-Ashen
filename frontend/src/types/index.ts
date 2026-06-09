@@ -24,9 +24,39 @@ export interface SiteSettings {
   siteDescription: string;
   siteKeywords: string;
   siteBaseUrl: string;
+  resumePageEnabled: boolean;
+  resumeNavHidden: boolean;
+  projectsPageEnabled: boolean;
+  projectsNavHidden: boolean;
 }
 
 export type HomeArticleLayout = 'standard' | 'alternating';
+
+export interface ResumePage {
+  title: string;
+  subtitle: string;
+  contentMarkdown: string;
+}
+
+export interface ProjectItem {
+  id: string;
+  title: string;
+  summary: string;
+  role: string;
+  period: string;
+  tags: string[];
+  coverUrl: string;
+  demoUrl: string;
+  repoUrl: string;
+  contentMarkdown: string;
+  featured: boolean;
+}
+
+export interface ProjectsPage {
+  title: string;
+  subtitle: string;
+  items: ProjectItem[];
+}
 
 export interface Category {
   id: number;

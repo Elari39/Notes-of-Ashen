@@ -81,6 +81,10 @@ type SiteSettingsResp {
 	SiteDescription     string `json:"siteDescription"`
 	SiteKeywords        string `json:"siteKeywords"`
 	SiteBaseUrl         string `json:"siteBaseUrl"`
+	ResumePageEnabled  bool   `json:"resumePageEnabled"`
+	ResumeNavHidden    bool   `json:"resumeNavHidden"`
+	ProjectsPageEnabled bool   `json:"projectsPageEnabled"`
+	ProjectsNavHidden  bool   `json:"projectsNavHidden"`
 }
 
 type UpdateSiteSettingsReq {
@@ -90,6 +94,48 @@ type UpdateSiteSettingsReq {
 	SiteDescription     string `json:"siteDescription,optional"`
 	SiteKeywords        string `json:"siteKeywords,optional"`
 	SiteBaseUrl         string `json:"siteBaseUrl,optional"`
+	ResumePageEnabled  bool   `json:"resumePageEnabled,optional"`
+	ResumeNavHidden    bool   `json:"resumeNavHidden,optional"`
+	ProjectsPageEnabled bool   `json:"projectsPageEnabled,optional"`
+	ProjectsNavHidden  bool   `json:"projectsNavHidden,optional"`
+}
+
+type ResumePageResp {
+	Title           string `json:"title"`
+	Subtitle        string `json:"subtitle"`
+	ContentMarkdown string `json:"contentMarkdown"`
+}
+
+type UpdateResumePageReq {
+	Title           string `json:"title"`
+	Subtitle        string `json:"subtitle,optional"`
+	ContentMarkdown string `json:"contentMarkdown,optional"`
+}
+
+type ProjectItem {
+	ID              string   `json:"id"`
+	Title           string   `json:"title"`
+	Summary         string   `json:"summary"`
+	Role            string   `json:"role"`
+	Period          string   `json:"period"`
+	Tags            []string `json:"tags"`
+	CoverUrl        string   `json:"coverUrl"`
+	DemoUrl         string   `json:"demoUrl"`
+	RepoUrl         string   `json:"repoUrl"`
+	ContentMarkdown string   `json:"contentMarkdown"`
+	Featured        bool     `json:"featured"`
+}
+
+type ProjectsPageResp {
+	Title    string        `json:"title"`
+	Subtitle string        `json:"subtitle"`
+	Items    []ProjectItem `json:"items"`
+}
+
+type UpdateProjectsPageReq {
+	Title    string        `json:"title"`
+	Subtitle string        `json:"subtitle,optional"`
+	Items    []ProjectItem `json:"items"`
 }
 
 type UpdateMeReq {
@@ -437,6 +483,12 @@ service notesOfAshen-api {
 	@handler siteSettings
 	get /api/v1/site/settings returns (SiteSettingsResp)
 
+	@handler siteResumePage
+	get /api/v1/site/resume returns (ResumePageResp)
+
+	@handler siteProjectsPage
+	get /api/v1/site/projects returns (ProjectsPageResp)
+
 	@handler logout
 	post /api/v1/auth/logout (RefreshReq) returns (EmptyResp)
 
@@ -523,4 +575,16 @@ service notesOfAshen-api {
 
 	@handler adminUpdateSiteSettings
 	put /api/v1/admin/site/settings (UpdateSiteSettingsReq) returns (SiteSettingsResp)
+
+	@handler adminResumePage
+	get /api/v1/admin/site/resume returns (ResumePageResp)
+
+	@handler adminUpdateResumePage
+	put /api/v1/admin/site/resume (UpdateResumePageReq) returns (ResumePageResp)
+
+	@handler adminProjectsPage
+	get /api/v1/admin/site/projects returns (ProjectsPageResp)
+
+	@handler adminUpdateProjectsPage
+	put /api/v1/admin/site/projects (UpdateProjectsPageReq) returns (ProjectsPageResp)
 }

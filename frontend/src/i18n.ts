@@ -173,6 +173,8 @@ const zh = {
   'admin.users': '用户管理',
   'admin.logs': '操作日志',
   'admin.settings': '站点设置',
+  'admin.resume': '简历管理',
+  'admin.projects': '项目管理',
 
   'dashboard.title': '墨案总览',
   'dashboard.loading': '墨案清点中...',
@@ -444,6 +446,8 @@ const en: Record<TranslationKey, string> = {
   'admin.users': 'Users',
   'admin.logs': 'Logs',
   'admin.settings': 'Settings',
+  'admin.resume': 'Resume',
+  'admin.projects': 'Projects',
 
   'dashboard.title': 'Dashboard',
   'dashboard.loading': 'Loading stats...',

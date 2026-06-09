@@ -1,4 +1,4 @@
-import { Suspense, lazy, useEffect, useRef } from 'react';
+import { Suspense, lazy, useEffect, useRef, type ReactElement } from 'react';
 import { Routes, Route, useLocation } from 'react-router-dom';
 import Layout from './components/Layout';
 import Home from './pages/Home';
@@ -14,6 +14,8 @@ const Register = lazy(() => import('./pages/Register'));
 const ForgotPassword = lazy(() => import('./pages/ForgotPassword'));
 const Archive = lazy(() => import('./pages/Archive'));
 const Search = lazy(() => import('./pages/Search'));
+const Resume = lazy(() => import('./pages/Resume'));
+const Projects = lazy(() => import('./pages/Projects'));
 const Profile = lazy(() => import('./pages/Profile'));
 const AdminLayout = lazy(() => import('./pages/admin/AdminLayout'));
 const AdminArticles = lazy(() => import('./pages/admin/Articles'));
@@ -26,6 +28,8 @@ const AdminTags = lazy(() => import('./pages/admin/Tags'));
 const AdminUsers = lazy(() => import('./pages/admin/Users'));
 const AdminLogs = lazy(() => import('./pages/admin/Logs'));
 const AdminSettings = lazy(() => import('./pages/admin/Settings'));
+const AdminResumeContent = lazy(() => import('./pages/admin/ResumeContent'));
+const AdminProjectsContent = lazy(() => import('./pages/admin/ProjectsContent'));
 const NotFound = lazy(() => import('./pages/NotFound'));
 
 const RouteLoading = () => (
@@ -36,7 +40,11 @@ const RouteLoading = () => (
 
 function App() {
   const initializePreferences = usePreferenceStore((state) => state.initializePreferences);
-  const fetchSiteSettings = useSiteSettingsStore((state) => state.fetchSettings);
+  const {
+    fetchSettings: fetchSiteSettings,
+    resumePageEnabled,
+    projectsPageEnabled,
+  } = useSiteSettingsStore();
   const initializeAuth = useAuthStore((state) => state.initializeAuth);
 
   useEffect(() => {
@@ -60,6 +68,22 @@ function App() {
           <Route path="article/:id" element={<ArticleDetail />} />
           <Route path="archive" element={<Archive />} />
           <Route path="search" element={<Search />} />
+          <Route
+            path="resume"
+            element={(
+              <PublicFeatureRoute enabled={resumePageEnabled}>
+                <Resume />
+              </PublicFeatureRoute>
+            )}
+          />
+          <Route
+            path="projects"
+            element={(
+              <PublicFeatureRoute enabled={projectsPageEnabled}>
+                <Projects />
+              </PublicFeatureRoute>
+            )}
+          />
           <Route path="login" element={<Login />} />
           <Route path="register" element={<Register />} />
           <Route path="forgot-password" element={<ForgotPassword />} />
@@ -82,6 +106,8 @@ function App() {
                 <Route path="users" element={<AdminUsers />} />
                 <Route path="logs" element={<AdminLogs />} />
                 <Route path="settings" element={<AdminSettings />} />
+                <Route path="resume" element={<AdminResumeContent />} />
+                <Route path="projects" element={<AdminProjectsContent />} />
               </Route>
             </Route>
           </Route>
@@ -96,13 +122,35 @@ export default App;
 
 const ignoredTrafficPrefixes = ['/admin', '/login', '/register', '/profile', '/forgot-password'];
 
+const PublicFeatureRoute = ({ enabled, children }: { enabled: boolean; children: ReactElement }) => {
+  const { hasLoaded, error } = useSiteSettingsStore();
+
+  if (!hasLoaded) {
+    return <RouteLoading />;
+  }
+
+  if (error || !enabled) {
+    return <NotFound />;
+  }
+
+  return children;
+};
+
 const TrafficReporter = () => {
   const location = useLocation();
   const previousPublicPath = useRef('');
+  const {
+    hasLoaded: siteSettingsLoaded,
+    resumePageEnabled,
+    projectsPageEnabled,
+  } = useSiteSettingsStore();
 
   useEffect(() => {
     const path = `${location.pathname}${location.search}`;
     if (ignoredTrafficPrefixes.some((prefix) => location.pathname === prefix || location.pathname.startsWith(`${prefix}/`))) {
+      return;
+    }
+    if (isDisabledFeaturePath(location.pathname, siteSettingsLoaded, resumePageEnabled, projectsPageEnabled)) {
       return;
     }
     const duplicateKey = `traffic:${path}`;
@@ -124,7 +172,19 @@ const TrafficReporter = () => {
       articleId: articleMatch ? Number(articleMatch[1]) : undefined,
       referrer,
     }).catch(() => undefined);
-  }, [location.pathname, location.search]);
+  }, [location.pathname, location.search, projectsPageEnabled, resumePageEnabled, siteSettingsLoaded]);
 
   return null;
+};
+
+const isDisabledFeaturePath = (
+  pathname: string,
+  siteSettingsLoaded: boolean,
+  resumePageEnabled: boolean,
+  projectsPageEnabled: boolean,
+) => {
+  if (!siteSettingsLoaded) {
+    return pathname === '/resume' || pathname === '/projects';
+  }
+  return (pathname === '/resume' && !resumePageEnabled) || (pathname === '/projects' && !projectsPageEnabled);
 };

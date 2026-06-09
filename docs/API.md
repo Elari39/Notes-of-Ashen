@@ -490,7 +490,7 @@ DELETE /api/v1/tags/:id
 GET /api/v1/site/settings
 ```
 
-权限：公开。返回当前游客是否可以注册账号、首页文章列表布局和站点 SEO 信息。若用户表为空，即使后台开关保存为关闭，也会返回 `registrationEnabled = true`，确保首个注册用户仍可成为管理员。
+权限：公开。返回当前游客是否可以注册账号、首页文章列表布局、前台页面控制和站点 SEO 信息。若用户表为空，即使后台开关保存为关闭，也会返回 `registrationEnabled = true`，确保首个注册用户仍可成为管理员。
 
 响应示例：
 
@@ -504,7 +504,11 @@ GET /api/v1/site/settings
     "siteTitle": "Notes of Ashen",
     "siteDescription": "A personal blog written slowly by the lamp of ink.",
     "siteKeywords": "blog,notes,writing",
-    "siteBaseUrl": ""
+    "siteBaseUrl": "",
+    "resumePageEnabled": false,
+    "resumeNavHidden": true,
+    "projectsPageEnabled": false,
+    "projectsNavHidden": true
   }
 }
 ```
@@ -525,6 +529,108 @@ PUT /api/v1/admin/site/settings
 | siteDescription | string | 否 | 站点描述，空值表示保留当前值 |
 | siteKeywords | string | 否 | 站点关键词，空值表示保留当前值 |
 | siteBaseUrl | string | 否 | 站点公开基础 URL，非空必须为 `http://` 或 `https://` URL |
+| resumePageEnabled | bool | 否 | 是否启用 `/resume` 简介页面；不传时保留当前值 |
+| resumeNavHidden | bool | 否 | 是否在前台导航隐藏简介入口；不传时保留当前值 |
+| projectsPageEnabled | bool | 否 | 是否启用 `/projects` 项目页面；不传时保留当前值 |
+| projectsNavHidden | bool | 否 | 是否在前台导航隐藏项目入口；不传时保留当前值 |
+
+### 获取简历页面内容
+
+```text
+GET /api/v1/site/resume
+```
+
+权限：公开。仅当后台启用 `/resume` 页面时可访问，否则返回 `403 feature disabled`。
+
+响应 `data`：
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| title | string | 页面标题 |
+| subtitle | string | 页面副标题 |
+| contentMarkdown | string | 简历 Markdown 正文 |
+
+### 获取项目页面内容
+
+```text
+GET /api/v1/site/projects
+```
+
+权限：公开。仅当后台启用 `/projects` 页面时可访问，否则返回 `403 feature disabled`。项目数组顺序即前台展示顺序。
+
+响应 `data`：
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| title | string | 页面标题 |
+| subtitle | string | 页面副标题 |
+| items | object[] | 项目列表 |
+
+项目字段：
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| id | string | 项目稳定 ID |
+| title | string | 项目标题 |
+| summary | string | 项目摘要 |
+| role | string | 角色或职责 |
+| period | string | 项目周期 |
+| tags | string[] | 标签 |
+| coverUrl | string | 封面 URL，可为空 |
+| demoUrl | string | 演示链接，可为空 |
+| repoUrl | string | 代码仓库链接，可为空 |
+| contentMarkdown | string | 项目详情 Markdown |
+| featured | bool | 是否精选 |
+
+### 更新简历页面内容
+
+```text
+GET /api/v1/admin/site/resume
+PUT /api/v1/admin/site/resume
+```
+
+权限：`admin`。后台读取不受公开页面启用状态影响。
+
+更新字段：
+
+| 字段 | 类型 | 必填 | 说明 |
+| --- | --- | --- | --- |
+| title | string | 是 | 页面标题，长度 1 到 160 |
+| subtitle | string | 否 | 页面副标题，最长 255 |
+| contentMarkdown | string | 否 | 简历 Markdown 正文，最长 200000 字符 |
+
+### 更新项目页面内容
+
+```text
+GET /api/v1/admin/site/projects
+PUT /api/v1/admin/site/projects
+```
+
+权限：`admin`。后台读取不受公开页面启用状态影响。保存时 `items` 数组顺序会作为展示顺序。
+
+更新字段：
+
+| 字段 | 类型 | 必填 | 说明 |
+| --- | --- | --- | --- |
+| title | string | 是 | 页面标题，长度 1 到 160 |
+| subtitle | string | 否 | 页面副标题，最长 255 |
+| items | object[] | 是 | 项目列表，最多 50 个 |
+
+项目更新字段：
+
+| 字段 | 类型 | 必填 | 说明 |
+| --- | --- | --- | --- |
+| id | string | 否 | 项目 ID；为空时后端会按顺序生成 |
+| title | string | 是 | 项目标题，长度 1 到 120 |
+| summary | string | 否 | 摘要，最长 500 |
+| role | string | 否 | 角色或职责，最长 80 |
+| period | string | 否 | 项目周期，最长 80 |
+| tags | string[] | 否 | 最多 12 个，每个最长 32；保存时会去空和去重 |
+| coverUrl | string | 否 | 封面 URL，非空必须为 `http://` 或 `https://` |
+| demoUrl | string | 否 | 演示 URL，非空必须为 `http://` 或 `https://` |
+| repoUrl | string | 否 | 代码仓库 URL，非空必须为 `http://` 或 `https://` |
+| contentMarkdown | string | 否 | 项目详情 Markdown，最长 50000 字符 |
+| featured | bool | 否 | 是否精选 |
 
 ### RSS 与 Sitemap
 

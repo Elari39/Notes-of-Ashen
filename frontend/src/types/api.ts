@@ -63,6 +63,36 @@ export interface UpdateSiteSettingsReq {
   siteDescription: string;
   siteKeywords: string;
   siteBaseUrl: string;
+  resumePageEnabled?: boolean;
+  resumeNavHidden?: boolean;
+  projectsPageEnabled?: boolean;
+  projectsNavHidden?: boolean;
+}
+
+export interface UpdateResumePageReq {
+  title: string;
+  subtitle?: string;
+  contentMarkdown?: string;
+}
+
+export interface ProjectItemReq {
+  id: string;
+  title: string;
+  summary: string;
+  role: string;
+  period: string;
+  tags: string[];
+  coverUrl: string;
+  demoUrl: string;
+  repoUrl: string;
+  contentMarkdown: string;
+  featured: boolean;
+}
+
+export interface UpdateProjectsPageReq {
+  title: string;
+  subtitle?: string;
+  items: ProjectItemReq[];
 }
 
 // User

@@ -22,3 +22,41 @@ func TestNormalizeHomeArticleLayout(t *testing.T) {
 		})
 	}
 }
+
+func TestDecodeProjectItems(t *testing.T) {
+	items, err := DecodeProjectItems(`[
+		{
+			"id": " first ",
+			"title": " Project ",
+			"summary": " Summary ",
+			"tags": [" Go ", "go", "", "React"],
+			"coverUrl": " https://example.com/cover.png "
+		}
+	]`)
+	if err != nil {
+		t.Fatalf("DecodeProjectItems returned error: %v", err)
+	}
+	if len(items) != 1 {
+		t.Fatalf("len(items) = %d, want 1", len(items))
+	}
+	item := items[0]
+	if item.ID != "first" || item.Title != "Project" || item.Summary != "Summary" {
+		t.Fatalf("project item was not normalized: %#v", item)
+	}
+	if len(item.Tags) != 2 || item.Tags[0] != "Go" || item.Tags[1] != "React" {
+		t.Fatalf("tags = %#v, want [Go React]", item.Tags)
+	}
+	if item.CoverURL != "https://example.com/cover.png" {
+		t.Fatalf("CoverURL = %q, want trimmed URL", item.CoverURL)
+	}
+}
+
+func TestDecodeProjectItemsEmpty(t *testing.T) {
+	items, err := DecodeProjectItems("")
+	if err != nil {
+		t.Fatalf("DecodeProjectItems returned error: %v", err)
+	}
+	if len(items) != 0 {
+		t.Fatalf("len(items) = %d, want 0", len(items))
+	}
+}

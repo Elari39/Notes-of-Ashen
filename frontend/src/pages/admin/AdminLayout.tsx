@@ -4,10 +4,12 @@ import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { translate } from '../../i18n';
 import { usePreferenceStore } from '../../store/preferences';
 import { useAuthStore } from '../../store/auth';
+import { useSiteSettingsStore } from '../../store/siteSettings';
 
 const AdminLayout: React.FC = () => {
   const language = usePreferenceStore((state) => state.language);
   const user = useAuthStore((state) => state.user);
+  const { resumePageEnabled, projectsPageEnabled } = useSiteSettingsStore();
   const location = useLocation();
   const outlet = useOutlet();
   const shouldReduceMotion = useReducedMotion();
@@ -77,6 +79,22 @@ const AdminLayout: React.FC = () => {
               >
                 {t('admin.settings')}
               </NavLink>
+              {resumePageEnabled && (
+                <NavLink
+                  to="/admin/resume"
+                  className={({ isActive }) => isActive ? 'text-ochre font-bold' : 'hover:text-ochre transition-colors'}
+                >
+                  {t('admin.resume')}
+                </NavLink>
+              )}
+              {projectsPageEnabled && (
+                <NavLink
+                  to="/admin/projects"
+                  className={({ isActive }) => isActive ? 'text-ochre font-bold' : 'hover:text-ochre transition-colors'}
+                >
+                  {t('admin.projects')}
+                </NavLink>
+              )}
             </>
           )}
         </nav>

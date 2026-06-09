@@ -59,6 +59,10 @@ type SiteSettingsResp struct {
 	SiteDescription     string `json:"siteDescription"`
 	SiteKeywords        string `json:"siteKeywords"`
 	SiteBaseURL         string `json:"siteBaseUrl"`
+	ResumePageEnabled   bool   `json:"resumePageEnabled"`
+	ResumeNavHidden     bool   `json:"resumeNavHidden"`
+	ProjectsPageEnabled bool   `json:"projectsPageEnabled"`
+	ProjectsNavHidden   bool   `json:"projectsNavHidden"`
 }
 
 type UpdateSiteSettingsReq struct {
@@ -68,6 +72,48 @@ type UpdateSiteSettingsReq struct {
 	SiteDescription     string `json:"siteDescription,optional"`
 	SiteKeywords        string `json:"siteKeywords,optional"`
 	SiteBaseURL         string `json:"siteBaseUrl,optional"`
+	ResumePageEnabled   *bool  `json:"resumePageEnabled,optional"`
+	ResumeNavHidden     *bool  `json:"resumeNavHidden,optional"`
+	ProjectsPageEnabled *bool  `json:"projectsPageEnabled,optional"`
+	ProjectsNavHidden   *bool  `json:"projectsNavHidden,optional"`
+}
+
+type ResumePageResp struct {
+	Title           string `json:"title"`
+	Subtitle        string `json:"subtitle"`
+	ContentMarkdown string `json:"contentMarkdown"`
+}
+
+type UpdateResumePageReq struct {
+	Title           string `json:"title"`
+	Subtitle        string `json:"subtitle,optional"`
+	ContentMarkdown string `json:"contentMarkdown,optional"`
+}
+
+type ProjectItem struct {
+	ID              string   `json:"id"`
+	Title           string   `json:"title"`
+	Summary         string   `json:"summary"`
+	Role            string   `json:"role"`
+	Period          string   `json:"period"`
+	Tags            []string `json:"tags"`
+	CoverURL        string   `json:"coverUrl"`
+	DemoURL         string   `json:"demoUrl"`
+	RepoURL         string   `json:"repoUrl"`
+	ContentMarkdown string   `json:"contentMarkdown"`
+	Featured        bool     `json:"featured"`
+}
+
+type ProjectsPageResp struct {
+	Title    string        `json:"title"`
+	Subtitle string        `json:"subtitle"`
+	Items    []ProjectItem `json:"items"`
+}
+
+type UpdateProjectsPageReq struct {
+	Title    string        `json:"title"`
+	Subtitle string        `json:"subtitle,optional"`
+	Items    []ProjectItem `json:"items"`
 }
 
 type RequestMeta struct {

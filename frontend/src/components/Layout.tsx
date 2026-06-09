@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate, useOutlet } from 'react-router-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { useAuthStore } from '../store/auth';
 import { usePreferenceStore } from '../store/preferences';
+import { useSiteSettingsStore } from '../store/siteSettings';
 import { logout as apiLogout } from '../api/auth';
 import { isHttpAvatarUrl, normalizeAvatarUrl } from '../utils/avatar';
 import { formatText, translate } from '../i18n';
@@ -11,6 +12,7 @@ import { useSEO } from '../utils/seo';
 const Layout: React.FC = () => {
   const { user, logout } = useAuthStore();
   const { language, effectiveTheme, setLanguage, setThemePreference } = usePreferenceStore();
+  const { resumePageEnabled, resumeNavHidden, projectsPageEnabled, projectsNavHidden } = useSiteSettingsStore();
   const navigate = useNavigate();
   const location = useLocation();
   const outlet = useOutlet();
@@ -228,6 +230,12 @@ const Layout: React.FC = () => {
             <Link to="/" className={desktopLinkClass}>{t('nav.home')}</Link>
             <Link to="/archive" className={desktopLinkClass}>{t('nav.archive')}</Link>
             <Link to="/search" className={desktopLinkClass}>{t('nav.search')}</Link>
+            {projectsPageEnabled && !projectsNavHidden && (
+              <Link to="/projects" className={desktopLinkClass}>{language === 'zh' ? '项目' : 'Projects'}</Link>
+            )}
+            {resumePageEnabled && !resumeNavHidden && (
+              <Link to="/resume" className={desktopLinkClass}>{language === 'zh' ? '简介' : 'About'}</Link>
+            )}
             {user ? (
               <>
                 {(user.role === 'admin' || user.role === 'editor') && (
@@ -263,6 +271,12 @@ const Layout: React.FC = () => {
             <Link to="/" onClick={closeMobileMenu} className={mobileLinkClass}>{t('nav.home')}</Link>
             <Link to="/archive" onClick={closeMobileMenu} className={mobileLinkClass}>{t('nav.archive')}</Link>
             <Link to="/search" onClick={closeMobileMenu} className={mobileLinkClass}>{t('nav.search')}</Link>
+            {projectsPageEnabled && !projectsNavHidden && (
+              <Link to="/projects" onClick={closeMobileMenu} className={mobileLinkClass}>{language === 'zh' ? '项目' : 'Projects'}</Link>
+            )}
+            {resumePageEnabled && !resumeNavHidden && (
+              <Link to="/resume" onClick={closeMobileMenu} className={mobileLinkClass}>{language === 'zh' ? '简介' : 'About'}</Link>
+            )}
             {user ? (
               <>
                 {(user.role === 'admin' || user.role === 'editor') && (
