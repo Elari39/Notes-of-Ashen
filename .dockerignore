@@ -14,6 +14,11 @@ docker-compose*.yaml
 **/.env
 **/.env.*
 *.local
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
 
 # 文档与说明
 README.md
@@ -29,6 +34,13 @@ frontend/README.md
 **/.cache
 **/.eslintcache
 **/*.tsbuildinfo
+playwright-report
+**/playwright-report
+test-results
+**/test-results
+coverage-final.json
+**/coverage-final.json
+**/.turbo
 
 # Go 构建与测试产物
 bin
@@ -44,6 +56,8 @@ coverage.out
 *.coverprofile
 *.prof
 __debug_bin*
+.air
+vendor
 
 # 数据库备份与转储
 *_backup.sql
@@ -52,6 +66,15 @@ __debug_bin*
 *.sql.gz
 *.sql.zip
 *.sql.7z
+
+# GeoIP 本地数据库与下载包
+data
+**/data
+*.mmdb
+GeoLite2-*.tar.gz
+GeoLite2-*.zip
+GeoIP2-*.tar.gz
+GeoIP2-*.zip
 
 # 日志
 logs
@@ -70,13 +93,18 @@ lerna-debug.log*
 **/.DS_Store
 **/Thumbs.db
 **/Desktop.ini
+**/ehthumbs.db
+*.stackdump
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
+*.code-workspace
 
 # 临时文件
 *.tmp
+*.temp
 *.bak
 *.orig
+*.pid

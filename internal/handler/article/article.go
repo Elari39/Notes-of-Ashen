@@ -119,6 +119,22 @@ func ContextHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	}
 }
 
+func LikeHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id, err := basehandler.PathID(r)
+		if err != nil {
+			response.Error(w, err)
+			return
+		}
+		resp, err := articlelogic.Like(r.Context(), svcCtx, id, basehandler.Meta(r))
+		if err != nil {
+			response.Error(w, err)
+			return
+		}
+		response.Ok(w, resp)
+	}
+}
+
 func CreateHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req types.ArticleReq

@@ -7,6 +7,10 @@ services:
       context: .
       dockerfile: Dockerfile.web
     restart: unless-stopped
+    environment:
+      PRERENDER_ENABLED: "${PRERENDER_ENABLED:-0}"
+      PRERENDER_SERVICE_URL: "${PRERENDER_SERVICE_URL:-https://service.prerender.io}"
+      PRERENDER_TOKEN: "${PRERENDER_TOKEN:-}"
     ports:
       - "127.0.0.1:${WEB_PORT:-1270}:80"
     depends_on:
@@ -51,15 +55,53 @@ services:
       APP_AI_API_KEY: "${APP_AI_API_KEY:-}"
       APP_AI_MODEL: "${APP_AI_MODEL:-}"
       APP_AI_TIMEOUT_SECONDS: "${APP_AI_TIMEOUT_SECONDS:-30}"
+      APP_GEOIP_DATABASE_PATH: "${APP_GEOIP_DATABASE_PATH:-/data/GeoLite2-City.mmdb}"
+    volumes:
+      - ./data:/data:ro
     expose:
       - "19000"
     depends_on:
+      geoipupdate:
+        condition: service_completed_successfully
       mysql:
         condition: service_healthy
       redis:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
+    labels:
+      org.opencontainers.image.title: "Notes of Ashen"
+
+  geoipupdate:
+    image: ghcr.io/maxmind/geoipupdate:latest
+    restart: "no"
+    environment:
+      GEOIPUPDATE_ACCOUNT_ID: "${MAXMIND_ACCOUNT_ID:-}"
+      GEOIPUPDATE_LICENSE_KEY: "${MAXMIND_LICENSE_KEY:-}"
+      GEOIPUPDATE_EDITION_IDS: "GeoLite2-City"
+      GEOIPUPDATE_DB_DIR: "/usr/share/GeoIP"
+    volumes:
+      - ./data:/usr/share/GeoIP
+    entrypoint:
+      - sh
+      - -c
+      - |
+        db="/usr/share/GeoIP/GeoLite2-City.mmdb"
+        if [ -s "$${db}" ]; then
+          echo "GeoIP database already exists, skip download: $${db}"
+          exit 0
+        fi
+        if [ -z "$${GEOIPUPDATE_ACCOUNT_ID:-}" ] || [ -z "$${GEOIPUPDATE_LICENSE_KEY:-}" ]; then
+          echo "MAXMIND_ACCOUNT_ID or MAXMIND_LICENSE_KEY is empty, skip GeoIP download."
+          exit 0
+        fi
+        echo "Downloading MaxMind GeoLite2-City database..."
+        if geoipupdate; then
+          echo "GeoIP database update finished."
+        else
+          echo "GeoIP database update failed, API will continue with Unknown geo location."
+        fi
+        exit 0
     labels:
       org.opencontainers.image.title: "Notes of Ashen"
 

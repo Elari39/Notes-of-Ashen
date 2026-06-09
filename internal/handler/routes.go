@@ -24,6 +24,7 @@ func RegisterHandlers(server *rest.Server, svcCtx *svc.ServiceContext) {
 	verifyCodeRateLimit := middleware.NewRateLimitMiddleware(svcCtx.Redis, "verify_code_send", 5, time.Minute)
 	resetPasswordRateLimit := middleware.NewRateLimitMiddleware(svcCtx.Redis, "password_reset", 5, time.Minute)
 	trafficRateLimit := middleware.NewRateLimitMiddleware(svcCtx.Redis, "traffic_visit", 120, time.Minute)
+	articleLikeRateLimit := middleware.NewRateLimitMiddleware(svcCtx.Redis, "article_like", 60, time.Minute)
 	aiRateLimit := middleware.NewRateLimitMiddleware(svcCtx.Redis, "ai_assist", 20, time.Minute)
 	authRequired := func(handler http.HandlerFunc) http.HandlerFunc {
 		return authMiddleware.Handle(handler)
@@ -42,6 +43,7 @@ func RegisterHandlers(server *rest.Server, svcCtx *svc.ServiceContext) {
 		{Method: http.MethodGet, Path: "/api/v1/articles", Handler: articlehandler.ListHandler(svcCtx)},
 		{Method: http.MethodGet, Path: "/api/v1/articles/:id/context", Handler: articlehandler.ContextHandler(svcCtx)},
 		{Method: http.MethodGet, Path: "/api/v1/articles/:id", Handler: articlehandler.DetailHandler(svcCtx)},
+		{Method: http.MethodPost, Path: "/api/v1/articles/:id/like", Handler: articleLikeRateLimit.Handle(articlehandler.LikeHandler(svcCtx))},
 		{Method: http.MethodGet, Path: "/api/v1/categories", Handler: categoryhandler.ListHandler(svcCtx)},
 		{Method: http.MethodGet, Path: "/api/v1/tags", Handler: taghandler.ListHandler(svcCtx)},
 		{Method: http.MethodGet, Path: "/api/v1/site/settings", Handler: sitehandler.SettingsHandler(svcCtx)},

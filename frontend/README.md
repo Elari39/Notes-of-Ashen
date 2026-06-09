@@ -1,65 +1,65 @@
-# Notes of Ashen 诗意前端 (水墨江南风格)
+# Notes of Ashen Frontend
 
-本仓库是 Notes of Ashen 项目的前端应用。基于 **React + TypeScript + Vite** 构建，深度融合了中国传统水墨艺术风格与现代前端工程化实践。
+这是 `Notes of Ashen` 的前端子项目，基于 React 18、TypeScript、Vite、Tailwind CSS、Zustand 与 Axios 构建。
 
-## 风格理念
+根目录 README 负责完整部署说明；这里仅记录前端本地开发和验证命令。
 
-- **墨色之韵**：主色调采用玄青、黛蓝、象牙白，模拟宣纸与笔墨的视觉感受。
-- **留白之美**：组件布局遵循中式构图，强调空间的呼吸感。
-- **动态交互**：页面切换使用类似水墨晕染、画卷展开的动效（基于 Framer Motion）。
-- **非对称布局**：打破常规栅格，展现自由流动的艺术感。
+## 本地开发
 
-## 核心技术
+请在 `frontend/` 目录中执行命令，并统一使用 `pnpm`。
 
-- **React 18**：利用最新的并发渲染特性。
-- **TypeScript**：全量类型定义，保证代码健壮性。
-- **Tailwind CSS**：高度自定义的主题配置，快速实现水墨风格。
-- **Zustand**：轻量级状态管理，处理用户信息与认证状态。
-- **Framer Motion**：实现流畅的动画过渡。
-- **React Markdown**：支持高度自定义渲染的 Markdown 文章展示。
+```bash
+pnpm install
+pnpm dev
+```
 
-## 目录结构
+开发服务默认地址：
+
+```text
+http://127.0.0.1:3000
+```
+
+Vite 会将 `/api` 代理到：
+
+```text
+http://127.0.0.1:19000
+```
+
+如需调整代理目标，请修改 [vite.config.ts](vite.config.ts)。
+
+## 常用脚本
+
+```bash
+pnpm lint
+pnpm build
+pnpm preview
+```
+
+- `pnpm lint`：执行 ESLint。
+- `pnpm build`：先执行 `tsc` 类型检查，再执行 Vite 生产构建。
+- `pnpm preview`：预览生产构建结果。
+
+## 目录说明
 
 ```text
 frontend/
+├── public/              # 静态公共资源
 ├── src/
-│   ├── api/          # 接口定义与请求封装
-│   ├── assets/       # 静态资源 (SVG 图标、画卷背景等)
-│   ├── components/   # 复用组件 (水墨按钮、宣纸卡片、分页等)
-│   ├── pages/        # 页面视图 (首页、文章详情、后台等)
-│   ├── store/        # 全局状态 (Auth Store)
-│   ├── types/        # TypeScript 类型定义
-│   ├── utils/        # 工具函数 (时间格式化、请求拦截)
-│   ├── App.tsx       # 根路由配置
-│   └── index.css     # 全局样式与 Tailwind 扩展
-├── public/           # 公共资源
-└── tailwind.config.js # 水墨主题自定义配置
+│   ├── api/             # 接口请求封装
+│   ├── assets/          # 前端资源
+│   ├── components/      # 复用组件
+│   ├── pages/           # 页面与后台页面
+│   ├── store/           # Zustand 状态
+│   ├── types/           # TypeScript 类型
+│   └── utils/           # 通用工具
+├── index.html
+├── package.json
+├── tailwind.config.js
+└── vite.config.ts
 ```
 
-## 快速开发
+## 注意事项
 
-1. **环境准备**：
-   确保安装了 Node.js 18+ 和 pnpm。
-
-2. **安装依赖**：
-   ```bash
-   pnpm install
-   ```
-
-3. **配置接口**：
-   在 `vite.config.ts` 中配置代理地址，默认指向 `http://127.0.0.1:19000`。
-
-4. **启动服务**：
-   ```bash
-   pnpm dev
-   ```
-
-## 界面展示
-
-- **首页**：如卷轴般缓缓展开的文章列表。
-- **详情页**：纸墨分明的沉浸式阅读体验。
-- **管理端**：极简风格的仪表盘与编辑器。
-
-## 许可证
-
-MIT
+- 不要混用 `npm` 或 `yarn`。
+- 不要把真实 Token、密钥或 `.env` 内容写入前端代码。
+- 接口字段变更时同步检查 `src/api/`、`src/types/` 和相关页面展示。

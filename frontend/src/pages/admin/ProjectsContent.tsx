@@ -2,8 +2,9 @@ import React, { useEffect, useMemo, useState } from 'react';
 import InlineNotice from '../../components/InlineNotice';
 import MarkdownRenderer from '../../components/MarkdownRenderer';
 import { getAdminProjectsPage, updateAdminProjectsPage } from '../../api/siteSettings';
+import { getTags } from '../../api/tag';
 import { usePreferenceStore } from '../../store/preferences';
-import type { ProjectItem, ProjectsPage } from '../../types';
+import type { ProjectItem, ProjectsPage, Tag } from '../../types';
 import { getErrorMessage } from '../../utils/error';
 
 const emptyProjects: ProjectsPage = {
@@ -21,18 +22,20 @@ const AdminProjectsContent: React.FC = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  const [allTags, setAllTags] = useState<Tag[]>([]);
 
   useEffect(() => {
     let active = true;
     setIsLoading(true);
     setError('');
-    getAdminProjectsPage()
-      .then((res) => {
+    Promise.all([getAdminProjectsPage(), getTags({ page: 1, size: 100 })])
+      .then(([res, tagsRes]) => {
         if (!active) {
           return;
         }
         setSaved(res.data);
         setDraft(res.data);
+        setAllTags(tagsRes.data.items);
       })
       .catch((e: unknown) => {
         if (active) {
@@ -109,6 +112,7 @@ const AdminProjectsContent: React.FC = () => {
           role: item.role.trim(),
           period: item.period.trim(),
           tags: normalizeTags(item.tags),
+          tagIds: normalizeTagIds(item.tagIds || []),
           coverUrl: item.coverUrl.trim(),
           demoUrl: item.demoUrl.trim(),
           repoUrl: item.repoUrl.trim(),
@@ -197,6 +201,7 @@ const AdminProjectsContent: React.FC = () => {
                   index={index}
                   total={draft.items.length}
                   labels={text}
+                  allTags={allTags}
                   disabled={isSaving}
                   onChange={(patch) => updateProject(index, patch)}
                   onMove={(direction) => moveProject(index, direction)}
@@ -237,6 +242,7 @@ type ProjectEditorProps = {
   index: number;
   total: number;
   labels: ReturnType<typeof getProjectsAdminLabels>;
+  allTags: Tag[];
   disabled: boolean;
   onChange: (patch: Partial<ProjectItem>) => void;
   onMove: (direction: -1 | 1) => void;
@@ -248,6 +254,7 @@ const ProjectEditor: React.FC<ProjectEditorProps> = ({
   index,
   total,
   labels,
+  allTags,
   disabled,
   onChange,
   onMove,
@@ -293,7 +300,6 @@ const ProjectEditor: React.FC<ProjectEditorProps> = ({
       <TextInput label={labels.projectTitle} value={project.title} disabled={disabled} onChange={(value) => onChange({ title: value })} />
       <TextInput label={labels.role} value={project.role} disabled={disabled} onChange={(value) => onChange({ role: value })} />
       <TextInput label={labels.period} value={project.period} disabled={disabled} onChange={(value) => onChange({ period: value })} />
-      <TextInput label={labels.tags} value={project.tags.join(', ')} disabled={disabled} onChange={(value) => onChange({ tags: splitTags(value) })} />
       <TextInput label={labels.coverUrl} value={project.coverUrl} disabled={disabled} onChange={(value) => onChange({ coverUrl: value })} />
       <TextInput label={labels.demoUrl} value={project.demoUrl} disabled={disabled} onChange={(value) => onChange({ demoUrl: value })} />
       <TextInput label={labels.repoUrl} value={project.repoUrl} disabled={disabled} onChange={(value) => onChange({ repoUrl: value })} />
@@ -307,6 +313,14 @@ const ProjectEditor: React.FC<ProjectEditorProps> = ({
         />
         <span className="tracking-widest">{labels.featured}</span>
       </label>
+      <TagSelector
+        label={labels.tags}
+        tags={allTags}
+        selectedIds={project.tagIds || []}
+        fallbackNames={project.tags}
+        disabled={disabled}
+        onChange={(tagIds) => onChange({ tagIds })}
+      />
       <label className="block text-sm text-ink-light md:col-span-2">
         <span className="mb-2 block tracking-widest">{labels.summary}</span>
         <textarea
@@ -370,8 +384,56 @@ const TextInput: React.FC<TextInputProps> = ({ label, value, disabled, onChange 
   </label>
 );
 
+const TagSelector: React.FC<{
+  label: string;
+  tags: Tag[];
+  selectedIds: number[];
+  fallbackNames: string[];
+  disabled: boolean;
+  onChange: (tagIds: number[]) => void;
+}> = ({ label, tags, selectedIds, fallbackNames, disabled, onChange }) => (
+  <div className="block text-sm text-ink-light md:col-span-2">
+    <span className="mb-2 block tracking-widest">{label}</span>
+    {tags.length === 0 ? (
+      <p className="border border-mountain-grey px-3 py-2 text-xs tracking-[0.16em] text-ink-light opacity-80">
+        {fallbackNames.length > 0 ? fallbackNames.join(', ') : 'No tags'}
+      </p>
+    ) : (
+      <div className="flex flex-wrap gap-2">
+        {tags.map((tag) => {
+          const checked = selectedIds.includes(tag.id);
+          return (
+            <label
+              key={tag.id}
+              className={`inline-flex items-center gap-2 border px-3 py-1.5 text-xs tracking-[0.14em] transition-colors ${
+                checked ? 'border-ochre text-ochre' : 'border-mountain-grey text-ink-light'
+              }`}
+            >
+              <input
+                type="checkbox"
+                checked={checked}
+                disabled={disabled}
+                onChange={(event) => {
+                  if (event.target.checked) {
+                    onChange([...selectedIds, tag.id]);
+                  } else {
+                    onChange(selectedIds.filter((id) => id !== tag.id));
+                  }
+                }}
+                className="h-4 w-4 accent-ochre disabled:cursor-not-allowed"
+              />
+              {tag.name}
+            </label>
+          );
+        })}
+      </div>
+    )}
+  </div>
+);
+
 const createEmptyProject = (): ProjectItem => ({
   id: `project-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+  tagIds: [],
   title: '',
   summary: '',
   role: '',
@@ -383,11 +445,6 @@ const createEmptyProject = (): ProjectItem => ({
   contentMarkdown: '',
   featured: false,
 });
-
-const splitTags = (value: string) => value
-  .split(',')
-  .map((tag) => tag.trim())
-  .filter(Boolean);
 
 const normalizeTags = (tags: string[]) => {
   const seen = new Set<string>();
@@ -405,6 +462,8 @@ const normalizeTags = (tags: string[]) => {
       return true;
     });
 };
+
+const normalizeTagIds = (tagIds: number[]) => Array.from(new Set(tagIds.filter((id) => id > 0)));
 
 const getProjectsAdminLabels = (language: string) => language === 'zh'
   ? {
@@ -429,7 +488,7 @@ const getProjectsAdminLabels = (language: string) => language === 'zh'
       projectTitle: '项目标题',
       role: '角色',
       period: '周期',
-      tags: '标签（逗号分隔）',
+      tags: '技术标签',
       coverUrl: '封面 URL',
       demoUrl: '演示 URL',
       repoUrl: '代码仓库 URL',
@@ -462,7 +521,7 @@ const getProjectsAdminLabels = (language: string) => language === 'zh'
       projectTitle: 'Project Title',
       role: 'Role',
       period: 'Period',
-      tags: 'Tags (comma separated)',
+      tags: 'Tags',
       coverUrl: 'Cover URL',
       demoUrl: 'Demo URL',
       repoUrl: 'Repository URL',

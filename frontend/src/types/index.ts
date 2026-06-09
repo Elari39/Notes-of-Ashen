@@ -36,10 +36,48 @@ export interface ResumePage {
   title: string;
   subtitle: string;
   contentMarkdown: string;
+  experiences: ResumeExperience[];
+  educations: ResumeEducation[];
+  skills: ResumeSkill[];
+}
+
+export interface ResumeExperience {
+  id?: number;
+  role: string;
+  organization: string;
+  location: string;
+  startDate: string;
+  endDate: string;
+  description: string;
+  highlights: string[];
+  displayOrder: number;
+}
+
+export interface ResumeEducation {
+  id?: number;
+  school: string;
+  degree: string;
+  major: string;
+  location: string;
+  startDate: string;
+  endDate: string;
+  description: string;
+  highlights: string[];
+  displayOrder: number;
+}
+
+export interface ResumeSkill {
+  id?: number;
+  category: string;
+  name: string;
+  level: number;
+  description: string;
+  displayOrder: number;
 }
 
 export interface ProjectItem {
   id: string;
+  tagIds?: number[];
   title: string;
   summary: string;
   role: string;
@@ -89,6 +127,7 @@ export interface Article {
   coverUrl: string;
   status: string;
   viewCount: number;
+  likeCount: number;
   scheduledAt?: string;
   publishedAt?: string;
   isPinned: boolean;
@@ -147,6 +186,15 @@ export interface RefererStat {
   pv: number;
 }
 
+export interface GeoStat {
+  countryCode: string;
+  countryName: string;
+  regionName: string;
+  cityName: string;
+  pv: number;
+  uv: number;
+}
+
 export interface AdminStats {
   articleTotal: number;
   publishedTotal: number;
@@ -154,6 +202,7 @@ export interface AdminStats {
   archivedTotal: number;
   scheduledTotal: number;
   viewTotal: number;
+  likeTotal: number;
   todayPv: number;
   todayUv: number;
   userTotal: number;
@@ -161,6 +210,7 @@ export interface AdminStats {
   tagTotal: number;
   trafficTrend: TrafficTrendPoint[];
   topReferers: RefererStat[];
+  geoStats: GeoStat[];
   popularArticles: Article[];
   recentArticles: Article[];
   recentLogs: Log[];

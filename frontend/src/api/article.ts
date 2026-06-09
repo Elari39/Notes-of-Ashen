@@ -25,6 +25,9 @@ export const getArticlePreview = (id: number | string) =>
 export const getArticleContext = (id: number | string) =>
   http.get<unknown, BaseResp<ArticleContext>>(`/articles/${id}/context`);
 
+export const likeArticle = (id: number | string) =>
+  http.post<unknown, BaseResp<{ liked: boolean; likeCount: number }>>(`/articles/${id}/like`);
+
 export const createArticle = (data: CreateArticleReq) => 
   http.post<unknown, BaseResp<Article>>('/articles', data);
 

@@ -28,7 +28,7 @@ type rssItem struct {
 	Link        string `xml:"link"`
 	GUID        string `xml:"guid"`
 	Description string `xml:"description,omitempty"`
-	PubDate     string `xml:"pubDate"`
+	PubDate     string `xml:"pubDate,omitempty"`
 }
 
 type sitemapURLSet struct {
@@ -53,6 +53,30 @@ func RSS(ctx context.Context, svcCtx *svc.ServiceContext, requestBaseURL string)
 		return nil, err
 	}
 	items := make([]rssItem, 0, len(articles))
+	if settings.ResumePageEnabled {
+		content, err := svcCtx.Store.ResumePageContent(ctx)
+		if err != nil {
+			return nil, err
+		}
+		items = append(items, rssItem{
+			Title:       content.Title,
+			Link:        baseURL + "/resume",
+			GUID:        baseURL + "/resume",
+			Description: content.Subtitle,
+		})
+	}
+	if settings.ProjectsPageEnabled {
+		content, err := svcCtx.Store.ProjectsPageContent(ctx)
+		if err != nil {
+			return nil, err
+		}
+		items = append(items, rssItem{
+			Title:       content.Title,
+			Link:        baseURL + "/projects",
+			GUID:        baseURL + "/projects",
+			Description: content.Subtitle,
+		})
+	}
 	for _, article := range articles {
 		link := articleURL(baseURL, article.ID)
 		pubDate := article.CreatedAt
@@ -96,6 +120,12 @@ func Sitemap(ctx context.Context, svcCtx *svc.ServiceContext, requestBaseURL str
 		{Loc: baseURL + "/"},
 		{Loc: baseURL + "/archive"},
 		{Loc: baseURL + "/search"},
+	}
+	if settings.ResumePageEnabled {
+		urls = append(urls, sitemapURL{Loc: baseURL + "/resume"})
+	}
+	if settings.ProjectsPageEnabled {
+		urls = append(urls, sitemapURL{Loc: baseURL + "/projects"})
 	}
 	for _, article := range articles {
 		urls = append(urls, sitemapURL{

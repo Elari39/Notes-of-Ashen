@@ -25,6 +25,7 @@ func TestApplyEnvOverridesConfig(t *testing.T) {
 	t.Setenv("APP_AI_API_KEY", "ai-key")
 	t.Setenv("APP_AI_MODEL", "chat-model")
 	t.Setenv("APP_AI_TIMEOUT_SECONDS", "45")
+	t.Setenv("APP_GEOIP_DATABASE_PATH", "/data/GeoLite2-City.mmdb")
 
 	if err := c.ApplyEnv(); err != nil {
 		t.Fatalf("ApplyEnv() error = %v", err)
@@ -56,6 +57,9 @@ func TestApplyEnvOverridesConfig(t *testing.T) {
 	}
 	if !c.AI.Enabled || c.AI.BaseURL != "https://api.example.com/v1" || c.AI.APIKey != "ai-key" || c.AI.Model != "chat-model" || c.AI.TimeoutSeconds != 45 {
 		t.Fatalf("AI config was not overridden: %#v", c.AI)
+	}
+	if c.GeoIP.DatabasePath != "/data/GeoLite2-City.mmdb" {
+		t.Fatalf("GeoIP.DatabasePath = %q", c.GeoIP.DatabasePath)
 	}
 }
 

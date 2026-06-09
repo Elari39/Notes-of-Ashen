@@ -9,6 +9,7 @@ type AdminStats struct {
 	ArchivedTotal  int64
 	ScheduledTotal int64
 	ViewTotal      uint64
+	LikeTotal      uint64
 	UserTotal      int64
 	CategoryTotal  int64
 	TagTotal       int64
@@ -23,8 +24,9 @@ SELECT
   COALESCE(SUM(CASE WHEN status = 'draft' THEN 1 ELSE 0 END), 0),
   COALESCE(SUM(CASE WHEN status = 'archived' THEN 1 ELSE 0 END), 0),
   COALESCE(SUM(CASE WHEN status = 'published' AND scheduled_at > NOW() THEN 1 ELSE 0 END), 0),
-  COALESCE(SUM(view_count), 0)
-FROM articles`).Scan(&stats.ArticleTotal, &stats.PublishedTotal, &stats.DraftTotal, &stats.ArchivedTotal, &stats.ScheduledTotal, &stats.ViewTotal); err != nil {
+  COALESCE(SUM(view_count), 0),
+  COALESCE(SUM(like_count), 0)
+FROM articles`).Scan(&stats.ArticleTotal, &stats.PublishedTotal, &stats.DraftTotal, &stats.ArchivedTotal, &stats.ScheduledTotal, &stats.ViewTotal, &stats.LikeTotal); err != nil {
 		return nil, err
 	}
 	if err := s.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM users").Scan(&stats.UserTotal); err != nil {

@@ -88,6 +88,50 @@ INSERT INTO site_settings (setting_key, setting_value)
 VALUES ('projects_items_json', '[]')
 ON DUPLICATE KEY UPDATE setting_value = setting_value;
 
+-- Structured resume
+CREATE TABLE IF NOT EXISTS resume_experiences (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    role VARCHAR(120) NOT NULL,
+    organization VARCHAR(120) NOT NULL,
+    location VARCHAR(120) DEFAULT '',
+    start_date VARCHAR(32) DEFAULT '',
+    end_date VARCHAR(32) DEFAULT '',
+    description TEXT,
+    highlights JSON,
+    display_order INT NOT NULL DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_resume_experiences_order (display_order, id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS resume_educations (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    school VARCHAR(120) NOT NULL,
+    degree VARCHAR(120) DEFAULT '',
+    major VARCHAR(120) DEFAULT '',
+    location VARCHAR(120) DEFAULT '',
+    start_date VARCHAR(32) DEFAULT '',
+    end_date VARCHAR(32) DEFAULT '',
+    description TEXT,
+    highlights JSON,
+    display_order INT NOT NULL DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_resume_educations_order (display_order, id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS resume_skills (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    category VARCHAR(80) NOT NULL,
+    name VARCHAR(80) NOT NULL,
+    level INT NOT NULL DEFAULT 0,
+    description VARCHAR(255) DEFAULT '',
+    display_order INT NOT NULL DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_resume_skills_order (display_order, id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 -- Categories
 CREATE TABLE IF NOT EXISTS categories (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -110,6 +154,31 @@ CREATE TABLE IF NOT EXISTS tags (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- Portfolio projects
+CREATE TABLE IF NOT EXISTS projects (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    title VARCHAR(120) NOT NULL,
+    summary VARCHAR(500) DEFAULT '',
+    role VARCHAR(80) DEFAULT '',
+    period VARCHAR(80) DEFAULT '',
+    cover_url VARCHAR(255) DEFAULT '',
+    demo_url VARCHAR(255) DEFAULT '',
+    repo_url VARCHAR(255) DEFAULT '',
+    content_markdown MEDIUMTEXT,
+    featured TINYINT(1) NOT NULL DEFAULT 0,
+    display_order INT NOT NULL DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_projects_order (featured, display_order, id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS project_tags (
+    project_id BIGINT UNSIGNED NOT NULL,
+    tag_id BIGINT UNSIGNED NOT NULL,
+    PRIMARY KEY (project_id, tag_id),
+    INDEX idx_project_tags_tag (tag_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 -- Articles
 CREATE TABLE IF NOT EXISTS articles (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -122,6 +191,7 @@ CREATE TABLE IF NOT EXISTS articles (
     cover_url VARCHAR(255) DEFAULT '',
     status VARCHAR(20) DEFAULT 'draft',
     view_count INT DEFAULT 0,
+    like_count INT DEFAULT 0,
     scheduled_at TIMESTAMP NULL,
     published_at TIMESTAMP NULL,
     is_pinned TINYINT(1) NOT NULL DEFAULT 0,
@@ -151,6 +221,7 @@ CREATE TABLE IF NOT EXISTS article_versions (
     cover_url VARCHAR(255) DEFAULT '',
     status VARCHAR(20) NOT NULL,
     view_count INT DEFAULT 0,
+    like_count INT DEFAULT 0,
     scheduled_at TIMESTAMP NULL,
     published_at TIMESTAMP NULL,
     is_pinned TINYINT(1) NOT NULL DEFAULT 0,
@@ -171,6 +242,14 @@ CREATE TABLE IF NOT EXISTS article_tags (
     article_id BIGINT UNSIGNED NOT NULL,
     tag_id BIGINT UNSIGNED NOT NULL,
     PRIMARY KEY (article_id, tag_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Article likes
+CREATE TABLE IF NOT EXISTS article_likes (
+    article_id BIGINT UNSIGNED NOT NULL,
+    visitor_hash CHAR(64) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (article_id, visitor_hash)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- Refresh tokens
@@ -226,4 +305,30 @@ CREATE TABLE IF NOT EXISTS traffic_referer_stats (
     PRIMARY KEY (stat_date, article_id, source_type, source_name),
     INDEX idx_traffic_referer_stats_date (stat_date),
     INDEX idx_traffic_referer_stats_article (article_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Traffic geo stats
+CREATE TABLE IF NOT EXISTS traffic_geo_stats (
+    stat_date DATE NOT NULL,
+    country_code VARCHAR(32) NOT NULL,
+    country_name VARCHAR(128) NOT NULL,
+    region_name VARCHAR(128) NOT NULL,
+    city_name VARCHAR(128) NOT NULL,
+    pv BIGINT NOT NULL DEFAULT 0,
+    uv BIGINT NOT NULL DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (stat_date, country_code, region_name, city_name),
+    INDEX idx_traffic_geo_stats_date (stat_date),
+    INDEX idx_traffic_geo_stats_location (country_code, region_name, city_name)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS traffic_geo_daily_visitors (
+    stat_date DATE NOT NULL,
+    visitor_hash CHAR(64) NOT NULL,
+    country_code VARCHAR(32) NOT NULL,
+    region_name VARCHAR(128) NOT NULL,
+    city_name VARCHAR(128) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (stat_date, visitor_hash, country_code, region_name, city_name)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

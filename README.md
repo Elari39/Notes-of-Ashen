@@ -8,22 +8,55 @@
 http://127.0.0.1:1270
 ```
 
+## 快速开始
+
+适合第一次拉取项目后直接在本机用 Docker 跑起来：
+
+```powershell
+Copy-Item .env.example .env
+docker compose config --quiet
+docker compose up -d --build
+```
+
+Linux / macOS：
+
+```bash
+cp .env.example .env
+docker compose config --quiet
+docker compose up -d --build
+```
+
+启动完成后访问：
+
+```text
+http://127.0.0.1:1270
+```
+
+首次进入站点后注册第一个用户。默认逻辑下，第一个注册用户会成为管理员。
+
+阅读路径建议：
+
+- 想快速部署：阅读“配置环境变量”和“本机 Docker 部署”。
+- 想本地开发：阅读“本地非 Docker 开发”和 [frontend/README.md](frontend/README.md)。
+- 想对接接口：阅读“常用 API”和 [docs/API.md](docs/API.md)。
+
 ## 功能概览
 
 - 用户认证：注册、登录、退出、刷新 Token。
 - 文章管理：创建、编辑、删除、发布、归档、草稿预览、版本查看、版本恢复、Markdown 导入/导出、AI 辅助创作、置顶与显示优先级。
-- 内容展示：公开文章列表、文章详情、归档、搜索、Markdown 渲染、代码高亮、LaTeX 数学公式。
+- 内容展示：公开文章列表、文章详情、归档、搜索、Markdown 渲染、代码高亮、LaTeX 数学公式、文章目录和点赞反馈。
+- 简历与作品集：结构化简历时间轴、技能树、前端 PDF 导出、作品集画廊和项目标签。
 - 分类与标签：公开读取，后台可创建、更新和删除。
-- 管理后台：用户管理、用户状态管理、站点设置、操作日志查看、访问趋势与来源统计。
-- 站点能力：RSS、Sitemap、站点标题、描述、关键词等配置。
-- 流量统计：公开页面自动上报 PV、UV 与来源，后台展示最近 30 天趋势。
+- 管理后台：用户管理、用户状态管理、站点设置、简历与项目管理、操作日志查看、访问趋势、来源统计和地理分布。
+- 站点能力：RSS、Sitemap、站点标题、描述、关键词、Prerender.io 预渲染配置等。
+- 流量统计：公开页面自动上报 PV、UV、来源与可选 GeoIP 地理位置，后台展示最近 30 天趋势。
 - 异步日志：通过 RabbitMQ 投递操作事件，并写入 `operation_logs`。
 - 统一响应：接口成功时返回 `{ "code": 0, "message": "success", "data": ... }`。
 
 ## 技术栈
 
-- 后端：Go、go-zero REST、MySQL、Redis、RabbitMQ、JWT、bcrypt。
-- 前端：React、TypeScript、Vite、Tailwind CSS、Zustand、Axios。
+- 后端：Go 1.25、go-zero REST、MySQL 8.4、Redis 7.4、RabbitMQ 4、JWT、bcrypt。
+- 前端：React 18、TypeScript、Vite 5、Tailwind CSS 3、Zustand、Axios、Framer Motion、Recharts、React Markdown。
 - 部署：Docker、Docker Compose、Nginx、1Panel。
 - 文档与脚本：API 文档位于 [docs/API.md](docs/API.md)，数据库脚本位于 [deploy/mysql](deploy/mysql)。
 
@@ -39,6 +72,7 @@ http://127.0.0.1:1270
 ├── docs/                   # API 文档
 ├── etc/                    # 后端默认配置文件
 ├── frontend/               # React 前端应用
+│   └── README.md           # 前端开发说明
 ├── internal/               # 后端内部模块
 ├── model/                  # 数据访问层
 ├── Dockerfile.api          # Go API 镜像构建文件
@@ -95,6 +129,7 @@ Copy-Item .env.example .env
 
 至少需要检查并替换这些值：
 
+- `APP_DISPLAY_NAME`：站点对外展示名称，默认 `Notes of Ashen`。
 - `APP_AUTH_ACCESS_SECRET`：JWT 签名密钥，生产环境必须替换为足够长的随机字符串。
 - `MYSQL_ROOT_PASSWORD`：项目内部 MySQL root 密码。
 - `MYSQL_USER`：项目内部 MySQL 普通用户。
@@ -112,6 +147,13 @@ Copy-Item .env.example .env
 - `APP_AI_API_KEY`：AI 服务 API Key，只能写入真实 `.env` 或受控环境变量。
 - `APP_AI_MODEL`：AI 辅助使用的模型名称。
 - `APP_AI_TIMEOUT_SECONDS`：AI 请求超时时间，默认 `30` 秒。
+- `APP_GEOIP_DATABASE_PATH`：API 容器内 GeoIP/GeoLite2 City `.mmdb` 文件路径，Docker 部署默认 `/data/GeoLite2-City.mmdb`。
+- `MAXMIND_ACCOUNT_ID`：可选 MaxMind Account ID，用于 Docker 部署自动下载 `GeoLite2-City.mmdb`。
+- `MAXMIND_LICENSE_KEY`：可选 MaxMind License Key，用于 Docker 部署自动下载 `GeoLite2-City.mmdb`，只能写入真实 `.env` 或受控环境变量。
+- `PRERENDER_ENABLED`：是否启用 Prerender.io crawler 预渲染，`0` 关闭，`1` 启用。
+- `PRERENDER_SERVICE_URL`：Prerender.io 服务地址，默认 `https://service.prerender.io`。
+- `PRERENDER_TOKEN`：Prerender.io Token，只能写入真实 `.env` 或受控环境变量。
+- `APP_GITHUB_TOKEN`：可选 GitHub Token；留空时使用公开匿名额度，不要提交真实 Token。
 - `WEB_PORT`：本机 Web 访问端口，默认 `1270`。
 
 不要把真实 `.env` 内容写入 README、Issue、提交记录或截图中。
@@ -150,6 +192,40 @@ APP_AI_TIMEOUT_SECONDS=30
 
 `APP_AI_BASE_URL` 可以填写兼容 OpenAI Chat Completions 的基础地址，例如 `https://api.example.com/v1`；如果服务商只提供完整端点，也可以填写到 `/chat/completions`。不要把真实 API Key 写入 README、Issue、提交记录或截图中。
 
+### GeoIP 与预渲染配置
+
+访客地理位置分析使用离线 `.mmdb` 数据库。Docker 部署时，如果真实 `.env` 中填写了 MaxMind 凭据，`geoipupdate` 容器会在 `data/GeoLite2-City.mmdb` 不存在时自动下载；如果文件已存在会直接复用，避免消耗 MaxMind 每日下载额度。
+
+```env
+APP_GEOIP_DATABASE_PATH=/data/GeoLite2-City.mmdb
+MAXMIND_ACCOUNT_ID=your-maxmind-account-id
+MAXMIND_LICENSE_KEY=your-maxmind-license-key
+```
+
+然后执行常规部署命令即可：
+
+```bash
+docker compose up -d --build
+```
+
+查看自动下载日志：
+
+```bash
+docker compose logs geoipupdate
+```
+
+如果不填写 MaxMind 凭据，或下载失败，API 仍会启动，访客地理位置记录为 `Unknown`。也可以手动下载 `GeoLite2-City.mmdb` 并放到仓库根目录的 `data/GeoLite2-City.mmdb`，Docker 会把它只读挂载到 API 容器的 `/data/GeoLite2-City.mmdb`。
+
+SPA SEO 预渲染默认关闭。需要为搜索引擎 crawler 返回预渲染 HTML 时，在真实 `.env` 中设置：
+
+```env
+PRERENDER_ENABLED=1
+PRERENDER_SERVICE_URL=https://service.prerender.io
+PRERENDER_TOKEN=your-prerender-token
+```
+
+不要提交 `.mmdb` 文件、MaxMind License Key、Prerender Token 或任何真实密钥。
+
 ## 本机 Docker 部署
 
 先校验 Compose 配置：
@@ -174,6 +250,7 @@ docker compose ps
 查看日志：
 
 ```bash
+docker compose logs geoipupdate
 docker compose logs -f api
 docker compose logs -f web
 ```
@@ -303,7 +380,9 @@ cd frontend
 pnpm lint
 ```
 
-前端生产构建：
+前端类型检查与生产构建：
+
+项目当前没有单独的 `type-check` 脚本，`pnpm build` 会先执行 `tsc`，再执行 Vite 生产构建。
 
 ```bash
 cd frontend
@@ -329,6 +408,8 @@ Docker 部署会使用独立 volume 保存数据：
 - `notes-of-ashen_goblog_mysql_data`
 - `notes-of-ashen_goblog_redis_data`
 - `notes-of-ashen_goblog_rabbitmq_data`
+
+GeoIP 数据库使用宿主机目录 `./data/GeoLite2-City.mmdb`，不会写入 Docker volume，也不会进入 Git 或镜像构建上下文。
 
 首次启动时，MySQL 会执行 [deploy/mysql/schema.sql](deploy/mysql/schema.sql) 初始化数据库和表结构。
 
@@ -439,15 +520,26 @@ docker compose up -d --build
 - `POST /api/v1/traffic/visit`
 - `GET /api/v1/articles`
 - `GET /api/v1/articles/:id`
+- `GET /api/v1/articles/:id/context`
+- `POST /api/v1/articles/:id/like`
 - `POST /api/v1/articles/ai/assist`
 - `POST /api/v1/articles/import`
+- `GET /api/v1/articles/:id/preview`
 - `GET /api/v1/articles/:id/export`
+- `GET /api/v1/articles/:id/versions`
+- `POST /api/v1/articles/:id/versions/:versionNo/restore`
 - `GET /api/v1/categories`
 - `GET /api/v1/tags`
 - `GET /api/v1/site/settings`
+- `GET /api/v1/site/resume`
+- `GET /api/v1/site/projects`
 - `GET /api/v1/users/me`
+- `GET /api/v1/admin/articles`
+- `GET /api/v1/admin/stats`
 - `GET /api/v1/admin/users`
 - `GET /api/v1/admin/logs`
+- `GET /api/v1/admin/site/resume`
+- `GET /api/v1/admin/site/projects`
 
 完整说明见 [docs/API.md](docs/API.md)。
 

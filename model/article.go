@@ -14,11 +14,11 @@ const (
 	ArticleStatusArchived  = "archived"
 	ArticleStatusScheduled = "scheduled"
 
-	articleSelectFields        = "id, author_id, category_id, title, slug, summary, content, cover_url, status, view_count, scheduled_at, published_at, is_pinned, display_priority, seo_title, seo_description, seo_keywords, created_at, updated_at"
+	articleSelectFields        = "id, author_id, category_id, title, slug, summary, content, cover_url, status, view_count, like_count, scheduled_at, published_at, is_pinned, display_priority, seo_title, seo_description, seo_keywords, created_at, updated_at"
 	articleDisplayOrder        = "is_pinned DESC, display_priority DESC, COALESCE(published_at, created_at) DESC, id DESC"
 	articleDisplayOrderAsc     = "is_pinned ASC, display_priority ASC, COALESCE(published_at, created_at) ASC, id ASC"
 	articleTimeOrder           = "COALESCE(published_at, created_at) DESC, id DESC"
-	articleVersionSelectFields = "id, article_id, version_no, changed_by, author_id, category_id, title, slug, summary, content, cover_url, status, view_count, scheduled_at, published_at, is_pinned, display_priority, seo_title, seo_description, seo_keywords, COALESCE(CAST(tag_ids AS CHAR), '[]'), original_created_at, original_updated_at, created_at"
+	articleVersionSelectFields = "id, article_id, version_no, changed_by, author_id, category_id, title, slug, summary, content, cover_url, status, view_count, like_count, scheduled_at, published_at, is_pinned, display_priority, seo_title, seo_description, seo_keywords, COALESCE(CAST(tag_ids AS CHAR), '[]'), original_created_at, original_updated_at, created_at"
 )
 
 type Article struct {
@@ -32,6 +32,7 @@ type Article struct {
 	CoverURL        string
 	Status          string
 	ViewCount       uint64
+	LikeCount       uint64
 	ScheduledAt     *time.Time
 	PublishedAt     *time.Time
 	IsPinned        bool
@@ -103,6 +104,7 @@ type ArticleVersion struct {
 	CoverURL          string
 	Status            string
 	ViewCount         uint64
+	LikeCount         uint64
 	ScheduledAt       *time.Time
 	PublishedAt       *time.Time
 	IsPinned          bool
@@ -174,6 +176,9 @@ func (s *Store) DeleteArticle(ctx context.Context, id uint64) error {
 		if _, err := tx.ExecContext(ctx, "DELETE FROM article_tags WHERE article_id = ?", id); err != nil {
 			return err
 		}
+		if _, err := tx.ExecContext(ctx, "DELETE FROM article_likes WHERE article_id = ?", id); err != nil {
+			return err
+		}
 		res, err := tx.ExecContext(ctx, "DELETE FROM articles WHERE id = ?", id)
 		if err != nil {
 			return err
@@ -218,10 +223,10 @@ func (s *Store) RestoreArticleVersion(ctx context.Context, articleID uint64, ver
 		}
 		res, err := tx.ExecContext(ctx, `
 UPDATE articles
-SET category_id = ?, title = ?, slug = ?, summary = ?, content = ?, cover_url = ?, status = ?, view_count = ?, scheduled_at = ?, published_at = ?, is_pinned = ?, display_priority = ?, seo_title = ?, seo_description = ?, seo_keywords = ?
+SET category_id = ?, title = ?, slug = ?, summary = ?, content = ?, cover_url = ?, status = ?, view_count = ?, like_count = ?, scheduled_at = ?, published_at = ?, is_pinned = ?, display_priority = ?, seo_title = ?, seo_description = ?, seo_keywords = ?
 WHERE id = ?`,
 			nullableUint64(version.CategoryID), version.Title, version.Slug, version.Summary, version.Content, version.CoverURL, version.Status, version.ViewCount,
-			nullableTime(version.ScheduledAt), nullableTime(version.PublishedAt), version.IsPinned, version.DisplayPriority, version.SEOTitle, version.SEODescription, version.SEOKeywords, articleID)
+			version.LikeCount, nullableTime(version.ScheduledAt), nullableTime(version.PublishedAt), version.IsPinned, version.DisplayPriority, version.SEOTitle, version.SEODescription, version.SEOKeywords, articleID)
 		if err != nil {
 			return err
 		}
@@ -253,6 +258,31 @@ func (s *Store) ArticleSlugExists(ctx context.Context, slug string) (bool, error
 func (s *Store) IncreaseArticleView(ctx context.Context, id uint64) error {
 	_, err := s.db.ExecContext(ctx, "UPDATE articles SET view_count = view_count + 1 WHERE id = ?", id)
 	return err
+}
+
+func (s *Store) LikeArticle(ctx context.Context, id uint64, visitorHash string) (uint64, bool, error) {
+	var likeCount uint64
+	liked := false
+	err := WithTx(ctx, s.db, func(tx *sql.Tx) error {
+		res, err := tx.ExecContext(ctx, `
+INSERT IGNORE INTO article_likes (article_id, visitor_hash)
+VALUES (?, ?)`, id, visitorHash)
+		if err != nil {
+			return err
+		}
+		affected, err := res.RowsAffected()
+		if err != nil {
+			return err
+		}
+		if affected > 0 {
+			liked = true
+			if _, err := tx.ExecContext(ctx, "UPDATE articles SET like_count = like_count + 1 WHERE id = ?", id); err != nil {
+				return err
+			}
+		}
+		return tx.QueryRowContext(ctx, "SELECT like_count FROM articles WHERE id = ?", id).Scan(&likeCount)
+	})
+	return likeCount, liked, err
 }
 
 func (s *Store) ListArticles(ctx context.Context, filter ArticleFilter) ([]Article, int64, error) {
@@ -514,7 +544,7 @@ func scanArticle(row rowScanner) (*Article, error) {
 	var isPinned int
 	err := row.Scan(
 		&item.ID, &item.AuthorID, &categoryID, &item.Title, &item.Slug, &item.Summary, &item.Content,
-		&item.CoverURL, &item.Status, &item.ViewCount, &scheduledAt, &publishedAt, &isPinned, &item.DisplayPriority, &item.SEOTitle,
+		&item.CoverURL, &item.Status, &item.ViewCount, &item.LikeCount, &scheduledAt, &publishedAt, &isPinned, &item.DisplayPriority, &item.SEOTitle,
 		&item.SEODescription, &item.SEOKeywords, &item.CreatedAt, &item.UpdatedAt,
 	)
 	if err != nil {
@@ -543,7 +573,7 @@ func scanArticleVersion(row rowScanner) (*ArticleVersion, error) {
 	err := row.Scan(
 		&item.ID, &item.ArticleID, &item.VersionNo, &item.ChangedBy, &item.AuthorID, &categoryID,
 		&item.Title, &item.Slug, &item.Summary, &item.Content, &item.CoverURL, &item.Status,
-		&item.ViewCount, &scheduledAt, &publishedAt, &isPinned, &item.DisplayPriority, &item.SEOTitle, &item.SEODescription,
+		&item.ViewCount, &item.LikeCount, &scheduledAt, &publishedAt, &isPinned, &item.DisplayPriority, &item.SEOTitle, &item.SEODescription,
 		&item.SEOKeywords, &tagIDsRaw, &originalCreatedAt, &originalUpdatedAt, &item.CreatedAt,
 	)
 	if err != nil {
@@ -584,10 +614,10 @@ func createArticleVersion(ctx context.Context, tx *sql.Tx, articleID, changedBy 
 		return err
 	}
 	_, err = tx.ExecContext(ctx, `
-INSERT INTO article_versions (article_id, version_no, changed_by, author_id, category_id, title, slug, summary, content, cover_url, status, view_count, scheduled_at, published_at, is_pinned, display_priority, seo_title, seo_description, seo_keywords, tag_ids, original_created_at, original_updated_at)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+INSERT INTO article_versions (article_id, version_no, changed_by, author_id, category_id, title, slug, summary, content, cover_url, status, view_count, like_count, scheduled_at, published_at, is_pinned, display_priority, seo_title, seo_description, seo_keywords, tag_ids, original_created_at, original_updated_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		articleID, versionNo, changedBy, article.AuthorID, nullableUint64(article.CategoryID), article.Title, article.Slug, article.Summary,
-		article.Content, article.CoverURL, article.Status, article.ViewCount, nullableTime(article.ScheduledAt), nullableTime(article.PublishedAt),
+		article.Content, article.CoverURL, article.Status, article.ViewCount, article.LikeCount, nullableTime(article.ScheduledAt), nullableTime(article.PublishedAt),
 		article.IsPinned, article.DisplayPriority, article.SEOTitle, article.SEODescription, article.SEOKeywords, string(tagIDsJSON), article.CreatedAt, article.UpdatedAt)
 	return err
 }

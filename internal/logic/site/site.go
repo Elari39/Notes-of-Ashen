@@ -14,10 +14,13 @@ import (
 )
 
 const (
-	maxPageContentLength    = 200000
-	maxProjectsCount        = 50
-	maxProjectContentLength = 50000
-	maxProjectTagsCount     = 12
+	maxPageContentLength     = 200000
+	maxResumeItemsCount      = 30
+	maxResumeSkillsCount     = 80
+	maxResumeHighlightsCount = 12
+	maxProjectsCount         = 50
+	maxProjectContentLength  = 50000
+	maxProjectTagsCount      = 12
 )
 
 func Settings(ctx context.Context, svcCtx *svc.ServiceContext) (*types.SiteSettingsResp, error) {
@@ -176,6 +179,12 @@ func UpdateProjectsPage(ctx context.Context, svcCtx *svc.ServiceContext, req typ
 	if err != nil {
 		return nil, err
 	}
+	if err := svcCtx.Store.EnsureTagsExist(ctx, projectTagIDs(content.Items)); err != nil {
+		if err == model.ErrNotFound {
+			return nil, errors.NotFound("tag not found")
+		}
+		return nil, err
+	}
 	if err := svcCtx.Store.UpdateProjectsPageContent(ctx, content); err != nil {
 		return nil, err
 	}
@@ -228,11 +237,186 @@ func validateResumePageReq(req types.UpdateResumePageReq) (model.ResumePageConte
 	if err := validator.Length(req.ContentMarkdown, "contentMarkdown", 0, maxPageContentLength); err != nil {
 		return model.ResumePageContent{}, err
 	}
+	experiences, err := validateResumeExperiences(req.Experiences)
+	if err != nil {
+		return model.ResumePageContent{}, err
+	}
+	educations, err := validateResumeEducations(req.Educations)
+	if err != nil {
+		return model.ResumePageContent{}, err
+	}
+	skills, err := validateResumeSkills(req.Skills)
+	if err != nil {
+		return model.ResumePageContent{}, err
+	}
 	return model.ResumePageContent{
 		Title:           title,
 		Subtitle:        subtitle,
 		ContentMarkdown: req.ContentMarkdown,
+		Experiences:     experiences,
+		Educations:      educations,
+		Skills:          skills,
 	}, nil
+}
+
+func validateResumeExperiences(items []types.ResumeExperience) ([]model.ResumeExperience, error) {
+	if len(items) > maxResumeItemsCount {
+		return nil, errors.BadRequest("experiences count is invalid")
+	}
+	out := make([]model.ResumeExperience, 0, len(items))
+	for index, item := range items {
+		field := func(name string) string {
+			return fmt.Sprintf("experiences.%d.%s", index, name)
+		}
+		role := strings.TrimSpace(item.Role)
+		organization := strings.TrimSpace(item.Organization)
+		location := strings.TrimSpace(item.Location)
+		startDate := strings.TrimSpace(item.StartDate)
+		endDate := strings.TrimSpace(item.EndDate)
+		description := strings.TrimSpace(item.Description)
+		if err := validator.Length(role, field("role"), 1, 120); err != nil {
+			return nil, err
+		}
+		if err := validator.Length(organization, field("organization"), 1, 120); err != nil {
+			return nil, err
+		}
+		if err := validator.Length(location, field("location"), 0, 120); err != nil {
+			return nil, err
+		}
+		if err := validator.Length(startDate, field("startDate"), 0, 32); err != nil {
+			return nil, err
+		}
+		if err := validator.Length(endDate, field("endDate"), 0, 32); err != nil {
+			return nil, err
+		}
+		if err := validator.Length(description, field("description"), 0, 1000); err != nil {
+			return nil, err
+		}
+		highlights, err := validateHighlights(item.Highlights, field("highlights"))
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, model.ResumeExperience{
+			Role:         role,
+			Organization: organization,
+			Location:     location,
+			StartDate:    startDate,
+			EndDate:      endDate,
+			Description:  description,
+			Highlights:   highlights,
+			DisplayOrder: index + 1,
+		})
+	}
+	return out, nil
+}
+
+func validateResumeEducations(items []types.ResumeEducation) ([]model.ResumeEducation, error) {
+	if len(items) > maxResumeItemsCount {
+		return nil, errors.BadRequest("educations count is invalid")
+	}
+	out := make([]model.ResumeEducation, 0, len(items))
+	for index, item := range items {
+		field := func(name string) string {
+			return fmt.Sprintf("educations.%d.%s", index, name)
+		}
+		school := strings.TrimSpace(item.School)
+		degree := strings.TrimSpace(item.Degree)
+		major := strings.TrimSpace(item.Major)
+		location := strings.TrimSpace(item.Location)
+		startDate := strings.TrimSpace(item.StartDate)
+		endDate := strings.TrimSpace(item.EndDate)
+		description := strings.TrimSpace(item.Description)
+		if err := validator.Length(school, field("school"), 1, 120); err != nil {
+			return nil, err
+		}
+		if err := validator.Length(degree, field("degree"), 0, 120); err != nil {
+			return nil, err
+		}
+		if err := validator.Length(major, field("major"), 0, 120); err != nil {
+			return nil, err
+		}
+		if err := validator.Length(location, field("location"), 0, 120); err != nil {
+			return nil, err
+		}
+		if err := validator.Length(startDate, field("startDate"), 0, 32); err != nil {
+			return nil, err
+		}
+		if err := validator.Length(endDate, field("endDate"), 0, 32); err != nil {
+			return nil, err
+		}
+		if err := validator.Length(description, field("description"), 0, 1000); err != nil {
+			return nil, err
+		}
+		highlights, err := validateHighlights(item.Highlights, field("highlights"))
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, model.ResumeEducation{
+			School:       school,
+			Degree:       degree,
+			Major:        major,
+			Location:     location,
+			StartDate:    startDate,
+			EndDate:      endDate,
+			Description:  description,
+			Highlights:   highlights,
+			DisplayOrder: index + 1,
+		})
+	}
+	return out, nil
+}
+
+func validateResumeSkills(items []types.ResumeSkill) ([]model.ResumeSkill, error) {
+	if len(items) > maxResumeSkillsCount {
+		return nil, errors.BadRequest("skills count is invalid")
+	}
+	out := make([]model.ResumeSkill, 0, len(items))
+	for index, item := range items {
+		field := func(name string) string {
+			return fmt.Sprintf("skills.%d.%s", index, name)
+		}
+		category := strings.TrimSpace(item.Category)
+		name := strings.TrimSpace(item.Name)
+		description := strings.TrimSpace(item.Description)
+		if err := validator.Length(category, field("category"), 1, 80); err != nil {
+			return nil, err
+		}
+		if err := validator.Length(name, field("name"), 1, 80); err != nil {
+			return nil, err
+		}
+		if item.Level < 0 || item.Level > 100 {
+			return nil, errors.BadRequest(field("level") + " is invalid")
+		}
+		if err := validator.Length(description, field("description"), 0, 255); err != nil {
+			return nil, err
+		}
+		out = append(out, model.ResumeSkill{
+			Category:     category,
+			Name:         name,
+			Level:        item.Level,
+			Description:  description,
+			DisplayOrder: index + 1,
+		})
+	}
+	return out, nil
+}
+
+func validateHighlights(values []string, field string) ([]string, error) {
+	if len(values) > maxResumeHighlightsCount {
+		return nil, errors.BadRequest(field + " count is invalid")
+	}
+	out := make([]string, 0, len(values))
+	for index, value := range values {
+		value = strings.TrimSpace(value)
+		if value == "" {
+			continue
+		}
+		if err := validator.Length(value, fmt.Sprintf("%s.%d", field, index), 1, 300); err != nil {
+			return nil, err
+		}
+		out = append(out, value)
+	}
+	return out, nil
 }
 
 func validateProjectsPageReq(req types.UpdateProjectsPageReq) (model.ProjectsPageContent, error) {
@@ -252,6 +436,7 @@ func validateProjectsPageReq(req types.UpdateProjectsPageReq) (model.ProjectsPag
 	for _, item := range req.Items {
 		items = append(items, model.ProjectItem{
 			ID:              item.ID,
+			TagIDs:          item.TagIDs,
 			Title:           item.Title,
 			Summary:         item.Summary,
 			Role:            item.Role,
@@ -319,6 +504,14 @@ func validateProjectsPageReq(req types.UpdateProjectsPageReq) (model.ProjectsPag
 	}, nil
 }
 
+func projectTagIDs(items []model.ProjectItem) []uint64 {
+	ids := make([]uint64, 0)
+	for _, item := range items {
+		ids = append(ids, item.TagIDs...)
+	}
+	return ids
+}
+
 func validateProjectURL(value, field string) error {
 	if err := validator.Length(value, field, 0, 255); err != nil {
 		return err
@@ -331,6 +524,9 @@ func resumePageResp(content *model.ResumePageContent) *types.ResumePageResp {
 		Title:           content.Title,
 		Subtitle:        content.Subtitle,
 		ContentMarkdown: content.ContentMarkdown,
+		Experiences:     resumeExperienceResp(content.Experiences),
+		Educations:      resumeEducationResp(content.Educations),
+		Skills:          resumeSkillResp(content.Skills),
 	}
 }
 
@@ -339,6 +535,7 @@ func projectsPageResp(content *model.ProjectsPageContent) *types.ProjectsPageRes
 	for _, item := range content.Items {
 		items = append(items, types.ProjectItem{
 			ID:              item.ID,
+			TagIDs:          item.TagIDs,
 			Title:           item.Title,
 			Summary:         item.Summary,
 			Role:            item.Role,
@@ -356,4 +553,56 @@ func projectsPageResp(content *model.ProjectsPageContent) *types.ProjectsPageRes
 		Subtitle: content.Subtitle,
 		Items:    items,
 	}
+}
+
+func resumeExperienceResp(items []model.ResumeExperience) []types.ResumeExperience {
+	out := make([]types.ResumeExperience, 0, len(items))
+	for _, item := range items {
+		out = append(out, types.ResumeExperience{
+			ID:           item.ID,
+			Role:         item.Role,
+			Organization: item.Organization,
+			Location:     item.Location,
+			StartDate:    item.StartDate,
+			EndDate:      item.EndDate,
+			Description:  item.Description,
+			Highlights:   item.Highlights,
+			DisplayOrder: item.DisplayOrder,
+		})
+	}
+	return out
+}
+
+func resumeEducationResp(items []model.ResumeEducation) []types.ResumeEducation {
+	out := make([]types.ResumeEducation, 0, len(items))
+	for _, item := range items {
+		out = append(out, types.ResumeEducation{
+			ID:           item.ID,
+			School:       item.School,
+			Degree:       item.Degree,
+			Major:        item.Major,
+			Location:     item.Location,
+			StartDate:    item.StartDate,
+			EndDate:      item.EndDate,
+			Description:  item.Description,
+			Highlights:   item.Highlights,
+			DisplayOrder: item.DisplayOrder,
+		})
+	}
+	return out
+}
+
+func resumeSkillResp(items []model.ResumeSkill) []types.ResumeSkill {
+	out := make([]types.ResumeSkill, 0, len(items))
+	for _, item := range items {
+		out = append(out, types.ResumeSkill{
+			ID:           item.ID,
+			Category:     item.Category,
+			Name:         item.Name,
+			Level:        item.Level,
+			Description:  item.Description,
+			DisplayOrder: item.DisplayOrder,
+		})
+	}
+	return out
 }

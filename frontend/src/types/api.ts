@@ -73,10 +73,45 @@ export interface UpdateResumePageReq {
   title: string;
   subtitle?: string;
   contentMarkdown?: string;
+  experiences?: ResumeExperienceReq[];
+  educations?: ResumeEducationReq[];
+  skills?: ResumeSkillReq[];
+}
+
+export interface ResumeExperienceReq {
+  role: string;
+  organization: string;
+  location: string;
+  startDate: string;
+  endDate: string;
+  description: string;
+  highlights: string[];
+  displayOrder: number;
+}
+
+export interface ResumeEducationReq {
+  school: string;
+  degree: string;
+  major: string;
+  location: string;
+  startDate: string;
+  endDate: string;
+  description: string;
+  highlights: string[];
+  displayOrder: number;
+}
+
+export interface ResumeSkillReq {
+  category: string;
+  name: string;
+  level: number;
+  description: string;
+  displayOrder: number;
 }
 
 export interface ProjectItemReq {
   id: string;
+  tagIds?: number[];
   title: string;
   summary: string;
   role: string;

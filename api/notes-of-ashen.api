@@ -104,16 +104,57 @@ type ResumePageResp {
 	Title           string `json:"title"`
 	Subtitle        string `json:"subtitle"`
 	ContentMarkdown string `json:"contentMarkdown"`
+	Experiences     []ResumeExperience `json:"experiences"`
+	Educations      []ResumeEducation  `json:"educations"`
+	Skills          []ResumeSkill      `json:"skills"`
 }
 
 type UpdateResumePageReq {
 	Title           string `json:"title"`
 	Subtitle        string `json:"subtitle,optional"`
 	ContentMarkdown string `json:"contentMarkdown,optional"`
+	Experiences     []ResumeExperience `json:"experiences,optional"`
+	Educations      []ResumeEducation  `json:"educations,optional"`
+	Skills          []ResumeSkill      `json:"skills,optional"`
+}
+
+type ResumeExperience {
+	ID           uint64   `json:"id,optional"`
+	Role         string   `json:"role"`
+	Organization string   `json:"organization"`
+	Location     string   `json:"location"`
+	StartDate    string   `json:"startDate"`
+	EndDate      string   `json:"endDate"`
+	Description  string   `json:"description"`
+	Highlights   []string `json:"highlights"`
+	DisplayOrder int      `json:"displayOrder"`
+}
+
+type ResumeEducation {
+	ID           uint64   `json:"id,optional"`
+	School       string   `json:"school"`
+	Degree       string   `json:"degree"`
+	Major        string   `json:"major"`
+	Location     string   `json:"location"`
+	StartDate    string   `json:"startDate"`
+	EndDate      string   `json:"endDate"`
+	Description  string   `json:"description"`
+	Highlights   []string `json:"highlights"`
+	DisplayOrder int      `json:"displayOrder"`
+}
+
+type ResumeSkill {
+	ID           uint64 `json:"id,optional"`
+	Category     string `json:"category"`
+	Name         string `json:"name"`
+	Level        int    `json:"level"`
+	Description  string `json:"description"`
+	DisplayOrder int    `json:"displayOrder"`
 }
 
 type ProjectItem {
 	ID              string   `json:"id"`
+	TagIDs          []uint64 `json:"tagIds,optional"`
 	Title           string   `json:"title"`
 	Summary         string   `json:"summary"`
 	Role            string   `json:"role"`
@@ -307,6 +348,7 @@ type ArticleResp {
 	CoverURL        string       `json:"coverUrl"`
 	Status          string       `json:"status"`
 	ViewCount       uint64       `json:"viewCount"`
+	LikeCount       uint64       `json:"likeCount"`
 	ScheduledAt     string       `json:"scheduledAt,optional"`
 	PublishedAt     string       `json:"publishedAt,optional"`
 	IsPinned        bool         `json:"isPinned"`
@@ -347,6 +389,7 @@ type ArticleVersionResp {
 	CoverURL          string   `json:"coverUrl"`
 	Status            string   `json:"status"`
 	ViewCount         uint64   `json:"viewCount"`
+	LikeCount         uint64   `json:"likeCount"`
 	ScheduledAt       string   `json:"scheduledAt,optional"`
 	PublishedAt       string   `json:"publishedAt,optional"`
 	IsPinned          bool     `json:"isPinned"`
@@ -386,6 +429,15 @@ type RefererStatResp {
 	PV         int64  `json:"pv"`
 }
 
+type GeoStatResp {
+	CountryCode string `json:"countryCode"`
+	CountryName string `json:"countryName"`
+	RegionName  string `json:"regionName"`
+	CityName    string `json:"cityName"`
+	PV          int64  `json:"pv"`
+	UV          int64  `json:"uv"`
+}
+
 type AdminStatsResp {
 	ArticleTotal    int64                   `json:"articleTotal"`
 	PublishedTotal  int64                   `json:"publishedTotal"`
@@ -393,6 +445,7 @@ type AdminStatsResp {
 	ArchivedTotal   int64                   `json:"archivedTotal"`
 	ScheduledTotal  int64                   `json:"scheduledTotal"`
 	ViewTotal       uint64                  `json:"viewTotal"`
+	LikeTotal       uint64                  `json:"likeTotal"`
 	TodayPV         int64                   `json:"todayPv"`
 	TodayUV         int64                   `json:"todayUv"`
 	UserTotal       int64                   `json:"userTotal"`
@@ -400,6 +453,7 @@ type AdminStatsResp {
 	TagTotal        int64                   `json:"tagTotal"`
 	TrafficTrend    []TrafficTrendPointResp `json:"trafficTrend"`
 	TopReferers     []RefererStatResp       `json:"topReferers"`
+	GeoStats        []GeoStatResp           `json:"geoStats"`
 	PopularArticles []ArticleResp           `json:"popularArticles"`
 	RecentArticles  []ArticleResp           `json:"recentArticles"`
 	RecentLogs      []OperationLogResp      `json:"recentLogs"`
@@ -470,6 +524,9 @@ service notesOfAshen-api {
 
 	@handler articleContext
 	get /api/v1/articles/:id/context (IDPathReq) returns (ArticleContextResp)
+
+	@handler articleLike
+	post /api/v1/articles/:id/like (IDPathReq) returns (ArticleLikeResp)
 
 	@handler articleDetail
 	get /api/v1/articles/:id (IDPathReq) returns (ArticleResp)
@@ -587,4 +644,9 @@ service notesOfAshen-api {
 
 	@handler adminUpdateProjectsPage
 	put /api/v1/admin/site/projects (UpdateProjectsPageReq) returns (ProjectsPageResp)
+}
+
+type ArticleLikeResp {
+	Liked     bool   `json:"liked"`
+	LikeCount uint64 `json:"likeCount"`
 }

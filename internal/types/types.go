@@ -79,19 +79,60 @@ type UpdateSiteSettingsReq struct {
 }
 
 type ResumePageResp struct {
-	Title           string `json:"title"`
-	Subtitle        string `json:"subtitle"`
-	ContentMarkdown string `json:"contentMarkdown"`
+	Title           string             `json:"title"`
+	Subtitle        string             `json:"subtitle"`
+	ContentMarkdown string             `json:"contentMarkdown"`
+	Experiences     []ResumeExperience `json:"experiences"`
+	Educations      []ResumeEducation  `json:"educations"`
+	Skills          []ResumeSkill      `json:"skills"`
 }
 
 type UpdateResumePageReq struct {
-	Title           string `json:"title"`
-	Subtitle        string `json:"subtitle,optional"`
-	ContentMarkdown string `json:"contentMarkdown,optional"`
+	Title           string             `json:"title"`
+	Subtitle        string             `json:"subtitle,optional"`
+	ContentMarkdown string             `json:"contentMarkdown,optional"`
+	Experiences     []ResumeExperience `json:"experiences,optional"`
+	Educations      []ResumeEducation  `json:"educations,optional"`
+	Skills          []ResumeSkill      `json:"skills,optional"`
+}
+
+type ResumeExperience struct {
+	ID           uint64   `json:"id,omitempty"`
+	Role         string   `json:"role"`
+	Organization string   `json:"organization"`
+	Location     string   `json:"location"`
+	StartDate    string   `json:"startDate"`
+	EndDate      string   `json:"endDate"`
+	Description  string   `json:"description"`
+	Highlights   []string `json:"highlights"`
+	DisplayOrder int      `json:"displayOrder"`
+}
+
+type ResumeEducation struct {
+	ID           uint64   `json:"id,omitempty"`
+	School       string   `json:"school"`
+	Degree       string   `json:"degree"`
+	Major        string   `json:"major"`
+	Location     string   `json:"location"`
+	StartDate    string   `json:"startDate"`
+	EndDate      string   `json:"endDate"`
+	Description  string   `json:"description"`
+	Highlights   []string `json:"highlights"`
+	DisplayOrder int      `json:"displayOrder"`
+}
+
+type ResumeSkill struct {
+	ID           uint64 `json:"id,omitempty"`
+	Category     string `json:"category"`
+	Name         string `json:"name"`
+	Level        int    `json:"level"`
+	Description  string `json:"description"`
+	DisplayOrder int    `json:"displayOrder"`
 }
 
 type ProjectItem struct {
 	ID              string   `json:"id"`
+	TagIDs          []uint64 `json:"tagIds,omitempty"`
 	Title           string   `json:"title"`
 	Summary         string   `json:"summary"`
 	Role            string   `json:"role"`
@@ -210,6 +251,7 @@ type ArticleResp struct {
 	CoverURL        string        `json:"coverUrl"`
 	Status          string        `json:"status"`
 	ViewCount       uint64        `json:"viewCount"`
+	LikeCount       uint64        `json:"likeCount"`
 	ScheduledAt     *time.Time    `json:"scheduledAt,omitempty"`
 	PublishedAt     *time.Time    `json:"publishedAt,omitempty"`
 	IsPinned        bool          `json:"isPinned"`
@@ -221,6 +263,11 @@ type ArticleResp struct {
 	UpdatedAt       time.Time     `json:"updatedAt"`
 	Tags            []TagResp     `json:"tags,omitempty"`
 	Category        *CategoryResp `json:"category,omitempty"`
+}
+
+type ArticleLikeResp struct {
+	Liked     bool   `json:"liked"`
+	LikeCount uint64 `json:"likeCount"`
 }
 
 type ArticleListResp struct {
@@ -289,6 +336,15 @@ type RefererStatResp struct {
 	PV         int64  `json:"pv"`
 }
 
+type GeoStatResp struct {
+	CountryCode string `json:"countryCode"`
+	CountryName string `json:"countryName"`
+	RegionName  string `json:"regionName"`
+	CityName    string `json:"cityName"`
+	PV          int64  `json:"pv"`
+	UV          int64  `json:"uv"`
+}
+
 type ArticleVersionResp struct {
 	ID                uint64     `json:"id"`
 	ArticleID         uint64     `json:"articleId"`
@@ -303,6 +359,7 @@ type ArticleVersionResp struct {
 	CoverURL          string     `json:"coverUrl"`
 	Status            string     `json:"status"`
 	ViewCount         uint64     `json:"viewCount"`
+	LikeCount         uint64     `json:"likeCount"`
 	ScheduledAt       *time.Time `json:"scheduledAt,omitempty"`
 	PublishedAt       *time.Time `json:"publishedAt,omitempty"`
 	IsPinned          bool       `json:"isPinned"`
@@ -330,6 +387,7 @@ type AdminStatsResp struct {
 	ArchivedTotal   int64                   `json:"archivedTotal"`
 	ScheduledTotal  int64                   `json:"scheduledTotal"`
 	ViewTotal       uint64                  `json:"viewTotal"`
+	LikeTotal       uint64                  `json:"likeTotal"`
 	TodayPV         int64                   `json:"todayPv"`
 	TodayUV         int64                   `json:"todayUv"`
 	UserTotal       int64                   `json:"userTotal"`
@@ -337,6 +395,7 @@ type AdminStatsResp struct {
 	TagTotal        int64                   `json:"tagTotal"`
 	TrafficTrend    []TrafficTrendPointResp `json:"trafficTrend"`
 	TopReferers     []RefererStatResp       `json:"topReferers"`
+	GeoStats        []GeoStatResp           `json:"geoStats"`
 	PopularArticles []ArticleResp           `json:"popularArticles"`
 	RecentArticles  []ArticleResp           `json:"recentArticles"`
 	RecentLogs      []OperationLogResp      `json:"recentLogs"`

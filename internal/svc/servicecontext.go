@@ -4,6 +4,7 @@ import (
 	"notes-of-ashen/internal/authutil"
 	"notes-of-ashen/internal/config"
 	"notes-of-ashen/internal/emailer"
+	"notes-of-ashen/internal/geoip"
 	"notes-of-ashen/internal/mq"
 	"notes-of-ashen/model"
 
@@ -18,6 +19,7 @@ type ServiceContext struct {
 	Tokens *authutil.Manager
 	Events *mq.Publisher
 	Mailer *emailer.Sender
+	GeoIP  *geoip.Resolver
 }
 
 func NewServiceContext(c config.Config) *ServiceContext {
@@ -32,6 +34,11 @@ func NewServiceContext(c config.Config) *ServiceContext {
 	})
 	events := mq.NewPublisher(c.RabbitMQ)
 	mq.StartConsumer(c.RabbitMQ, db)
+	geoResolver, err := geoip.New(c.GeoIP.DatabasePath)
+	if err != nil {
+		logx.Errorf("load geoip database failed: %v", err)
+		geoResolver, _ = geoip.New("")
+	}
 
 	return &ServiceContext{
 		Config: c,
@@ -40,10 +47,14 @@ func NewServiceContext(c config.Config) *ServiceContext {
 		Tokens: authutil.NewManager(c.Auth.AccessSecret, c.Auth.AccessExpire, c.Auth.RefreshExpire),
 		Events: events,
 		Mailer: emailer.NewSender(c.Email),
+		GeoIP:  geoResolver,
 	}
 }
 
 func (s *ServiceContext) Close() {
+	if s.GeoIP != nil {
+		_ = s.GeoIP.Close()
+	}
 	if s.Events != nil {
 		s.Events.Close()
 	}

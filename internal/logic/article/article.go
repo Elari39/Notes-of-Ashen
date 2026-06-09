@@ -2,6 +2,8 @@ package article
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"strconv"
 	"strings"
 	"time"
@@ -149,6 +151,21 @@ func Context(ctx context.Context, svcCtx *svc.ServiceContext, id uint64) (*types
 		resp.Related = append(resp.Related, articleResp(ctx, svcCtx, relatedItem, false))
 	}
 	return resp, nil
+}
+
+func Like(ctx context.Context, svcCtx *svc.ServiceContext, id uint64, meta types.RequestMeta) (*types.ArticleLikeResp, error) {
+	item, err := svcCtx.Store.FindArticle(ctx, id)
+	if err != nil {
+		return nil, logicutil.MapError(err)
+	}
+	if !model.IsArticlePubliclyVisible(*item, time.Now()) {
+		return nil, apperrors.NotFound("article not found")
+	}
+	likeCount, liked, err := svcCtx.Store.LikeArticle(ctx, id, articleLikeVisitorHash(meta.IP, meta.UserAgent))
+	if err != nil {
+		return nil, err
+	}
+	return &types.ArticleLikeResp{Liked: liked, LikeCount: likeCount}, nil
 }
 
 func Create(ctx context.Context, svcCtx *svc.ServiceContext, req types.ArticleReq, meta types.RequestMeta) (*types.ArticleResp, error) {
@@ -574,4 +591,9 @@ func publishEvent(ctx context.Context, svcCtx *svc.ServiceContext, event mq.Even
 	if svcCtx.Events != nil {
 		svcCtx.Events.Publish(ctx, event)
 	}
+}
+
+func articleLikeVisitorHash(ip, userAgent string) string {
+	sum := sha256.Sum256([]byte("article-like|" + strings.TrimSpace(ip) + "|" + strings.TrimSpace(userAgent)))
+	return hex.EncodeToString(sum[:])
 }

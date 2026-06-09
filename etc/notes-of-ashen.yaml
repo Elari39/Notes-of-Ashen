@@ -40,3 +40,6 @@ AI:
   APIKey: ""
   Model: ""
   TimeoutSeconds: 30
+
+GeoIP:
+  DatabasePath: ""

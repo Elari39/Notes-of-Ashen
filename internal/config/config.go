@@ -16,6 +16,7 @@ type Config struct {
 	RabbitMQ RabbitMQConf
 	Email    EmailConf
 	AI       AIConf
+	GeoIP    GeoIPConf
 }
 
 type DatabaseConf struct {
@@ -60,6 +61,10 @@ type AIConf struct {
 	APIKey         string
 	Model          string
 	TimeoutSeconds int
+}
+
+type GeoIPConf struct {
+	DatabasePath string
 }
 
 func (c *Config) ApplyEnv() error {
@@ -158,6 +163,7 @@ func (c *Config) ApplyEnv() error {
 	if err := setInt("APP_AI_TIMEOUT_SECONDS", &c.AI.TimeoutSeconds); err != nil {
 		return err
 	}
+	setString("APP_GEOIP_DATABASE_PATH", &c.GeoIP.DatabasePath)
 
 	return nil
 }

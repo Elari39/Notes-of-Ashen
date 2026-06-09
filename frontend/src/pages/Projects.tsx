@@ -43,7 +43,7 @@ const Projects: React.FC = () => {
   }, [text.loadError]);
 
   return (
-    <div className="mx-auto mt-4 w-full max-w-4xl space-y-8 md:mt-8">
+    <div className="mx-auto mt-4 w-full max-w-6xl space-y-8 md:mt-8">
       <section className="border-b border-mountain-grey pb-6">
         <p className="mb-3 text-xs uppercase tracking-[0.28em] text-ochre">
           {isZh ? 'PROJECTS' : 'WORKS'}
@@ -68,7 +68,7 @@ const Projects: React.FC = () => {
         </section>
       )}
       {!isLoading && !error && page?.items && page.items.length > 0 && (
-        <section className="grid grid-cols-1 gap-5">
+        <section className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
           {page.items.map((project) => (
             <ProjectCard key={project.id} project={project} labels={text} />
           ))}
@@ -86,25 +86,31 @@ type ProjectCardProps = {
 };
 
 const ProjectCard: React.FC<ProjectCardProps> = ({ project, labels }) => (
-  <article className="border border-mountain-grey bg-[var(--paper-soft)]">
-    {project.coverUrl && (
-      <img
-        src={project.coverUrl}
-        alt={project.title}
-        className="h-56 w-full border-b border-mountain-grey object-cover"
-        loading="lazy"
-      />
-    )}
-    <div className="space-y-5 p-5 md:p-6">
+  <article className="group flex min-h-full flex-col overflow-hidden border border-mountain-grey bg-[var(--paper-soft)] transition-colors hover:border-ochre">
+    <div className="relative h-56 overflow-hidden border-b border-mountain-grey bg-[var(--paper)]">
+      {project.coverUrl ? (
+        <img
+          src={project.coverUrl}
+          alt={project.title}
+          className="h-full w-full object-cover grayscale transition-all duration-500 group-hover:scale-[1.03] group-hover:grayscale-0"
+          loading="lazy"
+        />
+      ) : (
+        <div className="flex h-full items-center justify-center text-xs tracking-[0.24em] text-ink-light opacity-70">
+          {labels.noCover}
+        </div>
+      )}
+      {project.featured && (
+        <span className="absolute left-3 top-3 border border-ochre bg-paper px-2 py-0.5 text-[11px] uppercase tracking-[0.18em] text-ochre">
+          {labels.featured}
+        </span>
+      )}
+    </div>
+    <div className="flex flex-1 flex-col space-y-5 p-5 md:p-6">
       <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
         <div>
           <div className="flex flex-wrap items-center gap-2">
             <h2 className="text-xl font-bold tracking-widest text-ink">{project.title}</h2>
-            {project.featured && (
-              <span className="border border-ochre px-2 py-0.5 text-[11px] uppercase tracking-[0.18em] text-ochre">
-                {labels.featured}
-              </span>
-            )}
           </div>
           {project.summary && (
             <p className="mt-3 text-sm leading-7 tracking-wide text-ink-light">{project.summary}</p>
@@ -136,9 +142,13 @@ const ProjectCard: React.FC<ProjectCardProps> = ({ project, labels }) => (
         </div>
       )}
 
-      {project.contentMarkdown.trim() && (
-        <MarkdownRenderer content={project.contentMarkdown} className="text-sm" />
-      )}
+      <div className="mt-auto">
+        {project.contentMarkdown.trim() && (
+          <div className="line-clamp-[10]">
+            <MarkdownRenderer content={project.contentMarkdown} className="text-sm" />
+          </div>
+        )}
+      </div>
     </div>
   </article>
 );
@@ -151,6 +161,7 @@ const getProjectsLabels = (language: string) => language === 'zh'
       demo: '演示',
       repo: '代码',
       featured: '精选',
+      noCover: '暂无封面',
     }
   : {
       loading: 'Loading projects...',
@@ -159,4 +170,5 @@ const getProjectsLabels = (language: string) => language === 'zh'
       demo: 'Demo',
       repo: 'Repo',
       featured: 'Featured',
+      noCover: 'No Cover',
     };

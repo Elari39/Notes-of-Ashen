@@ -44,6 +44,7 @@ func Visit(ctx context.Context, svcCtx *svc.ServiceContext, req types.TrafficVis
 	date := now.Format("2006-01-02")
 	sourceType, sourceName := classifyReferer(req.Referrer, meta.Host)
 	visitorHash := visitorDailyHash(date, meta.IP, meta.UserAgent)
+	geo := lookupGeo(svcCtx, meta.IP)
 
 	if err := svcCtx.Store.RecordTraffic(ctx, model.TrafficRecord{
 		Date:        date,
@@ -51,11 +52,35 @@ func Visit(ctx context.Context, svcCtx *svc.ServiceContext, req types.TrafficVis
 		ArticleID:   req.ArticleID,
 		SourceType:  sourceType,
 		SourceName:  sourceName,
+		Geo: model.GeoLocation{
+			CountryCode: geo.CountryCode,
+			CountryName: geo.CountryName,
+			RegionName:  geo.RegionName,
+			CityName:    geo.CityName,
+		},
 	}); err != nil {
 		return err
 	}
 	recordRedisTraffic(ctx, svcCtx.Redis, date, visitorHash, sourceType, sourceName)
 	return nil
+}
+
+func lookupGeo(svcCtx *svc.ServiceContext, ip string) model.GeoLocation {
+	if svcCtx == nil || svcCtx.GeoIP == nil {
+		return model.GeoLocation{
+			CountryCode: "Unknown",
+			CountryName: "Unknown",
+			RegionName:  "Unknown",
+			CityName:    "Unknown",
+		}
+	}
+	location := svcCtx.GeoIP.Lookup(ip)
+	return model.GeoLocation{
+		CountryCode: location.CountryCode,
+		CountryName: location.CountryName,
+		RegionName:  location.RegionName,
+		CityName:    location.CityName,
+	}
 }
 
 func recordRedisTraffic(ctx context.Context, redisClient *redis.Client, date, visitorHash, sourceType, sourceName string) {

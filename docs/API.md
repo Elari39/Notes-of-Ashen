@@ -305,6 +305,7 @@ GET /api/v1/articles/:id
 | coverUrl | string | 封面 URL |
 | status | string | `draft`、`published` 或 `archived` |
 | viewCount | uint64 | 浏览量 |
+| likeCount | uint64 | 点赞数 |
 | scheduledAt | string | 定时发布时间，可能省略 |
 | publishedAt | string | 发布时间，可能省略 |
 | isPinned | bool | 是否置顶 |
@@ -513,6 +514,21 @@ GET /api/v1/site/settings
 }
 ```
 
+### 文章点赞
+
+```text
+POST /api/v1/articles/:id/like
+```
+
+权限：公开。仅允许点赞公开可见文章。后端基于访客哈希做幂等限制，不保存原始 IP；前端也会使用 `localStorage` 做本地重复点击限制。
+
+响应 `data`：
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| liked | bool | 本次请求是否新增点赞 |
+| likeCount | uint64 | 当前文章点赞数 |
+
 ### 更新站点设置
 
 ```text
@@ -548,7 +564,10 @@ GET /api/v1/site/resume
 | --- | --- | --- |
 | title | string | 页面标题 |
 | subtitle | string | 页面副标题 |
-| contentMarkdown | string | 简历 Markdown 正文 |
+| contentMarkdown | string | 简历 Markdown 引言 / 兼容正文 |
+| experiences | object[] | 工作与实习经历时间轴 |
+| educations | object[] | 教育背景时间轴 |
+| skills | object[] | 技能树 |
 
 ### 获取项目页面内容
 
@@ -576,6 +595,7 @@ GET /api/v1/site/projects
 | role | string | 角色或职责 |
 | period | string | 项目周期 |
 | tags | string[] | 标签 |
+| tagIds | uint64[] | 关联的标签 ID，后台读取时返回 |
 | coverUrl | string | 封面 URL，可为空 |
 | demoUrl | string | 演示链接，可为空 |
 | repoUrl | string | 代码仓库链接，可为空 |
@@ -597,7 +617,12 @@ PUT /api/v1/admin/site/resume
 | --- | --- | --- | --- |
 | title | string | 是 | 页面标题，长度 1 到 160 |
 | subtitle | string | 否 | 页面副标题，最长 255 |
-| contentMarkdown | string | 否 | 简历 Markdown 正文，最长 200000 字符 |
+| contentMarkdown | string | 否 | 简历 Markdown 引言 / 兼容正文，最长 200000 字符 |
+| experiences | object[] | 否 | 工作与实习经历，最多 30 条 |
+| educations | object[] | 否 | 教育背景，最多 30 条 |
+| skills | object[] | 否 | 技能项，最多 80 条，`level` 范围 0 到 100 |
+
+经历字段包括 `role`、`organization`、`location`、`startDate`、`endDate`、`description`、`highlights`、`displayOrder`。教育字段包括 `school`、`degree`、`major`、`location`、`startDate`、`endDate`、`description`、`highlights`、`displayOrder`。技能字段包括 `category`、`name`、`level`、`description`、`displayOrder`。
 
 ### 更新项目页面内容
 
@@ -626,6 +651,7 @@ PUT /api/v1/admin/site/projects
 | role | string | 否 | 角色或职责，最长 80 |
 | period | string | 否 | 项目周期，最长 80 |
 | tags | string[] | 否 | 最多 12 个，每个最长 32；保存时会去空和去重 |
+| tagIds | uint64[] | 否 | 关联现有标签 ID，传入时必须存在 |
 | coverUrl | string | 否 | 封面 URL，非空必须为 `http://` 或 `https://` |
 | demoUrl | string | 否 | 演示 URL，非空必须为 `http://` 或 `https://` |
 | repoUrl | string | 否 | 代码仓库 URL，非空必须为 `http://` 或 `https://` |
@@ -639,7 +665,7 @@ GET /rss.xml
 GET /sitemap.xml
 ```
 
-权限：公开。分别返回公开文章的 RSS XML 和站点 XML Sitemap。
+权限：公开。分别返回公开文章的 RSS XML 和站点 XML Sitemap；已启用的 `/resume`、`/projects` 页面也会进入 Sitemap，RSS 中会作为静态页面条目输出。
 
 ## 流量接口
 
@@ -649,7 +675,7 @@ GET /sitemap.xml
 POST /api/v1/traffic/visit
 ```
 
-权限：公开。前端自动上报公开页面访问，接口有 IP 限流保护。后端仅记录公开页面路径，后台、登录、注册、个人资料和找回密码等路径会被忽略。
+权限：公开。前端自动上报公开页面访问，接口有 IP 限流保护。后端仅记录公开页面路径，后台、登录、注册、个人资料和找回密码等路径会被忽略。若配置了 `APP_GEOIP_DATABASE_PATH`，后端会使用离线 GeoIP 数据库聚合国家 / 城市；未配置或解析失败时记录为 `Unknown`。
 
 | 字段 | 类型 | 必填 | 说明 |
 | --- | --- | --- | --- |
@@ -678,10 +704,12 @@ GET /api/v1/admin/stats
 | archivedTotal | int64 | 归档数 |
 | scheduledTotal | int64 | 定时发布数 |
 | viewTotal | uint64 | 文章浏览总量 |
+| likeTotal | uint64 | 文章点赞总量 |
 | todayPv | int64 | 今日 PV |
 | todayUv | int64 | 今日 UV |
 | trafficTrend | object[] | 最近 30 天 PV / UV 趋势，字段为 `date`、`pv`、`uv` |
 | topReferers | object[] | 最近 30 天访问来源排行，字段为 `sourceType`、`sourceName`、`pv` |
+| geoStats | object[] | 最近 30 天访客地理分布，字段为 `countryCode`、`countryName`、`regionName`、`cityName`、`pv`、`uv` |
 | userTotal | int64 | 用户数 |
 | categoryTotal | int64 | 分类数 |
 | tagTotal | int64 | 标签数 |

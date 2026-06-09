@@ -2,6 +2,7 @@ package model
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -55,10 +56,14 @@ type ResumePageContent struct {
 	Title           string
 	Subtitle        string
 	ContentMarkdown string
+	Experiences     []ResumeExperience
+	Educations      []ResumeEducation
+	Skills          []ResumeSkill
 }
 
 type ProjectItem struct {
 	ID              string   `json:"id"`
+	TagIDs          []uint64 `json:"tagIds,omitempty"`
 	Title           string   `json:"title"`
 	Summary         string   `json:"summary"`
 	Role            string   `json:"role"`
@@ -207,22 +212,47 @@ func (s *Store) ResumePageContent(ctx context.Context) (*ResumePageContent, erro
 	if err != nil {
 		return nil, err
 	}
+	experiences, err := s.ListResumeExperiences(ctx)
+	if err != nil {
+		return nil, err
+	}
+	educations, err := s.ListResumeEducations(ctx)
+	if err != nil {
+		return nil, err
+	}
+	skills, err := s.ListResumeSkills(ctx)
+	if err != nil {
+		return nil, err
+	}
 	return &ResumePageContent{
 		Title:           title,
 		Subtitle:        subtitle,
 		ContentMarkdown: content,
+		Experiences:     experiences,
+		Educations:      educations,
+		Skills:          skills,
 	}, nil
 }
 
 func (s *Store) UpdateResumePageContent(ctx context.Context, content ResumePageContent) error {
-	_, err := s.db.ExecContext(ctx, `
+	return WithTx(ctx, s.db, func(tx *sql.Tx) error {
+		if _, err := tx.ExecContext(ctx, `
 INSERT INTO site_settings (setting_key, setting_value)
 VALUES (?, ?), (?, ?), (?, ?)
 ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)`,
-		ResumeTitleKey, content.Title,
-		ResumeSubtitleKey, content.Subtitle,
-		ResumeContentKey, content.ContentMarkdown)
-	return err
+			ResumeTitleKey, content.Title,
+			ResumeSubtitleKey, content.Subtitle,
+			ResumeContentKey, content.ContentMarkdown); err != nil {
+			return err
+		}
+		if err := replaceResumeExperiencesTx(ctx, tx, content.Experiences); err != nil {
+			return err
+		}
+		if err := replaceResumeEducationsTx(ctx, tx, content.Educations); err != nil {
+			return err
+		}
+		return replaceResumeSkillsTx(ctx, tx, content.Skills)
+	})
 }
 
 func (s *Store) ProjectsPageContent(ctx context.Context) (*ProjectsPageContent, error) {
@@ -233,6 +263,17 @@ func (s *Store) ProjectsPageContent(ctx context.Context) (*ProjectsPageContent, 
 	subtitle, err := s.GetStringSetting(ctx, ProjectsSubtitleKey, "")
 	if err != nil {
 		return nil, err
+	}
+	entityItems, err := s.ListProjectItems(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if len(entityItems) > 0 {
+		return &ProjectsPageContent{
+			Title:    title,
+			Subtitle: subtitle,
+			Items:    entityItems,
+		}, nil
 	}
 	rawItems, err := s.GetStringSetting(ctx, ProjectsItemsKey, "[]")
 	if err != nil {
@@ -251,18 +292,22 @@ func (s *Store) ProjectsPageContent(ctx context.Context) (*ProjectsPageContent, 
 
 func (s *Store) UpdateProjectsPageContent(ctx context.Context, content ProjectsPageContent) error {
 	items := NormalizeProjectItems(content.Items)
-	encoded, err := json.Marshal(items)
+	encoded, err := json.Marshal([]ProjectItem{})
 	if err != nil {
 		return err
 	}
-	_, err = s.db.ExecContext(ctx, `
+	return WithTx(ctx, s.db, func(tx *sql.Tx) error {
+		if _, err := tx.ExecContext(ctx, `
 INSERT INTO site_settings (setting_key, setting_value)
 VALUES (?, ?), (?, ?), (?, ?)
 ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)`,
-		ProjectsTitleKey, content.Title,
-		ProjectsSubtitleKey, content.Subtitle,
-		ProjectsItemsKey, string(encoded))
-	return err
+			ProjectsTitleKey, content.Title,
+			ProjectsSubtitleKey, content.Subtitle,
+			ProjectsItemsKey, string(encoded)); err != nil {
+			return err
+		}
+		return replaceProjectItemsTx(ctx, tx, items)
+	})
 }
 
 func (s *Store) UpdateHomeArticleLayout(ctx context.Context, layout string) error {
@@ -319,6 +364,7 @@ func NormalizeProjectItems(items []ProjectItem) []ProjectItem {
 		item.DemoURL = strings.TrimSpace(item.DemoURL)
 		item.RepoURL = strings.TrimSpace(item.RepoURL)
 		item.Tags = normalizeProjectTags(item.Tags)
+		item.TagIDs = uniqueUint64(item.TagIDs)
 		normalized = append(normalized, item)
 	}
 	return normalized
