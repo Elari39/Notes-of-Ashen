@@ -3,24 +3,31 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
-import rehypeSlug from 'rehype-slug';
-import rehypeAutolinkHeadings from 'rehype-autolink-headings';
 import 'katex/dist/katex.min.css';
 import ImageLightbox, { LightboxImage } from './ImageLightbox';
 import { createMarkdownComponents } from './MarkdownCode';
+import { extractMarkdownHeadings } from '../utils/markdownHeadings';
 
 type MarkdownRendererProps = {
   content: string;
   className?: string;
+  headingIdPrefix?: string;
 };
 
-const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, className = '' }) => {
+const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, className = '', headingIdPrefix = '' }) => {
   const [lightboxImage, setLightboxImage] = useState<LightboxImage | null>(null);
   const openLightbox = useCallback((image: LightboxImage) => setLightboxImage(image), []);
   const closeLightbox = useCallback(() => setLightboxImage(null), []);
+  const headingIdByLine = useMemo(() => {
+    const headings = extractMarkdownHeadings(content, 3);
+    return headings.reduce<Record<string, string>>((map, heading) => {
+      map[`${heading.depth}:${heading.line}`] = `${headingIdPrefix}${heading.id}`;
+      return map;
+    }, {});
+  }, [content, headingIdPrefix]);
   const components = useMemo(
-    () => createMarkdownComponents({ onImageClick: openLightbox }),
-    [openLightbox],
+    () => createMarkdownComponents({ onImageClick: openLightbox, headingIdByLine }),
+    [headingIdByLine, openLightbox],
   );
 
   return (
@@ -30,8 +37,6 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, className 
           remarkPlugins={[remarkGfm, remarkMath]}
           rehypePlugins={[
             rehypeKatex,
-            rehypeSlug,
-            [rehypeAutolinkHeadings, { behavior: 'wrap' }],
           ]}
           components={components}
         >

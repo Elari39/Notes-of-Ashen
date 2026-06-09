@@ -6,6 +6,7 @@ import { getTags } from '../../api/tag';
 import { usePreferenceStore } from '../../store/preferences';
 import type { ProjectItem, ProjectsPage, Tag } from '../../types';
 import { getErrorMessage } from '../../utils/error';
+import { fixVisibleMojibake } from '../../utils/mojibake';
 
 const emptyProjects: ProjectsPage = {
   title: '项目',
@@ -33,8 +34,9 @@ const AdminProjectsContent: React.FC = () => {
         if (!active) {
           return;
         }
-        setSaved(res.data);
-        setDraft(res.data);
+        const next = normalizeProjectsPage(res.data);
+        setSaved(next);
+        setDraft(next);
         setAllTags(tagsRes.data.items);
       })
       .catch((e: unknown) => {
@@ -118,8 +120,9 @@ const AdminProjectsContent: React.FC = () => {
           repoUrl: item.repoUrl.trim(),
         })),
       });
-      setSaved(res.data);
-      setDraft(res.data);
+      const next = normalizeProjectsPage(res.data);
+      setSaved(next);
+      setDraft(next);
       setNotice(text.saved);
     } catch (e: unknown) {
       setError(getErrorMessage(e, text.saveError));
@@ -464,6 +467,13 @@ const normalizeTags = (tags: string[]) => {
 };
 
 const normalizeTagIds = (tagIds: number[]) => Array.from(new Set(tagIds.filter((id) => id > 0)));
+
+const normalizeProjectsPage = (page: ProjectsPage): ProjectsPage => ({
+  ...page,
+  title: fixVisibleMojibake(page.title || emptyProjects.title),
+  subtitle: fixVisibleMojibake(page.subtitle || ''),
+  items: page.items || [],
+});
 
 const getProjectsAdminLabels = (language: string) => language === 'zh'
   ? {

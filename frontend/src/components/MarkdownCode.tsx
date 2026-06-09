@@ -14,6 +14,7 @@ import tsx from 'react-syntax-highlighter/dist/esm/languages/prism/tsx';
 import typescript from 'react-syntax-highlighter/dist/esm/languages/prism/typescript';
 import yaml from 'react-syntax-highlighter/dist/esm/languages/prism/yaml';
 import type { LightboxImage } from './ImageLightbox';
+import MarkdownCodeBlock from './MarkdownCodeBlock';
 
 SyntaxHighlighter.registerLanguage('bash', bash);
 SyntaxHighlighter.registerLanguage('sh', bash);
@@ -105,114 +106,110 @@ const getLanguage = (className?: string) => {
 
 type MarkdownComponentOptions = {
   onImageClick?: (image: LightboxImage) => void;
+  headingIdByLine?: Record<string, string>;
 };
 
-export const createMarkdownComponents = ({ onImageClick }: MarkdownComponentOptions = {}): Components => ({
-  pre({ children }) {
-    return <>{children}</>;
-  },
-  table({ children, ...props }) {
-    return (
-      <div className="article-table-wrap">
-        <table {...props}>{children}</table>
-      </div>
-    );
-  },
-  code({ className, children, node, ...props }) {
-    const language = getLanguage(className);
-    const code = String(children).replace(/\n$/, '');
-    const isBlock = Boolean(language) || code.includes('\n') || Boolean(node?.position && node.position.start.line !== node.position.end.line);
+export const createMarkdownComponents = ({ onImageClick, headingIdByLine }: MarkdownComponentOptions = {}): Components => {
+  const headingId = (depth: number, node: unknown) => {
+    const line = typeof node === 'object' && node !== null && 'position' in node
+      ? (node as { position?: { start?: { line?: number } } }).position?.start?.line
+      : undefined;
+    return line ? headingIdByLine?.[`${depth}:${line}`] : undefined;
+  };
 
-    return isBlock ? (
-      <SyntaxHighlighter
-        style={syntaxTheme}
-        language={language || 'text'}
-        PreTag="div"
-        className="article-code-block"
-        codeTagProps={{
-          style: {
-            color: 'var(--code-ink)',
-            fontFamily: codeFontFamily,
-            fontWeight: 400,
-          },
-        }}
-        customStyle={{
-          margin: '1.75rem 0',
-          padding: '1.2rem 1.35rem',
-          background: 'var(--code-bg)',
-          border: '1px solid var(--code-border)',
-          borderRadius: '6px',
-          boxShadow: 'inset 0 1px 0 var(--code-shine)',
-          color: 'var(--code-ink)',
-          fontSize: '0.92rem',
-          lineHeight: 1.8,
-          overflowX: 'auto',
-        }}
-      >
-        {code}
-      </SyntaxHighlighter>
-    ) : (
-      <code {...props} className="article-inline-code">
-        {children}
-      </code>
-    );
-  },
-  img({ src, alt, title, className, node, ...props }) {
-    void node;
-
-    const imageSrc = typeof src === 'string' ? src : '';
-    const imageAlt = typeof alt === 'string' ? alt : '';
-    const imageTitle = typeof title === 'string' ? title : undefined;
-    const imageClassName = ['article-image-clickable', className].filter(Boolean).join(' ');
-
-    if (!imageSrc || !onImageClick) {
+  return {
+    pre({ children }) {
+      return <>{children}</>;
+    },
+    h1({ children, node, ...props }) {
+      const id = headingId(1, node);
+      return <h1 {...props} id={id}>{children}</h1>;
+    },
+    h2({ children, node, ...props }) {
+      const id = headingId(2, node);
+      return <h2 {...props} id={id}>{children}</h2>;
+    },
+    h3({ children, node, ...props }) {
+      const id = headingId(3, node);
+      return <h3 {...props} id={id}>{children}</h3>;
+    },
+    table({ children, ...props }) {
       return (
-        <img
-          {...props}
-          src={src}
-          alt={imageAlt}
-          title={imageTitle}
-          className={className}
-        />
+        <div className="article-table-wrap">
+          <table {...props}>{children}</table>
+        </div>
       );
-    }
+    },
+    code({ className, children, node, ...props }) {
+      const language = getLanguage(className);
+      const code = String(children).replace(/\n$/, '');
+      const isBlock = Boolean(language) || code.includes('\n') || Boolean(node?.position && node.position.start.line !== node.position.end.line);
 
-    const openImage = () => {
-      onImageClick({
-        src: imageSrc,
-        alt: imageAlt || imageTitle || '',
-      });
-    };
+      return isBlock ? (
+        <MarkdownCodeBlock code={code} language={language || 'text'} syntaxTheme={syntaxTheme} />
+      ) : (
+        <code {...props} className="article-inline-code">
+          {children}
+        </code>
+      );
+    },
+    img({ src, alt, title, className, node, ...props }) {
+      void node;
 
-    const handleClick = (event: MouseEvent<HTMLImageElement>) => {
-      event.preventDefault();
-      event.stopPropagation();
-      openImage();
-    };
+      const imageSrc = typeof src === 'string' ? src : '';
+      const imageAlt = typeof alt === 'string' ? alt : '';
+      const imageTitle = typeof title === 'string' ? title : undefined;
+      const imageClassName = ['article-image-clickable', className].filter(Boolean).join(' ');
 
-    const handleKeyDown = (event: KeyboardEvent<HTMLImageElement>) => {
-      if (event.key === 'Enter' || event.key === ' ') {
+      if (!imageSrc || !onImageClick) {
+        return (
+          <img
+            {...props}
+            src={src}
+            alt={imageAlt}
+            title={imageTitle}
+            className={className}
+          />
+        );
+      }
+
+      const openImage = () => {
+        onImageClick({
+          src: imageSrc,
+          alt: imageAlt || imageTitle || '',
+        });
+      };
+
+      const handleClick = (event: MouseEvent<HTMLImageElement>) => {
         event.preventDefault();
         event.stopPropagation();
         openImage();
-      }
-    };
+      };
 
-    return (
-      <img
-        {...props}
-        src={imageSrc}
-        alt={imageAlt}
-        title={imageTitle}
-        className={imageClassName}
-        role="button"
-        tabIndex={0}
-        aria-label={imageAlt ? `查看大图：${imageAlt}` : '查看大图'}
-        onClick={handleClick}
-        onKeyDown={handleKeyDown}
-      />
-    );
-  },
-});
+      const handleKeyDown = (event: KeyboardEvent<HTMLImageElement>) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          event.stopPropagation();
+          openImage();
+        }
+      };
+
+      return (
+        <img
+          {...props}
+          src={imageSrc}
+          alt={imageAlt}
+          title={imageTitle}
+          className={imageClassName}
+          role="button"
+          tabIndex={0}
+          aria-label={imageAlt ? `查看大图：${imageAlt}` : '查看大图'}
+          onClick={handleClick}
+          onKeyDown={handleKeyDown}
+        />
+      );
+    },
+  };
+};
 
 export const markdownComponents = createMarkdownComponents();

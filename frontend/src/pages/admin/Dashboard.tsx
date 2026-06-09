@@ -128,7 +128,7 @@ const GeoOverview: React.FC<{
   const labels = dashboardGeoLabels(language);
   const chartData = geoStats.map((item) => ({
     ...item,
-    label: geoLabel(item),
+    label: geoLabel(item, language),
   }));
 
   return (
@@ -170,7 +170,7 @@ const GeoOverview: React.FC<{
             <div className="space-y-3">
               {geoStats.map((item) => (
                 <div key={`${item.countryCode}:${item.regionName}:${item.cityName}`} className="flex items-center justify-between gap-3 text-sm">
-                  <span className="min-w-0 truncate text-ink">{geoLabel(item)}</span>
+                  <span className="min-w-0 truncate text-ink">{geoLabel(item, language)}</span>
                   <span className="shrink-0 text-ink-light">PV {item.pv} / UV {item.uv}</span>
                 </div>
               ))}
@@ -339,9 +339,9 @@ const dashboardGeoLabels = (language: Language) => language === 'zh'
       empty: 'No geo data yet',
     };
 
-const geoLabel = (item: GeoStat) => [item.countryName, item.regionName, item.cityName]
+const geoLabel = (item: GeoStat, language: Language) => [item.countryName, item.regionName, item.cityName]
   .filter((value) => value && value !== 'Unknown')
-  .join(' / ') || 'Unknown';
+  .join(' / ') || (language === 'zh' ? '未知地区' : 'Unknown');
 
 const shortDate = (value: string, language: Language) => {
   const date = new Date(`${value}T00:00:00`);

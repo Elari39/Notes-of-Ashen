@@ -29,6 +29,7 @@ services:
       - .env
     environment:
       TZ: Asia/Shanghai
+      APP_TIMEOUT: "${APP_TIMEOUT:-70000}"
       APP_DATABASE_DSN: "${MYSQL_USER:-notes_of_ashen}:${MYSQL_PASSWORD:-notes_of_ashen_password}@tcp(mysql:3306)/notes_of_ashen?charset=utf8mb4&parseTime=true&loc=Local"
       APP_DATABASE_MAX_OPEN_CONNS: "${APP_DATABASE_MAX_OPEN_CONNS:-20}"
       APP_DATABASE_MAX_IDLE_CONNS: "${APP_DATABASE_MAX_IDLE_CONNS:-10}"

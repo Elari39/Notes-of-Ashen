@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useLocation, useParams, useNavigate } from 'react-router-dom';
 import { assistArticle, getArticlePreview, createArticle, updateArticle } from '../../api/article';
 import { createCategory, getCategories } from '../../api/category';
 import { createTag, getTags } from '../../api/tag';
@@ -220,6 +220,7 @@ const TaxonomyCombobox = <T extends TaxonomyOption>({
 const ArticleEditor: React.FC = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const language = usePreferenceStore((state) => state.language);
   const isEdit = id && id !== 'new';
   const t = (key: Parameters<typeof translate>[1]) => translate(language, key);
@@ -227,6 +228,7 @@ const ArticleEditor: React.FC = () => {
   const [title, setTitle] = useState('');
   const [slug, setSlug] = useState('');
   const [summary, setSummary] = useState('');
+  const [generateSummaryOnSave, setGenerateSummaryOnSave] = useState(true);
   const [content, setContent] = useState('');
   const [coverUrl, setCoverUrl] = useState('');
   const [status, setStatus] = useState('draft');
@@ -259,6 +261,15 @@ const ArticleEditor: React.FC = () => {
   const pinText = getPinPriorityLabels(language);
 
   useEffect(() => {
+    const state = location.state as { aiNotice?: string } | null;
+    if (!state?.aiNotice) {
+      return;
+    }
+    setAiNotice(state.aiNotice);
+    navigate(location.pathname, { replace: true, state: null });
+  }, [location.pathname, location.state, navigate]);
+
+  useEffect(() => {
     const fetchDeps = async () => {
       try {
         const [catRes, tagRes] = await Promise.all([
@@ -277,9 +288,11 @@ const ArticleEditor: React.FC = () => {
       getArticlePreview(id)
         .then(res => {
           const article = res.data;
+          const nextSummary = article.summary || '';
           setTitle(article.title);
           setSlug(article.slug);
-          setSummary(article.summary);
+          setSummary(nextSummary);
+          setGenerateSummaryOnSave(nextSummary.trim() === '');
           setContent(article.content || '');
           setCoverUrl(article.coverUrl || '');
           setStatus(article.status);
@@ -296,6 +309,11 @@ const ArticleEditor: React.FC = () => {
     }
   }, [id, isEdit, language]);
 
+  const handleSummaryChange = (value: string) => {
+    setSummary(value);
+    setGenerateSummaryOnSave(value.trim() === '');
+  };
+
   const handleSave = async () => {
     const trimmedCoverUrl = coverUrl.trim();
     if (!isValidCoverUrl(trimmedCoverUrl)) {
@@ -303,25 +321,52 @@ const ArticleEditor: React.FC = () => {
       return;
     }
 
-    const payload = {
-      title, slug, summary, content, coverUrl: trimmedCoverUrl, status,
-      scheduledAt: scheduledAt ? new Date(scheduledAt).toISOString() : undefined,
-      isPinned,
-      displayPriority,
-      seoTitle: seoTitle.trim(),
-      seoDescription: seoDescription.trim(),
-      seoKeywords: seoKeywords.trim(),
-      categoryId: categoryId === '' ? 0 : Number(categoryId),
-      tagIds,
-    };
-
     setError('');
+    setAiNotice('');
     setSubmitting(true);
+    let nextSummary = summary;
+    let summaryGenerationFailed = false;
     try {
+      if (generateSummaryOnSave && content.trim()) {
+        try {
+          const aiRes = await assistArticle({ action: 'metadata', title, content });
+          const generatedSummary = aiRes.data.summary?.trim();
+          if (generatedSummary) {
+            nextSummary = generatedSummary;
+            setSummary(generatedSummary);
+            setGenerateSummaryOnSave(false);
+          } else {
+            summaryGenerationFailed = true;
+          }
+        } catch {
+          summaryGenerationFailed = true;
+        }
+      }
+
+      const payload = {
+        title, slug, summary: nextSummary, content, coverUrl: trimmedCoverUrl, status,
+        scheduledAt: scheduledAt ? new Date(scheduledAt).toISOString() : undefined,
+        isPinned,
+        displayPriority,
+        seoTitle: seoTitle.trim(),
+        seoDescription: seoDescription.trim(),
+        seoKeywords: seoKeywords.trim(),
+        categoryId: categoryId === '' ? 0 : Number(categoryId),
+        tagIds,
+      };
+
       if (isEdit) {
         await updateArticle(id, payload);
       } else {
-        await createArticle(payload);
+        const created = await createArticle(payload);
+        if (summaryGenerationFailed) {
+          navigate(`/admin/editor/${created.data.id}`, { replace: true, state: { aiNotice: aiText.saveSummaryFailed } });
+          return;
+        }
+      }
+      if (summaryGenerationFailed) {
+        setAiNotice(aiText.saveSummaryFailed);
+        return;
       }
       navigate('/admin/articles');
     } catch (e: unknown) {
@@ -602,9 +647,20 @@ const ArticleEditor: React.FC = () => {
       </div>
 
       <input
-        type="text" placeholder={t('articleEditor.summary')} value={summary} onChange={e => setSummary(e.target.value)}
+        type="text" placeholder={t('articleEditor.summary')} value={summary} onChange={e => handleSummaryChange(e.target.value)}
         className="w-full bg-transparent border-b border-mountain-grey py-2 text-ink focus:outline-none focus:border-ochre mb-6"
       />
+
+      <label className="mb-6 flex flex-wrap items-center gap-3 border border-mountain-grey bg-[var(--paper-soft)] px-3 py-2 text-sm text-ink-light">
+        <input
+          type="checkbox"
+          checked={generateSummaryOnSave}
+          onChange={e => setGenerateSummaryOnSave(e.target.checked)}
+          className="h-4 w-4 accent-ochre"
+        />
+        <span className="font-bold text-ink">{aiText.generateSummaryOnSave}</span>
+        <span className="text-xs">{aiText.generateSummaryHint}</span>
+      </label>
 
       <div className="flex-grow flex flex-col md:flex-row gap-6 overflow-hidden">
         <div className="w-full md:w-1/2 flex flex-col border border-mountain-grey p-4">
@@ -671,6 +727,9 @@ const getAIEditorLabels = (language: string) => language === 'zh'
       apply: '应用到正文',
       contentApplied: 'AI 结果已应用到正文，请检查后再保存。',
       aiError: 'AI 辅助失败',
+      generateSummaryOnSave: '保存时生成核心摘要',
+      generateSummaryHint: '默认仅在摘要为空时开启；AI 失败也会继续保存文章。',
+      saveSummaryFailed: '文章已保存但摘要生成失败。',
     }
   : {
       magic: '✨ AI',
@@ -687,4 +746,7 @@ const getAIEditorLabels = (language: string) => language === 'zh'
       apply: 'Apply to Body',
       contentApplied: 'AI result was applied to the body. Please review before saving.',
       aiError: 'AI assist failed',
+      generateSummaryOnSave: 'Generate summary on save',
+      generateSummaryHint: 'Enabled by default only when summary is empty. The article still saves if AI fails.',
+      saveSummaryFailed: 'Article saved, but summary generation failed.',
     };

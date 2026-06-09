@@ -28,14 +28,20 @@ type Response struct {
 }
 
 type chatRequest struct {
-	Model       string        `json:"model"`
-	Messages    []chatMessage `json:"messages"`
-	Temperature float64       `json:"temperature,omitempty"`
+	Model          string         `json:"model"`
+	Messages       []chatMessage  `json:"messages"`
+	Temperature    float64        `json:"temperature,omitempty"`
+	MaxTokens      int            `json:"max_tokens,omitempty"`
+	ResponseFormat responseFormat `json:"response_format,omitempty"`
 }
 
 type chatMessage struct {
 	Role    string `json:"role"`
 	Content string `json:"content"`
+}
+
+type responseFormat struct {
+	Type string `json:"type"`
 }
 
 type chatResponse struct {
@@ -56,8 +62,10 @@ func Assist(ctx context.Context, conf config.AIConf, req Request) (*Response, er
 	defer cancel()
 
 	body, err := json.Marshal(chatRequest{
-		Model:       strings.TrimSpace(conf.Model),
-		Temperature: 0.3,
+		Model:          strings.TrimSpace(conf.Model),
+		Temperature:    0.3,
+		MaxTokens:      maxTokens(req.Action),
+		ResponseFormat: responseFormat{Type: "json_object"},
 		Messages: []chatMessage{
 			{Role: "system", Content: systemPrompt(req.Action)},
 			{Role: "user", Content: userPrompt(req)},
@@ -136,13 +144,22 @@ func ParseAssistantJSON(content string) (*Response, error) {
 func systemPrompt(action string) string {
 	switch action {
 	case "metadata":
-		return "你是博客文章 SEO 编辑助手。只输出 JSON，不要输出 Markdown。JSON 字段必须为 summary、seoDescription、seoKeywords。summary 80 到 160 字，seoDescription 不超过 180 字，seoKeywords 为逗号分隔关键词。"
+		return `你是博客文章 SEO 编辑助手。必须只输出 json，不要输出 Markdown。
+JSON 字段必须为 summary、seoDescription、seoKeywords。
+summary 约 100 个中文字符，提炼文章核心观点，不要写成标题；seoDescription 不超过 180 字；seoKeywords 为逗号分隔关键词。
+示例 JSON：{"summary":"本文围绕主题提炼核心内容，保留关键背景、问题与结论，方便读者快速判断是否继续阅读。","seoDescription":"文章内容摘要。","seoKeywords":"关键词一,关键词二"}`
 	case "proofread":
-		return "你是中文博客文章校对助手。只输出 JSON，不要输出 Markdown。JSON 字段必须为 revisedContent、suggestions。保留原意和 Markdown 结构，只修正错别字、病句、标点和明显语法问题。"
+		return `你是中文博客文章校对助手。必须只输出 json，不要输出 Markdown。
+JSON 字段必须为 revisedContent、suggestions。
+保留原意和 Markdown 结构，只修正错别字、病句、标点和明显语法问题。
+示例 JSON：{"revisedContent":"修订后的 Markdown 正文","suggestions":["修改说明"]}`
 	case "polish":
-		return "你是中文博客文章润色助手。只输出 JSON，不要输出 Markdown。JSON 字段必须为 revisedContent、suggestions。保留原意和 Markdown 结构，让表达更清晰自然，不要扩写事实。"
+		return `你是中文博客文章润色助手。必须只输出 json，不要输出 Markdown。
+JSON 字段必须为 revisedContent、suggestions。
+保留原意和 Markdown 结构，让表达更清晰自然，不要扩写事实。
+示例 JSON：{"revisedContent":"润色后的 Markdown 正文","suggestions":["修改说明"]}`
 	default:
-		return "你是博客文章编辑助手。只输出 JSON，不要输出 Markdown。"
+		return `你是博客文章编辑助手。必须只输出 json，不要输出 Markdown。`
 	}
 }
 
@@ -156,4 +173,15 @@ func userPrompt(req Request) string {
 	builder.WriteString("正文：\n")
 	builder.WriteString(req.Content)
 	return builder.String()
+}
+
+func maxTokens(action string) int {
+	switch action {
+	case "metadata":
+		return 800
+	case "proofread", "polish":
+		return 12000
+	default:
+		return 4000
+	}
 }

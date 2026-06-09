@@ -117,6 +117,9 @@ func (c *Config) ApplyEnv() error {
 	if err := setInt("APP_PORT", &c.Port); err != nil {
 		return err
 	}
+	if err := setInt64("APP_TIMEOUT", &c.Timeout); err != nil {
+		return err
+	}
 	setString("APP_DATABASE_DSN", &c.Database.DataSource)
 	if err := setInt("APP_DATABASE_MAX_OPEN_CONNS", &c.Database.MaxOpenConns); err != nil {
 		return err
