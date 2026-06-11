@@ -79,6 +79,12 @@ const AdminLayout: React.FC = () => {
               >
                 {t('admin.settings')}
               </NavLink>
+              <NavLink
+                to="/admin/ai-settings"
+                className={({ isActive }) => isActive ? 'text-ochre font-bold' : 'hover:text-ochre transition-colors'}
+              >
+                {language === 'zh' ? 'AI 配置' : 'AI Settings'}
+              </NavLink>
               {resumePageEnabled && (
                 <NavLink
                   to="/admin/resume"

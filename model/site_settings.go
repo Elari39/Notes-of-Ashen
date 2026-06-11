@@ -12,22 +12,30 @@ import (
 )
 
 const (
-	RegistrationEnabledKey = "registration_enabled"
-	HomeArticleLayoutKey   = "home_article_layout"
-	SiteTitleKey           = "site_title"
-	SiteDescriptionKey     = "site_description"
-	SiteKeywordsKey        = "site_keywords"
-	SiteBaseURLKey         = "site_base_url"
-	ResumePageEnabledKey   = "resume_page_enabled"
-	ResumeNavHiddenKey     = "resume_nav_hidden"
-	ProjectsPageEnabledKey = "projects_page_enabled"
-	ProjectsNavHiddenKey   = "projects_nav_hidden"
-	ResumeTitleKey         = "resume_title"
-	ResumeSubtitleKey      = "resume_subtitle"
-	ResumeContentKey       = "resume_content_markdown"
-	ProjectsTitleKey       = "projects_title"
-	ProjectsSubtitleKey    = "projects_subtitle"
-	ProjectsItemsKey       = "projects_items_json"
+	RegistrationEnabledKey  = "registration_enabled"
+	HomeArticleLayoutKey    = "home_article_layout"
+	SiteTitleKey            = "site_title"
+	SiteDescriptionKey      = "site_description"
+	SiteKeywordsKey         = "site_keywords"
+	SiteBaseURLKey          = "site_base_url"
+	ResumePageEnabledKey    = "resume_page_enabled"
+	ResumeNavHiddenKey      = "resume_nav_hidden"
+	ProjectsPageEnabledKey  = "projects_page_enabled"
+	ProjectsNavHiddenKey    = "projects_nav_hidden"
+	ResumeTitleKey          = "resume_title"
+	ResumeSubtitleKey       = "resume_subtitle"
+	ResumeContentKey        = "resume_content_markdown"
+	ProjectsTitleKey        = "projects_title"
+	ProjectsSubtitleKey     = "projects_subtitle"
+	ProjectsItemsKey        = "projects_items_json"
+	AIEnabledKey            = "ai_enabled"
+	AIBaseURLKey            = "ai_base_url"
+	AIAPIKeyCipherKey       = "ai_api_key_cipher"
+	AIModelKey              = "ai_model"
+	AIFirstByteTimeoutKey   = "ai_first_byte_timeout_seconds"
+	AIStreamTimeoutKey      = "ai_stream_timeout_seconds"
+	AINonStreamTimeoutKey   = "ai_non_stream_timeout_seconds"
+	AISettingsConfiguredKey = "ai_settings_configured"
 
 	HomeArticleLayoutStandard    = "standard"
 	HomeArticleLayoutAlternating = "alternating"
@@ -37,6 +45,9 @@ const (
 	DefaultSiteKeywords    = "blog,notes,writing"
 	DefaultResumeTitle     = "简介"
 	DefaultProjectsTitle   = "项目"
+	DefaultAIFirstByteWait = 60
+	DefaultAIStreamWait    = 300
+	DefaultAINonStreamWait = 600
 )
 
 type SiteSettings struct {
@@ -50,6 +61,17 @@ type SiteSettings struct {
 	ResumeNavHidden     bool
 	ProjectsPageEnabled bool
 	ProjectsNavHidden   bool
+}
+
+type AISettings struct {
+	Enabled                 bool
+	BaseURL                 string
+	APIKeyCipher            string
+	Model                   string
+	FirstByteTimeoutSeconds int
+	StreamTimeoutSeconds    int
+	NonStreamTimeoutSeconds int
+	Configured              bool
 }
 
 type ResumePageContent struct {
@@ -167,6 +189,83 @@ func (s *Store) GetStringSetting(ctx context.Context, key string, defaultValue s
 		return "", err
 	}
 	return raw, nil
+}
+
+func (s *Store) GetIntSetting(ctx context.Context, key string, defaultValue int) (int, error) {
+	raw, err := s.GetStringSetting(ctx, key, "")
+	if err != nil {
+		return 0, err
+	}
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return defaultValue, nil
+	}
+	var value int
+	if _, err := fmt.Sscanf(raw, "%d", &value); err != nil {
+		return defaultValue, nil
+	}
+	return value, nil
+}
+
+func (s *Store) AISettings(ctx context.Context) (*AISettings, error) {
+	enabled, err := s.GetBoolSetting(ctx, AIEnabledKey, false)
+	if err != nil {
+		return nil, err
+	}
+	baseURL, err := s.GetStringSetting(ctx, AIBaseURLKey, "")
+	if err != nil {
+		return nil, err
+	}
+	keyCipher, err := s.GetStringSetting(ctx, AIAPIKeyCipherKey, "")
+	if err != nil {
+		return nil, err
+	}
+	model, err := s.GetStringSetting(ctx, AIModelKey, "")
+	if err != nil {
+		return nil, err
+	}
+	firstByteTimeout, err := s.GetIntSetting(ctx, AIFirstByteTimeoutKey, DefaultAIFirstByteWait)
+	if err != nil {
+		return nil, err
+	}
+	streamTimeout, err := s.GetIntSetting(ctx, AIStreamTimeoutKey, DefaultAIStreamWait)
+	if err != nil {
+		return nil, err
+	}
+	nonStreamTimeout, err := s.GetIntSetting(ctx, AINonStreamTimeoutKey, DefaultAINonStreamWait)
+	if err != nil {
+		return nil, err
+	}
+	configured, err := s.GetBoolSetting(ctx, AISettingsConfiguredKey, false)
+	if err != nil {
+		return nil, err
+	}
+	return &AISettings{
+		Enabled:                 enabled,
+		BaseURL:                 baseURL,
+		APIKeyCipher:            keyCipher,
+		Model:                   model,
+		FirstByteTimeoutSeconds: firstByteTimeout,
+		StreamTimeoutSeconds:    streamTimeout,
+		NonStreamTimeoutSeconds: nonStreamTimeout,
+		Configured:              configured,
+	}, nil
+}
+
+func (s *Store) UpdateAISettings(ctx context.Context, settings AISettings) error {
+	_, err := s.db.ExecContext(ctx, `
+INSERT INTO site_settings (setting_key, setting_value)
+VALUES (?, ?), (?, ?), (?, ?), (?, ?), (?, ?), (?, ?), (?, ?), (?, ?)
+ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)`,
+		AIEnabledKey, boolSettingValue(settings.Enabled),
+		AIBaseURLKey, settings.BaseURL,
+		AIAPIKeyCipherKey, settings.APIKeyCipher,
+		AIModelKey, settings.Model,
+		AIFirstByteTimeoutKey, fmt.Sprintf("%d", settings.FirstByteTimeoutSeconds),
+		AIStreamTimeoutKey, fmt.Sprintf("%d", settings.StreamTimeoutSeconds),
+		AINonStreamTimeoutKey, fmt.Sprintf("%d", settings.NonStreamTimeoutSeconds),
+		AISettingsConfiguredKey, "true")
+	return err
 }
 
 func (s *Store) UpdateRegistrationEnabled(ctx context.Context, enabled bool) error {

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"strings"
 	"time"
@@ -54,10 +55,8 @@ type chatResponse struct {
 }
 
 func Assist(ctx context.Context, conf config.AIConf, req Request) (*Response, error) {
-	timeout := time.Duration(conf.TimeoutSeconds) * time.Second
-	if timeout <= 0 {
-		timeout = 30 * time.Second
-	}
+	timeout := nonStreamTimeout(conf)
+	headerTimeout := firstByteTimeout(conf)
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
@@ -83,7 +82,19 @@ func Assist(ctx context.Context, conf config.AIConf, req Request) (*Response, er
 	httpReq.Header.Set("Content-Type", "application/json")
 	httpReq.Header.Set("Authorization", "Bearer "+strings.TrimSpace(conf.APIKey))
 
-	client := &http.Client{Timeout: timeout}
+	client := &http.Client{
+		Timeout: timeout,
+		Transport: &http.Transport{
+			Proxy: http.ProxyFromEnvironment,
+			DialContext: (&net.Dialer{
+				Timeout:   30 * time.Second,
+				KeepAlive: 30 * time.Second,
+			}).DialContext,
+			TLSHandshakeTimeout:   30 * time.Second,
+			ResponseHeaderTimeout: headerTimeout,
+			ExpectContinueTimeout: 1 * time.Second,
+		},
+	}
 	httpResp, err := client.Do(httpReq)
 	if err != nil {
 		return nil, err
@@ -158,6 +169,21 @@ JSON 字段必须为 revisedContent、suggestions。
 JSON 字段必须为 revisedContent、suggestions。
 保留原意和 Markdown 结构，让表达更清晰自然，不要扩写事实。
 示例 JSON：{"revisedContent":"润色后的 Markdown 正文","suggestions":["修改说明"]}`
+	case "expand":
+		return `你是中文博客文章伴写助手。必须只输出 json，不要输出 Markdown。
+JSON 字段必须为 revisedContent、suggestions。
+在不虚构事实的前提下扩写用户给出的段落，让论述更完整、衔接更自然，并保留 Markdown 结构。
+示例 JSON：{"revisedContent":"扩写后的 Markdown 段落","suggestions":["扩写说明"]}`
+	case "shorten":
+		return `你是中文博客文章压缩助手。必须只输出 json，不要输出 Markdown。
+JSON 字段必须为 revisedContent、suggestions。
+保留核心信息和语气，删去冗余表达，让段落更短更清晰，并保留 Markdown 结构。
+示例 JSON：{"revisedContent":"缩写后的 Markdown 段落","suggestions":["缩写说明"]}`
+	case "translate":
+		return `你是技术博客翻译助手。必须只输出 json，不要输出 Markdown。
+JSON 字段必须为 revisedContent、suggestions。
+将用户给出的段落翻译为自然英文，保留 Markdown 结构、代码、链接和专有名词；如果原文主要是英文，则翻译为中文。
+示例 JSON：{"revisedContent":"Translated Markdown paragraph","suggestions":["翻译说明"]}`
 	default:
 		return `你是博客文章编辑助手。必须只输出 json，不要输出 Markdown。`
 	}
@@ -181,7 +207,28 @@ func maxTokens(action string) int {
 		return 800
 	case "proofread", "polish":
 		return 12000
+	case "expand", "shorten", "translate":
+		return 4000
 	default:
 		return 4000
 	}
+}
+
+func firstByteTimeout(conf config.AIConf) time.Duration {
+	seconds := conf.FirstByteTimeoutSeconds
+	if seconds <= 0 {
+		seconds = 60
+	}
+	return time.Duration(seconds) * time.Second
+}
+
+func nonStreamTimeout(conf config.AIConf) time.Duration {
+	seconds := conf.NonStreamTimeoutSeconds
+	if seconds <= 0 {
+		seconds = conf.TimeoutSeconds
+	}
+	if seconds <= 0 {
+		seconds = 600
+	}
+	return time.Duration(seconds) * time.Second
 }

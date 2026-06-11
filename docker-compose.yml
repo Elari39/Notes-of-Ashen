@@ -55,7 +55,7 @@ services:
       APP_AI_BASE_URL: "${APP_AI_BASE_URL:-}"
       APP_AI_API_KEY: "${APP_AI_API_KEY:-}"
       APP_AI_MODEL: "${APP_AI_MODEL:-}"
-      APP_AI_TIMEOUT_SECONDS: "${APP_AI_TIMEOUT_SECONDS:-30}"
+      APP_AI_TIMEOUT_SECONDS: "${APP_AI_TIMEOUT_SECONDS:-600}"
       APP_GEOIP_DATABASE_PATH: "${APP_GEOIP_DATABASE_PATH:-/data/GeoLite2-City.mmdb}"
     volumes:
       - ./data:/data:ro

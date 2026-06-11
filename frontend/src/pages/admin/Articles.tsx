@@ -41,7 +41,7 @@ const AdminArticles: React.FC = () => {
   const getDisplayStatusLabel = (article: Article) => {
     const displayStatus = getDisplayStatus(article);
     if (displayStatus === 'scheduled') {
-      return language === 'zh' ? '计划发布' : 'Scheduled';
+      return language === 'zh' ? '定时发布' : 'Scheduled';
     }
     return getArticleStatusLabel(language, displayStatus);
   };
@@ -211,7 +211,7 @@ const AdminArticles: React.FC = () => {
           <option value="">{t('adminArticles.allStatus')}</option>
           <option value="draft">{getArticleStatusLabel(language, 'draft')}</option>
           <option value="published">{getArticleStatusLabel(language, 'published')}</option>
-          <option value="scheduled">{language === 'zh' ? '计划发布' : 'Scheduled'}</option>
+          <option value="scheduled">{language === 'zh' ? '定时发布' : 'Scheduled'}</option>
           <option value="archived">{getArticleStatusLabel(language, 'archived')}</option>
         </select>
         <select

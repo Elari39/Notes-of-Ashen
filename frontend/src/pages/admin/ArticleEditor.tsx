@@ -1,9 +1,9 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useParams, useNavigate } from 'react-router-dom';
 import { assistArticle, getArticlePreview, createArticle, updateArticle } from '../../api/article';
 import { createCategory, getCategories } from '../../api/category';
 import { createTag, getTags } from '../../api/tag';
-import { Category, Tag } from '../../types';
+import type { Article, Category, Tag } from '../../types';
 import type { AIAssistAction } from '../../types/api';
 import InlineNotice from '../../components/InlineNotice';
 import MarkdownRenderer from '../../components/MarkdownRenderer';
@@ -240,6 +240,10 @@ const ArticleEditor: React.FC = () => {
   const [seoKeywords, setSeoKeywords] = useState('');
   const [categoryId, setCategoryId] = useState<number | ''>('');
   const [tagIds, setTagIds] = useState<number[]>([]);
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const [isEditorReady, setIsEditorReady] = useState(false);
+  const [draftRecovery, setDraftRecovery] = useState<EditorDraft | null>(null);
+  const editorBaselineRef = useRef<EditorDraft | null>(null);
 
   const [categories, setCategories] = useState<Category[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
@@ -256,9 +260,13 @@ const ArticleEditor: React.FC = () => {
     action: AIAssistAction;
     revisedContent: string;
     suggestions: string[];
+    rangeStart: number;
+    rangeEnd: number;
+    sourceContent: string;
   } | null>(null);
   const aiText = getAIEditorLabels(language);
   const pinText = getPinPriorityLabels(language);
+  const scheduledPublishHint = getScheduledPublishHint(language, status, scheduledAt);
 
   useEffect(() => {
     const state = location.state as { aiNotice?: string } | null;
@@ -270,6 +278,9 @@ const ArticleEditor: React.FC = () => {
   }, [location.pathname, location.state, navigate]);
 
   useEffect(() => {
+    setIsEditorReady(false);
+    setDraftRecovery(null);
+    editorBaselineRef.current = null;
     const fetchDeps = async () => {
       try {
         const [catRes, tagRes] = await Promise.all([
@@ -288,30 +299,161 @@ const ArticleEditor: React.FC = () => {
       getArticlePreview(id)
         .then(res => {
           const article = res.data;
-          const nextSummary = article.summary || '';
-          setTitle(article.title);
-          setSlug(article.slug);
-          setSummary(nextSummary);
-          setGenerateSummaryOnSave(nextSummary.trim() === '');
-          setContent(article.content || '');
-          setCoverUrl(article.coverUrl || '');
-          setStatus(article.status);
-          setScheduledAt(toDateTimeLocal(article.scheduledAt));
-          setIsPinned(Boolean(article.isPinned));
-          setDisplayPriority(article.displayPriority || 0);
-          setSeoTitle(article.seoTitle || '');
-          setSeoDescription(article.seoDescription || '');
-          setSeoKeywords(article.seoKeywords || '');
-          setCategoryId(article.categoryId || '');
-          if (article.tags) setTagIds(article.tags.map(tag => tag.id));
+          const baseline = articleToEditorDraft(article);
+          const draftKey = editorDraftKey(id);
+          editorBaselineRef.current = baseline;
+          applyEditorDraft(baseline, {
+            setTitle,
+            setSlug,
+            setSummary,
+            setGenerateSummaryOnSave,
+            setContent,
+            setCoverUrl,
+            setStatus,
+            setScheduledAt,
+            setIsPinned,
+            setDisplayPriority,
+            setSeoTitle,
+            setSeoDescription,
+            setSeoKeywords,
+            setCategoryId,
+            setTagIds,
+          });
+          const localDraft = readEditorDraft(draftKey);
+          if (shouldRecoverEditorDraft(localDraft, baseline, article.updatedAt)) {
+            setDraftRecovery(localDraft);
+          } else if (localDraft) {
+            removeEditorDraft(draftKey);
+          }
+          setIsEditorReady(true);
         })
         .catch(e => setError(getErrorMessage(e, translate(language, 'article.loadError'))));
+    } else {
+      const baseline = emptyEditorDraft();
+      const draftKey = editorDraftKey('new');
+      editorBaselineRef.current = baseline;
+      applyEditorDraft(baseline, {
+        setTitle,
+        setSlug,
+        setSummary,
+        setGenerateSummaryOnSave,
+        setContent,
+        setCoverUrl,
+        setStatus,
+        setScheduledAt,
+        setIsPinned,
+        setDisplayPriority,
+        setSeoTitle,
+        setSeoDescription,
+        setSeoKeywords,
+        setCategoryId,
+        setTagIds,
+      });
+      const localDraft = readEditorDraft(draftKey);
+      if (shouldRecoverEditorDraft(localDraft, baseline)) {
+        setDraftRecovery(localDraft);
+      } else if (localDraft) {
+        removeEditorDraft(draftKey);
+      }
+      setIsEditorReady(true);
     }
   }, [id, isEdit, language]);
 
   const handleSummaryChange = (value: string) => {
     setSummary(value);
     setGenerateSummaryOnSave(value.trim() === '');
+  };
+
+  useEffect(() => {
+    if (!isEditorReady) {
+      return;
+    }
+    const key = editorDraftKey(isEdit ? id : 'new');
+    const baseline = editorBaselineRef.current;
+    if (!baseline) {
+      return;
+    }
+    const draft = currentEditorDraft({
+      title,
+      slug,
+      summary,
+      generateSummaryOnSave,
+      content,
+      coverUrl,
+      status,
+      scheduledAt,
+      isPinned,
+      displayPriority,
+      seoTitle,
+      seoDescription,
+      seoKeywords,
+      categoryId,
+      tagIds,
+    });
+    if (
+      editorDraftEquals(draft, baseline) ||
+      (!hasMeaningfulEditorDraft(draft) && !hasMeaningfulEditorDraft(baseline))
+    ) {
+      if (!draftRecovery) {
+        removeEditorDraft(key);
+      }
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      writeEditorDraft(key, { ...draft, savedAt: Date.now() });
+    }, 800);
+    return () => window.clearTimeout(timer);
+  }, [
+    categoryId,
+    content,
+    coverUrl,
+    displayPriority,
+    draftRecovery,
+    generateSummaryOnSave,
+    id,
+    isEdit,
+    isEditorReady,
+    isPinned,
+    scheduledAt,
+    seoDescription,
+    seoKeywords,
+    seoTitle,
+    slug,
+    status,
+    summary,
+    tagIds,
+    title,
+  ]);
+
+  const restoreLocalDraft = () => {
+    if (!draftRecovery) {
+      return;
+    }
+    applyEditorDraft(draftRecovery, {
+      setTitle,
+      setSlug,
+      setSummary,
+      setGenerateSummaryOnSave,
+      setContent,
+      setCoverUrl,
+      setStatus,
+      setScheduledAt,
+      setIsPinned,
+      setDisplayPriority,
+      setSeoTitle,
+      setSeoDescription,
+      setSeoKeywords,
+      setCategoryId,
+      setTagIds,
+    });
+    setDraftRecovery(null);
+    setAiNotice(aiText.draftRestored);
+  };
+
+  const discardLocalDraft = () => {
+    removeEditorDraft(editorDraftKey(isEdit ? id : 'new'));
+    setDraftRecovery(null);
+    setAiNotice(aiText.draftDiscarded);
   };
 
   const handleSave = async () => {
@@ -325,7 +467,8 @@ const ArticleEditor: React.FC = () => {
     setAiNotice('');
     setSubmitting(true);
     let nextSummary = summary;
-    let summaryGenerationFailed = false;
+    let nextSeoDescription = seoDescription;
+    let nextSeoKeywords = seoKeywords;
     try {
       if (generateSummaryOnSave && content.trim()) {
         try {
@@ -335,11 +478,17 @@ const ArticleEditor: React.FC = () => {
             nextSummary = generatedSummary;
             setSummary(generatedSummary);
             setGenerateSummaryOnSave(false);
-          } else {
-            summaryGenerationFailed = true;
+          }
+          if (aiRes.data.seoDescription?.trim() && !seoDescription.trim()) {
+            nextSeoDescription = aiRes.data.seoDescription.trim();
+            setSeoDescription(nextSeoDescription);
+          }
+          if (aiRes.data.seoKeywords?.trim() && !seoKeywords.trim()) {
+            nextSeoKeywords = aiRes.data.seoKeywords.trim();
+            setSeoKeywords(nextSeoKeywords);
           }
         } catch {
-          summaryGenerationFailed = true;
+          // 自动摘要只是保存时的辅助能力，失败不应阻断文章保存。
         }
       }
 
@@ -349,8 +498,8 @@ const ArticleEditor: React.FC = () => {
         isPinned,
         displayPriority,
         seoTitle: seoTitle.trim(),
-        seoDescription: seoDescription.trim(),
-        seoKeywords: seoKeywords.trim(),
+        seoDescription: nextSeoDescription.trim(),
+        seoKeywords: nextSeoKeywords.trim(),
         categoryId: categoryId === '' ? 0 : Number(categoryId),
         tagIds,
       };
@@ -358,15 +507,11 @@ const ArticleEditor: React.FC = () => {
       if (isEdit) {
         await updateArticle(id, payload);
       } else {
-        const created = await createArticle(payload);
-        if (summaryGenerationFailed) {
-          navigate(`/admin/editor/${created.data.id}`, { replace: true, state: { aiNotice: aiText.saveSummaryFailed } });
-          return;
-        }
+        await createArticle(payload);
+        removeEditorDraft(editorDraftKey('new'));
       }
-      if (summaryGenerationFailed) {
-        setAiNotice(aiText.saveSummaryFailed);
-        return;
+      if (isEdit) {
+        removeEditorDraft(editorDraftKey(id));
       }
       navigate('/admin/articles');
     } catch (e: unknown) {
@@ -377,7 +522,10 @@ const ArticleEditor: React.FC = () => {
   };
 
   const handleAIAssist = async (action: AIAssistAction) => {
-    if (!content.trim()) {
+    const target = action === 'metadata'
+      ? { text: content, start: 0, end: content.length }
+      : getActiveMarkdownRange(textareaRef.current, content);
+    if (!target.text.trim()) {
       setError(aiText.contentRequired);
       setAiMenuOpen(false);
       return;
@@ -388,7 +536,7 @@ const ArticleEditor: React.FC = () => {
     setAiAction(action);
     setAiMenuOpen(false);
     try {
-      const res = await assistArticle({ action, title, content });
+      const res = await assistArticle({ action, title, content: target.text });
       const data = res.data;
       if (action === 'metadata') {
         if (data.summary) setSummary(data.summary);
@@ -401,8 +549,11 @@ const ArticleEditor: React.FC = () => {
         action,
         revisedContent: data.revisedContent || '',
         suggestions: data.suggestions || [],
+        rangeStart: target.start,
+        rangeEnd: target.end,
+        sourceContent: content,
       });
-      setAiNotice(action === 'proofread' ? aiText.proofreadReady : aiText.polishReady);
+      setAiNotice(aiText.resultReady(action));
     } catch (e: unknown) {
       setError(getErrorMessage(e, aiText.aiError));
     } finally {
@@ -411,12 +562,23 @@ const ArticleEditor: React.FC = () => {
   };
 
   const applyAIContent = () => {
-    if (!aiDraft?.revisedContent) {
+    const draft = aiDraft;
+    if (!draft?.revisedContent) {
       return;
     }
-    setContent(aiDraft.revisedContent);
+    if (draft.sourceContent !== content) {
+      setError(aiText.contentChanged);
+      setAiDraft(null);
+      return;
+    }
+    setContent((current) => `${current.slice(0, draft.rangeStart)}${draft.revisedContent}${current.slice(draft.rangeEnd)}`);
     setAiDraft(null);
     setAiNotice(aiText.contentApplied);
+    window.setTimeout(() => {
+      textareaRef.current?.focus();
+      const cursor = draft.rangeStart + draft.revisedContent.length;
+      textareaRef.current?.setSelectionRange(cursor, cursor);
+    }, 0);
   };
 
   const handleCreateCategory = async (name: string) => {
@@ -486,6 +648,15 @@ const ArticleEditor: React.FC = () => {
                 <button type="button" onClick={() => handleAIAssist('polish')} className="block w-full px-3 py-2 text-left text-sm text-ink hover:bg-mountain-grey hover:bg-opacity-20">
                   {aiText.polish}
                 </button>
+                <button type="button" onClick={() => handleAIAssist('expand')} className="block w-full px-3 py-2 text-left text-sm text-ink hover:bg-mountain-grey hover:bg-opacity-20">
+                  {aiText.expand}
+                </button>
+                <button type="button" onClick={() => handleAIAssist('shorten')} className="block w-full px-3 py-2 text-left text-sm text-ink hover:bg-mountain-grey hover:bg-opacity-20">
+                  {aiText.shorten}
+                </button>
+                <button type="button" onClick={() => handleAIAssist('translate')} className="block w-full px-3 py-2 text-left text-sm text-ink hover:bg-mountain-grey hover:bg-opacity-20">
+                  {aiText.translate}
+                </button>
               </div>
             )}
           </div>
@@ -498,11 +669,32 @@ const ArticleEditor: React.FC = () => {
       <InlineNotice message={error} className="mb-6" />
       <InlineNotice message={aiNotice} className="mb-6" />
 
+      {draftRecovery && (
+        <section className="mb-6 border border-ochre bg-[var(--paper-soft)] p-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h4 className="text-sm font-bold tracking-widest text-ink">{aiText.localDraftTitle}</h4>
+              <p className="mt-1 text-xs text-ink-light">
+                {formatText(aiText.localDraftDesc, { time: new Date(draftRecovery.savedAt).toLocaleString() })}
+              </p>
+            </div>
+            <div className="flex gap-3">
+              <button type="button" onClick={restoreLocalDraft} className="border border-ink px-3 py-1.5 text-sm text-ink transition-colors hover:bg-ink hover:text-paper">
+                {aiText.restoreDraft}
+              </button>
+              <button type="button" onClick={discardLocalDraft} className="border border-mountain-grey px-3 py-1.5 text-sm text-ink-light transition-colors hover:border-ochre hover:text-ochre">
+                {aiText.discardDraft}
+              </button>
+            </div>
+          </div>
+        </section>
+      )}
+
       {aiDraft && (
         <section className="mb-6 border border-mountain-grey bg-[var(--paper-soft)] p-4">
           <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <h4 className="text-sm font-bold tracking-widest text-ink">
-              {aiDraft.action === 'proofread' ? aiText.proofreadResult : aiText.polishResult}
+              {aiText.resultTitle(aiDraft.action)}
             </h4>
             <div className="flex gap-3">
               <button type="button" onClick={applyAIContent} className="border border-ink px-3 py-1.5 text-sm text-ink transition-colors hover:bg-ink hover:text-paper">
@@ -556,6 +748,11 @@ const ArticleEditor: React.FC = () => {
           onChange={e => setScheduledAt(e.target.value)}
           className="w-full bg-transparent border-b border-mountain-grey py-2 text-ink focus:outline-none focus:border-ochre"
         />
+        {scheduledPublishHint && (
+          <div className="text-xs leading-relaxed text-ochre md:col-span-3">
+            {scheduledPublishHint}
+          </div>
+        )}
         <label className="flex items-center gap-3 border-b border-mountain-grey py-2 text-sm text-ink focus-within:border-ochre">
           <input
             type="checkbox"
@@ -665,6 +862,7 @@ const ArticleEditor: React.FC = () => {
       <div className="flex-grow flex flex-col md:flex-row gap-6 overflow-hidden">
         <div className="w-full md:w-1/2 flex flex-col border border-mountain-grey p-4">
           <textarea
+            ref={textareaRef}
             value={content}
             onChange={e => setContent(e.target.value)}
             className="w-full h-full bg-transparent resize-none focus:outline-none text-ink-light font-serif leading-relaxed"
@@ -711,42 +909,307 @@ const getPinPriorityLabels = (language: string) => language === 'zh'
       priority: 'Display Priority',
     };
 
+const getScheduledPublishHint = (language: string, status: string, scheduledAt: string) => {
+  if (!scheduledAt || status !== 'published') {
+    return '';
+  }
+  const time = new Date(scheduledAt).getTime();
+  if (!Number.isFinite(time) || time <= Date.now()) {
+    return '';
+  }
+  return language === 'zh'
+    ? '当前文章会先进入定时发布状态，到达设定时间后在前台可见。'
+    : 'This article will be scheduled and become public at the selected time.';
+};
+
 const getAIEditorLabels = (language: string) => language === 'zh'
   ? {
       magic: '✨ AI',
       metadata: '生成摘要与 SEO',
       proofread: '语法纠错',
       polish: '语气润色',
+      expand: '扩写当前段落',
+      shorten: '缩写当前段落',
+      translate: '翻译当前段落',
       processing: 'AI 处理中',
       contentRequired: '请先填写正文内容。',
+      contentChanged: '正文已修改，请重新生成 AI 结果后再应用。',
       metadataApplied: 'AI 已填入摘要与 SEO 字段，请检查后再保存。',
       proofreadReady: 'AI 纠错结果已生成，请确认后应用。',
       polishReady: 'AI 润色结果已生成，请确认后应用。',
       proofreadResult: 'AI 纠错结果',
       polishResult: 'AI 润色结果',
+      resultReady: (action: AIAssistAction) => `${aiActionLabel('zh', action)}结果已生成，请确认后应用。`,
+      resultTitle: (action: AIAssistAction) => `AI ${aiActionLabel('zh', action)}结果`,
       apply: '应用到正文',
       contentApplied: 'AI 结果已应用到正文，请检查后再保存。',
       aiError: 'AI 辅助失败',
       generateSummaryOnSave: '保存时生成核心摘要',
-      generateSummaryHint: '默认仅在摘要为空时开启；AI 失败也会继续保存文章。',
-      saveSummaryFailed: '文章已保存但摘要生成失败。',
+      generateSummaryHint: '默认仅在摘要为空时开启；AI 会尽量补齐摘要、SEO 描述和关键词，失败也会继续保存文章。',
+      saveSummaryFailed: '文章已保存但摘要或 SEO 生成失败。',
+      localDraftTitle: '发现本地自动保存草稿',
+      localDraftDesc: '保存时间：{time}',
+      restoreDraft: '恢复草稿',
+      discardDraft: '丢弃草稿',
+      draftRestored: '已恢复本地草稿。',
+      draftDiscarded: '已丢弃本地草稿。',
     }
   : {
       magic: '✨ AI',
       metadata: 'Generate Summary / SEO',
       proofread: 'Proofread',
       polish: 'Polish Tone',
+      expand: 'Expand Paragraph',
+      shorten: 'Shorten Paragraph',
+      translate: 'Translate Paragraph',
       processing: 'AI Working',
       contentRequired: 'Please write the article body first.',
+      contentChanged: 'The article body has changed. Please regenerate the AI result before applying it.',
       metadataApplied: 'AI filled summary and SEO fields. Please review before saving.',
       proofreadReady: 'Proofread result is ready. Review before applying.',
       polishReady: 'Polished result is ready. Review before applying.',
       proofreadResult: 'AI Proofread Result',
       polishResult: 'AI Polish Result',
+      resultReady: (action: AIAssistAction) => `${aiActionLabel('en', action)} result is ready. Review before applying.`,
+      resultTitle: (action: AIAssistAction) => `AI ${aiActionLabel('en', action)} Result`,
       apply: 'Apply to Body',
       contentApplied: 'AI result was applied to the body. Please review before saving.',
       aiError: 'AI assist failed',
       generateSummaryOnSave: 'Generate summary on save',
-      generateSummaryHint: 'Enabled by default only when summary is empty. The article still saves if AI fails.',
-      saveSummaryFailed: 'Article saved, but summary generation failed.',
+      generateSummaryHint: 'Enabled by default only when summary is empty. AI also fills SEO fields when possible.',
+      saveSummaryFailed: 'Article saved, but summary or SEO generation failed.',
+      localDraftTitle: 'Local autosave draft found',
+      localDraftDesc: 'Saved at {time}',
+      restoreDraft: 'Restore Draft',
+      discardDraft: 'Discard Draft',
+      draftRestored: 'Local draft restored.',
+      draftDiscarded: 'Local draft discarded.',
     };
+
+const aiActionLabel = (language: string, action: AIAssistAction) => {
+  const zh: Record<AIAssistAction, string> = {
+    metadata: '摘要与 SEO',
+    proofread: '纠错',
+    polish: '润色',
+    expand: '扩写',
+    shorten: '缩写',
+    translate: '翻译',
+  };
+  const en: Record<AIAssistAction, string> = {
+    metadata: 'Metadata',
+    proofread: 'Proofread',
+    polish: 'Polish',
+    expand: 'Expand',
+    shorten: 'Shorten',
+    translate: 'Translate',
+  };
+  return language === 'zh' ? zh[action] : en[action];
+};
+
+type EditorDraft = {
+  title: string;
+  slug: string;
+  summary: string;
+  generateSummaryOnSave: boolean;
+  content: string;
+  coverUrl: string;
+  status: string;
+  scheduledAt: string;
+  isPinned: boolean;
+  displayPriority: number;
+  seoTitle: string;
+  seoDescription: string;
+  seoKeywords: string;
+  categoryId: number | '';
+  tagIds: number[];
+  savedAt: number;
+};
+
+type DraftSetters = {
+  setTitle: (value: string) => void;
+  setSlug: (value: string) => void;
+  setSummary: (value: string) => void;
+  setGenerateSummaryOnSave: (value: boolean) => void;
+  setContent: (value: string) => void;
+  setCoverUrl: (value: string) => void;
+  setStatus: (value: string) => void;
+  setScheduledAt: (value: string) => void;
+  setIsPinned: (value: boolean) => void;
+  setDisplayPriority: (value: number) => void;
+  setSeoTitle: (value: string) => void;
+  setSeoDescription: (value: string) => void;
+  setSeoKeywords: (value: string) => void;
+  setCategoryId: (value: number | '') => void;
+  setTagIds: (value: number[]) => void;
+};
+
+const emptyEditorDraft = (): EditorDraft => ({
+  title: '',
+  slug: '',
+  summary: '',
+  generateSummaryOnSave: true,
+  content: '',
+  coverUrl: '',
+  status: 'draft',
+  scheduledAt: '',
+  isPinned: false,
+  displayPriority: 0,
+  seoTitle: '',
+  seoDescription: '',
+  seoKeywords: '',
+  categoryId: '',
+  tagIds: [],
+  savedAt: 0,
+});
+
+const articleToEditorDraft = (article: Article): EditorDraft => ({
+  title: article.title || '',
+  slug: article.slug || '',
+  summary: article.summary || '',
+  generateSummaryOnSave: (article.summary || '').trim() === '',
+  content: article.content || '',
+  coverUrl: article.coverUrl || '',
+  status: article.status || 'draft',
+  scheduledAt: toDateTimeLocal(article.scheduledAt),
+  isPinned: Boolean(article.isPinned),
+  displayPriority: clampPriority(String(article.displayPriority || 0)),
+  seoTitle: article.seoTitle || '',
+  seoDescription: article.seoDescription || '',
+  seoKeywords: article.seoKeywords || '',
+  categoryId: article.categoryId || '',
+  tagIds: Array.isArray(article.tags) ? article.tags.map(tag => tag.id) : [],
+  savedAt: 0,
+});
+
+const currentEditorDraft = (draft: Omit<EditorDraft, 'savedAt'>): EditorDraft => ({
+  ...draft,
+  displayPriority: clampPriority(String(draft.displayPriority || 0)),
+  categoryId: draft.categoryId || '',
+  tagIds: Array.isArray(draft.tagIds) ? draft.tagIds : [],
+  savedAt: Date.now(),
+});
+
+const editorDraftComparable = (draft: EditorDraft) => ({
+  title: draft.title || '',
+  slug: draft.slug || '',
+  summary: draft.summary || '',
+  generateSummaryOnSave: Boolean(draft.generateSummaryOnSave),
+  content: draft.content || '',
+  coverUrl: draft.coverUrl || '',
+  status: draft.status || 'draft',
+  scheduledAt: draft.scheduledAt || '',
+  isPinned: Boolean(draft.isPinned),
+  displayPriority: clampPriority(String(draft.displayPriority || 0)),
+  seoTitle: draft.seoTitle || '',
+  seoDescription: draft.seoDescription || '',
+  seoKeywords: draft.seoKeywords || '',
+  categoryId: draft.categoryId || '',
+  tagIds: Array.isArray(draft.tagIds) ? [...draft.tagIds].sort((a, b) => a - b) : [],
+});
+
+const editorDraftEquals = (left: EditorDraft, right: EditorDraft) =>
+  JSON.stringify(editorDraftComparable(left)) === JSON.stringify(editorDraftComparable(right));
+
+const hasMeaningfulEditorDraft = (draft: EditorDraft) => {
+  const normalized = editorDraftComparable(draft);
+  return Boolean(
+    normalized.title.trim() ||
+    normalized.slug.trim() ||
+    normalized.summary.trim() ||
+    normalized.content.trim() ||
+    normalized.coverUrl.trim() ||
+    normalized.scheduledAt.trim() ||
+    normalized.seoTitle.trim() ||
+    normalized.seoDescription.trim() ||
+    normalized.seoKeywords.trim() ||
+    normalized.categoryId ||
+    normalized.tagIds.length > 0 ||
+    normalized.isPinned ||
+    normalized.displayPriority > 0 ||
+    normalized.status !== 'draft'
+  );
+};
+
+const shouldRecoverEditorDraft = (draft: EditorDraft | null, baseline: EditorDraft, updatedAt?: string) => {
+  if (!draft || !hasMeaningfulEditorDraft(draft) || editorDraftEquals(draft, baseline)) {
+    return false;
+  }
+  if (!updatedAt) {
+    return true;
+  }
+  const updatedAtMs = new Date(updatedAt).getTime();
+  return !Number.isFinite(updatedAtMs) || draft.savedAt > updatedAtMs;
+};
+
+const editorDraftKey = (id?: string | number | false) => `article-editor:draft:${id || 'new'}`;
+
+const readEditorDraft = (key: string): EditorDraft | null => {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) {
+      return null;
+    }
+    const parsed = JSON.parse(raw) as EditorDraft;
+    if (!parsed || typeof parsed.savedAt !== 'number') {
+      return null;
+    }
+    return parsed;
+  } catch {
+    return null;
+  }
+};
+
+const writeEditorDraft = (key: string, draft: EditorDraft) => {
+  try {
+    localStorage.setItem(key, JSON.stringify(draft));
+  } catch {
+    // localStorage may be unavailable or full; autosave failure should not block editing.
+  }
+};
+
+const removeEditorDraft = (key: string) => {
+  try {
+    localStorage.removeItem(key);
+  } catch {
+    // ignore storage failures
+  }
+};
+
+const applyEditorDraft = (draft: EditorDraft, setters: DraftSetters) => {
+  setters.setTitle(draft.title || '');
+  setters.setSlug(draft.slug || '');
+  setters.setSummary(draft.summary || '');
+  setters.setGenerateSummaryOnSave(Boolean(draft.generateSummaryOnSave));
+  setters.setContent(draft.content || '');
+  setters.setCoverUrl(draft.coverUrl || '');
+  setters.setStatus(draft.status || 'draft');
+  setters.setScheduledAt(draft.scheduledAt || '');
+  setters.setIsPinned(Boolean(draft.isPinned));
+  setters.setDisplayPriority(clampPriority(String(draft.displayPriority || 0)));
+  setters.setSeoTitle(draft.seoTitle || '');
+  setters.setSeoDescription(draft.seoDescription || '');
+  setters.setSeoKeywords(draft.seoKeywords || '');
+  setters.setCategoryId(draft.categoryId || '');
+  setters.setTagIds(Array.isArray(draft.tagIds) ? draft.tagIds : []);
+};
+
+const getActiveMarkdownRange = (textarea: HTMLTextAreaElement | null, value: string) => {
+  const selectionStart = textarea?.selectionStart ?? 0;
+  const selectionEnd = textarea?.selectionEnd ?? selectionStart;
+  if (selectionEnd > selectionStart) {
+    return {
+      start: selectionStart,
+      end: selectionEnd,
+      text: value.slice(selectionStart, selectionEnd),
+    };
+  }
+  let start = value.lastIndexOf('\n\n', Math.max(0, selectionStart - 1));
+  start = start === -1 ? 0 : start + 2;
+  let end = value.indexOf('\n\n', selectionStart);
+  end = end === -1 ? value.length : end;
+  return {
+    start,
+    end,
+    text: value.slice(start, end),
+  };
+};

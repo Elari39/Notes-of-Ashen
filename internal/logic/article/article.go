@@ -11,6 +11,7 @@ import (
 	"notes-of-ashen/internal/aiclient"
 	"notes-of-ashen/internal/authutil"
 	apperrors "notes-of-ashen/internal/errors"
+	ailogic "notes-of-ashen/internal/logic/ai"
 	"notes-of-ashen/internal/logicutil"
 	"notes-of-ashen/internal/mq"
 	"notes-of-ashen/internal/svc"
@@ -36,6 +37,9 @@ var aiActions = map[string]struct{}{
 	"metadata":  {},
 	"proofread": {},
 	"polish":    {},
+	"expand":    {},
+	"shorten":   {},
+	"translate": {},
 }
 
 func List(ctx context.Context, svcCtx *svc.ServiceContext, page, size int, status string) (*types.ArticleListResp, error) {
@@ -359,10 +363,14 @@ func AIAssist(ctx context.Context, svcCtx *svc.ServiceContext, req types.AIAssis
 	if err := authutil.RequireContentManager(ctx); err != nil {
 		return nil, err
 	}
-	if !svcCtx.Config.AI.Enabled {
+	aiConf, _, err := ailogic.EffectiveConfig(ctx, svcCtx)
+	if err != nil {
+		return nil, err
+	}
+	if !aiConf.Enabled {
 		return nil, apperrors.Forbidden("ai assistant is disabled")
 	}
-	if strings.TrimSpace(svcCtx.Config.AI.BaseURL) == "" || strings.TrimSpace(svcCtx.Config.AI.APIKey) == "" || strings.TrimSpace(svcCtx.Config.AI.Model) == "" {
+	if strings.TrimSpace(aiConf.BaseURL) == "" || strings.TrimSpace(aiConf.APIKey) == "" || strings.TrimSpace(aiConf.Model) == "" {
 		return nil, apperrors.BadRequest("ai assistant is not configured")
 	}
 	req.Action = strings.TrimSpace(req.Action)
@@ -375,7 +383,7 @@ func AIAssist(ctx context.Context, svcCtx *svc.ServiceContext, req types.AIAssis
 	if err := validatorOptionalLength(req.Title, "title", 0, 160); err != nil {
 		return nil, err
 	}
-	resp, err := aiclient.Assist(ctx, svcCtx.Config.AI, aiclient.Request{
+	resp, err := aiclient.Assist(ctx, aiConf, aiclient.Request{
 		Action:  req.Action,
 		Title:   req.Title,
 		Content: req.Content,
@@ -393,7 +401,7 @@ func AIAssist(ctx context.Context, svcCtx *svc.ServiceContext, req types.AIAssis
 	if req.Action == "metadata" && out.Summary == "" && out.SEODescription == "" && out.SEOKeywords == "" {
 		return nil, apperrors.BadRequest("ai response is invalid")
 	}
-	if (req.Action == "proofread" || req.Action == "polish") && out.RevisedContent == "" {
+	if req.Action != "metadata" && out.RevisedContent == "" {
 		return nil, apperrors.BadRequest("ai response is invalid")
 	}
 	return out, nil

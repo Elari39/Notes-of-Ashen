@@ -231,6 +231,27 @@ type AIAssistResp struct {
 	Suggestions    []string `json:"suggestions,omitempty"`
 }
 
+type AISettingsResp struct {
+	Enabled                 bool   `json:"enabled"`
+	BaseURL                 string `json:"baseUrl"`
+	Model                   string `json:"model"`
+	APIKeyConfigured        bool   `json:"apiKeyConfigured"`
+	FirstByteTimeoutSeconds int    `json:"firstByteTimeoutSeconds"`
+	StreamTimeoutSeconds    int    `json:"streamTimeoutSeconds"`
+	NonStreamTimeoutSeconds int    `json:"nonStreamTimeoutSeconds"`
+}
+
+type UpdateAISettingsReq struct {
+	Enabled                 bool   `json:"enabled"`
+	BaseURL                 string `json:"baseUrl,optional"`
+	APIKey                  string `json:"apiKey,optional"`
+	ClearAPIKey             bool   `json:"clearApiKey,optional"`
+	Model                   string `json:"model,optional"`
+	FirstByteTimeoutSeconds int    `json:"firstByteTimeoutSeconds,optional"`
+	StreamTimeoutSeconds    int    `json:"streamTimeoutSeconds,optional"`
+	NonStreamTimeoutSeconds int    `json:"nonStreamTimeoutSeconds,optional"`
+}
+
 type ArticleListReq struct {
 	Page       int    `json:"page,optional"`
 	Size       int    `json:"size,optional"`

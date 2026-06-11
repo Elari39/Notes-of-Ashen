@@ -146,7 +146,7 @@ Copy-Item .env.example .env
 - `APP_AI_BASE_URL`：兼容 OpenAI Chat Completions 的接口基础地址。
 - `APP_AI_API_KEY`：AI 服务 API Key，只能写入真实 `.env` 或受控环境变量。
 - `APP_AI_MODEL`：AI 辅助使用的模型名称。
-- `APP_AI_TIMEOUT_SECONDS`：AI 请求超时时间，默认 `30` 秒。
+- `APP_AI_TIMEOUT_SECONDS`：AI 非流式请求兼容超时时间，默认 `600` 秒。
 - `APP_GEOIP_DATABASE_PATH`：API 容器内 GeoIP/GeoLite2 City `.mmdb` 文件路径，Docker 部署默认 `/data/GeoLite2-City.mmdb`。
 - `MAXMIND_ACCOUNT_ID`：可选 MaxMind Account ID，用于 Docker 部署自动下载 `GeoLite2-City.mmdb`。
 - `MAXMIND_LICENSE_KEY`：可选 MaxMind License Key，用于 Docker 部署自动下载 `GeoLite2-City.mmdb`，只能写入真实 `.env` 或受控环境变量。
@@ -187,7 +187,7 @@ APP_AI_ENABLED=true
 APP_AI_BASE_URL=https://api.example.com/v1
 APP_AI_API_KEY=your-ai-api-key
 APP_AI_MODEL=your-model-name
-APP_AI_TIMEOUT_SECONDS=30
+APP_AI_TIMEOUT_SECONDS=600
 ```
 
 `APP_AI_BASE_URL` 可以填写兼容 OpenAI Chat Completions 的基础地址，例如 `https://api.example.com/v1`；如果服务商只提供完整端点，也可以填写到 `/chat/completions`。不要把真实 API Key 写入 README、Issue、提交记录或截图中。

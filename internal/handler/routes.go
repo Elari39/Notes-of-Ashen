@@ -5,6 +5,7 @@ import (
 	"time"
 
 	adminhandler "notes-of-ashen/internal/handler/admin"
+	aihandler "notes-of-ashen/internal/handler/ai"
 	articlehandler "notes-of-ashen/internal/handler/article"
 	authhandler "notes-of-ashen/internal/handler/auth"
 	categoryhandler "notes-of-ashen/internal/handler/category"
@@ -76,6 +77,8 @@ func RegisterHandlers(server *rest.Server, svcCtx *svc.ServiceContext) {
 		{Method: http.MethodDelete, Path: "/api/v1/tags/:id", Handler: authRequired(taghandler.DeleteHandler(svcCtx))},
 		{Method: http.MethodGet, Path: "/api/v1/admin/articles", Handler: authRequired(articlehandler.AdminListHandler(svcCtx))},
 		{Method: http.MethodGet, Path: "/api/v1/admin/stats", Handler: authRequired(adminhandler.StatsHandler(svcCtx))},
+		{Method: http.MethodGet, Path: "/api/v1/admin/ai/settings", Handler: authRequired(aihandler.SettingsHandler(svcCtx))},
+		{Method: http.MethodPut, Path: "/api/v1/admin/ai/settings", Handler: authRequired(aihandler.UpdateSettingsHandler(svcCtx))},
 		{Method: http.MethodGet, Path: "/api/v1/admin/users", Handler: authRequired(adminhandler.ListUsersHandler(svcCtx))},
 		{Method: http.MethodPatch, Path: "/api/v1/admin/users/:id/status", Handler: authRequired(adminhandler.UpdateUserStatusHandler(svcCtx))},
 		{Method: http.MethodPatch, Path: "/api/v1/admin/users/:id/role", Handler: authRequired(adminhandler.UpdateUserRoleHandler(svcCtx))},

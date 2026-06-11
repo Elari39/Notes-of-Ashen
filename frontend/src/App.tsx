@@ -28,6 +28,7 @@ const AdminTags = lazy(() => import('./pages/admin/Tags'));
 const AdminUsers = lazy(() => import('./pages/admin/Users'));
 const AdminLogs = lazy(() => import('./pages/admin/Logs'));
 const AdminSettings = lazy(() => import('./pages/admin/Settings'));
+const AdminAISettings = lazy(() => import('./pages/admin/AISettings'));
 const AdminResumeContent = lazy(() => import('./pages/admin/ResumeContent'));
 const AdminProjectsContent = lazy(() => import('./pages/admin/ProjectsContent'));
 const NotFound = lazy(() => import('./pages/NotFound'));
@@ -106,6 +107,7 @@ function App() {
                 <Route path="users" element={<AdminUsers />} />
                 <Route path="logs" element={<AdminLogs />} />
                 <Route path="settings" element={<AdminSettings />} />
+                <Route path="ai-settings" element={<AdminAISettings />} />
                 <Route path="resume" element={<AdminResumeContent />} />
                 <Route path="projects" element={<AdminProjectsContent />} />
               </Route>

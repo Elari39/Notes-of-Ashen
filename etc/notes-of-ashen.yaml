@@ -1,7 +1,7 @@
 Name: notes-of-ashen-api
 Host: 0.0.0.0
 Port: 19000
-Timeout: 70000
+Timeout: 610000
 
 Database:
   DataSource: "root:123456@tcp(127.0.0.1:3306)/notes_of_ashen?charset=utf8mb4&parseTime=true&loc=Local"
@@ -39,7 +39,10 @@ AI:
   BaseURL: ""
   APIKey: ""
   Model: ""
-  TimeoutSeconds: 30
+  TimeoutSeconds: 600
+  FirstByteTimeoutSeconds: 60
+  StreamTimeoutSeconds: 300
+  NonStreamTimeoutSeconds: 600
 
 GeoIP:
   DatabasePath: ""

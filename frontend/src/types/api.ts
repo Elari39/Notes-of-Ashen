@@ -191,7 +191,7 @@ export interface UpdateArticleStatusReq {
   status: string;
 }
 
-export type AIAssistAction = 'metadata' | 'proofread' | 'polish';
+export type AIAssistAction = 'metadata' | 'proofread' | 'polish' | 'expand' | 'shorten' | 'translate';
 
 export interface AIAssistReq {
   action: AIAssistAction;
@@ -205,6 +205,27 @@ export interface AIAssistResp {
   seoKeywords?: string;
   revisedContent?: string;
   suggestions?: string[];
+}
+
+export interface AISettingsResp {
+  enabled: boolean;
+  baseUrl: string;
+  model: string;
+  apiKeyConfigured: boolean;
+  firstByteTimeoutSeconds: number;
+  streamTimeoutSeconds: number;
+  nonStreamTimeoutSeconds: number;
+}
+
+export interface UpdateAISettingsReq {
+  enabled: boolean;
+  baseUrl?: string;
+  apiKey?: string;
+  clearApiKey?: boolean;
+  model?: string;
+  firstByteTimeoutSeconds?: number;
+  streamTimeoutSeconds?: number;
+  nonStreamTimeoutSeconds?: number;
 }
 
 export interface TrafficVisitReq {

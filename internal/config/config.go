@@ -56,11 +56,14 @@ type EmailConf struct {
 }
 
 type AIConf struct {
-	Enabled        bool
-	BaseURL        string
-	APIKey         string
-	Model          string
-	TimeoutSeconds int
+	Enabled                 bool
+	BaseURL                 string
+	APIKey                  string
+	Model                   string
+	TimeoutSeconds          int
+	FirstByteTimeoutSeconds int
+	StreamTimeoutSeconds    int
+	NonStreamTimeoutSeconds int
 }
 
 type GeoIPConf struct {
@@ -164,6 +167,15 @@ func (c *Config) ApplyEnv() error {
 	setString("APP_AI_API_KEY", &c.AI.APIKey)
 	setString("APP_AI_MODEL", &c.AI.Model)
 	if err := setInt("APP_AI_TIMEOUT_SECONDS", &c.AI.TimeoutSeconds); err != nil {
+		return err
+	}
+	if err := setInt("APP_AI_FIRST_BYTE_TIMEOUT_SECONDS", &c.AI.FirstByteTimeoutSeconds); err != nil {
+		return err
+	}
+	if err := setInt("APP_AI_STREAM_TIMEOUT_SECONDS", &c.AI.StreamTimeoutSeconds); err != nil {
+		return err
+	}
+	if err := setInt("APP_AI_NON_STREAM_TIMEOUT_SECONDS", &c.AI.NonStreamTimeoutSeconds); err != nil {
 		return err
 	}
 	setString("APP_GEOIP_DATABASE_PATH", &c.GeoIP.DatabasePath)

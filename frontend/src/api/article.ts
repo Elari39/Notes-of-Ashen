@@ -41,7 +41,7 @@ export const updateArticleStatus = (id: number | string, status: string) =>
   http.patch<unknown, BaseResp<Article>>(`/articles/${id}/status`, { status } as UpdateArticleStatusReq);
 
 export const assistArticle = (data: AIAssistReq) =>
-  http.post<unknown, BaseResp<AIAssistResp>>('/articles/ai/assist', data, { timeout: 60000 });
+  http.post<unknown, BaseResp<AIAssistResp>>('/articles/ai/assist', data, { timeout: 600000 });
 
 export const importMarkdownArticle = (file: File) => {
   const form = new FormData();
