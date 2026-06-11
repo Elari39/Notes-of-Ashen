@@ -102,11 +102,11 @@ FROM categories ORDER BY id DESC LIMIT ? OFFSET ?`, size, offset)
 
 	items := make([]Category, 0)
 	for rows.Next() {
-		var item Category
-		if err := rows.Scan(&item.ID, &item.Name, &item.Slug, &item.Description, &item.CreatedBy, &item.CreatedAt, &item.UpdatedAt); err != nil {
+		item, err := scanCategory(rows)
+		if err != nil {
 			return nil, 0, err
 		}
-		items = append(items, item)
+		items = append(items, *item)
 	}
 	return items, total, rows.Err()
 }
@@ -174,30 +174,34 @@ FROM tags ORDER BY id DESC LIMIT ? OFFSET ?`, size, offset)
 
 	items := make([]Tag, 0)
 	for rows.Next() {
-		var item Tag
-		if err := rows.Scan(&item.ID, &item.Name, &item.Slug, &item.Description, &item.CreatedBy, &item.CreatedAt, &item.UpdatedAt); err != nil {
+		item, err := scanTag(rows)
+		if err != nil {
 			return nil, 0, err
 		}
-		items = append(items, item)
+		items = append(items, *item)
 	}
 	return items, total, rows.Err()
 }
 
-func scanCategory(row *sql.Row) (*Category, error) {
+func scanCategory(row rowScanner) (*Category, error) {
 	var item Category
-	err := row.Scan(&item.ID, &item.Name, &item.Slug, &item.Description, &item.CreatedBy, &item.CreatedAt, &item.UpdatedAt)
+	var description sql.NullString
+	err := row.Scan(&item.ID, &item.Name, &item.Slug, &description, &item.CreatedBy, &item.CreatedAt, &item.UpdatedAt)
 	if err != nil {
 		return nil, scanErr(err)
 	}
+	item.Description = stringFromNull(description)
 	return &item, nil
 }
 
-func scanTag(row *sql.Row) (*Tag, error) {
+func scanTag(row rowScanner) (*Tag, error) {
 	var item Tag
-	err := row.Scan(&item.ID, &item.Name, &item.Slug, &item.Description, &item.CreatedBy, &item.CreatedAt, &item.UpdatedAt)
+	var description sql.NullString
+	err := row.Scan(&item.ID, &item.Name, &item.Slug, &description, &item.CreatedBy, &item.CreatedAt, &item.UpdatedAt)
 	if err != nil {
 		return nil, scanErr(err)
 	}
+	item.Description = stringFromNull(description)
 	return &item, nil
 }
 

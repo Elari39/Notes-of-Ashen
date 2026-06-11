@@ -15,6 +15,10 @@ type Store struct {
 	db *sql.DB
 }
 
+type rowScanner interface {
+	Scan(dest ...interface{}) error
+}
+
 func NewStore(db *sql.DB) *Store {
 	return &Store{db: db}
 }

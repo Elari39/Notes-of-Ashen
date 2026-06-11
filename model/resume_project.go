@@ -54,12 +54,10 @@ ORDER BY display_order, id`)
 
 	items := make([]ResumeExperience, 0)
 	for rows.Next() {
-		var item ResumeExperience
-		var highlightsRaw string
-		if err := rows.Scan(&item.ID, &item.Role, &item.Organization, &item.Location, &item.StartDate, &item.EndDate, &item.Description, &highlightsRaw, &item.DisplayOrder); err != nil {
+		item, err := scanResumeExperience(rows)
+		if err != nil {
 			return nil, err
 		}
-		item.Highlights = decodeStringList(highlightsRaw)
 		items = append(items, item)
 	}
 	return items, rows.Err()
@@ -77,12 +75,10 @@ ORDER BY display_order, id`)
 
 	items := make([]ResumeEducation, 0)
 	for rows.Next() {
-		var item ResumeEducation
-		var highlightsRaw string
-		if err := rows.Scan(&item.ID, &item.School, &item.Degree, &item.Major, &item.Location, &item.StartDate, &item.EndDate, &item.Description, &highlightsRaw, &item.DisplayOrder); err != nil {
+		item, err := scanResumeEducation(rows)
+		if err != nil {
 			return nil, err
 		}
-		item.Highlights = decodeStringList(highlightsRaw)
 		items = append(items, item)
 	}
 	return items, rows.Err()
@@ -100,13 +96,47 @@ ORDER BY display_order, id`)
 
 	items := make([]ResumeSkill, 0)
 	for rows.Next() {
-		var item ResumeSkill
-		if err := rows.Scan(&item.ID, &item.Category, &item.Name, &item.Level, &item.Description, &item.DisplayOrder); err != nil {
+		item, err := scanResumeSkill(rows)
+		if err != nil {
 			return nil, err
 		}
 		items = append(items, item)
 	}
 	return items, rows.Err()
+}
+
+func scanResumeExperience(row rowScanner) (ResumeExperience, error) {
+	var item ResumeExperience
+	var description sql.NullString
+	var highlightsRaw string
+	if err := row.Scan(&item.ID, &item.Role, &item.Organization, &item.Location, &item.StartDate, &item.EndDate, &description, &highlightsRaw, &item.DisplayOrder); err != nil {
+		return ResumeExperience{}, err
+	}
+	item.Description = stringFromNull(description)
+	item.Highlights = decodeStringList(highlightsRaw)
+	return item, nil
+}
+
+func scanResumeEducation(row rowScanner) (ResumeEducation, error) {
+	var item ResumeEducation
+	var description sql.NullString
+	var highlightsRaw string
+	if err := row.Scan(&item.ID, &item.School, &item.Degree, &item.Major, &item.Location, &item.StartDate, &item.EndDate, &description, &highlightsRaw, &item.DisplayOrder); err != nil {
+		return ResumeEducation{}, err
+	}
+	item.Description = stringFromNull(description)
+	item.Highlights = decodeStringList(highlightsRaw)
+	return item, nil
+}
+
+func scanResumeSkill(row rowScanner) (ResumeSkill, error) {
+	var item ResumeSkill
+	var description sql.NullString
+	if err := row.Scan(&item.ID, &item.Category, &item.Name, &item.Level, &description, &item.DisplayOrder); err != nil {
+		return ResumeSkill{}, err
+	}
+	item.Description = stringFromNull(description)
+	return item, nil
 }
 
 func replaceResumeExperiencesTx(ctx context.Context, tx *sql.Tx, items []ResumeExperience) error {
@@ -184,15 +214,10 @@ ORDER BY featured DESC, display_order, id`)
 	items := make([]ProjectItem, 0)
 	projectIDs := make([]uint64, 0)
 	for rows.Next() {
-		var numericID uint64
-		var featured int
-		var displayOrder int
-		var item ProjectItem
-		if err := rows.Scan(&numericID, &item.Title, &item.Summary, &item.Role, &item.Period, &item.CoverURL, &item.DemoURL, &item.RepoURL, &item.ContentMarkdown, &featured, &displayOrder); err != nil {
+		item, numericID, err := scanProjectItem(rows)
+		if err != nil {
 			return nil, err
 		}
-		item.ID = strconv.FormatUint(numericID, 10)
-		item.Featured = featured != 0
 		projectIDs = append(projectIDs, numericID)
 		items = append(items, item)
 	}
@@ -211,6 +236,33 @@ ORDER BY featured DESC, display_order, id`)
 		items[index] = item
 	}
 	return items, nil
+}
+
+func scanProjectItem(row rowScanner) (ProjectItem, uint64, error) {
+	var numericID uint64
+	var featured int
+	var displayOrder int
+	var item ProjectItem
+	var summary sql.NullString
+	var role sql.NullString
+	var period sql.NullString
+	var coverURL sql.NullString
+	var demoURL sql.NullString
+	var repoURL sql.NullString
+	var contentMarkdown sql.NullString
+	if err := row.Scan(&numericID, &item.Title, &summary, &role, &period, &coverURL, &demoURL, &repoURL, &contentMarkdown, &featured, &displayOrder); err != nil {
+		return ProjectItem{}, 0, err
+	}
+	item.ID = strconv.FormatUint(numericID, 10)
+	item.Summary = stringFromNull(summary)
+	item.Role = stringFromNull(role)
+	item.Period = stringFromNull(period)
+	item.CoverURL = stringFromNull(coverURL)
+	item.DemoURL = stringFromNull(demoURL)
+	item.RepoURL = stringFromNull(repoURL)
+	item.ContentMarkdown = stringFromNull(contentMarkdown)
+	item.Featured = featured != 0
+	return item, numericID, nil
 }
 
 func replaceProjectItemsTx(ctx context.Context, tx *sql.Tx, items []ProjectItem) error {

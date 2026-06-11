@@ -404,11 +404,11 @@ ORDER BY t.id`, articleID)
 
 	items := make([]Tag, 0)
 	for rows.Next() {
-		var item Tag
-		if err := rows.Scan(&item.ID, &item.Name, &item.Slug, &item.Description, &item.CreatedBy, &item.CreatedAt, &item.UpdatedAt); err != nil {
+		item, err := scanTag(rows)
+		if err != nil {
 			return nil, err
 		}
-		items = append(items, item)
+		items = append(items, *item)
 	}
 	return items, rows.Err()
 }
@@ -532,28 +532,34 @@ func replaceArticleTags(ctx context.Context, tx *sql.Tx, articleID uint64, tagID
 	return nil
 }
 
-type rowScanner interface {
-	Scan(dest ...interface{}) error
-}
-
 func scanArticle(row rowScanner) (*Article, error) {
 	var item Article
 	var categoryID sql.NullInt64
+	var summary sql.NullString
+	var coverURL sql.NullString
+	var seoTitle sql.NullString
+	var seoDescription sql.NullString
+	var seoKeywords sql.NullString
 	var scheduledAt sql.NullTime
 	var publishedAt sql.NullTime
 	var isPinned int
 	err := row.Scan(
-		&item.ID, &item.AuthorID, &categoryID, &item.Title, &item.Slug, &item.Summary, &item.Content,
-		&item.CoverURL, &item.Status, &item.ViewCount, &item.LikeCount, &scheduledAt, &publishedAt, &isPinned, &item.DisplayPriority, &item.SEOTitle,
-		&item.SEODescription, &item.SEOKeywords, &item.CreatedAt, &item.UpdatedAt,
+		&item.ID, &item.AuthorID, &categoryID, &item.Title, &item.Slug, &summary, &item.Content,
+		&coverURL, &item.Status, &item.ViewCount, &item.LikeCount, &scheduledAt, &publishedAt, &isPinned, &item.DisplayPriority, &seoTitle,
+		&seoDescription, &seoKeywords, &item.CreatedAt, &item.UpdatedAt,
 	)
 	if err != nil {
 		return nil, scanErr(err)
 	}
 	item.CategoryID = uint64FromNull(categoryID)
+	item.Summary = stringFromNull(summary)
+	item.CoverURL = stringFromNull(coverURL)
 	item.ScheduledAt = timeFromNull(scheduledAt)
 	item.PublishedAt = timeFromNull(publishedAt)
 	item.IsPinned = isPinned != 0
+	item.SEOTitle = stringFromNull(seoTitle)
+	item.SEODescription = stringFromNull(seoDescription)
+	item.SEOKeywords = stringFromNull(seoKeywords)
 	return &item, nil
 }
 
@@ -564,6 +570,11 @@ func scanArticleRows(rows *sql.Rows) (*Article, error) {
 func scanArticleVersion(row rowScanner) (*ArticleVersion, error) {
 	var item ArticleVersion
 	var categoryID sql.NullInt64
+	var summary sql.NullString
+	var coverURL sql.NullString
+	var seoTitle sql.NullString
+	var seoDescription sql.NullString
+	var seoKeywords sql.NullString
 	var scheduledAt sql.NullTime
 	var publishedAt sql.NullTime
 	var originalCreatedAt sql.NullTime
@@ -572,17 +583,22 @@ func scanArticleVersion(row rowScanner) (*ArticleVersion, error) {
 	var isPinned int
 	err := row.Scan(
 		&item.ID, &item.ArticleID, &item.VersionNo, &item.ChangedBy, &item.AuthorID, &categoryID,
-		&item.Title, &item.Slug, &item.Summary, &item.Content, &item.CoverURL, &item.Status,
-		&item.ViewCount, &item.LikeCount, &scheduledAt, &publishedAt, &isPinned, &item.DisplayPriority, &item.SEOTitle, &item.SEODescription,
-		&item.SEOKeywords, &tagIDsRaw, &originalCreatedAt, &originalUpdatedAt, &item.CreatedAt,
+		&item.Title, &item.Slug, &summary, &item.Content, &coverURL, &item.Status,
+		&item.ViewCount, &item.LikeCount, &scheduledAt, &publishedAt, &isPinned, &item.DisplayPriority, &seoTitle, &seoDescription,
+		&seoKeywords, &tagIDsRaw, &originalCreatedAt, &originalUpdatedAt, &item.CreatedAt,
 	)
 	if err != nil {
 		return nil, scanErr(err)
 	}
 	item.CategoryID = uint64FromNull(categoryID)
+	item.Summary = stringFromNull(summary)
+	item.CoverURL = stringFromNull(coverURL)
 	item.ScheduledAt = timeFromNull(scheduledAt)
 	item.PublishedAt = timeFromNull(publishedAt)
 	item.IsPinned = isPinned != 0
+	item.SEOTitle = stringFromNull(seoTitle)
+	item.SEODescription = stringFromNull(seoDescription)
+	item.SEOKeywords = stringFromNull(seoKeywords)
 	item.OriginalCreatedAt = timeFromNull(originalCreatedAt)
 	item.OriginalUpdatedAt = timeFromNull(originalUpdatedAt)
 	if err := json.Unmarshal([]byte(tagIDsRaw), &item.TagIDs); err != nil {
