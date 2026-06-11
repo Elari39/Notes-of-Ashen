@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import InlineNotice from '../components/InlineNotice';
 import Pagination from '../components/Pagination';
+import SearchHighlight from '../components/SearchHighlight';
 import { getArticles } from '../api/article';
 import { getErrorMessage } from '../utils/error';
 import { normalizeCoverUrl } from '../utils/cover';
@@ -221,10 +222,13 @@ const Search: React.FC = () => {
                         <div>
                           <Link to={`/article/${article.id}`} className="block">
                             <h2 className="text-2xl font-bold leading-tight text-ink transition-colors duration-500 group-hover:text-ochre md:text-3xl">
-                              {article.title}
+                              <SearchHighlight value={article.searchHighlights?.title} fallback={article.title} />
                             </h2>
                             <p className="mt-4 line-clamp-3 whitespace-pre-line text-ink-light leading-relaxed">
-                              {article.summary}
+                              <SearchHighlight
+                                value={article.searchHighlights?.summary || article.searchHighlights?.content}
+                                fallback={article.summary}
+                              />
                             </p>
                           </Link>
 

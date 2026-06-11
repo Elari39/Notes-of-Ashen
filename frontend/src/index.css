@@ -131,6 +131,36 @@
     color: var(--ink-light);
   }
 
+  .search-highlight {
+    border-radius: 3px;
+    padding: 0 0.12em;
+    color: var(--ink);
+    background: rgba(138, 60, 58, 0.16);
+    box-decoration-break: clone;
+    -webkit-box-decoration-break: clone;
+  }
+
+  .resume-pdf-exporting {
+    padding: 12px;
+    color: #1a1a1a;
+    background: #ffffff;
+  }
+
+  .resume-pdf-exporting,
+  .resume-pdf-exporting * {
+    --paper: #ffffff;
+    --ink: #1a1a1a;
+    --ink-light: #425066;
+    --ochre: #8a3c3a;
+    --mountain-grey: #e7e7e0;
+    --paper-soft: rgba(255, 255, 255, 0.92);
+  }
+
+  .resume-pdf-avoid-break {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
   .article-markdown.prose :where(h1, h2, h3, h4, h5, h6) {
     color: var(--ink);
     font-family: "Noto Serif SC", "Songti SC", SimSun, "Times New Roman", serif;

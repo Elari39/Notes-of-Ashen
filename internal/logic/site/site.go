@@ -24,7 +24,7 @@ const (
 )
 
 func Settings(ctx context.Context, svcCtx *svc.ServiceContext) (*types.SiteSettingsResp, error) {
-	settings, err := svcCtx.Store.SiteSettings(ctx)
+	settings, err := cachedSiteSettings(ctx, svcCtx)
 	if err != nil {
 		return nil, err
 	}
@@ -39,7 +39,7 @@ func UpdateSettings(ctx context.Context, svcCtx *svc.ServiceContext, req types.U
 	if err := authutil.RequireAdmin(ctx); err != nil {
 		return nil, err
 	}
-	currentSettings, err := svcCtx.Store.SiteSettings(ctx)
+	currentSettings, err := cachedSiteSettings(ctx, svcCtx)
 	if err != nil {
 		return nil, err
 	}
@@ -94,7 +94,8 @@ func UpdateSettings(ctx context.Context, svcCtx *svc.ServiceContext, req types.U
 	}); err != nil {
 		return nil, err
 	}
-	settings, err := svcCtx.Store.SiteSettings(ctx)
+	evictSiteSettingsCache(ctx, svcCtx)
+	settings, err := cachedSiteSettings(ctx, svcCtx)
 	if err != nil {
 		return nil, err
 	}
@@ -102,14 +103,14 @@ func UpdateSettings(ctx context.Context, svcCtx *svc.ServiceContext, req types.U
 }
 
 func ResumePage(ctx context.Context, svcCtx *svc.ServiceContext) (*types.ResumePageResp, error) {
-	settings, err := svcCtx.Store.SiteSettings(ctx)
+	settings, err := cachedSiteSettings(ctx, svcCtx)
 	if err != nil {
 		return nil, err
 	}
 	if !settings.ResumePageEnabled {
 		return nil, errors.Forbidden("feature disabled")
 	}
-	content, err := svcCtx.Store.ResumePageContent(ctx)
+	content, err := cachedResumePageContent(ctx, svcCtx)
 	if err != nil {
 		return nil, err
 	}
@@ -120,7 +121,7 @@ func AdminResumePage(ctx context.Context, svcCtx *svc.ServiceContext) (*types.Re
 	if err := authutil.RequireAdmin(ctx); err != nil {
 		return nil, err
 	}
-	content, err := svcCtx.Store.ResumePageContent(ctx)
+	content, err := cachedResumePageContent(ctx, svcCtx)
 	if err != nil {
 		return nil, err
 	}
@@ -138,7 +139,8 @@ func UpdateResumePage(ctx context.Context, svcCtx *svc.ServiceContext, req types
 	if err := svcCtx.Store.UpdateResumePageContent(ctx, content); err != nil {
 		return nil, err
 	}
-	saved, err := svcCtx.Store.ResumePageContent(ctx)
+	evictResumePageCache(ctx, svcCtx)
+	saved, err := cachedResumePageContent(ctx, svcCtx)
 	if err != nil {
 		return nil, err
 	}
@@ -146,14 +148,14 @@ func UpdateResumePage(ctx context.Context, svcCtx *svc.ServiceContext, req types
 }
 
 func ProjectsPage(ctx context.Context, svcCtx *svc.ServiceContext) (*types.ProjectsPageResp, error) {
-	settings, err := svcCtx.Store.SiteSettings(ctx)
+	settings, err := cachedSiteSettings(ctx, svcCtx)
 	if err != nil {
 		return nil, err
 	}
 	if !settings.ProjectsPageEnabled {
 		return nil, errors.Forbidden("feature disabled")
 	}
-	content, err := svcCtx.Store.ProjectsPageContent(ctx)
+	content, err := cachedProjectsPageContent(ctx, svcCtx)
 	if err != nil {
 		return nil, err
 	}
@@ -164,7 +166,7 @@ func AdminProjectsPage(ctx context.Context, svcCtx *svc.ServiceContext) (*types.
 	if err := authutil.RequireAdmin(ctx); err != nil {
 		return nil, err
 	}
-	content, err := svcCtx.Store.ProjectsPageContent(ctx)
+	content, err := cachedProjectsPageContent(ctx, svcCtx)
 	if err != nil {
 		return nil, err
 	}
@@ -188,7 +190,8 @@ func UpdateProjectsPage(ctx context.Context, svcCtx *svc.ServiceContext, req typ
 	if err := svcCtx.Store.UpdateProjectsPageContent(ctx, content); err != nil {
 		return nil, err
 	}
-	saved, err := svcCtx.Store.ProjectsPageContent(ctx)
+	evictProjectsPageCache(ctx, svcCtx)
+	saved, err := cachedProjectsPageContent(ctx, svcCtx)
 	if err != nil {
 		return nil, err
 	}

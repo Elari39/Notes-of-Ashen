@@ -84,7 +84,7 @@ Authorization: Bearer <accessToken>
 2026-06-05T20:00:00+08:00
 ```
 
-`etc/notes-of-ashen.yaml` 是本地开发默认配置，包含示例数据库密码、Redis 密码、JWT Secret、RabbitMQ 地址和 AI 配置占位。生产环境部署前必须替换敏感值，并通过受控配置或环境变量注入管理。
+`etc/notes-of-ashen.yaml` 是本地开发默认配置，包含示例数据库密码、Redis 密码、JWT Secret、RabbitMQ 地址、Meilisearch 搜索配置和 AI 配置占位。生产环境部署前必须替换敏感值，并通过受控配置或环境变量注入管理。
 
 ## 认证接口
 
@@ -277,7 +277,7 @@ GET /api/v1/articles
 | page | int | 否 | 页码 |
 | size | int | 否 | 每页数量 |
 | status | string | 否 | `draft`、`published`、`archived`、`scheduled`；公开接口匿名访问仍只返回可见文章 |
-| q | string | 否 | 关键词搜索，匹配标题、摘要、正文 |
+| q | string | 否 | 关键词搜索，启用 Meilisearch 时优先返回高亮搜索结果，失败时回退 MySQL FULLTEXT / LIKE |
 | categoryId | uint64 | 否 | 按分类 ID 筛选 |
 | tagId | uint64 | 否 | 按标签 ID 筛选 |
 
@@ -315,6 +315,7 @@ GET /api/v1/articles/:id
 | seoKeywords | string | SEO 关键词 |
 | tags | Tag[] | 标签列表，可能省略 |
 | category | Category | 分类信息，可能省略 |
+| searchHighlights | object | 搜索列表命中时可能返回，包含 `title`、`summary`、`content` 高亮片段 |
 
 ### 文章上下文
 
@@ -724,6 +725,14 @@ GET /api/v1/admin/articles
 ```
 
 权限：`editor` 或 `admin`。支持 `page`、`size`、`status`、`q`、`categoryId`、`tagId`。内容管理角色可查看全部文章。
+
+### 重建搜索索引
+
+```text
+POST /api/v1/admin/search/reindex
+```
+
+权限：`editor` 或 `admin`。将已发布文章全量同步到 Meilisearch。未启用搜索时返回 `enabled = false`，不会修改文章数据。
 
 ### 用户管理
 

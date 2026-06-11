@@ -39,6 +39,8 @@ func NewRateLimitMiddleware(redisClient *redis.Client, name string, limit int64,
 	}
 }
 
+const rateLimitRedisTimeout = 200 * time.Millisecond
+
 func (m *RateLimitMiddleware) Handle(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if m.redisClient == nil {
@@ -49,14 +51,19 @@ func (m *RateLimitMiddleware) Handle(next http.HandlerFunc) http.HandlerFunc {
 
 		ip := basehandler.Meta(r).IP
 		key := security.RateLimitKey(m.name, ip)
-		count, err := m.redisClient.Incr(r.Context(), key).Result()
+		redisCtx, cancel := context.WithTimeout(r.Context(), rateLimitRedisTimeout)
+		count, err := m.redisClient.Incr(redisCtx, key).Result()
+		cancel()
 		if err != nil {
 			logx.Errorf("rate limit skipped: redis incr failed, name=%s, err=%v", m.name, err)
 			next(w, r)
 			return
 		}
 		if count == 1 {
-			if err := m.redisClient.Expire(r.Context(), key, m.window).Err(); err != nil {
+			redisCtx, cancel = context.WithTimeout(r.Context(), rateLimitRedisTimeout)
+			err = m.redisClient.Expire(redisCtx, key, m.window).Err()
+			cancel()
+			if err != nil {
 				logx.Errorf("rate limit expire failed, name=%s, err=%v", m.name, err)
 				next(w, r)
 				return

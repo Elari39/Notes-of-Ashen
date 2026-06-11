@@ -6,6 +6,8 @@ import (
 
 	"notes-of-ashen/internal/authutil"
 	apperrors "notes-of-ashen/internal/errors"
+	articlelogic "notes-of-ashen/internal/logic/article"
+	sitelogic "notes-of-ashen/internal/logic/site"
 	"notes-of-ashen/internal/logicutil"
 	"notes-of-ashen/internal/svc"
 	"notes-of-ashen/internal/types"
@@ -79,6 +81,8 @@ func Update(ctx context.Context, svcCtx *svc.ServiceContext, id uint64, req type
 	if err != nil {
 		return nil, logicutil.MapError(err)
 	}
+	articlelogic.RefreshDerivedPublicState(ctx, svcCtx)
+	sitelogic.EvictProjectsPageCache(ctx, svcCtx)
 	resp := logicutil.TagResp(*item)
 	return &resp, nil
 }
@@ -87,7 +91,12 @@ func Delete(ctx context.Context, svcCtx *svc.ServiceContext, id uint64) error {
 	if err := authutil.RequireContentManager(ctx); err != nil {
 		return err
 	}
-	return logicutil.MapError(svcCtx.Store.DeleteTag(ctx, id))
+	if err := svcCtx.Store.DeleteTag(ctx, id); err != nil {
+		return logicutil.MapError(err)
+	}
+	articlelogic.RefreshDerivedPublicState(ctx, svcCtx)
+	sitelogic.EvictProjectsPageCache(ctx, svcCtx)
+	return nil
 }
 
 func validate(req types.TaxonomyReq) error {

@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "axios": "^1.6.0",
+    "echarts": "^6.1.0",
     "framer-motion": "^10.16.4",
     "html2pdf.js": "^0.14.0",
     "katex": "^0.17.0",

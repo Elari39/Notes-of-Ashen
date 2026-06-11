@@ -9,6 +9,7 @@ import (
 	articlehandler "notes-of-ashen/internal/handler/article"
 	authhandler "notes-of-ashen/internal/handler/auth"
 	categoryhandler "notes-of-ashen/internal/handler/category"
+	searchhandler "notes-of-ashen/internal/handler/search"
 	sitehandler "notes-of-ashen/internal/handler/site"
 	taghandler "notes-of-ashen/internal/handler/tag"
 	traffichandler "notes-of-ashen/internal/handler/traffic"
@@ -83,6 +84,7 @@ func RegisterHandlers(server *rest.Server, svcCtx *svc.ServiceContext) {
 		{Method: http.MethodPatch, Path: "/api/v1/admin/users/:id/status", Handler: authRequired(adminhandler.UpdateUserStatusHandler(svcCtx))},
 		{Method: http.MethodPatch, Path: "/api/v1/admin/users/:id/role", Handler: authRequired(adminhandler.UpdateUserRoleHandler(svcCtx))},
 		{Method: http.MethodGet, Path: "/api/v1/admin/logs", Handler: authRequired(adminhandler.ListLogsHandler(svcCtx))},
+		{Method: http.MethodPost, Path: "/api/v1/admin/search/reindex", Handler: authRequired(searchhandler.ReindexHandler(svcCtx))},
 		{Method: http.MethodPut, Path: "/api/v1/admin/site/settings", Handler: authRequired(sitehandler.UpdateSettingsHandler(svcCtx))},
 		{Method: http.MethodGet, Path: "/api/v1/admin/site/resume", Handler: authRequired(sitehandler.AdminResumePageHandler(svcCtx))},
 		{Method: http.MethodPut, Path: "/api/v1/admin/site/resume", Handler: authRequired(sitehandler.UpdateResumePageHandler(svcCtx))},

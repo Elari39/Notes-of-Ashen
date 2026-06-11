@@ -1,0 +1,24 @@
+{
+  "name": "Notes of Ashen",
+  "short_name": "Ashen",
+  "description": "A personal blog written slowly by the lamp of ink.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f9f9f4",
+  "theme_color": "#8a3c3a",
+  "icons": [
+    {
+      "src": "/pwa-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/pwa-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

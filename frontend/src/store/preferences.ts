@@ -6,14 +6,18 @@ export type EffectiveTheme = 'light' | 'dark';
 
 const LANGUAGE_KEY = 'notesOfAshen.language';
 const THEME_KEY = 'notesOfAshen.theme';
+const ACCENT_KEY = 'notesOfAshen.accentColor';
 
 interface PreferenceState {
   language: Language;
   themePreference: ThemePreference;
   effectiveTheme: EffectiveTheme;
+  accentColor: string;
   setLanguage: (language: Language) => void;
   toggleLanguage: () => void;
   setThemePreference: (themePreference: ThemePreference) => void;
+  setAccentColor: (accentColor: string) => void;
+  resetAccentColor: () => void;
   toggleTheme: () => void;
   syncSystemTheme: () => void;
   initializePreferences: () => () => void;
@@ -44,6 +48,12 @@ const readThemePreference = (): ThemePreference => {
   return 'system';
 };
 
+const readAccentColor = () => {
+  if (!isBrowser()) return '';
+  const value = localStorage.getItem(ACCENT_KEY) || '';
+  return /^#[0-9a-f]{6}$/i.test(value) ? value : '';
+};
+
 const applyLanguage = (language: Language) => {
   if (!isBrowser()) return;
   document.documentElement.lang = language === 'zh' ? 'zh-CN' : 'en';
@@ -55,17 +65,33 @@ const applyTheme = (theme: EffectiveTheme) => {
   document.documentElement.style.colorScheme = theme;
 };
 
+const applyAccentColor = (accentColor: string) => {
+  if (!isBrowser()) return;
+  if (accentColor) {
+    document.documentElement.style.setProperty('--ochre', accentColor);
+  } else {
+    document.documentElement.style.removeProperty('--ochre');
+  }
+  const themeColor = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
+  if (themeColor) {
+    themeColor.content = accentColor || '#8a3c3a';
+  }
+};
+
 const initialLanguage = readLanguage();
 const initialThemePreference = readThemePreference();
 const initialEffectiveTheme = resolveEffectiveTheme(initialThemePreference);
+const initialAccentColor = readAccentColor();
 
 applyLanguage(initialLanguage);
 applyTheme(initialEffectiveTheme);
+applyAccentColor(initialAccentColor);
 
 export const usePreferenceStore = create<PreferenceState>((set, get) => ({
   language: initialLanguage,
   themePreference: initialThemePreference,
   effectiveTheme: initialEffectiveTheme,
+  accentColor: initialAccentColor,
   setLanguage: (language) => {
     if (isBrowser()) {
       localStorage.setItem(LANGUAGE_KEY, language);
@@ -85,6 +111,21 @@ export const usePreferenceStore = create<PreferenceState>((set, get) => ({
     applyTheme(effectiveTheme);
     set({ themePreference, effectiveTheme });
   },
+  setAccentColor: (accentColor) => {
+    const normalized = /^#[0-9a-f]{6}$/i.test(accentColor) ? accentColor : '';
+    if (isBrowser()) {
+      if (normalized) {
+        localStorage.setItem(ACCENT_KEY, normalized);
+      } else {
+        localStorage.removeItem(ACCENT_KEY);
+      }
+    }
+    applyAccentColor(normalized);
+    set({ accentColor: normalized });
+  },
+  resetAccentColor: () => {
+    get().setAccentColor('');
+  },
   toggleTheme: () => {
     const nextTheme = get().effectiveTheme === 'dark' ? 'light' : 'dark';
     get().setThemePreference(nextTheme);
@@ -98,6 +139,7 @@ export const usePreferenceStore = create<PreferenceState>((set, get) => ({
   initializePreferences: () => {
     applyLanguage(get().language);
     applyTheme(get().effectiveTheme);
+    applyAccentColor(get().accentColor);
 
     if (!isBrowser()) {
       return () => undefined;

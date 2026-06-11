@@ -10,6 +10,15 @@ export default tseslint.config(
   ...tseslint.configs.recommended,
   reactRefresh.configs.vite,
   {
+    files: ['public/sw.js'],
+    languageOptions: {
+      globals: {
+        ...globals.browser,
+        ...globals.serviceworker,
+      },
+    },
+  },
+  {
     files: ['**/*.{ts,tsx}'],
     plugins: {
       'react-hooks': reactHooks,

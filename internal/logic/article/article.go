@@ -79,6 +79,20 @@ func listWithFilter(ctx context.Context, svcCtx *svc.ServiceContext, req types.A
 			return nil, err
 		}
 	}
+	req.Page, req.Size = page, size
+	req.Status = status
+	req.Query = query
+	if filter.UserID == 0 && filter.Role == "" && query != "" {
+		if resp, ok := searchPublicArticles(ctx, svcCtx, req, page, size); ok {
+			return resp, nil
+		}
+	}
+	if cacheablePublicArticleList(req, filter.Role, filter.UserID, query) {
+		cacheKey := publicArticleListCacheKey(req, page, size, status)
+		if cached, ok := getCachedArticleList(ctx, svcCtx, cacheKey); ok {
+			return cached, nil
+		}
+	}
 	items, total, err := svcCtx.Store.ListArticles(ctx, model.ArticleFilter{
 		UserID:     filter.UserID,
 		Role:       filter.Role,
@@ -96,7 +110,11 @@ func listWithFilter(ctx context.Context, svcCtx *svc.ServiceContext, req types.A
 	for _, item := range items {
 		resp = append(resp, articleResp(ctx, svcCtx, item, false))
 	}
-	return &types.ArticleListResp{Items: resp, Total: total, Page: page, Size: size}, nil
+	out := &types.ArticleListResp{Items: resp, Total: total, Page: page, Size: size}
+	if cacheablePublicArticleList(req, filter.Role, filter.UserID, query) {
+		setCachedArticleList(ctx, svcCtx, publicArticleListCacheKey(req, page, size, status), out)
+	}
+	return out, nil
 }
 
 func Detail(ctx context.Context, svcCtx *svc.ServiceContext, id uint64) (*types.ArticleResp, error) {
@@ -229,6 +247,8 @@ func Create(ctx context.Context, svcCtx *svc.ServiceContext, req types.ArticleRe
 		IP:           meta.IP,
 		UserAgent:    meta.UserAgent,
 	})
+	syncArticleSearch(ctx, svcCtx, id)
+	evictArticleCaches(ctx, svcCtx)
 	resp := articleResp(ctx, svcCtx, *item, true)
 	return &resp, nil
 }
@@ -293,6 +313,8 @@ func Update(ctx context.Context, svcCtx *svc.ServiceContext, id uint64, req type
 		IP:           meta.IP,
 		UserAgent:    meta.UserAgent,
 	})
+	syncArticleSearch(ctx, svcCtx, id)
+	evictArticleCaches(ctx, svcCtx)
 	resp := articleResp(ctx, svcCtx, *item, true)
 	return &resp, nil
 }
@@ -312,6 +334,8 @@ func Delete(ctx context.Context, svcCtx *svc.ServiceContext, id uint64, meta typ
 	if err := svcCtx.Store.DeleteArticle(ctx, id); err != nil {
 		return logicutil.MapError(err)
 	}
+	deleteArticleSearch(ctx, svcCtx, id)
+	evictArticleCaches(ctx, svcCtx)
 	publishEvent(ctx, svcCtx, mq.Event{
 		UserID:       userID,
 		EventType:    "article.deleted",
@@ -355,6 +379,8 @@ func UpdateStatus(ctx context.Context, svcCtx *svc.ServiceContext, id uint64, re
 		IP:           meta.IP,
 		UserAgent:    meta.UserAgent,
 	})
+	syncArticleSearch(ctx, svcCtx, id)
+	evictArticleCaches(ctx, svcCtx)
 	resp := articleResp(ctx, svcCtx, *item, true)
 	return &resp, nil
 }
@@ -482,6 +508,8 @@ func RestoreVersion(ctx context.Context, svcCtx *svc.ServiceContext, articleID u
 		IP:           meta.IP,
 		UserAgent:    meta.UserAgent,
 	})
+	syncArticleSearch(ctx, svcCtx, articleID)
+	evictArticleCaches(ctx, svcCtx)
 	resp := articleResp(ctx, svcCtx, *item, true)
 	return &resp, nil
 }

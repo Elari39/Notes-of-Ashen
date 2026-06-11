@@ -44,8 +44,8 @@ http://127.0.0.1:1270
 
 - 用户认证：注册、登录、退出、刷新 Token。
 - 文章管理：创建、编辑、删除、发布、归档、草稿预览、版本查看、版本恢复、Markdown 导入/导出、AI 辅助创作、置顶与显示优先级。
-- 内容展示：公开文章列表、文章详情、归档、搜索、Markdown 渲染、代码高亮、LaTeX 数学公式、文章目录和点赞反馈。
-- 简历与作品集：结构化简历时间轴、技能树、前端 PDF 导出、作品集画廊和项目标签。
+- 内容展示：公开文章列表、文章详情、归档、Meilisearch 全文搜索、Markdown 渲染、代码高亮、LaTeX 数学公式、文章目录和点赞反馈。
+- 简历与作品集：结构化简历时间轴、技能树、知识图谱、前端 PDF 导出、作品集画廊和项目标签。
 - 分类与标签：公开读取，后台可创建、更新和删除。
 - 管理后台：用户管理、用户状态管理、站点设置、简历与项目管理、操作日志查看、访问趋势、来源统计和地理分布。
 - 站点能力：RSS、Sitemap、站点标题、描述、关键词、Prerender.io 预渲染配置等。
@@ -55,7 +55,7 @@ http://127.0.0.1:1270
 
 ## 技术栈
 
-- 后端：Go 1.25、go-zero REST、MySQL 8.4、Redis 7.4、RabbitMQ 4、JWT、bcrypt。
+- 后端：Go 1.25、go-zero REST、MySQL 8.4、Redis 7.4、Meilisearch 1.13、RabbitMQ 4、JWT、bcrypt。
 - 前端：React 18、TypeScript、Vite 5、Tailwind CSS 3、Zustand、Axios、Framer Motion、Recharts、React Markdown。
 - 部署：Docker、Docker Compose、Nginx、1Panel。
 - 文档与脚本：API 文档位于 [docs/API.md](docs/API.md)，数据库脚本位于 [deploy/mysql](deploy/mysql)。
@@ -137,6 +137,10 @@ Copy-Item .env.example .env
 - `REDIS_PASSWORD`：Redis 密码。
 - `RABBITMQ_DEFAULT_USER`：RabbitMQ 用户名。
 - `RABBITMQ_DEFAULT_PASS`：RabbitMQ 密码。
+- `APP_SEARCH_ENABLED`：是否启用 Meilisearch 全文搜索，默认 `false`，关闭时自动回退 MySQL 查询。
+- `APP_MEILISEARCH_HOST`：API 访问 Meilisearch 的地址，Docker 部署默认 `http://meilisearch:7700`。
+- `APP_MEILISEARCH_API_KEY`：Meilisearch API Key；Docker 部署时也作为 Meilisearch Master Key。
+- `APP_MEILISEARCH_INDEX`：文章索引名，默认 `articles`。
 - `APP_EMAIL_ENABLED`：是否启用邮箱验证码，使用 QQ 邮箱时设置为 `true`。
 - `APP_EMAIL_SMTP_USERNAME`：QQ 邮箱账号，例如 `yourname@qq.com`。
 - `APP_EMAIL_SMTP_PASSWORD`：QQ 邮箱 SMTP 授权码，不是 QQ 登录密码。
@@ -191,6 +195,19 @@ APP_AI_TIMEOUT_SECONDS=600
 ```
 
 `APP_AI_BASE_URL` 可以填写兼容 OpenAI Chat Completions 的基础地址，例如 `https://api.example.com/v1`；如果服务商只提供完整端点，也可以填写到 `/chat/completions`。不要把真实 API Key 写入 README、Issue、提交记录或截图中。
+
+### 全文搜索配置
+
+Docker Compose 已包含 Meilisearch 服务，但搜索默认关闭，主站启动不依赖 Meilisearch 健康状态。需要启用全文搜索时，在真实 `.env` 中设置：
+
+```env
+APP_SEARCH_ENABLED=true
+APP_MEILISEARCH_HOST=http://meilisearch:7700
+APP_MEILISEARCH_API_KEY=replace-with-a-long-random-key
+APP_MEILISEARCH_INDEX=articles
+```
+
+重新创建服务后，使用 `editor` 或 `admin` 登录后台，并调用 `POST /api/v1/admin/search/reindex` 全量重建文章索引。Meilisearch 不可用时，公开文章搜索会回退到 MySQL 查询。
 
 ### GeoIP 与预渲染配置
 
@@ -261,9 +278,10 @@ docker compose logs -f web
 - API：容器内部 `api:19000`
 - MySQL：容器内部 `mysql:3306`
 - Redis：容器内部 `redis:6379`
+- Meilisearch：容器内部 `meilisearch:7700`
 - RabbitMQ：容器内部 `rabbitmq:5672`
 
-只有 Web 会暴露到宿主机的 `1270` 端口。API、MySQL、Redis、RabbitMQ 默认只在 Docker 内部网络访问。
+只有 Web 会暴露到宿主机的 `1270` 端口。API、MySQL、Redis、Meilisearch、RabbitMQ 默认只在 Docker 内部网络访问。
 
 ### 访问验证
 
@@ -407,6 +425,7 @@ Docker 部署会使用独立 volume 保存数据：
 
 - `notes-of-ashen_goblog_mysql_data`
 - `notes-of-ashen_goblog_redis_data`
+- `notes-of-ashen_goblog_meili_data`
 - `notes-of-ashen_goblog_rabbitmq_data`
 
 GeoIP 数据库使用宿主机目录 `./data/GeoLite2-City.mmdb`，不会写入 Docker volume，也不会进入 Git 或镜像构建上下文。
@@ -538,6 +557,7 @@ docker compose up -d --build
 - `GET /api/v1/admin/stats`
 - `GET /api/v1/admin/users`
 - `GET /api/v1/admin/logs`
+- `POST /api/v1/admin/search/reindex`
 - `GET /api/v1/admin/site/resume`
 - `GET /api/v1/admin/site/projects`
 

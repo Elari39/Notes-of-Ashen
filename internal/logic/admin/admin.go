@@ -108,11 +108,11 @@ func Stats(ctx context.Context, svcCtx *svc.ServiceContext) (*types.AdminStatsRe
 	if err != nil {
 		return nil, err
 	}
-	popular, err := svcCtx.Store.PopularArticles(ctx, 5)
+	popular, err := cachedPopularArticles(ctx, svcCtx, 5)
 	if err != nil {
 		return nil, err
 	}
-	recent, err := svcCtx.Store.RecentArticles(ctx, 5)
+	recent, err := cachedRecentArticles(ctx, svcCtx, 5)
 	if err != nil {
 		return nil, err
 	}

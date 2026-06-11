@@ -139,6 +139,13 @@ export interface Article {
   updatedAt: string;
   tags?: Tag[];
   category?: Category;
+  searchHighlights?: ArticleSearchHighlights;
+}
+
+export interface ArticleSearchHighlights {
+  title?: string;
+  summary?: string;
+  content?: string;
 }
 
 export interface ArticleContext {

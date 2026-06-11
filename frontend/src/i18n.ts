@@ -46,6 +46,10 @@ const zh = {
   'preferences.themeTitle': '主题',
   'preferences.themeLight': '浅色',
   'preferences.themeDark': '深色',
+  'preferences.themeSystem': '跟随系统',
+  'preferences.accentTitle': '主题色',
+  'preferences.accentDefault': '默认色',
+  'preferences.accentReset': '重置',
 
   'toggle.language': 'EN',
   'toggle.languageLabel': '切换为英文',
@@ -320,6 +324,10 @@ const en: Record<TranslationKey, string> = {
   'preferences.themeTitle': 'Theme',
   'preferences.themeLight': 'Light',
   'preferences.themeDark': 'Dark',
+  'preferences.themeSystem': 'System',
+  'preferences.accentTitle': 'Accent',
+  'preferences.accentDefault': 'Default',
+  'preferences.accentReset': 'Reset',
 
   'toggle.language': '中',
   'toggle.languageLabel': 'Switch to Chinese',

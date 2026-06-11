@@ -68,6 +68,9 @@ export const getArticleVersion = (id: number | string, versionNo: number | strin
 export const restoreArticleVersion = (id: number | string, versionNo: number | string) =>
   http.post<unknown, BaseResp<Article>>(`/articles/${id}/versions/${versionNo}/restore`);
 
+export const reindexArticleSearch = () =>
+  http.post<unknown, BaseResp<{ indexed: number; enabled: boolean }>>('/admin/search/reindex');
+
 const filenameFromDisposition = (value?: string) => {
   if (!value) {
     return '';

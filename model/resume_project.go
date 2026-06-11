@@ -206,8 +206,8 @@ ORDER BY featured DESC, display_order, id`)
 	}
 	for index, item := range items {
 		numericID, _ := strconv.ParseUint(item.ID, 10, 64)
-		item.Tags = tagMap[numericID]
-		item.TagIDs = tagIDMap[numericID]
+		item.Tags = nonNilStrings(tagMap[numericID])
+		item.TagIDs = nonNilUint64s(tagIDMap[numericID])
 		items[index] = item
 	}
 	return items, nil
@@ -302,4 +302,18 @@ func normalizeStringList(values []string) []string {
 		}
 	}
 	return normalized
+}
+
+func nonNilStrings(values []string) []string {
+	if values == nil {
+		return []string{}
+	}
+	return values
+}
+
+func nonNilUint64s(values []uint64) []uint64 {
+	if values == nil {
+		return []uint64{}
+	}
+	return values
 }

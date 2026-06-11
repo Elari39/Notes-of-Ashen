@@ -6,6 +6,7 @@ import (
 
 	"notes-of-ashen/internal/authutil"
 	apperrors "notes-of-ashen/internal/errors"
+	articlelogic "notes-of-ashen/internal/logic/article"
 	"notes-of-ashen/internal/logicutil"
 	"notes-of-ashen/internal/svc"
 	"notes-of-ashen/internal/types"
@@ -79,6 +80,7 @@ func Update(ctx context.Context, svcCtx *svc.ServiceContext, id uint64, req type
 	if err != nil {
 		return nil, logicutil.MapError(err)
 	}
+	articlelogic.RefreshDerivedPublicState(ctx, svcCtx)
 	resp := logicutil.CategoryResp(*item)
 	return &resp, nil
 }
@@ -87,7 +89,11 @@ func Delete(ctx context.Context, svcCtx *svc.ServiceContext, id uint64) error {
 	if err := authutil.RequireContentManager(ctx); err != nil {
 		return err
 	}
-	return logicutil.MapError(svcCtx.Store.DeleteCategory(ctx, id))
+	if err := svcCtx.Store.DeleteCategory(ctx, id); err != nil {
+		return logicutil.MapError(err)
+	}
+	articlelogic.RefreshDerivedPublicState(ctx, svcCtx)
+	return nil
 }
 
 func validate(req types.TaxonomyReq) error {

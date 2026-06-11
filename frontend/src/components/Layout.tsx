@@ -11,7 +11,16 @@ import { useSEO } from '../utils/seo';
 
 const Layout: React.FC = () => {
   const { user, logout } = useAuthStore();
-  const { language, effectiveTheme, setLanguage, setThemePreference } = usePreferenceStore();
+  const {
+    language,
+    themePreference,
+    effectiveTheme,
+    accentColor,
+    setLanguage,
+    setThemePreference,
+    setAccentColor,
+    resetAccentColor,
+  } = usePreferenceStore();
   const { resumePageEnabled, resumeNavHidden, projectsPageEnabled, projectsNavHidden } = useSiteSettingsStore();
   const navigate = useNavigate();
   const location = useLocation();
@@ -26,7 +35,9 @@ const Layout: React.FC = () => {
   const shouldShowAvatar = isHttpAvatarUrl(avatarUrl);
   const t = (key: Parameters<typeof translate>[1]) => translate(language, key);
   const currentLanguageLabel = language === 'zh' ? t('preferences.languageZh') : t('preferences.languageEn');
-  const currentThemeLabel = effectiveTheme === 'dark' ? t('preferences.themeDark') : t('preferences.themeLight');
+  const currentThemeLabel = themePreference === 'system'
+    ? `${t('preferences.themeSystem')} / ${effectiveTheme === 'dark' ? t('preferences.themeDark') : t('preferences.themeLight')}`
+    : (effectiveTheme === 'dark' ? t('preferences.themeDark') : t('preferences.themeLight'));
   const pageTransitionKey = location.pathname.startsWith('/admin') ? 'admin' : location.pathname;
   const usesRouteSEO = location.pathname.startsWith('/article/') || location.pathname.startsWith('/admin/preview/');
   const pageTransition = shouldReduceMotion
@@ -152,12 +163,12 @@ const Layout: React.FC = () => {
 
         <div>
           <p className="mb-2 text-xs tracking-widest text-ink-light">{t('preferences.themeTitle')}</p>
-          <div className="grid grid-cols-2 border border-mountain-grey">
+          <div className="grid grid-cols-3 border border-mountain-grey">
             <button
               type="button"
               aria-label={t('toggle.themeToLight')}
               onClick={() => setThemePreference('light')}
-              className={`px-3 py-2 text-sm transition-colors ${effectiveTheme === 'light' ? 'bg-ink text-paper' : 'text-ink-light hover:text-ochre'}`}
+              className={`px-3 py-2 text-sm transition-colors ${themePreference === 'light' ? 'bg-ink text-paper' : 'text-ink-light hover:text-ochre'}`}
             >
               {t('preferences.themeLight')}
             </button>
@@ -165,9 +176,39 @@ const Layout: React.FC = () => {
               type="button"
               aria-label={t('toggle.themeToDark')}
               onClick={() => setThemePreference('dark')}
-              className={`border-l border-mountain-grey px-3 py-2 text-sm transition-colors ${effectiveTheme === 'dark' ? 'bg-ink text-paper' : 'text-ink-light hover:text-ochre'}`}
+              className={`border-l border-mountain-grey px-3 py-2 text-sm transition-colors ${themePreference === 'dark' ? 'bg-ink text-paper' : 'text-ink-light hover:text-ochre'}`}
             >
               {t('preferences.themeDark')}
+            </button>
+            <button
+              type="button"
+              onClick={() => setThemePreference('system')}
+              className={`border-l border-mountain-grey px-3 py-2 text-sm transition-colors ${themePreference === 'system' ? 'bg-ink text-paper' : 'text-ink-light hover:text-ochre'}`}
+            >
+              {t('preferences.themeSystem')}
+            </button>
+          </div>
+        </div>
+
+        <div>
+          <p className="mb-2 text-xs tracking-widest text-ink-light">{t('preferences.accentTitle')}</p>
+          <div className="flex items-center gap-3 border border-mountain-grey px-3 py-2">
+            <input
+              type="color"
+              value={accentColor || '#8a3c3a'}
+              onChange={(event) => setAccentColor(event.target.value)}
+              aria-label={t('preferences.accentTitle')}
+              className="h-8 w-10 cursor-pointer border-0 bg-transparent p-0"
+            />
+            <span className="min-w-0 flex-1 text-xs tracking-[0.14em] text-ink-light">
+              {accentColor || t('preferences.accentDefault')}
+            </span>
+            <button
+              type="button"
+              onClick={resetAccentColor}
+              className="shrink-0 text-xs tracking-widest text-ochre hover:text-ink"
+            >
+              {t('preferences.accentReset')}
             </button>
           </div>
         </div>

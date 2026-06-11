@@ -13,6 +13,7 @@ type Config struct {
 	Database DatabaseConf
 	Auth     AuthConf
 	Redis    RedisConf
+	Search   SearchConf
 	RabbitMQ RabbitMQConf
 	Email    EmailConf
 	AI       AIConf
@@ -35,6 +36,13 @@ type RedisConf struct {
 	Addr     string
 	Password string
 	DB       int
+}
+
+type SearchConf struct {
+	Enabled           bool
+	MeilisearchHost   string
+	MeilisearchAPIKey string
+	MeilisearchIndex  string
 }
 
 type RabbitMQConf struct {
@@ -142,6 +150,12 @@ func (c *Config) ApplyEnv() error {
 	if err := setInt("APP_REDIS_DB", &c.Redis.DB); err != nil {
 		return err
 	}
+	if err := setBool("APP_SEARCH_ENABLED", &c.Search.Enabled); err != nil {
+		return err
+	}
+	setString("APP_MEILISEARCH_HOST", &c.Search.MeilisearchHost)
+	setString("APP_MEILISEARCH_API_KEY", &c.Search.MeilisearchAPIKey)
+	setString("APP_MEILISEARCH_INDEX", &c.Search.MeilisearchIndex)
 	if err := setBool("APP_RABBITMQ_ENABLED", &c.RabbitMQ.Enabled); err != nil {
 		return err
 	}

@@ -18,6 +18,12 @@ Redis:
   Password: "123456"
   DB: 0
 
+Search:
+  Enabled: false
+  MeilisearchHost: "http://127.0.0.1:7700"
+  MeilisearchAPIKey: ""
+  MeilisearchIndex: "articles"
+
 RabbitMQ:
   Enabled: true
   URL: "amqp://guest:guest@127.0.0.1:5672/"

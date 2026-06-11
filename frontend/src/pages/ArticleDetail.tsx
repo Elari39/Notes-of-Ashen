@@ -81,11 +81,23 @@ const ArticleDetail: React.FC = () => {
   }, [id, language]);
 
   useEffect(() => {
-    const updateReadingState = () => {
+    const updateReadingProgress = () => {
       const scrollTop = window.scrollY || document.documentElement.scrollTop;
       const maxScroll = Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
       setReadingProgress(Math.min(100, Math.max(0, (scrollTop / maxScroll) * 100)));
+    };
 
+    updateReadingProgress();
+    window.addEventListener('scroll', updateReadingProgress, { passive: true });
+    window.addEventListener('resize', updateReadingProgress);
+    return () => {
+      window.removeEventListener('scroll', updateReadingProgress);
+      window.removeEventListener('resize', updateReadingProgress);
+    };
+  }, []);
+
+  useEffect(() => {
+    const fallbackActiveHeading = () => {
       if (headings.length === 0) {
         setActiveHeadingId('');
         return;
@@ -104,12 +116,50 @@ const ArticleDetail: React.FC = () => {
       setActiveHeadingId(active);
     };
 
-    updateReadingState();
-    window.addEventListener('scroll', updateReadingState, { passive: true });
-    window.addEventListener('resize', updateReadingState);
+    if (headings.length === 0 || typeof IntersectionObserver === 'undefined') {
+      fallbackActiveHeading();
+      window.addEventListener('scroll', fallbackActiveHeading, { passive: true });
+      window.addEventListener('resize', fallbackActiveHeading);
+      return () => {
+        window.removeEventListener('scroll', fallbackActiveHeading);
+        window.removeEventListener('resize', fallbackActiveHeading);
+      };
+    }
+
+    const visible = new Set<string>();
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          const id = entry.target.id;
+          if (entry.isIntersecting) {
+            visible.add(id);
+          } else {
+            visible.delete(id);
+          }
+        });
+        const next = headings.find((heading) => visible.has(heading.id));
+        if (next) {
+          setActiveHeadingId(next.id);
+        } else {
+          fallbackActiveHeading();
+        }
+      },
+      {
+        rootMargin: '-112px 0px -62% 0px',
+        threshold: [0, 0.2, 1],
+      },
+    );
+
+    headings.forEach((heading) => {
+      const element = document.getElementById(heading.id);
+      if (element) {
+        observer.observe(element);
+      }
+    });
+    fallbackActiveHeading();
+
     return () => {
-      window.removeEventListener('scroll', updateReadingState);
-      window.removeEventListener('resize', updateReadingState);
+      observer.disconnect();
     };
   }, [headings]);
 
