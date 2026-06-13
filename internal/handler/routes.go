@@ -14,6 +14,7 @@ import (
 	taghandler "notes-of-ashen/internal/handler/tag"
 	traffichandler "notes-of-ashen/internal/handler/traffic"
 	userhandler "notes-of-ashen/internal/handler/user"
+	basehandler "notes-of-ashen/internal/httphelper"
 	"notes-of-ashen/internal/middleware"
 	"notes-of-ashen/internal/svc"
 
@@ -22,12 +23,13 @@ import (
 
 func RegisterHandlers(server *rest.Server, svcCtx *svc.ServiceContext) {
 	authMiddleware := middleware.NewAuthMiddleware(svcCtx.Tokens, svcCtx.Store)
-	loginRateLimit := middleware.NewRateLimitMiddleware(svcCtx.Redis, "auth_login", 5, time.Minute)
-	verifyCodeRateLimit := middleware.NewRateLimitMiddleware(svcCtx.Redis, "verify_code_send", 5, time.Minute)
-	resetPasswordRateLimit := middleware.NewRateLimitMiddleware(svcCtx.Redis, "password_reset", 5, time.Minute)
-	trafficRateLimit := middleware.NewRateLimitMiddleware(svcCtx.Redis, "traffic_visit", 120, time.Minute)
-	articleLikeRateLimit := middleware.NewRateLimitMiddleware(svcCtx.Redis, "article_like", 60, time.Minute)
-	aiRateLimit := middleware.NewRateLimitMiddleware(svcCtx.Redis, "ai_assist", 20, time.Minute)
+	forwardedOptions := middlewareForwardedOptions(svcCtx)
+	loginRateLimit := middleware.NewRateLimitMiddleware(svcCtx.Redis, "auth_login", 5, time.Minute, forwardedOptions)
+	verifyCodeRateLimit := middleware.NewRateLimitMiddleware(svcCtx.Redis, "verify_code_send", 5, time.Minute, forwardedOptions)
+	resetPasswordRateLimit := middleware.NewRateLimitMiddleware(svcCtx.Redis, "password_reset", 5, time.Minute, forwardedOptions)
+	trafficRateLimit := middleware.NewRateLimitMiddleware(svcCtx.Redis, "traffic_visit", 120, time.Minute, forwardedOptions)
+	articleLikeRateLimit := middleware.NewRateLimitMiddleware(svcCtx.Redis, "article_like", 60, time.Minute, forwardedOptions)
+	aiRateLimit := middleware.NewRateLimitMiddleware(svcCtx.Redis, "ai_assist", 20, time.Minute, forwardedOptions)
 	authRequired := func(handler http.HandlerFunc) http.HandlerFunc {
 		return authMiddleware.Handle(handler)
 	}
@@ -91,4 +93,8 @@ func RegisterHandlers(server *rest.Server, svcCtx *svc.ServiceContext) {
 		{Method: http.MethodGet, Path: "/api/v1/admin/site/projects", Handler: authRequired(sitehandler.AdminProjectsPageHandler(svcCtx))},
 		{Method: http.MethodPut, Path: "/api/v1/admin/site/projects", Handler: authRequired(sitehandler.UpdateProjectsPageHandler(svcCtx))},
 	})
+}
+
+func middlewareForwardedOptions(svcCtx *svc.ServiceContext) basehandler.ForwardedOptions {
+	return basehandler.ForwardedOptions{TrustedProxyCIDRs: svcCtx.Config.Proxy.TrustedCIDRs}
 }

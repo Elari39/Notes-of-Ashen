@@ -24,18 +24,24 @@ type RateLimitMiddleware struct {
 	name        string
 	limit       int64
 	window      time.Duration
+	forwarded   basehandler.ForwardedOptions
 }
 
-func NewRateLimitMiddleware(redisClient *redis.Client, name string, limit int64, window time.Duration) *RateLimitMiddleware {
+func NewRateLimitMiddleware(redisClient *redis.Client, name string, limit int64, window time.Duration, forwarded ...basehandler.ForwardedOptions) *RateLimitMiddleware {
 	var limiter redisLimiter
 	if redisClient != nil {
 		limiter = redisClient
+	}
+	options := basehandler.ForwardedOptions{}
+	if len(forwarded) > 0 {
+		options = forwarded[0]
 	}
 	return &RateLimitMiddleware{
 		redisClient: limiter,
 		name:        name,
 		limit:       limit,
 		window:      window,
+		forwarded:   options,
 	}
 }
 
@@ -49,7 +55,7 @@ func (m *RateLimitMiddleware) Handle(next http.HandlerFunc) http.HandlerFunc {
 			return
 		}
 
-		ip := basehandler.Meta(r).IP
+		ip := basehandler.Meta(r, m.forwarded).IP
 		key := security.RateLimitKey(m.name, ip)
 		redisCtx, cancel := context.WithTimeout(r.Context(), rateLimitRedisTimeout)
 		count, err := m.redisClient.Incr(redisCtx, key).Result()

@@ -10,6 +10,10 @@ import (
 	"notes-of-ashen/internal/types"
 )
 
+func forwardedOptions(svcCtx *svc.ServiceContext) basehandler.ForwardedOptions {
+	return basehandler.ForwardedOptions{TrustedProxyCIDRs: svcCtx.Config.Proxy.TrustedCIDRs}
+}
+
 func RegisterHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req types.RegisterReq
@@ -17,7 +21,7 @@ func RegisterHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 			response.Error(w, err)
 			return
 		}
-		resp, err := authlogic.Register(r.Context(), svcCtx, req, basehandler.Meta(r))
+		resp, err := authlogic.Register(r.Context(), svcCtx, req, basehandler.Meta(r, forwardedOptions(svcCtx)))
 		if err != nil {
 			response.Error(w, err)
 			return
@@ -49,7 +53,7 @@ func SendVerifyCodeHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 			response.Error(w, err)
 			return
 		}
-		if err := authlogic.SendVerifyCode(r.Context(), svcCtx, req, basehandler.Meta(r)); err != nil {
+		if err := authlogic.SendVerifyCode(r.Context(), svcCtx, req, basehandler.Meta(r, forwardedOptions(svcCtx))); err != nil {
 			response.Error(w, err)
 			return
 		}
@@ -64,7 +68,7 @@ func LoginHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 			response.Error(w, err)
 			return
 		}
-		resp, err := authlogic.Login(r.Context(), svcCtx, req, basehandler.Meta(r))
+		resp, err := authlogic.Login(r.Context(), svcCtx, req, basehandler.Meta(r, forwardedOptions(svcCtx)))
 		if err != nil {
 			response.Error(w, err)
 			return
@@ -80,7 +84,7 @@ func ResetPasswordHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 			response.Error(w, err)
 			return
 		}
-		if err := authlogic.ResetPassword(r.Context(), svcCtx, req, basehandler.Meta(r)); err != nil {
+		if err := authlogic.ResetPassword(r.Context(), svcCtx, req, basehandler.Meta(r, forwardedOptions(svcCtx))); err != nil {
 			response.Error(w, err)
 			return
 		}
@@ -111,7 +115,7 @@ func LogoutHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 			response.Error(w, err)
 			return
 		}
-		if err := authlogic.Logout(r.Context(), svcCtx, req, basehandler.Meta(r)); err != nil {
+		if err := authlogic.Logout(r.Context(), svcCtx, req, basehandler.Meta(r, forwardedOptions(svcCtx))); err != nil {
 			response.Error(w, err)
 			return
 		}

@@ -1,6 +1,7 @@
 package httphelper
 
 import (
+	"crypto/tls"
 	"net"
 	"net/http"
 	"strconv"
@@ -36,17 +37,23 @@ func PathVersionNo(r *http.Request) (int, error) {
 	return path.VersionNo, nil
 }
 
-func RequestBaseURL(r *http.Request) string {
-	proto := strings.TrimSpace(r.Header.Get("X-Forwarded-Proto"))
-	if proto == "" {
-		proto = "http"
-		if r.TLS != nil {
-			proto = "https"
+type ForwardedOptions struct {
+	TrustedProxyCIDRs string
+}
+
+func RequestBaseURL(r *http.Request, options ...ForwardedOptions) string {
+	proto := requestProto(r.TLS)
+	host := strings.TrimSpace(r.Host)
+	if trustedProxy(r.RemoteAddr, forwardedOptions(options).TrustedProxyCIDRs) {
+		if forwardedProto := forwardedProto(r); forwardedProto != "" {
+			proto = forwardedProto
+		}
+		if forwardedHost := forwardedHost(r); forwardedHost != "" {
+			host = forwardedHost
 		}
 	}
-	host := strings.TrimSpace(r.Header.Get("X-Forwarded-Host"))
 	if host == "" {
-		host = r.Host
+		host = "localhost"
 	}
 	return strings.TrimRight(proto+"://"+host, "/")
 }
@@ -89,25 +96,19 @@ func Parse(r *http.Request, v interface{}) error {
 	return nil
 }
 
-func Meta(r *http.Request) types.RequestMeta {
-	ip := strings.TrimSpace(r.Header.Get("X-Forwarded-For"))
-	if ip != "" {
-		parts := strings.Split(ip, ",")
-		ip = strings.TrimSpace(parts[0])
-	} else {
-		ip = strings.TrimSpace(r.Header.Get("X-Real-IP"))
-	}
-	if ip == "" {
-		host, _, err := net.SplitHostPort(r.RemoteAddr)
-		if err == nil {
-			ip = host
-		} else {
-			ip = r.RemoteAddr
+func Meta(r *http.Request, options ...ForwardedOptions) types.RequestMeta {
+	ip := remoteIP(r.RemoteAddr)
+	host := strings.TrimSpace(r.Host)
+	if trustedProxy(r.RemoteAddr, forwardedOptions(options).TrustedProxyCIDRs) {
+		if forwardedIP := forwardedClientIP(r); forwardedIP != "" {
+			ip = forwardedIP
+		}
+		if forwardedHost := forwardedHost(r); forwardedHost != "" {
+			host = forwardedHost
 		}
 	}
-	host := strings.TrimSpace(r.Header.Get("X-Forwarded-Host"))
 	if host == "" {
-		host = strings.TrimSpace(r.Host)
+		host = "localhost"
 	}
 	return types.RequestMeta{
 		IP:        ip,
@@ -115,6 +116,86 @@ func Meta(r *http.Request) types.RequestMeta {
 		Referrer:  r.Referer(),
 		Host:      host,
 	}
+}
+
+func forwardedOptions(options []ForwardedOptions) ForwardedOptions {
+	if len(options) == 0 {
+		return ForwardedOptions{}
+	}
+	return options[0]
+}
+
+func forwardedClientIP(r *http.Request) string {
+	forwardedFor := strings.TrimSpace(r.Header.Get("X-Forwarded-For"))
+	if forwardedFor != "" {
+		for _, part := range strings.Split(forwardedFor, ",") {
+			if ip := validIP(part); ip != "" {
+				return ip
+			}
+		}
+	}
+	return validIP(r.Header.Get("X-Real-IP"))
+}
+
+func forwardedProto(r *http.Request) string {
+	proto := strings.ToLower(strings.TrimSpace(r.Header.Get("X-Forwarded-Proto")))
+	if proto == "http" || proto == "https" {
+		return proto
+	}
+	return ""
+}
+
+func forwardedHost(r *http.Request) string {
+	host := strings.TrimSpace(r.Header.Get("X-Forwarded-Host"))
+	if host == "" || strings.ContainsAny(host, " \t\r\n") {
+		return ""
+	}
+	return host
+}
+
+func requestProto(tlsState *tls.ConnectionState) string {
+	if tlsState != nil {
+		return "https"
+	}
+	return "http"
+}
+
+func trustedProxy(remoteAddr, cidrs string) bool {
+	ip := net.ParseIP(remoteIP(remoteAddr))
+	if ip == nil {
+		return false
+	}
+	for _, raw := range strings.Split(cidrs, ",") {
+		raw = strings.TrimSpace(raw)
+		if raw == "" {
+			continue
+		}
+		_, network, err := net.ParseCIDR(raw)
+		if err == nil && network.Contains(ip) {
+			return true
+		}
+		if trustedIP := net.ParseIP(raw); trustedIP != nil && trustedIP.Equal(ip) {
+			return true
+		}
+	}
+	return false
+}
+
+func remoteIP(remoteAddr string) string {
+	host, _, err := net.SplitHostPort(strings.TrimSpace(remoteAddr))
+	if err == nil {
+		return host
+	}
+	return strings.TrimSpace(remoteAddr)
+}
+
+func validIP(value string) string {
+	value = strings.TrimSpace(value)
+	ip := net.ParseIP(value)
+	if ip == nil {
+		return ""
+	}
+	return ip.String()
 }
 
 func queryInt(r *http.Request, key string, fallback int) int {

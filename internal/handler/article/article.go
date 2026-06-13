@@ -17,6 +17,10 @@ import (
 	"github.com/zeromicro/go-zero/core/logx"
 )
 
+func forwardedOptions(svcCtx *svc.ServiceContext) basehandler.ForwardedOptions {
+	return basehandler.ForwardedOptions{TrustedProxyCIDRs: svcCtx.Config.Proxy.TrustedCIDRs}
+}
+
 const maxMarkdownUploadBytes = 2 << 20
 
 func ListHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
@@ -126,7 +130,7 @@ func LikeHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 			response.Error(w, err)
 			return
 		}
-		resp, err := articlelogic.Like(r.Context(), svcCtx, id, basehandler.Meta(r))
+		resp, err := articlelogic.Like(r.Context(), svcCtx, id, basehandler.Meta(r, forwardedOptions(svcCtx)))
 		if err != nil {
 			response.Error(w, err)
 			return
@@ -142,7 +146,7 @@ func CreateHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 			response.Error(w, err)
 			return
 		}
-		resp, err := articlelogic.Create(r.Context(), svcCtx, req, basehandler.Meta(r))
+		resp, err := articlelogic.Create(r.Context(), svcCtx, req, basehandler.Meta(r, forwardedOptions(svcCtx)))
 		if err != nil {
 			response.Error(w, err)
 			return
@@ -163,7 +167,7 @@ func UpdateHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 			response.Error(w, err)
 			return
 		}
-		resp, err := articlelogic.Update(r.Context(), svcCtx, id, req, basehandler.Meta(r))
+		resp, err := articlelogic.Update(r.Context(), svcCtx, id, req, basehandler.Meta(r, forwardedOptions(svcCtx)))
 		if err != nil {
 			response.Error(w, err)
 			return
@@ -179,7 +183,7 @@ func DeleteHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 			response.Error(w, err)
 			return
 		}
-		if err := articlelogic.Delete(r.Context(), svcCtx, id, basehandler.Meta(r)); err != nil {
+		if err := articlelogic.Delete(r.Context(), svcCtx, id, basehandler.Meta(r, forwardedOptions(svcCtx))); err != nil {
 			response.Error(w, err)
 			return
 		}
@@ -237,7 +241,7 @@ func RestoreVersionHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 			response.Error(w, err)
 			return
 		}
-		resp, err := articlelogic.RestoreVersion(r.Context(), svcCtx, id, versionNo, basehandler.Meta(r))
+		resp, err := articlelogic.RestoreVersion(r.Context(), svcCtx, id, versionNo, basehandler.Meta(r, forwardedOptions(svcCtx)))
 		if err != nil {
 			response.Error(w, err)
 			return
@@ -258,7 +262,7 @@ func UpdateStatusHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 			response.Error(w, err)
 			return
 		}
-		resp, err := articlelogic.UpdateStatus(r.Context(), svcCtx, id, req, basehandler.Meta(r))
+		resp, err := articlelogic.UpdateStatus(r.Context(), svcCtx, id, req, basehandler.Meta(r, forwardedOptions(svcCtx)))
 		if err != nil {
 			response.Error(w, err)
 			return
@@ -310,7 +314,7 @@ func ImportMarkdownHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 			response.Error(w, apperrors.BadRequest("markdown file is too large"))
 			return
 		}
-		resp, err := articlelogic.ImportMarkdown(r.Context(), svcCtx, filename, string(raw), basehandler.Meta(r))
+		resp, err := articlelogic.ImportMarkdown(r.Context(), svcCtx, filename, string(raw), basehandler.Meta(r, forwardedOptions(svcCtx)))
 		if err != nil {
 			response.Error(w, err)
 			return

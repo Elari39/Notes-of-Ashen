@@ -21,8 +21,9 @@ import (
 )
 
 const (
-	minAITimeoutSeconds = 1
-	maxAITimeoutSeconds = 1800
+	minAITimeoutSeconds  = 1
+	maxAITimeoutSeconds  = 1800
+	secretCipherV2Prefix = "v2:"
 )
 
 func Settings(ctx context.Context, svcCtx *svc.ServiceContext) (*types.AISettingsResp, error) {
@@ -75,16 +76,9 @@ func UpdateSettings(ctx context.Context, svcCtx *svc.ServiceContext, req types.U
 		return nil, apperrors.BadRequest("nonStreamTimeoutSeconds must be greater than or equal to firstByteTimeoutSeconds")
 	}
 
-	apiKeyCipher := current.APIKeyCipher
-	if req.ClearAPIKey {
-		apiKeyCipher = ""
-	}
-	apiKey := strings.TrimSpace(req.APIKey)
-	if apiKey != "" {
-		apiKeyCipher, err = encryptSecret(apiKey, svcCtx.Config.Auth.AccessSecret)
-		if err != nil {
-			return nil, err
-		}
+	apiKeyCipher, err := apiKeyCipherForUpdate(current.APIKeyCipher, req, svcCtx.Config)
+	if err != nil {
+		return nil, err
 	}
 
 	if err := svcCtx.Store.UpdateAISettings(ctx, model.AISettings{
@@ -123,7 +117,7 @@ func EffectiveConfig(ctx context.Context, svcCtx *svc.ServiceContext) (config.AI
 	conf.StreamTimeoutSeconds = settings.StreamTimeoutSeconds
 	conf.NonStreamTimeoutSeconds = settings.NonStreamTimeoutSeconds
 	if strings.TrimSpace(settings.APIKeyCipher) != "" {
-		apiKey, err := decryptSecret(settings.APIKeyCipher, svcCtx.Config.Auth.AccessSecret)
+		apiKey, err := decryptAIAPIKey(settings.APIKeyCipher, svcCtx.Config.AI.KeyEncryptionSecret, svcCtx.Config.Auth.AccessSecret)
 		if err != nil {
 			return conf, true, fmt.Errorf("decrypt ai api key: %w", err)
 		}
@@ -178,7 +172,68 @@ func hasAISecret(conf config.AIConf) bool {
 	return strings.TrimSpace(conf.APIKey) != ""
 }
 
+func apiKeyCipherForUpdate(currentCipher string, req types.UpdateAISettingsReq, conf config.Config) (string, error) {
+	apiKeyCipher := currentCipher
+	if req.ClearAPIKey {
+		return "", nil
+	}
+	apiKey := strings.TrimSpace(req.APIKey)
+	if apiKey != "" {
+		return encryptSecret(apiKey, conf.AI.KeyEncryptionSecret)
+	}
+	if shouldMigrateAPIKeyCipher(apiKeyCipher, conf.AI.KeyEncryptionSecret) {
+		plainText, err := decryptSecret(apiKeyCipher, conf.Auth.AccessSecret)
+		if err != nil {
+			return "", fmt.Errorf("decrypt legacy ai api key: %w", err)
+		}
+		return encryptSecret(plainText, conf.AI.KeyEncryptionSecret)
+	}
+	return apiKeyCipher, nil
+}
+
 func encryptSecret(plainText string, secret string) (string, error) {
+	secret = strings.TrimSpace(secret)
+	if secret == "" {
+		return "", apperrors.BadRequest("ai key encryption secret is not configured")
+	}
+	encoded, err := encryptSecretPayload(plainText, secret)
+	if err != nil {
+		return "", err
+	}
+	return secretCipherV2Prefix + encoded, nil
+}
+
+func decryptSecret(encoded string, secret string) (string, error) {
+	encoded = strings.TrimSpace(encoded)
+	if !strings.HasPrefix(encoded, secretCipherV2Prefix) {
+		return decryptSecretPayload(encoded, secret)
+	}
+	secret = strings.TrimSpace(secret)
+	if secret == "" {
+		return "", apperrors.BadRequest("ai key encryption secret is not configured")
+	}
+	return decryptSecretPayload(strings.TrimPrefix(encoded, secretCipherV2Prefix), secret)
+}
+
+func encryptLegacySecret(plainText string, secret string) (string, error) {
+	return encryptSecretPayload(plainText, secret)
+}
+
+func decryptAIAPIKey(encoded, keyEncryptionSecret, legacySecret string) (string, error) {
+	encoded = strings.TrimSpace(encoded)
+	if strings.HasPrefix(encoded, secretCipherV2Prefix) {
+		return decryptSecret(encoded, keyEncryptionSecret)
+	}
+	return decryptSecretPayload(encoded, legacySecret)
+}
+
+func shouldMigrateAPIKeyCipher(cipherText, keyEncryptionSecret string) bool {
+	return strings.TrimSpace(cipherText) != "" &&
+		!strings.HasPrefix(strings.TrimSpace(cipherText), secretCipherV2Prefix) &&
+		strings.TrimSpace(keyEncryptionSecret) != ""
+}
+
+func encryptSecretPayload(plainText string, secret string) (string, error) {
 	key := aiEncryptionKey(secret)
 	block, err := aes.NewCipher(key[:])
 	if err != nil {
@@ -197,7 +252,7 @@ func encryptSecret(plainText string, secret string) (string, error) {
 	return base64.StdEncoding.EncodeToString(payload), nil
 }
 
-func decryptSecret(encoded string, secret string) (string, error) {
+func decryptSecretPayload(encoded string, secret string) (string, error) {
 	raw, err := base64.StdEncoding.DecodeString(encoded)
 	if err != nil {
 		return "", err

@@ -86,6 +86,10 @@ Authorization: Bearer <accessToken>
 
 `etc/notes-of-ashen.yaml` 是本地开发默认配置，包含示例数据库密码、Redis 密码、JWT Secret、RabbitMQ 地址、Meilisearch 搜索配置和 AI 配置占位。生产环境部署前必须替换敏感值，并通过受控配置或环境变量注入管理。
 
+默认不信任客户端传入的 `X-Forwarded-*` / `X-Real-IP`。只有 `RemoteAddr` 命中 `APP_TRUSTED_PROXY_CIDRS` 时，后端才会使用这些转发头参与限流、操作日志、流量统计和 RSS/Sitemap 基础 URL 生成。
+
+后台保存的 AI API Key 使用 `APP_AI_KEY_ENCRYPTION_SECRET` 加密。旧版本使用 `APP_AUTH_ACCESS_SECRET` 派生密钥保存的密文仍可读取；管理员再次保存 AI 设置时会迁移为新格式。
+
 ## 认证接口
 
 ### 获取图片验证码
@@ -404,7 +408,7 @@ PATCH /api/v1/articles/:id/status
 POST /api/v1/articles/ai/assist
 ```
 
-权限：`editor` 或 `admin`。需要启用并配置 `APP_AI_ENABLED`、`APP_AI_BASE_URL`、`APP_AI_API_KEY` 和 `APP_AI_MODEL`。接口有 IP 限流保护。
+权限：`editor` 或 `admin`。需要启用并配置 `APP_AI_ENABLED`、`APP_AI_BASE_URL`、`APP_AI_API_KEY` 和 `APP_AI_MODEL`，或在后台 AI 设置中保存等价配置。若通过后台保存 API Key，必须配置 `APP_AI_KEY_ENCRYPTION_SECRET`。接口有 IP 限流保护。
 
 | 字段 | 类型 | 必填 | 说明 |
 | --- | --- | --- | --- |
@@ -680,6 +684,8 @@ POST /api/v1/traffic/visit
 ```
 
 权限：公开。前端自动上报公开页面访问，接口有 IP 限流保护。后端仅记录公开页面路径，后台、登录、注册、个人资料和找回密码等路径会被忽略。若配置了 `APP_GEOIP_DATABASE_PATH`，后端会使用离线 GeoIP 数据库聚合国家 / 城市；未配置或解析失败时记录为 `Unknown`。
+
+访客 IP 默认来自直连 `RemoteAddr`；只有请求来自 `APP_TRUSTED_PROXY_CIDRS` 中配置的可信代理时，才会读取 `X-Forwarded-For` 或 `X-Real-IP`。
 
 | 字段 | 类型 | 必填 | 说明 |
 | --- | --- | --- | --- |

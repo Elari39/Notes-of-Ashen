@@ -45,7 +45,9 @@ func ProjectsPageHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 
 func RSSHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		body, err := sitelogic.RSS(r.Context(), svcCtx, basehandler.RequestBaseURL(r))
+		body, err := sitelogic.RSS(r.Context(), svcCtx, basehandler.RequestBaseURL(r, basehandler.ForwardedOptions{
+			TrustedProxyCIDRs: svcCtx.Config.Proxy.TrustedCIDRs,
+		}))
 		if err != nil {
 			response.Error(w, err)
 			return
@@ -57,7 +59,9 @@ func RSSHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 
 func SitemapHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		body, err := sitelogic.Sitemap(r.Context(), svcCtx, basehandler.RequestBaseURL(r))
+		body, err := sitelogic.Sitemap(r.Context(), svcCtx, basehandler.RequestBaseURL(r, basehandler.ForwardedOptions{
+			TrustedProxyCIDRs: svcCtx.Config.Proxy.TrustedCIDRs,
+		}))
 		if err != nil {
 			response.Error(w, err)
 			return

@@ -1,6 +1,10 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { GraphChart } from 'echarts/charts';
+import { TooltipComponent } from 'echarts/components';
+import { init, use } from 'echarts/core';
 import { useNavigate } from 'react-router-dom';
-import type { ECharts, EChartsOption } from 'echarts';
+import { CanvasRenderer } from 'echarts/renderers';
+import type { ECharts, EChartsCoreOption } from 'echarts/core';
 import InlineNotice from '../components/InlineNotice';
 import MarkdownRenderer from '../components/MarkdownRenderer';
 import { getProjectsPage, getResumePage } from '../api/siteSettings';
@@ -9,6 +13,8 @@ import { usePreferenceStore } from '../store/preferences';
 import type { ProjectItem, ResumeEducation, ResumeExperience, ResumePage, ResumeSkill, Tag } from '../types';
 import { getErrorMessage } from '../utils/error';
 import { useSEO } from '../utils/seo';
+
+use([GraphChart, TooltipComponent, CanvasRenderer]);
 
 const Resume: React.FC = () => {
   const language = usePreferenceStore((state) => state.language);
@@ -359,32 +365,25 @@ const SkillGraph: React.FC<{
   const chartRef = useRef<ECharts | null>(null);
 
   useEffect(() => {
-    let disposed = false;
-    let cleanupResize: () => void = () => undefined;
-
-    import('echarts').then((echarts) => {
-      if (disposed || !containerRef.current) {
-        return;
+    if (!containerRef.current) {
+      return undefined;
+    }
+    const chart = init(containerRef.current, undefined, { renderer: 'canvas' });
+    chartRef.current = chart;
+    const resize = () => chart.resize();
+    window.addEventListener('resize', resize);
+    chart.on('click', (params) => {
+      const nodeId = typeof params.data === 'object' && params.data && 'id' in params.data
+        ? String((params.data as { id: string }).id)
+        : '';
+      if (nodeId) {
+        onSelect(nodeId);
       }
-      const chart = echarts.init(containerRef.current, undefined, { renderer: 'canvas' });
-      chartRef.current = chart;
-      const resize = () => chart.resize();
-      window.addEventListener('resize', resize);
-      cleanupResize = () => window.removeEventListener('resize', resize);
-      chart.on('click', (params) => {
-        const nodeId = typeof params.data === 'object' && params.data && 'id' in params.data
-          ? String((params.data as { id: string }).id)
-          : '';
-        if (nodeId) {
-          onSelect(nodeId);
-        }
-      });
-      chart.setOption(skillGraphOption(data, activeNodeId, readGraphColors()));
     });
+    chart.setOption(skillGraphOption(data, activeNodeId, readGraphColors()));
 
     return () => {
-      disposed = true;
-      cleanupResize();
+      window.removeEventListener('resize', resize);
       chartRef.current?.dispose();
       chartRef.current = null;
     };
@@ -407,7 +406,7 @@ type GraphColors = {
   mountainGrey: string;
 };
 
-const skillGraphOption = (data: SkillGraphData, activeNodeId: string, colors: GraphColors): EChartsOption => ({
+const skillGraphOption = (data: SkillGraphData, activeNodeId: string, colors: GraphColors): EChartsCoreOption => ({
   backgroundColor: 'transparent',
   tooltip: { show: true },
   series: [

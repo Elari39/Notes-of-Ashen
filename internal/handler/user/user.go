@@ -10,6 +10,10 @@ import (
 	"notes-of-ashen/internal/types"
 )
 
+func forwardedOptions(svcCtx *svc.ServiceContext) basehandler.ForwardedOptions {
+	return basehandler.ForwardedOptions{TrustedProxyCIDRs: svcCtx.Config.Proxy.TrustedCIDRs}
+}
+
 func MeHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		resp, err := userlogic.Me(r.Context(), svcCtx)
@@ -44,7 +48,7 @@ func SendVerifyCodeHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 			response.Error(w, err)
 			return
 		}
-		if err := userlogic.SendVerifyCode(r.Context(), svcCtx, req, basehandler.Meta(r)); err != nil {
+		if err := userlogic.SendVerifyCode(r.Context(), svcCtx, req, basehandler.Meta(r, forwardedOptions(svcCtx))); err != nil {
 			response.Error(w, err)
 			return
 		}

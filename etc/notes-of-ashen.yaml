@@ -45,6 +45,7 @@ AI:
   BaseURL: ""
   APIKey: ""
   Model: ""
+  KeyEncryptionSecret: ""
   TimeoutSeconds: 600
   FirstByteTimeoutSeconds: 60
   StreamTimeoutSeconds: 300
@@ -52,3 +53,6 @@ AI:
 
 GeoIP:
   DatabasePath: ""
+
+Proxy:
+  TrustedCIDRs: ""

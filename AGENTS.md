@@ -41,8 +41,8 @@
 - 当用户表为空且邮箱服务关闭时，首个管理员注册可跳过邮箱验证码；后续注册仍需要 `register` 用途邮箱验证码。
 - 邮箱、AI、Meilisearch、RabbitMQ、GeoIP、Prerender 均为可配置能力；修改时必须同时核对默认配置、环境变量、Docker Compose、README 和实际降级路径。
 - 站点设置更新中的可选布尔字段使用指针语义：字段缺失表示保留当前值，显式 `false` 表示关闭。
-- AI 设置中的 API Key 由 `APP_AUTH_ACCESS_SECRET` 派生密钥加密；调整密钥轮换逻辑时必须考虑已保存密文迁移。
-- 直连 API 时 `X-Forwarded-*` 请求头不可天然视为可信；涉及 IP、限流、来源统计和链接生成时要明确代理信任边界。
+- AI 设置中的 API Key 使用 `APP_AI_KEY_ENCRYPTION_SECRET` 加密；旧密文兼容 `APP_AUTH_ACCESS_SECRET` 派生密钥，调整密钥轮换逻辑时必须考虑已保存密文迁移。
+- 默认不信任 `X-Forwarded-*` / `X-Real-IP` 请求头；只有 `RemoteAddr` 命中 `APP_TRUSTED_PROXY_CIDRS` 时，IP、限流、来源统计和链接生成才使用转发头。
 
 ## 重要目录
 

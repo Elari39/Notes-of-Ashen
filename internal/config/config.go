@@ -18,6 +18,7 @@ type Config struct {
 	Email    EmailConf
 	AI       AIConf
 	GeoIP    GeoIPConf
+	Proxy    ProxyConf
 }
 
 type DatabaseConf struct {
@@ -68,6 +69,7 @@ type AIConf struct {
 	BaseURL                 string
 	APIKey                  string
 	Model                   string
+	KeyEncryptionSecret     string
 	TimeoutSeconds          int
 	FirstByteTimeoutSeconds int
 	StreamTimeoutSeconds    int
@@ -76,6 +78,10 @@ type AIConf struct {
 
 type GeoIPConf struct {
 	DatabasePath string
+}
+
+type ProxyConf struct {
+	TrustedCIDRs string
 }
 
 func (c *Config) ApplyEnv() error {
@@ -180,6 +186,7 @@ func (c *Config) ApplyEnv() error {
 	setString("APP_AI_BASE_URL", &c.AI.BaseURL)
 	setString("APP_AI_API_KEY", &c.AI.APIKey)
 	setString("APP_AI_MODEL", &c.AI.Model)
+	setString("APP_AI_KEY_ENCRYPTION_SECRET", &c.AI.KeyEncryptionSecret)
 	if err := setInt("APP_AI_TIMEOUT_SECONDS", &c.AI.TimeoutSeconds); err != nil {
 		return err
 	}
@@ -193,6 +200,7 @@ func (c *Config) ApplyEnv() error {
 		return err
 	}
 	setString("APP_GEOIP_DATABASE_PATH", &c.GeoIP.DatabasePath)
+	setString("APP_TRUSTED_PROXY_CIDRS", &c.Proxy.TrustedCIDRs)
 
 	return nil
 }

@@ -150,8 +150,10 @@ Copy-Item .env.example .env
 - `APP_AI_BASE_URL`：兼容 OpenAI Chat Completions 的接口基础地址。
 - `APP_AI_API_KEY`：AI 服务 API Key，只能写入真实 `.env` 或受控环境变量。
 - `APP_AI_MODEL`：AI 辅助使用的模型名称。
+- `APP_AI_KEY_ENCRYPTION_SECRET`：后台保存 AI API Key 时使用的加密密钥，生产环境应设置为不同于 `APP_AUTH_ACCESS_SECRET` 的长随机值。
 - `APP_AI_TIMEOUT_SECONDS`：AI 非流式请求兼容超时时间，默认 `600` 秒。
 - `APP_GEOIP_DATABASE_PATH`：API 容器内 GeoIP/GeoLite2 City `.mmdb` 文件路径，Docker 部署默认 `/data/GeoLite2-City.mmdb`。
+- `APP_TRUSTED_PROXY_CIDRS`：可信反向代理 CIDR，默认留空表示不信任客户端传入的 `X-Forwarded-*` / `X-Real-IP`。
 - `MAXMIND_ACCOUNT_ID`：可选 MaxMind Account ID，用于 Docker 部署自动下载 `GeoLite2-City.mmdb`。
 - `MAXMIND_LICENSE_KEY`：可选 MaxMind License Key，用于 Docker 部署自动下载 `GeoLite2-City.mmdb`，只能写入真实 `.env` 或受控环境变量。
 - `PRERENDER_ENABLED`：是否启用 Prerender.io crawler 预渲染，`0` 关闭，`1` 启用。
@@ -191,10 +193,23 @@ APP_AI_ENABLED=true
 APP_AI_BASE_URL=https://api.example.com/v1
 APP_AI_API_KEY=your-ai-api-key
 APP_AI_MODEL=your-model-name
+APP_AI_KEY_ENCRYPTION_SECRET=replace-with-a-different-long-random-secret
 APP_AI_TIMEOUT_SECONDS=600
 ```
 
 `APP_AI_BASE_URL` 可以填写兼容 OpenAI Chat Completions 的基础地址，例如 `https://api.example.com/v1`；如果服务商只提供完整端点，也可以填写到 `/chat/completions`。不要把真实 API Key 写入 README、Issue、提交记录或截图中。
+
+`APP_AI_KEY_ENCRYPTION_SECRET` 只用于加密后台保存的 AI API Key。旧版本已保存的密文仍可读取；管理员再次保存 AI 设置时会写入新格式密文。
+
+### 可信反向代理配置
+
+后端默认不信任客户端传入的 `X-Forwarded-*` / `X-Real-IP` 请求头，限流、操作日志、流量统计和 RSS/Sitemap 基础 URL 都会优先使用直连信息。只有在确认 API 只接受可信 Nginx、1Panel 或其他反向代理转发时，才在真实 `.env` 中配置代理出口地址或网段：
+
+```env
+APP_TRUSTED_PROXY_CIDRS=172.18.0.0/16
+```
+
+不要在 API 可被公网或不可信客户端直连时配置过宽的网段。
 
 ### 全文搜索配置
 
@@ -312,7 +327,7 @@ http://127.0.0.1:1270/api/v1/articles?page=1&size=10
 }
 ```
 
-首次进入站点后，注册第一个用户。默认逻辑下，第一个注册用户会成为管理员。
+首次进入站点后，注册第一个用户。默认逻辑下，第一个注册用户会成为管理员；如果邮箱服务保持默认关闭，首个管理员注册会自动跳过邮箱验证码。
 
 ## 1Panel 部署
 
@@ -565,7 +580,7 @@ docker compose up -d --build
 
 ## 维护建议
 
-- 生产环境务必替换 `.env` 中的默认密码和 `APP_AUTH_ACCESS_SECRET`。
+- 生产环境务必替换 `.env` 中的默认密码、`APP_AUTH_ACCESS_SECRET` 和 `APP_AI_KEY_ENCRYPTION_SECRET`。
 - 前端依赖管理统一使用 `pnpm`，不要混用 `npm` 或 `yarn`。
 - 不要提交 `.env`、数据库备份、日志文件或任何真实密钥；数据库备份建议放在仓库目录外。
 - 升级前先备份 Docker volume 中的数据。

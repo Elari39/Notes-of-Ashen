@@ -17,7 +17,9 @@ func VisitHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 			response.Error(w, err)
 			return
 		}
-		if err := trafficlogic.Visit(r.Context(), svcCtx, req, basehandler.Meta(r)); err != nil {
+		if err := trafficlogic.Visit(r.Context(), svcCtx, req, basehandler.Meta(r, basehandler.ForwardedOptions{
+			TrustedProxyCIDRs: svcCtx.Config.Proxy.TrustedCIDRs,
+		})); err != nil {
 			response.Error(w, err)
 			return
 		}
