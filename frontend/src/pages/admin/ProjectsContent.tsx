@@ -6,7 +6,6 @@ import { getTags } from '../../api/tag';
 import { usePreferenceStore } from '../../store/preferences';
 import type { ProjectItem, ProjectsPage, Tag } from '../../types';
 import { getErrorMessage } from '../../utils/error';
-import { fixVisibleMojibake } from '../../utils/mojibake';
 
 const emptyProjects: ProjectsPage = {
   title: '项目',
@@ -24,6 +23,7 @@ const AdminProjectsContent: React.FC = () => {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [allTags, setAllTags] = useState<Tag[]>([]);
+  const [collapsedProjectIds, setCollapsedProjectIds] = useState<Set<string>>(() => new Set());
 
   useEffect(() => {
     let active = true;
@@ -38,6 +38,7 @@ const AdminProjectsContent: React.FC = () => {
         setSaved(next);
         setDraft(next);
         setAllTags(tagsRes.data.items);
+        setCollapsedProjectIds(new Set());
       })
       .catch((e: unknown) => {
         if (active) {
@@ -92,10 +93,30 @@ const AdminProjectsContent: React.FC = () => {
     if (!window.confirm(text.confirmDelete)) {
       return;
     }
+    const projectId = draft.items[index]?.id;
     setDraft((prev) => ({
       ...prev,
       items: prev.items.filter((_, itemIndex) => itemIndex !== index),
     }));
+    if (projectId) {
+      setCollapsedProjectIds((prev) => {
+        const next = new Set(prev);
+        next.delete(projectId);
+        return next;
+      });
+    }
+  };
+
+  const toggleProjectCollapsed = (projectId: string) => {
+    setCollapsedProjectIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(projectId)) {
+        next.delete(projectId);
+      } else {
+        next.add(projectId);
+      }
+      return next;
+    });
   };
 
   const handleSave = async () => {
@@ -206,9 +227,11 @@ const AdminProjectsContent: React.FC = () => {
                   labels={text}
                   allTags={allTags}
                   disabled={isSaving}
+                  collapsed={collapsedProjectIds.has(project.id)}
                   onChange={(patch) => updateProject(index, patch)}
                   onMove={(direction) => moveProject(index, direction)}
                   onRemove={() => removeProject(index)}
+                  onToggleCollapsed={() => toggleProjectCollapsed(project.id)}
                 />
               ))}
             </section>
@@ -247,9 +270,11 @@ type ProjectEditorProps = {
   labels: ReturnType<typeof getProjectsAdminLabels>;
   allTags: Tag[];
   disabled: boolean;
+  collapsed: boolean;
   onChange: (patch: Partial<ProjectItem>) => void;
   onMove: (direction: -1 | 1) => void;
   onRemove: () => void;
+  onToggleCollapsed: () => void;
 };
 
 const ProjectEditor: React.FC<ProjectEditorProps> = ({
@@ -259,12 +284,14 @@ const ProjectEditor: React.FC<ProjectEditorProps> = ({
   labels,
   allTags,
   disabled,
+  collapsed,
   onChange,
   onMove,
   onRemove,
+  onToggleCollapsed,
 }) => (
   <article className="border border-mountain-grey bg-[var(--paper-soft)] p-4 md:p-5">
-    <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+    <div className={`${collapsed ? '' : 'mb-5'} flex flex-col gap-3 md:flex-row md:items-center md:justify-between`}>
       <div>
         <p className="text-xs tracking-[0.2em] text-ochre">{labels.projectNo(index + 1)}</p>
         <h4 className="mt-1 text-base font-bold tracking-widest text-ink">
@@ -272,6 +299,14 @@ const ProjectEditor: React.FC<ProjectEditorProps> = ({
         </h4>
       </div>
       <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={onToggleCollapsed}
+          aria-expanded={!collapsed}
+          className="border border-mountain-grey px-3 py-1.5 text-sm text-ink-light transition-colors hover:border-ochre hover:text-ochre"
+        >
+          {collapsed ? labels.expand : labels.collapse}
+        </button>
         <button
           type="button"
           onClick={() => onMove(-1)}
@@ -299,72 +334,76 @@ const ProjectEditor: React.FC<ProjectEditorProps> = ({
       </div>
     </div>
 
-    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-      <TextInput label={labels.projectTitle} value={project.title} disabled={disabled} onChange={(value) => onChange({ title: value })} />
-      <TextInput label={labels.role} value={project.role} disabled={disabled} onChange={(value) => onChange({ role: value })} />
-      <TextInput label={labels.period} value={project.period} disabled={disabled} onChange={(value) => onChange({ period: value })} />
-      <TextInput label={labels.coverUrl} value={project.coverUrl} disabled={disabled} onChange={(value) => onChange({ coverUrl: value })} />
-      <TextInput label={labels.demoUrl} value={project.demoUrl} disabled={disabled} onChange={(value) => onChange({ demoUrl: value })} />
-      <TextInput label={labels.repoUrl} value={project.repoUrl} disabled={disabled} onChange={(value) => onChange({ repoUrl: value })} />
-      <label className="flex items-center gap-3 border border-mountain-grey px-3 py-2 text-sm text-ink-light">
-        <input
-          type="checkbox"
-          checked={project.featured}
-          onChange={(event) => onChange({ featured: event.target.checked })}
-          disabled={disabled}
-          className="h-4 w-4 accent-ochre disabled:cursor-not-allowed"
-        />
-        <span className="tracking-widest">{labels.featured}</span>
-      </label>
-      <TagSelector
-        label={labels.tags}
-        tags={allTags}
-        selectedIds={project.tagIds || []}
-        fallbackNames={project.tags}
-        disabled={disabled}
-        onChange={(tagIds) => onChange({ tagIds })}
-      />
-      <label className="block text-sm text-ink-light md:col-span-2">
-        <span className="mb-2 block tracking-widest">{labels.summary}</span>
-        <textarea
-          value={project.summary}
-          onChange={(event) => onChange({ summary: event.target.value })}
-          disabled={disabled}
-          rows={3}
-          className="w-full resize-none border border-mountain-grey bg-transparent px-3 py-2 text-ink outline-none focus:border-ochre disabled:cursor-not-allowed disabled:opacity-50"
-        />
-      </label>
-    </div>
+    {!collapsed && (
+      <>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <TextInput label={labels.projectTitle} value={project.title} disabled={disabled} onChange={(value) => onChange({ title: value })} />
+          <TextInput label={labels.role} value={project.role} disabled={disabled} onChange={(value) => onChange({ role: value })} />
+          <TextInput label={labels.period} value={project.period} disabled={disabled} onChange={(value) => onChange({ period: value })} />
+          <TextInput label={labels.coverUrl} value={project.coverUrl} disabled={disabled} onChange={(value) => onChange({ coverUrl: value })} />
+          <TextInput label={labels.demoUrl} value={project.demoUrl} disabled={disabled} onChange={(value) => onChange({ demoUrl: value })} />
+          <TextInput label={labels.repoUrl} value={project.repoUrl} disabled={disabled} onChange={(value) => onChange({ repoUrl: value })} />
+          <label className="flex items-center gap-3 border border-mountain-grey px-3 py-2 text-sm text-ink-light">
+            <input
+              type="checkbox"
+              checked={project.featured}
+              onChange={(event) => onChange({ featured: event.target.checked })}
+              disabled={disabled}
+              className="h-4 w-4 accent-ochre disabled:cursor-not-allowed"
+            />
+            <span className="tracking-widest">{labels.featured}</span>
+          </label>
+          <TagSelector
+            label={labels.tags}
+            tags={allTags}
+            selectedIds={project.tagIds || []}
+            fallbackNames={project.tags}
+            disabled={disabled}
+            onChange={(tagIds) => onChange({ tagIds })}
+          />
+          <label className="block text-sm text-ink-light md:col-span-2">
+            <span className="mb-2 block tracking-widest">{labels.summary}</span>
+            <textarea
+              value={project.summary}
+              onChange={(event) => onChange({ summary: event.target.value })}
+              disabled={disabled}
+              rows={3}
+              className="w-full resize-none border border-mountain-grey bg-transparent px-3 py-2 text-ink outline-none focus:border-ochre disabled:cursor-not-allowed disabled:opacity-50"
+            />
+          </label>
+        </div>
 
-    {project.coverUrl && (
-      <img
-        src={project.coverUrl}
-        alt={project.title}
-        className="mt-5 max-h-64 w-full border border-mountain-grey object-cover"
-        loading="lazy"
-      />
-    )}
-
-    <div className="mt-5 grid min-h-[24rem] grid-cols-1 gap-5 lg:grid-cols-2">
-      <section className="flex min-h-[20rem] flex-col border border-mountain-grey p-4">
-        <div className="mb-3 text-sm font-bold tracking-widest text-ink">{labels.detailEditor}</div>
-        <textarea
-          value={project.contentMarkdown}
-          onChange={(event) => onChange({ contentMarkdown: event.target.value })}
-          disabled={disabled}
-          placeholder={labels.detailPlaceholder}
-          className="min-h-0 flex-1 resize-none bg-transparent text-ink-light outline-none disabled:cursor-not-allowed disabled:opacity-50"
-        />
-      </section>
-      <section className="min-h-[20rem] overflow-y-auto border border-mountain-grey bg-paper p-4">
-        <div className="mb-3 text-sm font-bold tracking-widest text-ink">{labels.preview}</div>
-        {project.contentMarkdown.trim() ? (
-          <MarkdownRenderer content={project.contentMarkdown} />
-        ) : (
-          <p className="py-12 text-center text-sm tracking-[0.2em] text-ink-light">{labels.emptyPreview}</p>
+        {project.coverUrl && (
+          <img
+            src={project.coverUrl}
+            alt={project.title}
+            className="mt-5 max-h-64 w-full border border-mountain-grey object-cover"
+            loading="lazy"
+          />
         )}
-      </section>
-    </div>
+
+        <div className="mt-5 grid min-h-[24rem] grid-cols-1 gap-5 lg:grid-cols-2">
+          <section className="flex min-h-[20rem] flex-col border border-mountain-grey p-4">
+            <div className="mb-3 text-sm font-bold tracking-widest text-ink">{labels.detailEditor}</div>
+            <textarea
+              value={project.contentMarkdown}
+              onChange={(event) => onChange({ contentMarkdown: event.target.value })}
+              disabled={disabled}
+              placeholder={labels.detailPlaceholder}
+              className="min-h-0 flex-1 resize-none bg-transparent text-ink-light outline-none disabled:cursor-not-allowed disabled:opacity-50"
+            />
+          </section>
+          <section className="min-h-[20rem] overflow-y-auto border border-mountain-grey bg-paper p-4">
+            <div className="mb-3 text-sm font-bold tracking-widest text-ink">{labels.preview}</div>
+            {project.contentMarkdown.trim() ? (
+              <MarkdownRenderer content={project.contentMarkdown} />
+            ) : (
+              <p className="py-12 text-center text-sm tracking-[0.2em] text-ink-light">{labels.emptyPreview}</p>
+            )}
+          </section>
+        </div>
+      </>
+    )}
   </article>
 );
 
@@ -470,8 +509,8 @@ const normalizeTagIds = (tagIds: number[]) => Array.from(new Set(tagIds.filter((
 
 const normalizeProjectsPage = (page: ProjectsPage): ProjectsPage => ({
   ...page,
-  title: fixVisibleMojibake(page.title || emptyProjects.title),
-  subtitle: fixVisibleMojibake(page.subtitle || ''),
+  title: page.title || emptyProjects.title,
+  subtitle: page.subtitle || '',
   items: page.items || [],
 });
 
@@ -494,6 +533,8 @@ const getProjectsAdminLabels = (language: string) => language === 'zh'
       untitled: '未命名项目',
       up: '上移',
       down: '下移',
+      collapse: '收起',
+      expand: '展开',
       delete: '删除',
       projectTitle: '项目标题',
       role: '角色',
@@ -527,6 +568,8 @@ const getProjectsAdminLabels = (language: string) => language === 'zh'
       untitled: 'Untitled Project',
       up: 'Up',
       down: 'Down',
+      collapse: 'Collapse',
+      expand: 'Expand',
       delete: 'Delete',
       projectTitle: 'Project Title',
       role: 'Role',

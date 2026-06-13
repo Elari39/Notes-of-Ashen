@@ -36,6 +36,7 @@ const AdminSettings: React.FC = () => {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const t = (key: Parameters<typeof translate>[1]) => translate(language, key);
+  const labels = settingsPageLabels(language);
 
   useEffect(() => {
     fetchSettings();
@@ -141,16 +142,16 @@ const AdminSettings: React.FC = () => {
 
         <section className="border border-mountain-grey bg-[var(--paper-soft)] p-5">
           <div className="mb-5">
-            <h4 className="text-base font-bold tracking-widest text-ink">前台页面控制</h4>
+            <h4 className="text-base font-bold tracking-widest text-ink">{labels.publicPagesTitle}</h4>
             <p className="mt-2 text-sm leading-relaxed text-ink-light opacity-80">
-              启用决定路由是否可访问；隐藏只控制是否出现在前台导航中。
+              {labels.publicPagesDesc}
             </p>
           </div>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div className="border border-mountain-grey p-4">
               <div className="mb-4">
-                <p className="text-sm font-bold tracking-widest text-ink">简介页面</p>
-                <p className="mt-2 text-xs leading-relaxed text-ink-light opacity-80">控制 /resume 页面和导航入口。</p>
+                <p className="text-sm font-bold tracking-widest text-ink">{labels.resumePage}</p>
+                <p className="mt-2 text-xs leading-relaxed text-ink-light opacity-80">{labels.resumePageDesc}</p>
               </div>
               <div className="flex flex-wrap gap-3">
                 <button
@@ -165,7 +166,7 @@ const AdminSettings: React.FC = () => {
                       : 'border-ink-light text-ink-light hover:border-ink hover:text-ink'
                   }`}
                 >
-                  {draftResumePageEnabled ? '已启用' : '已禁用'}
+                  {draftResumePageEnabled ? labels.enabled : labels.disabled}
                 </button>
                 <button
                   type="button"
@@ -179,15 +180,15 @@ const AdminSettings: React.FC = () => {
                       : 'border-ink-light text-ink-light hover:border-ink hover:text-ink'
                   }`}
                 >
-                  {draftResumeNavHidden ? '导航隐藏' : '导航显示'}
+                  {draftResumeNavHidden ? labels.navHidden : labels.navVisible}
                 </button>
               </div>
             </div>
 
             <div className="border border-mountain-grey p-4">
               <div className="mb-4">
-                <p className="text-sm font-bold tracking-widest text-ink">项目页面</p>
-                <p className="mt-2 text-xs leading-relaxed text-ink-light opacity-80">控制 /projects 页面和导航入口。</p>
+                <p className="text-sm font-bold tracking-widest text-ink">{labels.projectsPage}</p>
+                <p className="mt-2 text-xs leading-relaxed text-ink-light opacity-80">{labels.projectsPageDesc}</p>
               </div>
               <div className="flex flex-wrap gap-3">
                 <button
@@ -202,7 +203,7 @@ const AdminSettings: React.FC = () => {
                       : 'border-ink-light text-ink-light hover:border-ink hover:text-ink'
                   }`}
                 >
-                  {draftProjectsPageEnabled ? '已启用' : '已禁用'}
+                  {draftProjectsPageEnabled ? labels.enabled : labels.disabled}
                 </button>
                 <button
                   type="button"
@@ -216,7 +217,7 @@ const AdminSettings: React.FC = () => {
                       : 'border-ink-light text-ink-light hover:border-ink hover:text-ink'
                   }`}
                 >
-                  {draftProjectsNavHidden ? '导航隐藏' : '导航显示'}
+                  {draftProjectsNavHidden ? labels.navHidden : labels.navVisible}
                 </button>
               </div>
             </div>
@@ -262,14 +263,14 @@ const AdminSettings: React.FC = () => {
 
         <section className="border border-mountain-grey bg-[var(--paper-soft)] p-5">
           <div className="mb-5">
-            <h4 className="text-base font-bold tracking-widest text-ink">站点 SEO</h4>
+            <h4 className="text-base font-bold tracking-widest text-ink">{labels.seoTitle}</h4>
             <p className="mt-2 text-sm leading-relaxed text-ink-light opacity-80">
-              用于页面标题、默认描述、关键词以及 RSS/Sitemap 链接生成。
+              {labels.seoDesc}
             </p>
           </div>
           <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
             <label className="block text-sm text-ink-light">
-              <span className="mb-2 block tracking-widest">站点标题</span>
+              <span className="mb-2 block tracking-widest">{labels.siteTitle}</span>
               <input
                 value={draftSiteTitle}
                 onChange={(event) => setDraftSiteTitle(event.target.value)}
@@ -278,7 +279,7 @@ const AdminSettings: React.FC = () => {
               />
             </label>
             <label className="block text-sm text-ink-light">
-              <span className="mb-2 block tracking-widest">站点地址</span>
+              <span className="mb-2 block tracking-widest">{labels.siteBaseUrl}</span>
               <input
                 value={draftSiteBaseUrl}
                 onChange={(event) => setDraftSiteBaseUrl(event.target.value)}
@@ -288,7 +289,7 @@ const AdminSettings: React.FC = () => {
               />
             </label>
             <label className="block text-sm text-ink-light md:col-span-2">
-              <span className="mb-2 block tracking-widest">站点描述</span>
+              <span className="mb-2 block tracking-widest">{labels.siteDescription}</span>
               <textarea
                 value={draftSiteDescription}
                 onChange={(event) => setDraftSiteDescription(event.target.value)}
@@ -298,7 +299,7 @@ const AdminSettings: React.FC = () => {
               />
             </label>
             <label className="block text-sm text-ink-light md:col-span-2">
-              <span className="mb-2 block tracking-widest">关键词</span>
+              <span className="mb-2 block tracking-widest">{labels.siteKeywords}</span>
               <input
                 value={draftSiteKeywords}
                 onChange={(event) => setDraftSiteKeywords(event.target.value)}
@@ -331,5 +332,43 @@ const AdminSettings: React.FC = () => {
     </div>
   );
 };
+
+const settingsPageLabels = (language: string) => language === 'zh'
+  ? {
+      publicPagesTitle: '前台页面控制',
+      publicPagesDesc: '启用决定路由是否可访问；隐藏只控制是否出现在前台导航中。',
+      resumePage: '简介页面',
+      resumePageDesc: '控制 /resume 页面和导航入口。',
+      projectsPage: '项目页面',
+      projectsPageDesc: '控制 /projects 页面和导航入口。',
+      enabled: '已启用',
+      disabled: '已禁用',
+      navHidden: '导航隐藏',
+      navVisible: '导航显示',
+      seoTitle: '站点 SEO',
+      seoDesc: '用于页面标题、默认描述、关键词以及 RSS/Sitemap 链接生成。',
+      siteTitle: '站点标题',
+      siteBaseUrl: '站点地址',
+      siteDescription: '站点描述',
+      siteKeywords: '关键词',
+    }
+  : {
+      publicPagesTitle: 'Public Page Controls',
+      publicPagesDesc: 'Enabled controls whether the route is accessible; hidden only controls whether it appears in public navigation.',
+      resumePage: 'Resume Page',
+      resumePageDesc: 'Controls the /resume page and navigation entry.',
+      projectsPage: 'Projects Page',
+      projectsPageDesc: 'Controls the /projects page and navigation entry.',
+      enabled: 'Enabled',
+      disabled: 'Disabled',
+      navHidden: 'Nav Hidden',
+      navVisible: 'Nav Visible',
+      seoTitle: 'Site SEO',
+      seoDesc: 'Used for page titles, default description, keywords, and RSS/Sitemap link generation.',
+      siteTitle: 'Site Title',
+      siteBaseUrl: 'Site URL',
+      siteDescription: 'Site Description',
+      siteKeywords: 'Keywords',
+    };
 
 export default AdminSettings;

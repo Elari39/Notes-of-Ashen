@@ -33,6 +33,7 @@ const ArticleDetail: React.FC = () => {
   const [lightboxImage, setLightboxImage] = useState<LightboxImage | null>(null);
   const closeLightbox = useCallback(() => setLightboxImage(null), []);
   const t = (key: Parameters<typeof translate>[1]) => translate(language, key);
+  const labels = articleDetailLabels(language);
 
   useSEO(article?.seoTitle || article?.title, article?.seoDescription || article?.summary, article?.seoKeywords);
 
@@ -175,7 +176,7 @@ const ArticleDetail: React.FC = () => {
       setHasLiked(true);
       localStorage.setItem(articleLikeStorageKey(article.id), '1');
     } catch (err) {
-      setLikeError(getErrorMessage(err, language === 'zh' ? '点赞失败' : 'Failed to like article'));
+      setLikeError(getErrorMessage(err, labels.likeError));
     } finally {
       setIsLiking(false);
     }
@@ -219,7 +220,7 @@ const ArticleDetail: React.FC = () => {
                     <button
                       type="button"
                       className="block h-full w-full cursor-zoom-in bg-transparent p-0"
-                      aria-label={`查看大图：${article.title}`}
+                      aria-label={labels.viewImage(article.title)}
                       onClick={() => setLightboxImage({ src: coverUrl, alt: article.title })}
                     >
                       <img
@@ -244,7 +245,7 @@ const ArticleDetail: React.FC = () => {
               <div className="flex flex-wrap justify-center gap-x-6 gap-y-2">
                 <span>{new Date(article.createdAt).toLocaleDateString(getDateLocale(language), { year: 'numeric', month: 'long', day: 'numeric' })}</span>
                 <span>{t('common.views')} {article.viewCount}</span>
-                <span>{language === 'zh' ? '点赞' : 'Likes'} {likeCount}</span>
+                <span>{labels.likes} {likeCount}</span>
               </div>
 
               <div className="flex flex-wrap items-center justify-center gap-4 text-xs">
@@ -292,7 +293,7 @@ const ArticleDetail: React.FC = () => {
               aria-pressed={hasLiked}
             >
               <span className={`h-2.5 w-2.5 rounded-full ${hasLiked ? 'bg-paper' : 'bg-ochre group-hover:scale-125'} transition-transform`} />
-              <span>{hasLiked ? (language === 'zh' ? '已点赞' : 'Liked') : (isLiking ? (language === 'zh' ? '提交中' : 'Liking') : (language === 'zh' ? '点赞' : 'Like'))}</span>
+              <span>{hasLiked ? labels.liked : (isLiking ? labels.liking : labels.like)}</span>
               <span>{likeCount}</span>
             </button>
             <InlineNotice message={likeError} className="mt-4" />
@@ -304,7 +305,7 @@ const ArticleDetail: React.FC = () => {
             </Link>
           </div>
 
-          <ArticleContextBlock context={articleContext} error={contextError} />
+          <ArticleContextBlock context={articleContext} error={contextError} language={language} />
           <ImageLightbox image={lightboxImage} onClose={closeLightbox} />
         </article>
 
@@ -377,9 +378,10 @@ const ArticleTOC: React.FC<{
   );
 };
 
-const ArticleContextBlock: React.FC<{ context: ArticleContext | null; error: string }> = ({ context, error }) => {
+const ArticleContextBlock: React.FC<{ context: ArticleContext | null; error: string; language: string }> = ({ context, error, language }) => {
   const hasNavigation = Boolean(context?.previous || context?.next);
   const hasRelated = Boolean(context?.related?.length);
+  const labels = articleDetailLabels(language);
 
   if (error) {
     return <InlineNotice message={error} className="mt-10" />;
@@ -393,14 +395,14 @@ const ArticleContextBlock: React.FC<{ context: ArticleContext | null; error: str
     <section className="mt-14 border-t border-mountain-grey border-opacity-50 pt-10">
       {hasNavigation && (
         <div className="grid gap-4 md:grid-cols-2">
-          <ArticleNavLink label="上一篇" article={context.previous} align="left" />
-          <ArticleNavLink label="下一篇" article={context.next} align="right" />
+          <ArticleNavLink label={labels.previous} article={context.previous} align="left" />
+          <ArticleNavLink label={labels.next} article={context.next} align="right" />
         </div>
       )}
 
       {hasRelated && (
         <div className="mt-12">
-          <h2 className="mb-5 text-sm font-bold tracking-widest text-ink">相关文章</h2>
+          <h2 className="mb-5 text-sm font-bold tracking-widest text-ink">{labels.related}</h2>
           <div className="grid gap-4 md:grid-cols-3">
             {context.related.map((item) => (
               <Link
@@ -440,5 +442,29 @@ const ArticleNavLink: React.FC<{
 };
 
 const articleLikeStorageKey = (articleID: number) => `article-like:${articleID}`;
+
+const articleDetailLabels = (language: string) => language === 'zh'
+  ? {
+      likeError: '点赞失败',
+      likes: '点赞',
+      liked: '已点赞',
+      liking: '提交中',
+      like: '点赞',
+      previous: '上一篇',
+      next: '下一篇',
+      related: '相关文章',
+      viewImage: (title: string) => `查看大图：${title}`,
+    }
+  : {
+      likeError: 'Failed to like article',
+      likes: 'Likes',
+      liked: 'Liked',
+      liking: 'Liking',
+      like: 'Like',
+      previous: 'Previous',
+      next: 'Next',
+      related: 'Related Articles',
+      viewImage: (title: string) => `View full-size image: ${title}`,
+    };
 
 export default ArticleDetail;

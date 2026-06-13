@@ -101,8 +101,9 @@ func Register(ctx context.Context, svcCtx *svc.ServiceContext, req types.Registe
 	if err != nil {
 		return nil, err
 	}
+	isFirstUser := total == 0
 	role := "user"
-	if total == 0 {
+	if isFirstUser {
 		role = "admin"
 	} else {
 		settings, err := svcCtx.Store.SiteSettings(ctx)
@@ -123,8 +124,10 @@ func Register(ctx context.Context, svcCtx *svc.ServiceContext, req types.Registe
 	} else if !errors.Is(err, model.ErrNotFound) {
 		return nil, err
 	}
-	if err := security.ConsumeEmailCode(ctx, svcCtx.Redis, "register", req.Email, req.EmailCode); err != nil {
-		return nil, err
+	if logicutil.RegistrationEmailCodeRequired(isFirstUser, svcCtx.Config.Email.Enabled) {
+		if err := security.ConsumeEmailCode(ctx, svcCtx.Redis, "register", req.Email, req.EmailCode); err != nil {
+			return nil, err
+		}
 	}
 
 	passwordHash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)

@@ -5,7 +5,6 @@ import { getAdminResumePage, updateAdminResumePage } from '../../api/siteSetting
 import { usePreferenceStore } from '../../store/preferences';
 import type { ResumeEducation, ResumeExperience, ResumePage, ResumeSkill } from '../../types';
 import { getErrorMessage } from '../../utils/error';
-import { fixVisibleMojibake } from '../../utils/mojibake';
 
 const emptyResume: ResumePage = {
   title: '简介',
@@ -388,8 +387,8 @@ const TextArea: React.FC<TextInputProps & { className?: string }> = ({ label, va
 
 const normalizeResumePage = (page: ResumePage): ResumePage => ({
   ...page,
-  title: fixVisibleMojibake(page.title || emptyResume.title),
-  subtitle: fixVisibleMojibake(page.subtitle || ''),
+  title: page.title || emptyResume.title,
+  subtitle: page.subtitle || '',
   experiences: page.experiences || [],
   educations: page.educations || [],
   skills: page.skills || [],

@@ -12,7 +12,7 @@ import { translate } from '../i18n';
 
 const Register: React.FC = () => {
   const language = usePreferenceStore((state) => state.language);
-  const { registrationEnabled, hasLoaded, isLoading } = useSiteSettingsStore();
+  const { registrationEnabled, registrationEmailCodeRequired, hasLoaded, isLoading } = useSiteSettingsStore();
   const [account, setAccount] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -32,6 +32,7 @@ const Register: React.FC = () => {
   const navigate = useNavigate();
   const { setAuth, fetchUser } = useAuthStore();
   const t = (key: Parameters<typeof translate>[1]) => translate(language, key);
+  const requiresEmailCode = !hasLoaded || registrationEmailCodeRequired;
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -51,7 +52,7 @@ const Register: React.FC = () => {
         account: account.trim(),
         password,
         email: email.trim(),
-        emailCode: emailCode.trim(),
+        emailCode: requiresEmailCode ? emailCode.trim() : undefined,
         nickname: nickname.trim(),
         avatarUrl: normalizeAvatarUrl(avatarUrl),
       });
@@ -62,6 +63,9 @@ const Register: React.FC = () => {
       navigate('/');
     } catch (err: unknown) {
       setError(getErrorMessage(err, t('auth.registerError')));
+      if (requiresEmailCode) {
+        setCaptchaReloadKey((value) => value + 1);
+      }
     } finally {
       setSubmitting(false);
     }
@@ -120,33 +124,37 @@ const Register: React.FC = () => {
               required
             />
           </div>
-          <CaptchaField
-            purpose="register"
-            captchaId={captchaId}
-            captchaCode={captchaCode}
-            onCaptchaIdChange={setCaptchaId}
-            onCaptchaCodeChange={setCaptchaCode}
-            reloadKey={captchaReloadKey}
-          />
-          <div className="flex items-end gap-3">
-            <input
-              type="text"
-              inputMode="numeric"
-              placeholder={t('auth.emailCode')}
-              value={emailCode}
-              onChange={(e) => setEmailCode(e.target.value.trim())}
-              className="min-w-0 flex-1 bg-transparent border-b border-mountain-grey py-2 px-1 text-ink focus:outline-none focus:border-ochre transition-colors placeholder-ink-light placeholder-opacity-50"
-              required
-            />
-            <button
-              type="button"
-              onClick={handleSendEmailCode}
-              disabled={sendingCode || !email.trim() || !captchaId || !captchaCode.trim()}
-              className="h-10 shrink-0 border border-ink px-4 text-xs tracking-widest text-ink hover:bg-ink hover:text-paper transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {sendingCode ? t('auth.sendingEmailCode') : t('auth.sendEmailCode')}
-            </button>
-          </div>
+          {requiresEmailCode && (
+            <>
+              <CaptchaField
+                purpose="register"
+                captchaId={captchaId}
+                captchaCode={captchaCode}
+                onCaptchaIdChange={setCaptchaId}
+                onCaptchaCodeChange={setCaptchaCode}
+                reloadKey={captchaReloadKey}
+              />
+              <div className="flex items-end gap-3">
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  placeholder={t('auth.emailCode')}
+                  value={emailCode}
+                  onChange={(e) => setEmailCode(e.target.value.trim())}
+                  className="min-w-0 flex-1 bg-transparent border-b border-mountain-grey py-2 px-1 text-ink focus:outline-none focus:border-ochre transition-colors placeholder-ink-light placeholder-opacity-50"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={handleSendEmailCode}
+                  disabled={sendingCode || !email.trim() || !captchaId || !captchaCode.trim()}
+                  className="h-10 shrink-0 border border-ink px-4 text-xs tracking-widest text-ink hover:bg-ink hover:text-paper transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {sendingCode ? t('auth.sendingEmailCode') : t('auth.sendEmailCode')}
+                </button>
+              </div>
+            </>
+          )}
           <div>
             <input
               type="text"

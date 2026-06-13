@@ -41,7 +41,7 @@ const AdminArticles: React.FC = () => {
   const getDisplayStatusLabel = (article: Article) => {
     const displayStatus = getDisplayStatus(article);
     if (displayStatus === 'scheduled') {
-      return language === 'zh' ? '定时发布' : 'Scheduled';
+      return extraLabels.scheduled;
     }
     return getArticleStatusLabel(language, displayStatus);
   };
@@ -211,7 +211,7 @@ const AdminArticles: React.FC = () => {
           <option value="">{t('adminArticles.allStatus')}</option>
           <option value="draft">{getArticleStatusLabel(language, 'draft')}</option>
           <option value="published">{getArticleStatusLabel(language, 'published')}</option>
-          <option value="scheduled">{language === 'zh' ? '定时发布' : 'Scheduled'}</option>
+          <option value="scheduled">{extraLabels.scheduled}</option>
           <option value="archived">{getArticleStatusLabel(language, 'archived')}</option>
         </select>
         <select
@@ -312,8 +312,8 @@ const AdminArticles: React.FC = () => {
                   <td data-label={t('common.action')} className="admin-card-actions py-4 text-right tracking-wider">
                     <div className="admin-action-list">
                       <Link to={`/admin/editor/${a.id}`} className="hover:text-ochre">{t('common.edit')}</Link>
-                      <Link to={`/admin/preview/${a.id}`} className="hover:text-ochre">预览</Link>
-                      <Link to={`/admin/articles/${a.id}/versions`} className="hover:text-ochre">版本</Link>
+                      <Link to={`/admin/preview/${a.id}`} className="hover:text-ochre">{extraLabels.preview}</Link>
+                      <Link to={`/admin/articles/${a.id}/versions`} className="hover:text-ochre">{extraLabels.versions}</Link>
                       <button onClick={() => handleExport(a.id)} disabled={busyId === a.id} className="hover:text-ochre disabled:opacity-50 disabled:cursor-not-allowed">{extraLabels.export}</button>
                       {a.status !== 'published' && (
                         <button onClick={() => handleStatus(a.id, 'published')} disabled={busyId === a.id} className="hover:text-ochre disabled:opacity-50 disabled:cursor-not-allowed">{t('adminArticles.publish')}</button>
@@ -347,6 +347,9 @@ const adminArticleExtraLabels = (language: string) => language === 'zh'
       importError: 'Markdown 导入失败',
       export: '导出',
       exportError: 'Markdown 导出失败',
+      preview: '预览',
+      versions: '版本',
+      scheduled: '定时发布',
     }
   : {
       import: 'Import Markdown',
@@ -354,6 +357,9 @@ const adminArticleExtraLabels = (language: string) => language === 'zh'
       importError: 'Markdown import failed',
       export: 'Export',
       exportError: 'Markdown export failed',
+      preview: 'Preview',
+      versions: 'Versions',
+      scheduled: 'Scheduled',
     };
 
 const articlePinLabels = (language: string) => language === 'zh'

@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import { createPortal } from 'react-dom';
+import { usePreferenceStore } from '../store/preferences';
 
 export type LightboxImage = {
   src: string;
@@ -12,6 +13,8 @@ type ImageLightboxProps = {
 };
 
 const ImageLightbox: React.FC<ImageLightboxProps> = ({ image, onClose }) => {
+  const language = usePreferenceStore((state) => state.language);
+
   useEffect(() => {
     if (!image || typeof document === 'undefined') {
       return undefined;
@@ -42,7 +45,7 @@ const ImageLightbox: React.FC<ImageLightboxProps> = ({ image, onClose }) => {
       className="image-lightbox"
       role="dialog"
       aria-modal="true"
-      aria-label={image.alt ? `查看图片：${image.alt}` : '查看图片'}
+      aria-label={image.alt ? imageLightboxLabel(language, image.alt) : imageLightboxLabel(language)}
       onClick={onClose}
     >
       <img
@@ -54,6 +57,13 @@ const ImageLightbox: React.FC<ImageLightboxProps> = ({ image, onClose }) => {
     </div>,
     document.body,
   );
+};
+
+const imageLightboxLabel = (language: string, alt = '') => {
+  if (language === 'zh') {
+    return alt ? `查看图片：${alt}` : '查看图片';
+  }
+  return alt ? `View image: ${alt}` : 'View image';
 };
 
 export default ImageLightbox;

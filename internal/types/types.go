@@ -53,16 +53,17 @@ type ResetPasswordReq struct {
 }
 
 type SiteSettingsResp struct {
-	RegistrationEnabled bool   `json:"registrationEnabled"`
-	HomeArticleLayout   string `json:"homeArticleLayout"`
-	SiteTitle           string `json:"siteTitle"`
-	SiteDescription     string `json:"siteDescription"`
-	SiteKeywords        string `json:"siteKeywords"`
-	SiteBaseURL         string `json:"siteBaseUrl"`
-	ResumePageEnabled   bool   `json:"resumePageEnabled"`
-	ResumeNavHidden     bool   `json:"resumeNavHidden"`
-	ProjectsPageEnabled bool   `json:"projectsPageEnabled"`
-	ProjectsNavHidden   bool   `json:"projectsNavHidden"`
+	RegistrationEnabled           bool   `json:"registrationEnabled"`
+	RegistrationEmailCodeRequired bool   `json:"registrationEmailCodeRequired"`
+	HomeArticleLayout             string `json:"homeArticleLayout"`
+	SiteTitle                     string `json:"siteTitle"`
+	SiteDescription               string `json:"siteDescription"`
+	SiteKeywords                  string `json:"siteKeywords"`
+	SiteBaseURL                   string `json:"siteBaseUrl"`
+	ResumePageEnabled             bool   `json:"resumePageEnabled"`
+	ResumeNavHidden               bool   `json:"resumeNavHidden"`
+	ProjectsPageEnabled           bool   `json:"projectsPageEnabled"`
+	ProjectsNavHidden             bool   `json:"projectsNavHidden"`
 }
 
 type UpdateSiteSettingsReq struct {

@@ -13,7 +13,7 @@ export interface RegisterReq {
   account: string;
   password: string;
   email: string;
-  emailCode: string;
+  emailCode?: string;
   nickname?: string;
   avatarUrl?: string;
 }

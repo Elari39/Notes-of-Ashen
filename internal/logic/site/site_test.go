@@ -17,9 +17,12 @@ func TestSiteSettingsResp(t *testing.T) {
 		ProjectsNavHidden:   true,
 	}
 
-	resp := siteSettingsResp(settings, true)
+	resp := siteSettingsResp(settings, true, false)
 	if !resp.RegistrationEnabled {
 		t.Fatal("siteSettingsResp should force registration enabled when no users exist")
+	}
+	if resp.RegistrationEmailCodeRequired {
+		t.Fatal("siteSettingsResp should expose first-admin email code bypass when email service is disabled")
 	}
 	if resp.HomeArticleLayout != model.HomeArticleLayoutAlternating {
 		t.Fatalf("HomeArticleLayout = %q, want %q", resp.HomeArticleLayout, model.HomeArticleLayoutAlternating)
@@ -28,9 +31,12 @@ func TestSiteSettingsResp(t *testing.T) {
 		t.Fatal("siteSettingsResp should expose public page visibility settings")
 	}
 
-	resp = siteSettingsResp(settings, false)
+	resp = siteSettingsResp(settings, false, true)
 	if resp.RegistrationEnabled {
 		t.Fatal("siteSettingsResp should keep stored registration flag when force flag is false")
+	}
+	if !resp.RegistrationEmailCodeRequired {
+		t.Fatal("siteSettingsResp should expose email code requirement for normal registration")
 	}
 }
 

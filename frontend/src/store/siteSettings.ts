@@ -2,8 +2,11 @@ import { create } from 'zustand';
 import { getSiteSettings, updateSiteSettings } from '../api/siteSettings';
 import type { HomeArticleLayout, SiteSettings } from '../types';
 
+type SiteSettingsUpdateInput = Omit<SiteSettings, 'registrationEmailCodeRequired'>;
+
 interface SiteSettingsState {
   registrationEnabled: boolean;
+  registrationEmailCodeRequired: boolean;
   homeArticleLayout: HomeArticleLayout;
   siteTitle: string;
   siteDescription: string;
@@ -17,13 +20,14 @@ interface SiteSettingsState {
   hasLoaded: boolean;
   error: string;
   fetchSettings: () => Promise<void>;
-  updateSettings: (settings: SiteSettings) => Promise<void>;
+  updateSettings: (settings: SiteSettingsUpdateInput) => Promise<void>;
   setRegistrationEnabled: (enabled: boolean) => Promise<void>;
   setHomeArticleLayout: (layout: HomeArticleLayout) => Promise<void>;
 }
 
 export const useSiteSettingsStore = create<SiteSettingsState>((set, get) => ({
   registrationEnabled: true,
+  registrationEmailCodeRequired: true,
   homeArticleLayout: 'standard',
   siteTitle: 'Notes of Ashen',
   siteDescription: 'A personal blog written slowly by the lamp of ink.',
@@ -42,6 +46,7 @@ export const useSiteSettingsStore = create<SiteSettingsState>((set, get) => ({
       const res = await getSiteSettings();
       set({
         registrationEnabled: res.data.registrationEnabled,
+        registrationEmailCodeRequired: res.data.registrationEmailCodeRequired ?? true,
         homeArticleLayout: res.data.homeArticleLayout || 'standard',
         siteTitle: res.data.siteTitle || 'Notes of Ashen',
         siteDescription: res.data.siteDescription || '',
@@ -65,6 +70,7 @@ export const useSiteSettingsStore = create<SiteSettingsState>((set, get) => ({
       const res = await updateSiteSettings(settings);
       set({
         registrationEnabled: res.data.registrationEnabled,
+        registrationEmailCodeRequired: res.data.registrationEmailCodeRequired ?? true,
         homeArticleLayout: res.data.homeArticleLayout || 'standard',
         siteTitle: res.data.siteTitle || 'Notes of Ashen',
         siteDescription: res.data.siteDescription || '',

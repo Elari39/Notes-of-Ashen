@@ -27,7 +27,8 @@ type RegisterReq {
 	Account   string `json:"account"`
 	Password  string `json:"password"`
 	Email     string `json:"email"`
-	EmailCode string `json:"emailCode"`
+	// Required for normal registration. Optional only for the first admin when email service is disabled.
+	EmailCode string `json:"emailCode,optional"`
 	Nickname  string `json:"nickname,optional"`
 	// Optional. Empty means no avatar; non-empty must be http(s) URL.
 	AvatarUrl string `json:"avatarUrl,optional"`
@@ -75,29 +76,30 @@ type TokenResp {
 }
 
 type SiteSettingsResp {
-	RegistrationEnabled bool   `json:"registrationEnabled"`
-	HomeArticleLayout   string `json:"homeArticleLayout"`
-	SiteTitle           string `json:"siteTitle"`
-	SiteDescription     string `json:"siteDescription"`
-	SiteKeywords        string `json:"siteKeywords"`
-	SiteBaseUrl         string `json:"siteBaseUrl"`
-	ResumePageEnabled  bool   `json:"resumePageEnabled"`
-	ResumeNavHidden    bool   `json:"resumeNavHidden"`
-	ProjectsPageEnabled bool   `json:"projectsPageEnabled"`
-	ProjectsNavHidden  bool   `json:"projectsNavHidden"`
+	RegistrationEnabled           bool   `json:"registrationEnabled"`
+	RegistrationEmailCodeRequired bool   `json:"registrationEmailCodeRequired"`
+	HomeArticleLayout             string `json:"homeArticleLayout"`
+	SiteTitle                     string `json:"siteTitle"`
+	SiteDescription               string `json:"siteDescription"`
+	SiteKeywords                  string `json:"siteKeywords"`
+	SiteBaseUrl                   string `json:"siteBaseUrl"`
+	ResumePageEnabled             bool   `json:"resumePageEnabled"`
+	ResumeNavHidden               bool   `json:"resumeNavHidden"`
+	ProjectsPageEnabled           bool   `json:"projectsPageEnabled"`
+	ProjectsNavHidden             bool   `json:"projectsNavHidden"`
 }
 
 type UpdateSiteSettingsReq {
-	RegistrationEnabled bool   `json:"registrationEnabled,optional"`
+	RegistrationEnabled *bool  `json:"registrationEnabled,optional"`
 	HomeArticleLayout   string `json:"homeArticleLayout"`
 	SiteTitle           string `json:"siteTitle,optional"`
 	SiteDescription     string `json:"siteDescription,optional"`
 	SiteKeywords        string `json:"siteKeywords,optional"`
 	SiteBaseUrl         string `json:"siteBaseUrl,optional"`
-	ResumePageEnabled  bool   `json:"resumePageEnabled,optional"`
-	ResumeNavHidden    bool   `json:"resumeNavHidden,optional"`
-	ProjectsPageEnabled bool   `json:"projectsPageEnabled,optional"`
-	ProjectsNavHidden  bool   `json:"projectsNavHidden,optional"`
+	ResumePageEnabled   *bool  `json:"resumePageEnabled,optional"`
+	ResumeNavHidden     *bool  `json:"resumeNavHidden,optional"`
+	ProjectsPageEnabled *bool  `json:"projectsPageEnabled,optional"`
+	ProjectsNavHidden   *bool  `json:"projectsNavHidden,optional"`
 }
 
 type ResumePageResp {

@@ -129,14 +129,14 @@ POST /api/v1/auth/verify-code/send
 POST /api/v1/auth/register
 ```
 
-权限：公开。第一个注册用户自动成为 `admin`，后续用户默认为 `user`。若站点注册开关关闭，后续注册会被拒绝。
+权限：公开。第一个注册用户自动成为 `admin`，后续用户默认为 `user`。若站点注册开关关闭，后续注册会被拒绝。若当前没有任何用户且邮箱服务未启用，第一个管理员注册可不传邮箱验证码，保证默认 Docker 快速开始路径可用。
 
 | 字段 | 类型 | 必填 | 说明 |
 | --- | --- | --- | --- |
 | account | string | 是 | 账号，长度 3 到 64 |
 | password | string | 是 | 密码，长度 8 到 128 |
 | email | string | 是 | 邮箱，需符合邮箱格式 |
-| emailCode | string | 是 | `register` 用途邮箱验证码；第一个管理员账号也必须校验 |
+| emailCode | string | 条件必填 | `register` 用途邮箱验证码；仅当当前没有任何用户且邮箱服务未启用时可省略 |
 | nickname | string | 否 | 昵称，非空时长度 1 到 64 |
 | avatarUrl | string | 否 | 头像 URL；为空表示不显示头像，非空必须为 `http://` 或 `https://` URL |
 
@@ -492,7 +492,7 @@ DELETE /api/v1/tags/:id
 GET /api/v1/site/settings
 ```
 
-权限：公开。返回当前游客是否可以注册账号、首页文章列表布局、前台页面控制和站点 SEO 信息。若用户表为空，即使后台开关保存为关闭，也会返回 `registrationEnabled = true`，确保首个注册用户仍可成为管理员。
+权限：公开。返回当前游客是否可以注册账号、注册是否需要邮箱验证码、首页文章列表布局、前台页面控制和站点 SEO 信息。若用户表为空，即使后台开关保存为关闭，也会返回 `registrationEnabled = true`，确保首个注册用户仍可成为管理员。`registrationEmailCodeRequired` 仅在“用户表为空且邮箱服务未启用”时为 `false`。
 
 响应示例：
 
@@ -502,6 +502,7 @@ GET /api/v1/site/settings
   "message": "success",
   "data": {
     "registrationEnabled": true,
+    "registrationEmailCodeRequired": false,
     "homeArticleLayout": "standard",
     "siteTitle": "Notes of Ashen",
     "siteDescription": "A personal blog written slowly by the lamp of ink.",
@@ -550,6 +551,8 @@ PUT /api/v1/admin/site/settings
 | resumeNavHidden | bool | 否 | 是否在前台导航隐藏简介入口；不传时保留当前值 |
 | projectsPageEnabled | bool | 否 | 是否启用 `/projects` 项目页面；不传时保留当前值 |
 | projectsNavHidden | bool | 否 | 是否在前台导航隐藏项目入口；不传时保留当前值 |
+
+可选布尔字段只有“字段未出现在请求 JSON 中”才表示保留当前值；显式传入 `false` 会把对应开关更新为关闭。
 
 ### 获取简历页面内容
 
@@ -768,7 +771,7 @@ GET /api/v1/admin/logs
 
 ## PowerShell 调用示例
 
-注册前先获取验证码并发送邮箱验证码，下面示例只展示最终注册请求体结构：
+注册前先获取验证码并发送邮箱验证码，下面示例只展示最终注册请求体结构。若当前没有任何用户且邮箱服务未启用，首个管理员注册可省略 `emailCode`。
 
 ```powershell
 $body = @{

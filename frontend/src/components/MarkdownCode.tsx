@@ -104,6 +104,15 @@ const getLanguage = (className?: string) => {
   return languageAliases[language] || language;
 };
 
+const openImageLabel = (alt = '') => {
+  const isEnglish = typeof localStorage !== 'undefined' && localStorage.getItem('notesOfAshen.language') === 'en'
+    || typeof document !== 'undefined' && document.documentElement.lang.toLowerCase().startsWith('en');
+  if (isEnglish) {
+    return alt ? `View full-size image: ${alt}` : 'View full-size image';
+  }
+  return alt ? `查看大图：${alt}` : '查看大图';
+};
+
 type MarkdownComponentOptions = {
   onImageClick?: (image: LightboxImage) => void;
   headingIdByLine?: Record<string, string>;
@@ -203,7 +212,7 @@ export const createMarkdownComponents = ({ onImageClick, headingIdByLine }: Mark
           className={imageClassName}
           role="button"
           tabIndex={0}
-          aria-label={imageAlt ? `查看大图：${imageAlt}` : '查看大图'}
+          aria-label={openImageLabel(imageAlt)}
           onClick={handleClick}
           onKeyDown={handleKeyDown}
         />

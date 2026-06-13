@@ -19,6 +19,7 @@ export interface TokenPair {
 
 export interface SiteSettings {
   registrationEnabled: boolean;
+  registrationEmailCodeRequired: boolean;
   homeArticleLayout: HomeArticleLayout;
   siteTitle: string;
   siteDescription: string;

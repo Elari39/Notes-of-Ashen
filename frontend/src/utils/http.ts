@@ -1,6 +1,7 @@
 import axios from 'axios';
 import { useAuthStore } from '../store/auth';
 import { AppError, toAppError } from './error';
+import { fixVisibleMojibakeDeep } from './mojibake';
 
 const http = axios.create({
   baseURL: '/api/v1',
@@ -67,13 +68,17 @@ http.interceptors.response.use(
     if (response.config.responseType === 'blob') {
       return response;
     }
-    if (response.data.code === 0) {
-      return response.data;
+    const data = fixVisibleMojibakeDeep(response.data);
+    if (data.code === 0) {
+      return data;
     }
-    return Promise.reject(toAppError(new AppError(response.data.message || '操作失败，请稍后重试', response.data.code)));
+    return Promise.reject(toAppError(new AppError(data.message || '操作失败，请稍后重试', data.code)));
   },
   async (error) => {
     const originalRequest = error.config;
+    if (error.response?.data) {
+      error.response.data = fixVisibleMojibakeDeep(error.response.data);
+    }
 
     if (isAuthRetryEndpoint(originalRequest?.url)) {
       return Promise.reject(toAppError(error));

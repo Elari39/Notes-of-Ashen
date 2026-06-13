@@ -25,6 +25,10 @@ func Page(page, size int) (int, int) {
 	return page, size
 }
 
+func RegistrationEmailCodeRequired(isFirstUser bool, emailEnabled bool) bool {
+	return !isFirstUser || emailEnabled
+}
+
 func MapError(err error) error {
 	if err == nil {
 		return nil
