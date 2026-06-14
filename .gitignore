@@ -2,12 +2,17 @@
 .env
 .env.*
 !.env.example
+.envrc
+.envrc.*
 *.local
 *.pem
 *.key
 *.crt
+*.cert
 *.p12
 *.pfx
+*.secret
+*.secrets
 
 # 前端依赖
 node_modules/
@@ -21,11 +26,17 @@ frontend/dist/
 frontend/dist-ssr/
 .vite/
 frontend/.vite/
+.vite-inspect/
+frontend/.vite-inspect/
 .cache/
 frontend/.cache/
 .eslintcache
 frontend/.eslintcache
+.stylelintcache
+frontend/.stylelintcache
 *.tsbuildinfo
+storybook-static/
+frontend/storybook-static/
 playwright-report/
 frontend/playwright-report/
 test-results/
@@ -41,20 +52,37 @@ notes-of-ashen.exe
 *.out
 coverage.out
 coverage/
+coverage.html
 *.coverprofile
+*.cover
 *.prof
 __debug_bin*
 .air/
+.gocache/
+.gopath/
 frontend/.turbo/
 vendor/
 
-# 数据库备份与转储
+# 本地数据库、备份与转储
+*.db
+*.db-*
+*.sqlite
+*.sqlite3
+*.sqlite-journal
+*.sqlite-shm
+*.sqlite-wal
 *_backup.sql
 *_dump.sql
+*.backup.sql
+*.bak.sql
 *.dump.sql
 *.sql.gz
+*.sql.bz2
+*.sql.xz
 *.sql.zip
 *.sql.7z
+*.sql.tar
+*.sql.tar.gz
 
 # GeoIP 本地数据库与下载包
 data/
@@ -74,13 +102,21 @@ yarn-debug.log*
 yarn-error.log*
 lerna-debug.log*
 
+# Docker / 1Panel 本地覆盖
+docker-compose.override.yml
+compose.override.yml
+.docker/
+
 # IDE 与系统文件
 .idea/
 .vscode/
+.fleet/
+.history/
 .DS_Store
 Thumbs.db
 Desktop.ini
 ehthumbs.db
+Icon?
 *.stackdump
 *.suo
 *.ntvs*
@@ -92,8 +128,15 @@ ehthumbs.db
 # 临时文件
 tmp/
 temp/
+.tmp/
+.temp/
 *.tmp
 *.temp
+*.cache
 *.bak
 *.orig
+*.rej
+*.swp
+*.swo
+*~
 *.pid

@@ -10,10 +10,11 @@ http://127.0.0.1:1270
 
 ## 快速开始
 
-适合第一次拉取项目后直接在本机用 Docker 跑起来：
+适合已经准备好远程 MySQL、Redis 和 RabbitMQ 后，用 Docker / 1Panel 跑起来：
 
 ```powershell
 Copy-Item .env.example .env
+# 编辑 .env，填入远程 MySQL、Redis、RabbitMQ 连接信息
 docker compose config --quiet
 docker compose up -d --build
 ```
@@ -22,6 +23,7 @@ Linux / macOS：
 
 ```bash
 cp .env.example .env
+# 编辑 .env，填入远程 MySQL、Redis、RabbitMQ 连接信息
 docker compose config --quiet
 docker compose up -d --build
 ```
@@ -113,7 +115,7 @@ cd Notes-of-Ashen
 
 ## 配置环境变量
 
-项目使用仓库根目录的 `.env` 为 Docker Compose 提供部署配置。`.env` 包含数据库密码、Redis 密码、RabbitMQ 密码和 JWT 密钥，不应提交到 Git。
+项目使用仓库根目录的 `.env` 为 Docker Compose 提供部署配置。`.env` 包含远程 MySQL、Redis、RabbitMQ 连接信息和 JWT 密钥，不应提交到 Git。
 
 从模板复制：
 
@@ -131,12 +133,14 @@ Copy-Item .env.example .env
 
 - `APP_DISPLAY_NAME`：站点对外展示名称，默认 `Notes of Ashen`。
 - `APP_AUTH_ACCESS_SECRET`：JWT 签名密钥，生产环境必须替换为足够长的随机字符串。
-- `MYSQL_ROOT_PASSWORD`：项目内部 MySQL root 密码。
-- `MYSQL_USER`：项目内部 MySQL 普通用户。
-- `MYSQL_PASSWORD`：项目内部 MySQL 普通用户密码。
-- `REDIS_PASSWORD`：Redis 密码。
-- `RABBITMQ_DEFAULT_USER`：RabbitMQ 用户名。
-- `RABBITMQ_DEFAULT_PASS`：RabbitMQ 密码。
+- `APP_DATABASE_DSN`：远程 MySQL 连接串，例如 `notes_user:password@tcp(mysql.example.com:3306)/notes_of_ashen?charset=utf8mb4&parseTime=true&loc=Local`。
+- `APP_DATABASE_MAX_OPEN_CONNS`：MySQL 最大打开连接数。
+- `APP_DATABASE_MAX_IDLE_CONNS`：MySQL 最大空闲连接数。
+- `APP_REDIS_ADDR`：远程 Redis 地址，例如 `redis.example.com:6379`。
+- `APP_REDIS_PASSWORD`：Redis 密码；无密码时留空。
+- `APP_REDIS_DB`：Redis DB 编号，默认 `0`。
+- `APP_RABBITMQ_ENABLED`：是否启用 RabbitMQ 异步日志，默认 `true`。
+- `APP_RABBITMQ_URL`：远程 RabbitMQ AMQP 地址，例如 `amqp://rabbit_user:password@rabbitmq.example.com:5672/`。
 - `APP_SEARCH_ENABLED`：是否启用 Meilisearch 全文搜索，默认 `false`，关闭时自动回退 MySQL 查询。
 - `APP_MEILISEARCH_HOST`：API 访问 Meilisearch 的地址，Docker 部署默认 `http://meilisearch:7700`。
 - `APP_MEILISEARCH_API_KEY`：Meilisearch API Key；Docker 部署时也作为 Meilisearch Master Key。
@@ -163,6 +167,15 @@ Copy-Item .env.example .env
 - `WEB_PORT`：本机 Web 访问端口，默认 `1270`。
 
 不要把真实 `.env` 内容写入 README、Issue、提交记录或截图中。
+
+### 1Panel 远程中间件配置
+
+当前 `docker-compose.yml` 不再启动内置 MySQL、Redis 和 RabbitMQ，API 容器会直接读取 `.env` 中的远程连接配置。1Panel 部署前请先完成：
+
+- 远程 MySQL 创建数据库 `notes_of_ashen`，创建专用用户并只授权给 1Panel 服务器 IP 或内网网段。
+- 在远程 MySQL 执行 [deploy/mysql/schema.sql](deploy/mysql/schema.sql) 初始化表结构；旧库迁移前先备份，再按实际版本补执行 [deploy/mysql](deploy/mysql) 下的增量脚本。
+- 确认远程 Redis、RabbitMQ 防火墙和安全组允许 1Panel 服务器访问，避免对公网裸露。
+- 如果 MySQL DSN 或 RabbitMQ URL 的密码包含 `@`、`:`、`/`、`?`、`#` 等 URL 分隔符，请先做 URL 转义，或使用不含这些分隔符的强随机密码。
 
 ### QQ 邮箱验证码配置
 
@@ -436,18 +449,15 @@ docker compose ps
 
 ## 数据持久化
 
-Docker 部署会使用独立 volume 保存数据：
+Docker 部署只会为本地 Meilisearch 使用独立 volume：
 
-- `notes-of-ashen_goblog_mysql_data`
-- `notes-of-ashen_goblog_redis_data`
 - `notes-of-ashen_goblog_meili_data`
-- `notes-of-ashen_goblog_rabbitmq_data`
 
 GeoIP 数据库使用宿主机目录 `./data/GeoLite2-City.mmdb`，不会写入 Docker volume，也不会进入 Git 或镜像构建上下文。
 
-首次启动时，MySQL 会执行 [deploy/mysql/schema.sql](deploy/mysql/schema.sql) 初始化数据库和表结构。
+MySQL、Redis 和 RabbitMQ 数据由远程服务自行管理。首次部署前需要在远程 MySQL 执行 [deploy/mysql/schema.sql](deploy/mysql/schema.sql) 初始化数据库和表结构。
 
-注意：如果容器已经创建过并且 volume 已存在，之后修改 `.env` 中的数据库密码不会自动修改旧数据库中的用户密码。遇到密码不一致时，应手动调整数据库用户，或在确认不需要旧数据后再清理 volume。
+注意：远程服务的账号、密码或访问白名单变更后，需要同步更新 `.env` 并重新创建 API 容器。
 
 ## 常见问题
 
@@ -473,29 +483,27 @@ http://127.0.0.1:1271
 
 ### MySQL 连接失败
 
-Docker 部署时，API 应连接：
+确认 `.env` 中的 `APP_DATABASE_DSN` 指向远程 MySQL：
 
 ```text
-mysql:3306
+notes_user:password@tcp(mysql.example.com:3306)/notes_of_ashen?charset=utf8mb4&parseTime=true&loc=Local
 ```
 
-不要在容器内使用 `127.0.0.1:3306` 连接 MySQL，因为容器里的 `127.0.0.1` 只代表 API 容器自己。
+不要在容器内使用 `127.0.0.1:3306` 连接远程 MySQL，因为容器里的 `127.0.0.1` 只代表 API 容器自己。还要确认远程 MySQL 已执行初始化 SQL，并允许 1Panel 服务器访问。
 
 查看日志：
 
 ```bash
-docker compose logs -f mysql
 docker compose logs -f api
 ```
 
 ### Redis 认证失败
 
-确认 `.env` 中的 `REDIS_PASSWORD` 与 Redis 容器启动配置一致。
+确认 `.env` 中的 `APP_REDIS_ADDR`、`APP_REDIS_PASSWORD` 和远程 Redis 实际配置一致，并允许 1Panel 服务器访问。
 
 查看日志：
 
 ```bash
-docker compose logs -f redis
 docker compose logs -f api
 ```
 
@@ -504,9 +512,10 @@ docker compose logs -f api
 查看日志：
 
 ```bash
-docker compose logs -f rabbitmq
 docker compose logs -f api
 ```
+
+确认 `.env` 中的 `APP_RABBITMQ_URL` 指向远程 RabbitMQ AMQP 地址，并且账号有声明 exchange、queue 和 bind 的权限。
 
 如果只想临时关闭异步日志队列，可以在 `.env` 中设置：
 
@@ -583,7 +592,7 @@ docker compose up -d --build
 - 生产环境务必替换 `.env` 中的默认密码、`APP_AUTH_ACCESS_SECRET` 和 `APP_AI_KEY_ENCRYPTION_SECRET`。
 - 前端依赖管理统一使用 `pnpm`，不要混用 `npm` 或 `yarn`。
 - 不要提交 `.env`、数据库备份、日志文件或任何真实密钥；数据库备份建议放在仓库目录外。
-- 升级前先备份 Docker volume 中的数据。
+- 升级前先备份远程 MySQL 数据，并确认远程 Redis、RabbitMQ 的持久化策略符合预期。
 - 修改后建议至少运行：
 
   ```bash
