@@ -247,8 +247,8 @@ type ArticleReq {
 	CoverURL        string   `json:"coverUrl,optional"`
 	Status          string   `json:"status,optional"`
 	ScheduledAt     string   `json:"scheduledAt,optional"`
-	IsPinned        bool     `json:"isPinned,optional"`
-	DisplayPriority int      `json:"displayPriority,optional"`
+	IsPinned        *bool    `json:"isPinned,optional"`
+	DisplayPriority *int     `json:"displayPriority,optional"`
 	SEOTitle        string   `json:"seoTitle,optional"`
 	SEODescription  string   `json:"seoDescription,optional"`
 	SEOKeywords     string   `json:"seoKeywords,optional"`
@@ -265,8 +265,8 @@ type ArticleWithIDReq {
 	CoverURL        string   `json:"coverUrl,optional"`
 	Status          string   `json:"status,optional"`
 	ScheduledAt     string   `json:"scheduledAt,optional"`
-	IsPinned        bool     `json:"isPinned,optional"`
-	DisplayPriority int      `json:"displayPriority,optional"`
+	IsPinned        *bool    `json:"isPinned,optional"`
+	DisplayPriority *int     `json:"displayPriority,optional"`
 	SEOTitle        string   `json:"seoTitle,optional"`
 	SEODescription  string   `json:"seoDescription,optional"`
 	SEOKeywords     string   `json:"seoKeywords,optional"`
@@ -294,6 +294,27 @@ type AIAssistResp {
 	SEOKeywords    string   `json:"seoKeywords,optional"`
 	RevisedContent string   `json:"revisedContent,optional"`
 	Suggestions    []string `json:"suggestions,optional"`
+}
+
+type AISettingsResp {
+	Enabled                 bool   `json:"enabled"`
+	BaseURL                 string `json:"baseUrl"`
+	Model                   string `json:"model"`
+	APIKeyConfigured        bool   `json:"apiKeyConfigured"`
+	FirstByteTimeoutSeconds int    `json:"firstByteTimeoutSeconds"`
+	StreamTimeoutSeconds    int    `json:"streamTimeoutSeconds"`
+	NonStreamTimeoutSeconds int    `json:"nonStreamTimeoutSeconds"`
+}
+
+type UpdateAISettingsReq {
+	Enabled                 bool   `json:"enabled"`
+	BaseURL                 string `json:"baseUrl,optional"`
+	APIKey                  string `json:"apiKey,optional"`
+	ClearAPIKey             bool   `json:"clearApiKey,optional"`
+	Model                   string `json:"model,optional"`
+	FirstByteTimeoutSeconds int    `json:"firstByteTimeoutSeconds,optional"`
+	StreamTimeoutSeconds    int    `json:"streamTimeoutSeconds,optional"`
+	NonStreamTimeoutSeconds int    `json:"nonStreamTimeoutSeconds,optional"`
 }
 
 type ArticleListReq {
@@ -339,29 +360,36 @@ type TagListResp {
 	Size  int       `json:"size"`
 }
 
+type ArticleSearchHighlights {
+	Title   string `json:"title,optional"`
+	Summary string `json:"summary,optional"`
+	Content string `json:"content,optional"`
+}
+
 type ArticleResp {
-	ID              uint64       `json:"id"`
-	AuthorID        uint64       `json:"authorId"`
-	CategoryID      uint64       `json:"categoryId,optional"`
-	Title           string       `json:"title"`
-	Slug            string       `json:"slug"`
-	Summary         string       `json:"summary"`
-	Content         string       `json:"content,optional"`
-	CoverURL        string       `json:"coverUrl"`
-	Status          string       `json:"status"`
-	ViewCount       uint64       `json:"viewCount"`
-	LikeCount       uint64       `json:"likeCount"`
-	ScheduledAt     string       `json:"scheduledAt,optional"`
-	PublishedAt     string       `json:"publishedAt,optional"`
-	IsPinned        bool         `json:"isPinned"`
-	DisplayPriority int          `json:"displayPriority"`
-	SEOTitle        string       `json:"seoTitle"`
-	SEODescription  string       `json:"seoDescription"`
-	SEOKeywords     string       `json:"seoKeywords"`
-	CreatedAt       string       `json:"createdAt"`
-	UpdatedAt       string       `json:"updatedAt"`
-	Tags            []TagResp    `json:"tags,optional"`
-	Category        CategoryResp `json:"category,optional"`
+	ID               uint64                  `json:"id"`
+	AuthorID         uint64                  `json:"authorId"`
+	CategoryID       uint64                  `json:"categoryId,optional"`
+	Title            string                  `json:"title"`
+	Slug             string                  `json:"slug"`
+	Summary          string                  `json:"summary"`
+	Content          string                  `json:"content,optional"`
+	CoverURL         string                  `json:"coverUrl"`
+	Status           string                  `json:"status"`
+	ViewCount        uint64                  `json:"viewCount"`
+	LikeCount        uint64                  `json:"likeCount"`
+	ScheduledAt      string                  `json:"scheduledAt,optional"`
+	PublishedAt      string                  `json:"publishedAt,optional"`
+	IsPinned         bool                    `json:"isPinned"`
+	DisplayPriority  int                     `json:"displayPriority"`
+	SEOTitle         string                  `json:"seoTitle"`
+	SEODescription   string                  `json:"seoDescription"`
+	SEOKeywords      string                  `json:"seoKeywords"`
+	CreatedAt        string                  `json:"createdAt"`
+	UpdatedAt        string                  `json:"updatedAt"`
+	Tags             []TagResp               `json:"tags,optional"`
+	Category         CategoryResp            `json:"category,optional"`
+	SearchHighlights ArticleSearchHighlights `json:"searchHighlights,optional"`
 }
 
 type ArticleListResp {
@@ -410,6 +438,11 @@ type ArticleVersionListResp {
 	Total int64                `json:"total"`
 	Page  int                  `json:"page"`
 	Size  int                  `json:"size"`
+}
+
+type SearchReindexResp {
+	Indexed int  `json:"indexed"`
+	Enabled bool `json:"enabled"`
 }
 
 type TrafficVisitReq {
@@ -620,6 +653,12 @@ service notesOfAshen-api {
 	@handler adminStats
 	get /api/v1/admin/stats returns (AdminStatsResp)
 
+	@handler adminAISettings
+	get /api/v1/admin/ai/settings returns (AISettingsResp)
+
+	@handler adminUpdateAISettings
+	put /api/v1/admin/ai/settings (UpdateAISettingsReq) returns (AISettingsResp)
+
 	@handler adminUserList
 	get /api/v1/admin/users (PageReq) returns (UserListResp)
 
@@ -631,6 +670,9 @@ service notesOfAshen-api {
 
 	@handler adminLogList
 	get /api/v1/admin/logs (PageReq) returns (OperationLogListResp)
+
+	@handler adminSearchReindex
+	post /api/v1/admin/search/reindex returns (SearchReindexResp)
 
 	@handler adminUpdateSiteSettings
 	put /api/v1/admin/site/settings (UpdateSiteSettingsReq) returns (SiteSettingsResp)

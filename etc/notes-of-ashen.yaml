@@ -4,7 +4,7 @@ Port: 19000
 Timeout: 610000
 
 Database:
-  DataSource: "root:123456@tcp(127.0.0.1:3306)/notes_of_ashen?charset=utf8mb4&parseTime=true&loc=Local"
+  DataSource: "root:root123456@tcp(127.0.0.1:3306)/notes_of_ashen?charset=utf8mb4&parseTime=true&loc=Local"
   MaxOpenConns: 20
   MaxIdleConns: 10
 
@@ -15,7 +15,7 @@ Auth:
 
 Redis:
   Addr: "127.0.0.1:6379"
-  Password: "123456"
+  Password: "redis123456"
   DB: 0
 
 Search:
@@ -26,7 +26,7 @@ Search:
 
 RabbitMQ:
   Enabled: true
-  URL: "amqp://guest:guest@127.0.0.1:5672/"
+  URL: "amqp://admin:admin123@127.0.0.1:5672/"
   Exchange: "notes-of-ashen.events"
   Queue: "notes-of-ashen.operation_logs"
   RoutingKey: "operation.log"

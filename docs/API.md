@@ -412,7 +412,7 @@ POST /api/v1/articles/ai/assist
 
 | 字段 | 类型 | 必填 | 说明 |
 | --- | --- | --- | --- |
-| action | string | 是 | `metadata`、`proofread` 或 `polish` |
+| action | string | 是 | `metadata`、`proofread`、`polish`、`expand`、`shorten` 或 `translate` |
 | title | string | 否 | 文章标题，最长 160 |
 | content | string | 是 | Markdown 正文，最长 30000 |
 
@@ -423,7 +423,7 @@ POST /api/v1/articles/ai/assist
 | summary | string | `metadata` 时可能返回的摘要 |
 | seoDescription | string | `metadata` 时可能返回的 SEO 描述 |
 | seoKeywords | string | `metadata` 时可能返回的 SEO 关键词 |
-| revisedContent | string | `proofread` 或 `polish` 时返回的修订正文 |
+| revisedContent | string | 非 `metadata` 动作返回的修订正文 |
 | suggestions | string[] | 修改建议 |
 
 ### Markdown 导入
@@ -735,6 +735,40 @@ GET /api/v1/admin/articles
 
 权限：`editor` 或 `admin`。支持 `page`、`size`、`status`、`q`、`categoryId`、`tagId`。内容管理角色可查看全部文章。
 
+### 后台 AI 设置
+
+```text
+GET /api/v1/admin/ai/settings
+PUT /api/v1/admin/ai/settings
+```
+
+权限：`admin`。用于读取和保存后台 AI 辅助创作配置。保存 API Key 时使用 `APP_AI_KEY_ENCRYPTION_SECRET` 加密；若该密钥未配置且请求传入新 API Key，会返回配置错误。读取接口不会返回明文 API Key，只返回是否已配置。
+
+更新字段：
+
+| 字段 | 类型 | 必填 | 说明 |
+| --- | --- | --- | --- |
+| enabled | bool | 是 | 是否启用后台 AI 辅助创作 |
+| baseUrl | string | 否 | OpenAI 兼容接口基础地址，非空必须为 `http://` 或 `https://` URL |
+| apiKey | string | 否 | 新 API Key；为空表示保留已保存密钥 |
+| clearApiKey | bool | 否 | 是否清空已保存 API Key；传入新 `apiKey` 时应为 `false` |
+| model | string | 否 | 模型名称，最长 120 |
+| firstByteTimeoutSeconds | int | 否 | 首字等待超时，默认 60，范围 1 到 1800 |
+| streamTimeoutSeconds | int | 否 | 流式输出总超时，默认 300，不能小于首字等待 |
+| nonStreamTimeoutSeconds | int | 否 | 非流式输出总超时，默认 600，不能小于首字等待 |
+
+响应 `data`：
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| enabled | bool | 当前是否启用 |
+| baseUrl | string | 当前基础地址 |
+| model | string | 当前模型 |
+| apiKeyConfigured | bool | 是否已有可用 API Key |
+| firstByteTimeoutSeconds | int | 首字等待超时 |
+| streamTimeoutSeconds | int | 流式输出总超时 |
+| nonStreamTimeoutSeconds | int | 非流式输出总超时 |
+
 ### 重建搜索索引
 
 ```text
@@ -742,6 +776,13 @@ POST /api/v1/admin/search/reindex
 ```
 
 权限：`editor` 或 `admin`。将已发布文章全量同步到 Meilisearch。未启用搜索时返回 `enabled = false`，不会修改文章数据。
+
+响应 `data`：
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| indexed | int | 本次写入搜索索引的文章数 |
+| enabled | bool | 当前是否启用 Meilisearch 搜索 |
 
 ### 用户管理
 
