@@ -1,8 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  Bar,
-  BarChart,
   CartesianGrid,
   Legend,
   Line,
@@ -18,7 +16,7 @@ import PagePendingState from '../../components/RoutePending';
 import { getArticleStatusLabel, getDateLocale, translate } from '../../i18n';
 import { usePreferenceStore, type Language } from '../../store/preferences';
 import { getErrorMessage } from '../../utils/error';
-import type { AdminStats, Article, GeoStat, Log, RefererStat, TrafficTrendPoint } from '../../types';
+import type { AdminStats, Article, Log, RefererStat, TrafficTrendPoint } from '../../types';
 
 const statItems = [
   'articleTotal',
@@ -97,8 +95,6 @@ const AdminDashboard: React.FC = () => {
             language={language}
           />
 
-          <GeoOverview geoStats={stats.geoStats || []} language={language} />
-
           <div className="grid gap-8 lg:grid-cols-2">
             <ArticleList
               title={t('dashboard.popularArticles')}
@@ -130,67 +126,6 @@ const AdminDashboard: React.FC = () => {
         </div>
       )}
     </div>
-  );
-};
-
-const GeoOverview: React.FC<{
-  geoStats: GeoStat[];
-  language: Language;
-}> = ({ geoStats, language }) => {
-  const labels = dashboardGeoLabels(language);
-  const chartData = geoStats.map((item) => ({
-    ...item,
-    label: geoLabel(item, language),
-  }));
-
-  return (
-    <section>
-      <div className="mb-4">
-        <h4 className="text-sm font-bold tracking-widest text-ink">{labels.title}</h4>
-        <p className="mt-2 text-xs text-ink-light">{labels.subtitle}</p>
-      </div>
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(16rem,1fr)]">
-        <div className="h-72 border border-mountain-grey bg-[var(--paper-soft)] p-3">
-          {chartData.length === 0 ? (
-            <div className="flex h-full items-center justify-center text-sm text-ink-light">{labels.empty}</div>
-          ) : (
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={chartData} margin={{ top: 12, right: 12, bottom: 0, left: -18 }}>
-                <CartesianGrid stroke="var(--mountain-grey)" strokeDasharray="3 3" />
-                <XAxis dataKey="label" tick={{ fill: 'var(--ink-light)', fontSize: 11 }} />
-                <YAxis tick={{ fill: 'var(--ink-light)', fontSize: 11 }} allowDecimals={false} />
-                <Tooltip
-                  contentStyle={{
-                    background: 'var(--paper)',
-                    border: '1px solid var(--mountain-grey)',
-                    borderRadius: 4,
-                    color: 'var(--ink)',
-                  }}
-                />
-                <Legend />
-                <Bar dataKey="pv" name="PV" fill="var(--ochre)" />
-                <Bar dataKey="uv" name="UV" fill="var(--code-blue)" />
-              </BarChart>
-            </ResponsiveContainer>
-          )}
-        </div>
-        <div className="border border-mountain-grey bg-[var(--paper-soft)] p-4">
-          <h5 className="mb-4 text-xs font-bold tracking-widest text-ink">{labels.locations}</h5>
-          {geoStats.length === 0 ? (
-            <p className="text-sm text-ink-light">{labels.empty}</p>
-          ) : (
-            <div className="space-y-3">
-              {geoStats.map((item) => (
-                <div key={`${item.countryCode}:${item.regionName}:${item.cityName}`} className="flex items-center justify-between gap-3 text-sm">
-                  <span className="min-w-0 truncate text-ink">{geoLabel(item, language)}</span>
-                  <span className="shrink-0 text-ink-light">PV {item.pv} / UV {item.uv}</span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-    </section>
   );
 };
 
@@ -336,24 +271,6 @@ const dashboardTrafficLabels = (language: Language) => language === 'zh'
       search: 'Search',
       external: 'External',
     };
-
-const dashboardGeoLabels = (language: Language) => language === 'zh'
-  ? {
-      title: '访客地理分布',
-      subtitle: '过去 30 天按国家 / 城市聚合的访问分布',
-      locations: '热门地区',
-      empty: '暂无地理位置数据',
-    }
-  : {
-      title: 'Visitor Geography',
-      subtitle: 'Country and city distribution over the last 30 days',
-      locations: 'Top Locations',
-      empty: 'No geo data yet',
-    };
-
-const geoLabel = (item: GeoStat, language: Language) => [item.countryName, item.regionName, item.cityName]
-  .filter((value) => value && value !== 'Unknown')
-  .join(' / ') || (language === 'zh' ? '未知地区' : 'Unknown');
 
 const shortDate = (value: string, language: Language) => {
   const date = new Date(`${value}T00:00:00`);

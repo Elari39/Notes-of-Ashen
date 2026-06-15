@@ -107,28 +107,3 @@ CREATE TABLE IF NOT EXISTS article_likes (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (article_id, visitor_hash)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
-CREATE TABLE IF NOT EXISTS traffic_geo_stats (
-    stat_date DATE NOT NULL,
-    country_code VARCHAR(32) NOT NULL,
-    country_name VARCHAR(128) NOT NULL,
-    region_name VARCHAR(128) NOT NULL,
-    city_name VARCHAR(128) NOT NULL,
-    pv BIGINT NOT NULL DEFAULT 0,
-    uv BIGINT NOT NULL DEFAULT 0,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    PRIMARY KEY (stat_date, country_code, region_name, city_name),
-    INDEX idx_traffic_geo_stats_date (stat_date),
-    INDEX idx_traffic_geo_stats_location (country_code, region_name, city_name)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
-CREATE TABLE IF NOT EXISTS traffic_geo_daily_visitors (
-    stat_date DATE NOT NULL,
-    visitor_hash CHAR(64) NOT NULL,
-    country_code VARCHAR(32) NOT NULL,
-    region_name VARCHAR(128) NOT NULL,
-    city_name VARCHAR(128) NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (stat_date, visitor_hash, country_code, region_name, city_name)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

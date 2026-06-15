@@ -683,7 +683,7 @@ GET /sitemap.xml
 POST /api/v1/traffic/visit
 ```
 
-权限：公开。前端自动上报公开页面访问，接口有 IP 限流保护。后端仅记录公开页面路径，后台、登录、注册、个人资料和找回密码等路径会被忽略。若配置了 `APP_GEOIP_DATABASE_PATH`，后端会使用离线 GeoIP 数据库聚合国家 / 城市；未配置或解析失败时记录为 `Unknown`。
+权限：公开。前端自动上报公开页面访问，接口有 IP 限流保护。后端仅记录公开页面路径、PV/UV 与访问来源，后台、登录、注册、个人资料和找回密码等路径会被忽略。
 
 访客 IP 默认来自直连 `RemoteAddr`；只有请求来自 `APP_TRUSTED_PROXY_CIDRS` 中配置的可信代理时，才会读取 `X-Forwarded-For` 或 `X-Real-IP`。
 
@@ -719,7 +719,6 @@ GET /api/v1/admin/stats
 | todayUv | int64 | 今日 UV |
 | trafficTrend | object[] | 最近 30 天 PV / UV 趋势，字段为 `date`、`pv`、`uv` |
 | topReferers | object[] | 最近 30 天访问来源排行，字段为 `sourceType`、`sourceName`、`pv` |
-| geoStats | object[] | 最近 30 天访客地理分布，字段为 `countryCode`、`countryName`、`regionName`、`cityName`、`pv`、`uv` |
 | userTotal | int64 | 用户数 |
 | categoryTotal | int64 | 分类数 |
 | tagTotal | int64 | 标签数 |

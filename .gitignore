@@ -64,6 +64,7 @@ frontend/.turbo/
 vendor/
 
 # 本地数据库、备份与转储
+data/
 *.db
 *.db-*
 *.sqlite
@@ -83,14 +84,9 @@ vendor/
 *.sql.7z
 *.sql.tar
 *.sql.tar.gz
-
-# GeoIP 本地数据库与下载包
-data/
 *.mmdb
 GeoLite2-*.tar.gz
-GeoLite2-*.zip
 GeoIP2-*.tar.gz
-GeoIP2-*.zip
 
 # 日志
 logs/

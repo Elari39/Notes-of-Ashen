@@ -60,21 +60,17 @@ __debug_bin*
 vendor
 
 # 数据库备份与转储
+data
+**/data
 *_backup.sql
 *_dump.sql
 *.dump.sql
 *.sql.gz
 *.sql.zip
 *.sql.7z
-
-# GeoIP 本地数据库与下载包
-data
-**/data
 *.mmdb
 GeoLite2-*.tar.gz
-GeoLite2-*.zip
 GeoIP2-*.tar.gz
-GeoIP2-*.zip
 
 # 日志
 logs

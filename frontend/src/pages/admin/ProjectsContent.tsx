@@ -145,6 +145,7 @@ const AdminProjectsContent: React.FC = () => {
       const next = normalizeProjectsPage(res.data);
       setSaved(next);
       setDraft(next);
+      setCollapsedProjectIds(new Set());
       setNotice(text.saved);
     } catch (e: unknown) {
       setError(getErrorMessage(e, text.saveError));
@@ -157,6 +158,7 @@ const AdminProjectsContent: React.FC = () => {
     if (saved) {
       setDraft(saved);
     }
+    setCollapsedProjectIds(new Set());
     setError('');
     setNotice('');
   };
