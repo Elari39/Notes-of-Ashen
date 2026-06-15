@@ -51,8 +51,5 @@ AI:
   StreamTimeoutSeconds: 300
   NonStreamTimeoutSeconds: 600
 
-GeoIP:
-  DatabasePath: ""
-
 Proxy:
   TrustedCIDRs: ""

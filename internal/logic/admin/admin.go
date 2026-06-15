@@ -128,10 +128,6 @@ func Stats(ctx context.Context, svcCtx *svc.ServiceContext) (*types.AdminStatsRe
 	if err != nil {
 		return nil, err
 	}
-	geoStats, err := svcCtx.Store.TopGeoStats(ctx, 30, 10)
-	if err != nil {
-		return nil, err
-	}
 	today, err := svcCtx.Store.TodayTraffic(ctx, logicutil.TodayDate())
 	if err != nil {
 		return nil, err
@@ -152,7 +148,6 @@ func Stats(ctx context.Context, svcCtx *svc.ServiceContext) (*types.AdminStatsRe
 		TagTotal:        stats.TagTotal,
 		TrafficTrend:    make([]types.TrafficTrendPointResp, 0, len(trend)),
 		TopReferers:     make([]types.RefererStatResp, 0, len(topReferers)),
-		GeoStats:        make([]types.GeoStatResp, 0, len(geoStats)),
 		PopularArticles: make([]types.ArticleResp, 0, len(popular)),
 		RecentArticles:  make([]types.ArticleResp, 0, len(recent)),
 		RecentLogs:      make([]types.OperationLogResp, 0, len(logs)),
@@ -169,16 +164,6 @@ func Stats(ctx context.Context, svcCtx *svc.ServiceContext) (*types.AdminStatsRe
 			SourceType: item.SourceType,
 			SourceName: item.SourceName,
 			PV:         item.PV,
-		})
-	}
-	for _, item := range geoStats {
-		resp.GeoStats = append(resp.GeoStats, types.GeoStatResp{
-			CountryCode: item.CountryCode,
-			CountryName: item.CountryName,
-			RegionName:  item.RegionName,
-			CityName:    item.CityName,
-			PV:          item.PV,
-			UV:          item.UV,
 		})
 	}
 	for _, item := range popular {

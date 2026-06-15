@@ -1,4 +1,4 @@
-import type { CSSProperties, KeyboardEvent, MouseEvent } from 'react';
+import { type CSSProperties, type KeyboardEvent, type MouseEvent } from 'react';
 import type { Components } from 'react-markdown';
 import SyntaxHighlighter from 'react-syntax-highlighter/dist/esm/prism-light';
 import bash from 'react-syntax-highlighter/dist/esm/languages/prism/bash';
@@ -15,6 +15,7 @@ import typescript from 'react-syntax-highlighter/dist/esm/languages/prism/typesc
 import yaml from 'react-syntax-highlighter/dist/esm/languages/prism/yaml';
 import type { LightboxImage } from './ImageLightbox';
 import MarkdownCodeBlock from './MarkdownCodeBlock';
+import MarkdownTable from './MarkdownTable';
 
 SyntaxHighlighter.registerLanguage('bash', bash);
 SyntaxHighlighter.registerLanguage('sh', bash);
@@ -143,10 +144,9 @@ export const createMarkdownComponents = ({ onImageClick, headingIdByLine }: Mark
       return <h3 {...props} id={id}>{children}</h3>;
     },
     table({ children, ...props }) {
+      void props;
       return (
-        <div className="article-table-wrap">
-          <table {...props}>{children}</table>
-        </div>
+        <MarkdownTable>{children}</MarkdownTable>
       );
     },
     code({ className, children, node, ...props }) {

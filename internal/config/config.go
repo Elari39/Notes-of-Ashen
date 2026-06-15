@@ -17,7 +17,6 @@ type Config struct {
 	RabbitMQ RabbitMQConf
 	Email    EmailConf
 	AI       AIConf
-	GeoIP    GeoIPConf
 	Proxy    ProxyConf
 }
 
@@ -74,10 +73,6 @@ type AIConf struct {
 	FirstByteTimeoutSeconds int
 	StreamTimeoutSeconds    int
 	NonStreamTimeoutSeconds int
-}
-
-type GeoIPConf struct {
-	DatabasePath string
 }
 
 type ProxyConf struct {
@@ -199,7 +194,6 @@ func (c *Config) ApplyEnv() error {
 	if err := setInt("APP_AI_NON_STREAM_TIMEOUT_SECONDS", &c.AI.NonStreamTimeoutSeconds); err != nil {
 		return err
 	}
-	setString("APP_GEOIP_DATABASE_PATH", &c.GeoIP.DatabasePath)
 	setString("APP_TRUSTED_PROXY_CIDRS", &c.Proxy.TrustedCIDRs)
 
 	return nil

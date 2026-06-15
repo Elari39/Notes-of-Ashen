@@ -49,9 +49,9 @@ http://127.0.0.1:1270
 - 内容展示：公开文章列表、文章详情、归档、Meilisearch 全文搜索、Markdown 渲染、代码高亮、LaTeX 数学公式、文章目录和点赞反馈。
 - 简历与作品集：结构化简历时间轴、技能树、知识图谱、前端 PDF 导出、作品集画廊和项目标签。
 - 分类与标签：公开读取，后台可创建、更新和删除。
-- 管理后台：用户管理、用户状态管理、站点设置、简历与项目管理、操作日志查看、访问趋势、来源统计和地理分布。
+- 管理后台：用户管理、用户状态管理、站点设置、简历与项目管理、操作日志查看、访问趋势和来源统计。
 - 站点能力：RSS、Sitemap、站点标题、描述、关键词、Prerender.io 预渲染配置等。
-- 流量统计：公开页面自动上报 PV、UV、来源与可选 GeoIP 地理位置，后台展示最近 30 天趋势。
+- 流量统计：公开页面自动上报 PV、UV 与来源，后台展示最近 30 天趋势。
 - 异步日志：通过 RabbitMQ 投递操作事件，并写入 `operation_logs`。
 - 统一响应：接口成功时返回 `{ "code": 0, "message": "success", "data": ... }`。
 
@@ -156,10 +156,7 @@ Copy-Item .env.example .env
 - `APP_AI_MODEL`：AI 辅助使用的模型名称。
 - `APP_AI_KEY_ENCRYPTION_SECRET`：后台保存 AI API Key 时使用的加密密钥，生产环境应设置为不同于 `APP_AUTH_ACCESS_SECRET` 的长随机值。
 - `APP_AI_TIMEOUT_SECONDS`：AI 非流式请求兼容超时时间，默认 `600` 秒。
-- `APP_GEOIP_DATABASE_PATH`：API 容器内 GeoIP/GeoLite2 City `.mmdb` 文件路径，Docker 部署默认 `/data/GeoLite2-City.mmdb`。
 - `APP_TRUSTED_PROXY_CIDRS`：可信反向代理 CIDR，默认留空表示不信任客户端传入的 `X-Forwarded-*` / `X-Real-IP`。
-- `MAXMIND_ACCOUNT_ID`：可选 MaxMind Account ID，用于 Docker 部署自动下载 `GeoLite2-City.mmdb`。
-- `MAXMIND_LICENSE_KEY`：可选 MaxMind License Key，用于 Docker 部署自动下载 `GeoLite2-City.mmdb`，只能写入真实 `.env` 或受控环境变量。
 - `PRERENDER_ENABLED`：是否启用 Prerender.io crawler 预渲染，`0` 关闭，`1` 启用。
 - `PRERENDER_SERVICE_URL`：Prerender.io 服务地址，默认 `https://service.prerender.io`。
 - `PRERENDER_TOKEN`：Prerender.io Token，只能写入真实 `.env` 或受控环境变量。
@@ -237,29 +234,7 @@ APP_MEILISEARCH_INDEX=articles
 
 重新创建服务后，使用 `editor` 或 `admin` 登录后台，并调用 `POST /api/v1/admin/search/reindex` 全量重建文章索引。Meilisearch 不可用时，公开文章搜索会回退到 MySQL 查询。
 
-### GeoIP 与预渲染配置
-
-访客地理位置分析使用离线 `.mmdb` 数据库。Docker 部署时，如果真实 `.env` 中填写了 MaxMind 凭据，`geoipupdate` 容器会在 `data/GeoLite2-City.mmdb` 不存在时自动下载；如果文件已存在会直接复用，避免消耗 MaxMind 每日下载额度。
-
-```env
-APP_GEOIP_DATABASE_PATH=/data/GeoLite2-City.mmdb
-MAXMIND_ACCOUNT_ID=your-maxmind-account-id
-MAXMIND_LICENSE_KEY=your-maxmind-license-key
-```
-
-然后执行常规部署命令即可：
-
-```bash
-docker compose up -d --build
-```
-
-查看自动下载日志：
-
-```bash
-docker compose logs geoipupdate
-```
-
-如果不填写 MaxMind 凭据，或下载失败，API 仍会启动，访客地理位置记录为 `Unknown`。也可以手动下载 `GeoLite2-City.mmdb` 并放到仓库根目录的 `data/GeoLite2-City.mmdb`，Docker 会把它只读挂载到 API 容器的 `/data/GeoLite2-City.mmdb`。
+### 预渲染配置
 
 SPA SEO 预渲染默认关闭。需要为搜索引擎 crawler 返回预渲染 HTML 时，在真实 `.env` 中设置：
 
@@ -269,7 +244,7 @@ PRERENDER_SERVICE_URL=https://service.prerender.io
 PRERENDER_TOKEN=your-prerender-token
 ```
 
-不要提交 `.mmdb` 文件、MaxMind License Key、Prerender Token 或任何真实密钥。
+不要提交 Prerender Token 或任何真实密钥。
 
 ## 本机 Docker 部署
 
@@ -295,7 +270,6 @@ docker compose ps
 查看日志：
 
 ```bash
-docker compose logs geoipupdate
 docker compose logs -f api
 docker compose logs -f web
 ```
@@ -452,8 +426,6 @@ docker compose ps
 Docker 部署只会为本地 Meilisearch 使用独立 volume：
 
 - `notes-of-ashen_goblog_meili_data`
-
-GeoIP 数据库使用宿主机目录 `./data/GeoLite2-City.mmdb`，不会写入 Docker volume，也不会进入 Git 或镜像构建上下文。
 
 MySQL、Redis 和 RabbitMQ 数据由远程服务自行管理。首次部署前需要在远程 MySQL 执行 [deploy/mysql/schema.sql](deploy/mysql/schema.sql) 初始化数据库和表结构。
 

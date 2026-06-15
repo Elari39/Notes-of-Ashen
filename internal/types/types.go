@@ -98,7 +98,7 @@ type UpdateResumePageReq struct {
 }
 
 type ResumeExperience struct {
-	ID           uint64   `json:"id,omitempty"`
+	ID           uint64   `json:"id,optional,omitempty"`
 	Role         string   `json:"role"`
 	Organization string   `json:"organization"`
 	Location     string   `json:"location"`
@@ -110,7 +110,7 @@ type ResumeExperience struct {
 }
 
 type ResumeEducation struct {
-	ID           uint64   `json:"id,omitempty"`
+	ID           uint64   `json:"id,optional,omitempty"`
 	School       string   `json:"school"`
 	Degree       string   `json:"degree"`
 	Major        string   `json:"major"`
@@ -123,7 +123,7 @@ type ResumeEducation struct {
 }
 
 type ResumeSkill struct {
-	ID           uint64 `json:"id,omitempty"`
+	ID           uint64 `json:"id,optional,omitempty"`
 	Category     string `json:"category"`
 	Name         string `json:"name"`
 	Level        int    `json:"level"`
@@ -370,15 +370,6 @@ type RefererStatResp struct {
 	PV         int64  `json:"pv"`
 }
 
-type GeoStatResp struct {
-	CountryCode string `json:"countryCode"`
-	CountryName string `json:"countryName"`
-	RegionName  string `json:"regionName"`
-	CityName    string `json:"cityName"`
-	PV          int64  `json:"pv"`
-	UV          int64  `json:"uv"`
-}
-
 type ArticleVersionResp struct {
 	ID                uint64     `json:"id"`
 	ArticleID         uint64     `json:"articleId"`
@@ -429,7 +420,6 @@ type AdminStatsResp struct {
 	TagTotal        int64                   `json:"tagTotal"`
 	TrafficTrend    []TrafficTrendPointResp `json:"trafficTrend"`
 	TopReferers     []RefererStatResp       `json:"topReferers"`
-	GeoStats        []GeoStatResp           `json:"geoStats"`
 	PopularArticles []ArticleResp           `json:"popularArticles"`
 	RecentArticles  []ArticleResp           `json:"recentArticles"`
 	RecentLogs      []OperationLogResp      `json:"recentLogs"`

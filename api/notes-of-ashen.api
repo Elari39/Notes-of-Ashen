@@ -464,15 +464,6 @@ type RefererStatResp {
 	PV         int64  `json:"pv"`
 }
 
-type GeoStatResp {
-	CountryCode string `json:"countryCode"`
-	CountryName string `json:"countryName"`
-	RegionName  string `json:"regionName"`
-	CityName    string `json:"cityName"`
-	PV          int64  `json:"pv"`
-	UV          int64  `json:"uv"`
-}
-
 type AdminStatsResp {
 	ArticleTotal    int64                   `json:"articleTotal"`
 	PublishedTotal  int64                   `json:"publishedTotal"`
@@ -488,7 +479,6 @@ type AdminStatsResp {
 	TagTotal        int64                   `json:"tagTotal"`
 	TrafficTrend    []TrafficTrendPointResp `json:"trafficTrend"`
 	TopReferers     []RefererStatResp       `json:"topReferers"`
-	GeoStats        []GeoStatResp           `json:"geoStats"`
 	PopularArticles []ArticleResp           `json:"popularArticles"`
 	RecentArticles  []ArticleResp           `json:"recentArticles"`
 	RecentLogs      []OperationLogResp      `json:"recentLogs"`

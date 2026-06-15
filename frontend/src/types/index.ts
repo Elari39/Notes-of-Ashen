@@ -195,15 +195,6 @@ export interface RefererStat {
   pv: number;
 }
 
-export interface GeoStat {
-  countryCode: string;
-  countryName: string;
-  regionName: string;
-  cityName: string;
-  pv: number;
-  uv: number;
-}
-
 export interface AdminStats {
   articleTotal: number;
   publishedTotal: number;
@@ -219,7 +210,6 @@ export interface AdminStats {
   tagTotal: number;
   trafficTrend: TrafficTrendPoint[];
   topReferers: RefererStat[];
-  geoStats: GeoStat[];
   popularArticles: Article[];
   recentArticles: Article[];
   recentLogs: Log[];

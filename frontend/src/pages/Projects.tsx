@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import InlineNotice from '../components/InlineNotice';
-import MarkdownRenderer from '../components/MarkdownRenderer';
 import PagePendingState from '../components/RoutePending';
 import { getProjectsPage } from '../api/siteSettings';
 import { usePreferenceStore } from '../store/preferences';
@@ -91,7 +90,7 @@ type ProjectCardProps = {
 
 const ProjectCard: React.FC<ProjectCardProps> = ({ project, labels }) => (
   <article className="group flex min-h-full flex-col overflow-hidden border border-mountain-grey bg-[var(--paper-soft)] transition-colors hover:border-ochre">
-    <div className="relative h-56 overflow-hidden border-b border-mountain-grey bg-[var(--paper)]">
+    <div className="relative aspect-[4/3] overflow-hidden border-b border-mountain-grey bg-[var(--paper)]">
       {project.coverUrl ? (
         <img
           src={project.coverUrl}
@@ -110,29 +109,29 @@ const ProjectCard: React.FC<ProjectCardProps> = ({ project, labels }) => (
         </span>
       )}
     </div>
-    <div className="flex flex-1 flex-col space-y-5 p-5 md:p-6">
-      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-        <div>
+    <div className="flex flex-1 flex-col gap-5 p-5 md:p-6">
+      <div className="flex flex-1 flex-col gap-3">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex flex-wrap items-center gap-2">
             <h2 className="text-xl font-bold tracking-widest text-ink">{project.title}</h2>
           </div>
-          {project.summary && (
-            <p className="mt-3 text-sm leading-7 tracking-wide text-ink-light">{project.summary}</p>
+          {(project.demoUrl || project.repoUrl) && (
+            <div className="flex shrink-0 flex-wrap gap-3 text-sm tracking-widest">
+              {project.demoUrl && (
+                <a href={project.demoUrl} target="_blank" rel="noreferrer" className="text-ochre hover:text-ink">
+                  {labels.demo}
+                </a>
+              )}
+              {project.repoUrl && (
+                <a href={project.repoUrl} target="_blank" rel="noreferrer" className="text-ochre hover:text-ink">
+                  {labels.repo}
+                </a>
+              )}
+            </div>
           )}
         </div>
-        {(project.demoUrl || project.repoUrl) && (
-          <div className="flex shrink-0 flex-wrap gap-3 text-sm tracking-widest">
-            {project.demoUrl && (
-              <a href={project.demoUrl} target="_blank" rel="noreferrer" className="text-ochre hover:text-ink">
-                {labels.demo}
-              </a>
-            )}
-            {project.repoUrl && (
-              <a href={project.repoUrl} target="_blank" rel="noreferrer" className="text-ochre hover:text-ink">
-                {labels.repo}
-              </a>
-            )}
-          </div>
+        {project.summary && (
+          <p className="line-clamp-5 text-sm leading-7 tracking-wide text-ink-light">{project.summary}</p>
         )}
       </div>
 
@@ -145,14 +144,6 @@ const ProjectCard: React.FC<ProjectCardProps> = ({ project, labels }) => (
           ))}
         </div>
       )}
-
-      <div className="mt-auto">
-        {project.contentMarkdown.trim() && (
-          <div className="line-clamp-[10]">
-            <MarkdownRenderer content={project.contentMarkdown} className="text-sm" />
-          </div>
-        )}
-      </div>
     </div>
   </article>
 );
