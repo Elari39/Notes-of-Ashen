@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import InlineNotice from '../../components/InlineNotice';
 import MarkdownRenderer from '../../components/MarkdownRenderer';
+import PagePendingState from '../../components/RoutePending';
 import { getAdminResumePage, updateAdminResumePage } from '../../api/siteSettings';
 import { usePreferenceStore } from '../../store/preferences';
 import type { ResumeEducation, ResumeExperience, ResumePage, ResumeSkill } from '../../types';
@@ -93,9 +94,13 @@ const AdminResumeContent: React.FC = () => {
       <InlineNotice message={error} className="mb-6" />
       <InlineNotice message={notice} tone="success" className="mb-6" />
 
-      {isLoading ? (
-        <p className="py-12 text-center text-sm tracking-[0.24em] text-ink-light">{text.loading}</p>
-      ) : (
+      {isLoading && (
+        <PagePendingState
+          variant={saved ? 'inline' : 'admin'}
+          label={text.loading}
+        />
+      )}
+      {(!isLoading || saved) && (
         <div className="space-y-8">
           <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
             <TextInput label={text.pageTitle} value={draft.title} disabled={isSaving} onChange={(title) => setDraft((prev) => ({ ...prev, title }))} />

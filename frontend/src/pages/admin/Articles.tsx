@@ -6,6 +6,7 @@ import { Article, Category, Tag } from '../../types';
 import { Link, useNavigate } from 'react-router-dom';
 import Pagination from '../../components/Pagination';
 import InlineNotice from '../../components/InlineNotice';
+import PagePendingState from '../../components/RoutePending';
 import { getErrorMessage } from '../../utils/error';
 import { getArticleStatusLabel, getDateLocale, translate } from '../../i18n';
 import { usePreferenceStore } from '../../store/preferences';
@@ -26,6 +27,7 @@ const AdminArticles: React.FC = () => {
   const [categories, setCategories] = useState<Category[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
   const [importing, setImporting] = useState(false);
+  const listRequestRef = useRef(0);
   const size = 10;
   const navigate = useNavigate();
   const t = (key: Parameters<typeof translate>[1]) => translate(language, key);
@@ -47,6 +49,8 @@ const AdminArticles: React.FC = () => {
   };
 
   const fetchList = useCallback(async () => {
+    const requestId = listRequestRef.current + 1;
+    listRequestRef.current = requestId;
     setLoading(true);
     setError('');
     try {
@@ -58,12 +62,19 @@ const AdminArticles: React.FC = () => {
         ...(categoryId ? { categoryId } : {}),
         ...(tagId ? { tagId } : {}),
       });
+      if (listRequestRef.current !== requestId) {
+        return;
+      }
       setArticles(res.data.items || []);
       setTotal(res.data.total || 0);
     } catch (e) {
-      setError(getErrorMessage(e, translate(language, 'adminArticles.loadError')));
+      if (listRequestRef.current === requestId) {
+        setError(getErrorMessage(e, translate(language, 'adminArticles.loadError')));
+      }
     } finally {
-      setLoading(false);
+      if (listRequestRef.current === requestId) {
+        setLoading(false);
+      }
     }
   }, [page, size, appliedKeyword, status, categoryId, tagId, language]);
 
@@ -72,19 +83,27 @@ const AdminArticles: React.FC = () => {
   }, [fetchList]);
 
   useEffect(() => {
+    let active = true;
     const fetchTaxonomies = async () => {
       try {
         const [categoryRes, tagRes] = await Promise.all([
           getCategories({ size: 100 }),
           getTags({ size: 100 }),
         ]);
-        setCategories(categoryRes.data.items || []);
-        setTags(tagRes.data.items || []);
+        if (active) {
+          setCategories(categoryRes.data.items || []);
+          setTags(tagRes.data.items || []);
+        }
       } catch (e) {
-        setError(getErrorMessage(e, translate(language, 'archive.loadError')));
+        if (active) {
+          setError(getErrorMessage(e, translate(language, 'archive.loadError')));
+        }
       }
     };
     fetchTaxonomies();
+    return () => {
+      active = false;
+    };
   }, [language]);
 
   const resetPage = () => {
@@ -250,11 +269,15 @@ const AdminArticles: React.FC = () => {
         </div>
       </form>
 
-      {loading ? (
-        <div className="py-16 text-center tracking-widest text-ink-light">{t('common.loading')}</div>
-      ) : articles.length === 0 ? (
+      {loading && (
+        <PagePendingState
+          variant={articles.length > 0 ? 'inline' : 'admin'}
+          label={t('common.loading')}
+        />
+      )}
+      {!loading && articles.length === 0 ? (
         <div className="py-16 text-center tracking-widest text-ink-light">{t('common.empty')}</div>
-      ) : (
+      ) : articles.length > 0 ? (
         <>
           <table className="admin-responsive-table w-full text-left border-collapse text-sm">
             <thead>
@@ -335,7 +358,7 @@ const AdminArticles: React.FC = () => {
             onPageChange={setPage}
           />
         </>
-      )}
+      ) : null}
     </div>
   );
 };

@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import InlineNotice from '../../components/InlineNotice';
+import PagePendingState from '../../components/RoutePending';
 import { getAISettings, updateAISettings } from '../../api/aiSettings';
 import { getErrorMessage } from '../../utils/error';
 import { usePreferenceStore } from '../../store/preferences';
@@ -92,9 +93,8 @@ const AdminAISettings: React.FC = () => {
       <InlineNotice message={error} className="mb-6" />
       <InlineNotice message={notice} tone="success" className="mb-6" />
 
-      {loading ? (
-        <div className="py-16 text-center tracking-widest text-ink-light">{text.loading}</div>
-      ) : (
+      {loading && <PagePendingState variant="admin" label={text.loading} />}
+      {!loading && (
         <form onSubmit={handleSubmit} className="space-y-8">
           <section className="border border-mountain-grey bg-[var(--paper-soft)] p-5">
             <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
@@ -243,7 +243,7 @@ const clampTimeout = (value: string) => {
 const aiSettingsLabels = (language: string) => language === 'zh'
   ? {
       title: 'AI 配置',
-      loading: 'LOADING',
+      loading: 'AI 配置加载中...',
       enableTitle: 'AI 辅助创作',
       enableDesc: '控制后台编辑器中的摘要、SEO 与伴写能力。',
       enabled: '已启用',
@@ -270,7 +270,7 @@ const aiSettingsLabels = (language: string) => language === 'zh'
     }
   : {
       title: 'AI Settings',
-      loading: 'LOADING',
+      loading: 'Loading AI settings...',
       enableTitle: 'AI Writing',
       enableDesc: 'Controls summary, SEO, and assisted writing in the admin editor.',
       enabled: 'Enabled',

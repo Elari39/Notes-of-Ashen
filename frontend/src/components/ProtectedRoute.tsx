@@ -3,6 +3,7 @@ import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../store/auth';
 import { usePreferenceStore } from '../store/preferences';
 import { translate } from '../i18n';
+import PagePendingState from './RoutePending';
 
 interface ProtectedRouteProps {
   requireAdmin?: boolean;
@@ -16,7 +17,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ requireAdmin = false, a
   const t = (key: Parameters<typeof translate>[1]) => translate(language, key);
 
   if (!isInitialized || isFetching) {
-    return <div className="flex-grow flex items-center justify-center tracking-widest text-ink-light">{t('common.loadingAuth')}</div>;
+    return <PagePendingState label={t('common.loadingAuth')} />;
   }
 
   if (!accessToken || !user) {

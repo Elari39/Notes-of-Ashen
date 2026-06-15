@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import InlineNotice from '../../components/InlineNotice';
+import PagePendingState from '../../components/RoutePending';
 import { getErrorMessage } from '../../utils/error';
 import { translate } from '../../i18n';
 import { usePreferenceStore } from '../../store/preferences';
@@ -113,6 +114,7 @@ const AdminSettings: React.FC = () => {
 
       <InlineNotice message={error} className="mb-6" />
       <InlineNotice message={notice} tone="success" className="mb-6" />
+      {isLoading && <PagePendingState variant="inline" label={t('common.loading')} />}
 
       <form onSubmit={handleSubmit} className="space-y-8">
         <section className="border border-mountain-grey bg-[var(--paper-soft)] p-5">

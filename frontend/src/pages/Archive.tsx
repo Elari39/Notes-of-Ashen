@@ -4,6 +4,7 @@ import { getCategories } from '../api/category';
 import { getTags } from '../api/tag';
 import { Category, Tag } from '../types';
 import InlineNotice from '../components/InlineNotice';
+import PagePendingState from '../components/RoutePending';
 import { getErrorMessage } from '../utils/error';
 import { translate } from '../i18n';
 import { usePreferenceStore } from '../store/preferences';
@@ -17,30 +18,47 @@ const Archive: React.FC = () => {
   const t = (key: Parameters<typeof translate>[1]) => translate(language, key);
 
   useEffect(() => {
+    let active = true;
     const fetchData = async () => {
+      setLoading(true);
+      setError('');
       try {
         const [catRes, tagRes] = await Promise.all([
           getCategories({ size: 100 }),
           getTags({ size: 100 }),
         ]);
+        if (!active) {
+          return;
+        }
         setCategories(catRes.data.items || []);
         setTags(tagRes.data.items || []);
       } catch (e) {
-        setError(getErrorMessage(e, translate(language, 'archive.loadError')));
+        if (active) {
+          setError(getErrorMessage(e, translate(language, 'archive.loadError')));
+        }
       } finally {
-        setLoading(false);
+        if (active) {
+          setLoading(false);
+        }
       }
     };
     fetchData();
+    return () => {
+      active = false;
+    };
   }, [language]);
 
-  if (loading) {
-    return <div className="flex-grow flex items-center justify-center text-ink-light tracking-widest">{t('common.loadingArchive')}</div>;
-  }
+  const hasArchiveData = categories.length > 0 || tags.length > 0;
 
   return (
     <div className="space-y-16 mt-8 max-w-2xl mx-auto w-full">
       <InlineNotice message={error} />
+      {loading && (
+        <PagePendingState
+          variant={hasArchiveData ? 'inline' : 'page'}
+          label={t('common.loadingArchive')}
+        />
+      )}
       <section>
         <h2 className="text-3xl font-bold text-ink mb-8 tracking-widest text-center">{t('archive.titleCategories')}</h2>
         <div className="flex flex-wrap gap-4 justify-center">

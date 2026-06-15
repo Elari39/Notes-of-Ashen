@@ -3,12 +3,15 @@ import { Link, useSearchParams } from 'react-router-dom';
 import InlineNotice from '../components/InlineNotice';
 import Pagination from '../components/Pagination';
 import SearchHighlight from '../components/SearchHighlight';
+import PagePendingState from '../components/RoutePending';
+import { PreloadLink } from '../components/PreloadLink';
 import { getArticles } from '../api/article';
 import { getErrorMessage } from '../utils/error';
 import { normalizeCoverUrl } from '../utils/cover';
 import { Article } from '../types';
 import { formatText, getDateLocale, translate } from '../i18n';
 import { usePreferenceStore } from '../store/preferences';
+import { routeLoaders } from '../routes/lazyRoutes';
 
 const Search: React.FC = () => {
   const language = usePreferenceStore((state) => state.language);
@@ -42,6 +45,7 @@ const Search: React.FC = () => {
       return;
     }
 
+    let active = true;
     const fetchArticles = async () => {
       setLoading(true);
       setError('');
@@ -54,17 +58,27 @@ const Search: React.FC = () => {
           ...(categoryId ? { categoryId } : {}),
           ...(tagId ? { tagId } : {}),
         });
+        if (!active) {
+          return;
+        }
         setArticles(res.data.items || []);
         setTotal(res.data.total || 0);
         setCoverErrors({});
       } catch (err) {
-        setError(getErrorMessage(err, translate(language, 'search.loadError')));
+        if (active) {
+          setError(getErrorMessage(err, translate(language, 'search.loadError')));
+        }
       } finally {
-        setLoading(false);
+        if (active) {
+          setLoading(false);
+        }
       }
     };
 
     fetchArticles();
+    return () => {
+      active = false;
+    };
   }, [hasSearchScope, page, query, categoryId, tagId, language]);
 
   const updateParams = (updates: Record<string, string | number | undefined>) => {
@@ -183,14 +197,18 @@ const Search: React.FC = () => {
 
             <InlineNotice message={error} />
 
-            {loading ? (
-              <div className="flex min-h-48 items-center justify-center text-ink-light tracking-widest">{t('search.loading')}</div>
-            ) : articles.length === 0 ? (
+            {loading && (
+              <PagePendingState
+                variant={articles.length > 0 ? 'inline' : 'page'}
+                label={t('search.loading')}
+              />
+            )}
+            {!loading && articles.length === 0 ? (
               <div className="mx-auto max-w-xl py-10 text-center text-ink-light">
                 <p className="text-lg italic">{t('search.emptyTitle')}</p>
                 <p className="mt-3 text-sm leading-loose opacity-80">{t('search.emptyText')}</p>
               </div>
-            ) : (
+            ) : articles.length > 0 ? (
               <>
                 <div className="space-y-12">
                   {articles.map((article) => {
@@ -200,7 +218,7 @@ const Search: React.FC = () => {
                     return (
                       <article key={article.id} className="group grid gap-6 border-b border-mountain-grey border-opacity-40 pb-12 md:grid-cols-[12rem_1fr]">
                         {coverUrl ? (
-                          <Link to={`/article/${article.id}`} className="block h-44 overflow-hidden">
+                          <PreloadLink to={`/article/${article.id}`} preload={routeLoaders.articleDetail} className="block h-44 overflow-hidden">
                             {isCoverHidden ? (
                               <div className="flex h-full items-center justify-center border border-mountain-grey bg-[var(--paper-soft)] text-xs tracking-widest text-ink-light opacity-70">
                                 {t('article.coverHidden')}
@@ -214,13 +232,13 @@ const Search: React.FC = () => {
                                 className="h-full w-full object-cover grayscale opacity-80 transition-all duration-700 group-hover:grayscale-0 group-hover:opacity-100"
                               />
                             )}
-                          </Link>
+                          </PreloadLink>
                         ) : (
                           <div className="hidden h-44 border border-mountain-grey bg-[var(--paper-soft)] md:block"></div>
                         )}
 
                         <div>
-                          <Link to={`/article/${article.id}`} className="block">
+                          <PreloadLink to={`/article/${article.id}`} preload={routeLoaders.articleDetail} className="block">
                             <h2 className="text-2xl font-bold leading-tight text-ink transition-colors duration-500 group-hover:text-ochre md:text-3xl">
                               <SearchHighlight value={article.searchHighlights?.title} fallback={article.title} />
                             </h2>
@@ -230,7 +248,7 @@ const Search: React.FC = () => {
                                 fallback={article.summary}
                               />
                             </p>
-                          </Link>
+                          </PreloadLink>
 
                           <div className="mt-5 flex flex-wrap items-center gap-4 text-xs tracking-wider text-ink-light opacity-75">
                             {article.isPinned && (
@@ -266,7 +284,7 @@ const Search: React.FC = () => {
                   onPageChange={(nextPage) => updateParams({ page: nextPage === 1 ? undefined : nextPage })}
                 />
               </>
-            )}
+            ) : null}
           </div>
         )}
       </section>

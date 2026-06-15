@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import Pagination from '../components/Pagination';
 import InlineNotice from '../components/InlineNotice';
+import PagePendingState from '../components/RoutePending';
+import { PreloadLink } from '../components/PreloadLink';
 import { getErrorMessage } from '../utils/error';
 import { getDateLocale, translate } from '../i18n';
 import { usePreferenceStore } from '../store/preferences';
@@ -9,6 +11,7 @@ import { getArticles } from '../api/article';
 import { Article } from '../types';
 import { normalizeCoverUrl } from '../utils/cover';
 import { useSiteSettingsStore } from '../store/siteSettings';
+import { routeLoaders } from '../routes/lazyRoutes';
 
 const Home: React.FC = () => {
   const language = usePreferenceStore((state) => state.language);
@@ -28,6 +31,7 @@ const Home: React.FC = () => {
   const hasActiveFilters = Boolean(categoryId || tagId);
 
   useEffect(() => {
+    let active = true;
     const fetchArticles = async () => {
       setLoading(true);
       setError('');
@@ -39,16 +43,26 @@ const Home: React.FC = () => {
           ...(categoryId ? { categoryId } : {}),
           ...(tagId ? { tagId } : {}),
         });
+        if (!active) {
+          return;
+        }
         setArticles(res.data.items || []);
         setTotal(res.data.total || 0);
         setCoverErrors({});
       } catch (err) {
-        setError(getErrorMessage(err, translate(language, 'home.loadError')));
+        if (active) {
+          setError(getErrorMessage(err, translate(language, 'home.loadError')));
+        }
       } finally {
-        setLoading(false);
+        if (active) {
+          setLoading(false);
+        }
       }
     };
     fetchArticles();
+    return () => {
+      active = false;
+    };
   }, [page, categoryId, tagId, language]);
 
   const updateParams = (updates: Record<string, string | number | undefined>) => {
@@ -99,11 +113,15 @@ const Home: React.FC = () => {
         </div>
       )}
       <InlineNotice message={error} />
-      {loading ? (
-        <div className="flex-grow flex items-center justify-center text-ink-light tracking-widest">{t('common.loadingArticles')}</div>
-      ) : articles.length === 0 ? (
+      {loading && (
+        <PagePendingState
+          variant={articles.length > 0 ? 'inline' : 'page'}
+          label={t('common.loadingArticles')}
+        />
+      )}
+      {!loading && articles.length === 0 ? (
         <div className="text-center text-ink-light italic">{t('common.emptyArticles')}</div>
-      ) : (
+      ) : articles.length > 0 ? (
         <>
           {articles.map((article, index) => {
             const coverUrl = normalizeCoverUrl(article.coverUrl);
@@ -121,7 +139,7 @@ const Home: React.FC = () => {
               <article key={article.id} className={`group relative flex flex-col gap-5 pb-2 items-start md:flex-row md:gap-8 md:pb-0 ${shouldReverse ? 'md:flex-row-reverse' : ''}`}>
                 {shouldShowCover && (
                   <div className="relative aspect-[16/9] w-full shrink-0 overflow-hidden md:h-48 md:w-1/3 md:aspect-auto">
-                    <Link to={`/article/${article.id}`} className="block h-full">
+                    <PreloadLink to={`/article/${article.id}`} preload={routeLoaders.articleDetail} className="block h-full">
                       <img
                         src={coverUrl}
                         alt={article.title}
@@ -129,19 +147,19 @@ const Home: React.FC = () => {
                         onLoad={() => handleCoverLoad(article.id)}
                         className="w-full h-full object-cover grayscale opacity-80 group-hover:grayscale-0 group-hover:opacity-100 transition-all duration-700"
                       />
-                    </Link>
+                    </PreloadLink>
                     <div className="absolute inset-0 bg-[var(--cover-wash-subtle)] pointer-events-none"></div>
                   </div>
                 )}
                 <div className="flex-1">
-                  <Link to={`/article/${article.id}`} className="block">
+                  <PreloadLink to={`/article/${article.id}`} preload={routeLoaders.articleDetail} className="block">
                     <h2 className="mb-4 text-2xl font-bold leading-tight text-ink transition-colors duration-500 group-hover:text-ochre md:text-3xl">
                       {article.title}
                     </h2>
                     <p className="text-ink-light leading-relaxed mb-6 whitespace-pre-line line-clamp-3">
                       {article.summary}
                     </p>
-                  </Link>
+                  </PreloadLink>
                   <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-ink-light opacity-70 tracking-wider">
                     {article.isPinned && (
                       <span className="border border-ochre px-2 py-0.5 text-ochre opacity-90">{pinnedLabel}</span>
@@ -176,7 +194,7 @@ const Home: React.FC = () => {
             onPageChange={(nextPage) => updateParams({ page: nextPage === 1 ? undefined : nextPage })}
           />
         </>
-      )}
+      ) : null}
     </div>
   );
 };

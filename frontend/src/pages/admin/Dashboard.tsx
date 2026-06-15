@@ -14,6 +14,7 @@ import {
 } from 'recharts';
 import { getAdminStats } from '../../api/admin';
 import InlineNotice from '../../components/InlineNotice';
+import PagePendingState from '../../components/RoutePending';
 import { getArticleStatusLabel, getDateLocale, translate } from '../../i18n';
 import { usePreferenceStore, type Language } from '../../store/preferences';
 import { getErrorMessage } from '../../utils/error';
@@ -39,23 +40,33 @@ const AdminDashboard: React.FC = () => {
   const t = (key: Parameters<typeof translate>[1]) => translate(language, key);
 
   useEffect(() => {
+    let active = true;
     const fetchStats = async () => {
       setLoading(true);
       setError('');
       try {
         const res = await getAdminStats();
-        setStats(res.data);
+        if (active) {
+          setStats(res.data);
+        }
       } catch (e) {
-        setError(getErrorMessage(e, translate(language, 'dashboard.loadError')));
+        if (active) {
+          setError(getErrorMessage(e, translate(language, 'dashboard.loadError')));
+        }
       } finally {
-        setLoading(false);
+        if (active) {
+          setLoading(false);
+        }
       }
     };
     fetchStats();
+    return () => {
+      active = false;
+    };
   }, [language]);
 
-  if (loading) {
-    return <div className="py-20 text-center tracking-widest text-ink-light">{t('dashboard.loading')}</div>;
+  if (loading && !stats) {
+    return <PagePendingState variant="admin" label={t('dashboard.loading')} />;
   }
 
   return (
@@ -65,6 +76,7 @@ const AdminDashboard: React.FC = () => {
       </div>
 
       <InlineNotice message={error} className="mb-6" />
+      {loading && <PagePendingState variant="inline" label={t('dashboard.loading')} />}
 
       {stats && (
         <div className="space-y-10">

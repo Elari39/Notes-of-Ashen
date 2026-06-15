@@ -1,8 +1,9 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { getUsers, updateUserRole, updateUserStatus } from '../../api/user';
 import { User } from '../../types';
 import Pagination from '../../components/Pagination';
 import InlineNotice from '../../components/InlineNotice';
+import PagePendingState from '../../components/RoutePending';
 import { getErrorMessage } from '../../utils/error';
 import { formatText, getUserRoleLabel, getUserStatusLabel, translate } from '../../i18n';
 import { usePreferenceStore } from '../../store/preferences';
@@ -15,20 +16,30 @@ const AdminUsers: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [busyId, setBusyId] = useState<number | null>(null);
+  const listRequestRef = useRef(0);
   const size = 10;
   const t = (key: Parameters<typeof translate>[1]) => translate(language, key);
 
   const fetchList = useCallback(async () => {
+    const requestId = listRequestRef.current + 1;
+    listRequestRef.current = requestId;
     setLoading(true);
     setError('');
     try {
       const res = await getUsers({ page, size });
+      if (listRequestRef.current !== requestId) {
+        return;
+      }
       setUsers(res.data.items || []);
       setTotal(res.data.total || 0);
     } catch (e) {
-      setError(getErrorMessage(e, translate(language, 'users.loadError')));
+      if (listRequestRef.current === requestId) {
+        setError(getErrorMessage(e, translate(language, 'users.loadError')));
+      }
     } finally {
-      setLoading(false);
+      if (listRequestRef.current === requestId) {
+        setLoading(false);
+      }
     }
   }, [page, size, language]);
 
@@ -74,11 +85,15 @@ const AdminUsers: React.FC = () => {
 
       <InlineNotice message={error} className="mb-6" />
 
-      {loading ? (
-        <div className="py-16 text-center tracking-widest text-ink-light">{t('common.loading')}</div>
-      ) : users.length === 0 ? (
+      {loading && (
+        <PagePendingState
+          variant={users.length > 0 ? 'inline' : 'admin'}
+          label={t('common.loading')}
+        />
+      )}
+      {!loading && users.length === 0 ? (
         <div className="py-16 text-center tracking-widest text-ink-light">{t('common.empty')}</div>
-      ) : (
+      ) : users.length > 0 ? (
         <>
           <table className="admin-responsive-table w-full text-left border-collapse text-sm">
             <thead>
@@ -130,7 +145,7 @@ const AdminUsers: React.FC = () => {
             onPageChange={setPage}
           />
         </>
-      )}
+      ) : null}
     </div>
   );
 };

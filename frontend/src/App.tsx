@@ -1,42 +1,53 @@
-import { Suspense, lazy, useEffect, useRef, type ReactElement } from 'react';
+import { Suspense, useEffect, useRef, type ReactElement } from 'react';
 import { Routes, Route, useLocation } from 'react-router-dom';
 import Layout from './components/Layout';
 import Home from './pages/Home';
 import ProtectedRoute from './components/ProtectedRoute';
+import PagePendingState, { RoutePendingIndicator } from './components/RoutePending';
 import { usePreferenceStore } from './store/preferences';
 import { useSiteSettingsStore } from './store/siteSettings';
 import { useAuthStore } from './store/auth';
 import { reportVisit } from './api/traffic';
+import {
+  AdminAISettings,
+  AdminArticles,
+  AdminCategories,
+  AdminDashboard,
+  AdminLayout,
+  AdminLogs,
+  AdminProjectsContent,
+  AdminResumeContent,
+  AdminSettings,
+  AdminTags,
+  AdminUsers,
+  Archive,
+  ArticleDetail,
+  ArticleEditor,
+  ArticlePreview,
+  ArticleVersions,
+  ForgotPassword,
+  Login,
+  NotFound,
+  Profile,
+  Projects,
+  Register,
+  Resume,
+  Search,
+} from './routes/lazyRoutes';
 
-const ArticleDetail = lazy(() => import('./pages/ArticleDetail'));
-const Login = lazy(() => import('./pages/Login'));
-const Register = lazy(() => import('./pages/Register'));
-const ForgotPassword = lazy(() => import('./pages/ForgotPassword'));
-const Archive = lazy(() => import('./pages/Archive'));
-const Search = lazy(() => import('./pages/Search'));
-const Resume = lazy(() => import('./pages/Resume'));
-const Projects = lazy(() => import('./pages/Projects'));
-const Profile = lazy(() => import('./pages/Profile'));
-const AdminLayout = lazy(() => import('./pages/admin/AdminLayout'));
-const AdminArticles = lazy(() => import('./pages/admin/Articles'));
-const ArticleEditor = lazy(() => import('./pages/admin/ArticleEditor'));
-const ArticlePreview = lazy(() => import('./pages/admin/ArticlePreview'));
-const ArticleVersions = lazy(() => import('./pages/admin/ArticleVersions'));
-const AdminDashboard = lazy(() => import('./pages/admin/Dashboard'));
-const AdminCategories = lazy(() => import('./pages/admin/Categories'));
-const AdminTags = lazy(() => import('./pages/admin/Tags'));
-const AdminUsers = lazy(() => import('./pages/admin/Users'));
-const AdminLogs = lazy(() => import('./pages/admin/Logs'));
-const AdminSettings = lazy(() => import('./pages/admin/Settings'));
-const AdminAISettings = lazy(() => import('./pages/admin/AISettings'));
-const AdminResumeContent = lazy(() => import('./pages/admin/ResumeContent'));
-const AdminProjectsContent = lazy(() => import('./pages/admin/ProjectsContent'));
-const NotFound = lazy(() => import('./pages/NotFound'));
+type SuspenseVariant = 'page' | 'admin';
 
-const RouteLoading = () => (
-  <main className="min-h-[60vh] px-6 py-24 text-center text-sm tracking-[0.24em] text-ink-light">
-    LOADING
-  </main>
+const RouteSuspenseFallback = ({ variant }: { variant: SuspenseVariant }) => (
+  <>
+    <RoutePendingIndicator />
+    <PagePendingState variant={variant} />
+  </>
+);
+
+const withRouteSuspense = (element: ReactElement, variant: SuspenseVariant = 'page') => (
+  <Suspense fallback={<RouteSuspenseFallback variant={variant} />}>
+    {element}
+  </Suspense>
 );
 
 function App() {
@@ -61,19 +72,19 @@ function App() {
   }, [initializeAuth]);
 
   return (
-    <Suspense fallback={<RouteLoading />}>
+    <>
       <TrafficReporter />
       <Routes>
         <Route path="/" element={<Layout />}>
           <Route index element={<Home />} />
-          <Route path="article/:id" element={<ArticleDetail />} />
-          <Route path="archive" element={<Archive />} />
-          <Route path="search" element={<Search />} />
+          <Route path="article/:id" element={withRouteSuspense(<ArticleDetail />)} />
+          <Route path="archive" element={withRouteSuspense(<Archive />)} />
+          <Route path="search" element={withRouteSuspense(<Search />)} />
           <Route
             path="resume"
             element={(
               <PublicFeatureRoute enabled={resumePageEnabled}>
-                <Resume />
+                {withRouteSuspense(<Resume />)}
               </PublicFeatureRoute>
             )}
           />
@@ -81,42 +92,42 @@ function App() {
             path="projects"
             element={(
               <PublicFeatureRoute enabled={projectsPageEnabled}>
-                <Projects />
+                {withRouteSuspense(<Projects />)}
               </PublicFeatureRoute>
             )}
           />
-          <Route path="login" element={<Login />} />
-          <Route path="register" element={<Register />} />
-          <Route path="forgot-password" element={<ForgotPassword />} />
+          <Route path="login" element={withRouteSuspense(<Login />)} />
+          <Route path="register" element={withRouteSuspense(<Register />)} />
+          <Route path="forgot-password" element={withRouteSuspense(<ForgotPassword />)} />
 
           <Route element={<ProtectedRoute />}>
-            <Route path="profile" element={<Profile />} />
+            <Route path="profile" element={withRouteSuspense(<Profile />)} />
           </Route>
 
           <Route path="admin" element={<ProtectedRoute allowedRoles={['editor', 'admin']} />}>
-            <Route element={<AdminLayout />}>
-              <Route index element={<AdminDashboard />} />
-              <Route path="dashboard" element={<AdminDashboard />} />
-              <Route path="articles" element={<AdminArticles />} />
-              <Route path="editor/:id" element={<ArticleEditor />} />
-              <Route path="preview/:id" element={<ArticlePreview />} />
-              <Route path="articles/:id/versions" element={<ArticleVersions />} />
-              <Route path="categories" element={<AdminCategories />} />
-              <Route path="tags" element={<AdminTags />} />
+            <Route element={withRouteSuspense(<AdminLayout />, 'admin')}>
+              <Route index element={withRouteSuspense(<AdminDashboard />, 'admin')} />
+              <Route path="dashboard" element={withRouteSuspense(<AdminDashboard />, 'admin')} />
+              <Route path="articles" element={withRouteSuspense(<AdminArticles />, 'admin')} />
+              <Route path="editor/:id" element={withRouteSuspense(<ArticleEditor />, 'admin')} />
+              <Route path="preview/:id" element={withRouteSuspense(<ArticlePreview />, 'admin')} />
+              <Route path="articles/:id/versions" element={withRouteSuspense(<ArticleVersions />, 'admin')} />
+              <Route path="categories" element={withRouteSuspense(<AdminCategories />, 'admin')} />
+              <Route path="tags" element={withRouteSuspense(<AdminTags />, 'admin')} />
               <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
-                <Route path="users" element={<AdminUsers />} />
-                <Route path="logs" element={<AdminLogs />} />
-                <Route path="settings" element={<AdminSettings />} />
-                <Route path="ai-settings" element={<AdminAISettings />} />
-                <Route path="resume" element={<AdminResumeContent />} />
-                <Route path="projects" element={<AdminProjectsContent />} />
+                <Route path="users" element={withRouteSuspense(<AdminUsers />, 'admin')} />
+                <Route path="logs" element={withRouteSuspense(<AdminLogs />, 'admin')} />
+                <Route path="settings" element={withRouteSuspense(<AdminSettings />, 'admin')} />
+                <Route path="ai-settings" element={withRouteSuspense(<AdminAISettings />, 'admin')} />
+                <Route path="resume" element={withRouteSuspense(<AdminResumeContent />, 'admin')} />
+                <Route path="projects" element={withRouteSuspense(<AdminProjectsContent />, 'admin')} />
               </Route>
             </Route>
           </Route>
-          <Route path="*" element={<NotFound />} />
+          <Route path="*" element={withRouteSuspense(<NotFound />)} />
         </Route>
       </Routes>
-    </Suspense>
+    </>
   )
 }
 
@@ -128,11 +139,11 @@ const PublicFeatureRoute = ({ enabled, children }: { enabled: boolean; children:
   const { hasLoaded, error } = useSiteSettingsStore();
 
   if (!hasLoaded) {
-    return <RouteLoading />;
+    return <PagePendingState />;
   }
 
   if (error || !enabled) {
-    return <NotFound />;
+    return withRouteSuspense(<NotFound />);
   }
 
   return children;

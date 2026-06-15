@@ -7,6 +7,7 @@ import { CanvasRenderer } from 'echarts/renderers';
 import type { ECharts, EChartsCoreOption } from 'echarts/core';
 import InlineNotice from '../components/InlineNotice';
 import MarkdownRenderer from '../components/MarkdownRenderer';
+import PagePendingState from '../components/RoutePending';
 import { getProjectsPage, getResumePage } from '../api/siteSettings';
 import { getTags } from '../api/tag';
 import { usePreferenceStore } from '../store/preferences';
@@ -161,7 +162,10 @@ const Resume: React.FC = () => {
         </section>
 
         {isLoading && (
-          <p className="py-12 text-center text-sm tracking-[0.24em] text-ink-light">{text.loading}</p>
+          <PagePendingState
+            variant={page ? 'inline' : 'page'}
+            label={text.loading}
+          />
         )}
         <InlineNotice message={error} />
         <InlineNotice message={exportError} className="resume-export-notice" />

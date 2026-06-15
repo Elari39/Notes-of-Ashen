@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import InlineNotice from '../../components/InlineNotice';
 import MarkdownRenderer from '../../components/MarkdownRenderer';
+import PagePendingState from '../../components/RoutePending';
 import { getAdminProjectsPage, updateAdminProjectsPage } from '../../api/siteSettings';
 import { getTags } from '../../api/tag';
 import { usePreferenceStore } from '../../store/preferences';
@@ -179,9 +180,13 @@ const AdminProjectsContent: React.FC = () => {
       <InlineNotice message={error} className="mb-6" />
       <InlineNotice message={notice} tone="success" className="mb-6" />
 
-      {isLoading ? (
-        <p className="py-12 text-center text-sm tracking-[0.24em] text-ink-light">{text.loading}</p>
-      ) : (
+      {isLoading && (
+        <PagePendingState
+          variant={saved ? 'inline' : 'admin'}
+          label={text.loading}
+        />
+      )}
+      {(!isLoading || saved) && (
         <div className="space-y-6">
           <section className="grid grid-cols-1 gap-5 md:grid-cols-2">
             <label className="block text-sm text-ink-light">

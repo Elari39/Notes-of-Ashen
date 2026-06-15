@@ -21,7 +21,7 @@ Redis:
 Search:
   Enabled: false
   MeilisearchHost: "http://127.0.0.1:7700"
-  MeilisearchAPIKey: ""
+  MeilisearchAPIKey: "1234567890"
   MeilisearchIndex: "articles"
 
 RabbitMQ:

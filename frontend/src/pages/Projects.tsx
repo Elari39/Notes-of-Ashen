@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import InlineNotice from '../components/InlineNotice';
 import MarkdownRenderer from '../components/MarkdownRenderer';
+import PagePendingState from '../components/RoutePending';
 import { getProjectsPage } from '../api/siteSettings';
 import { usePreferenceStore } from '../store/preferences';
 import type { ProjectItem, ProjectsPage } from '../types';
@@ -59,7 +60,10 @@ const Projects: React.FC = () => {
       </section>
 
       {isLoading && (
-        <p className="py-12 text-center text-sm tracking-[0.24em] text-ink-light">{text.loading}</p>
+        <PagePendingState
+          variant={page ? 'inline' : 'page'}
+          label={text.loading}
+        />
       )}
       <InlineNotice message={error} />
       {!isLoading && !error && (!page?.items || page.items.length === 0) && (

@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate, useOutlet } from 'react-router-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
+import { PreloadLink } from './PreloadLink';
 import { useAuthStore } from '../store/auth';
 import { usePreferenceStore } from '../store/preferences';
 import { useSiteSettingsStore } from '../store/siteSettings';
@@ -8,6 +9,7 @@ import { logout as apiLogout } from '../api/auth';
 import { isHttpAvatarUrl, normalizeAvatarUrl } from '../utils/avatar';
 import { formatText, translate } from '../i18n';
 import { useSEO } from '../utils/seo';
+import { routeLoaders } from '../routes/lazyRoutes';
 
 const Layout: React.FC = () => {
   const { user, logout } = useAuthStore();
@@ -269,32 +271,32 @@ const Layout: React.FC = () => {
 
           <nav className="hidden flex-wrap items-center justify-end gap-x-6 gap-y-4 text-sm tracking-widest text-ink-light md:flex">
             <Link to="/" className={desktopLinkClass}>{t('nav.home')}</Link>
-            <Link to="/archive" className={desktopLinkClass}>{t('nav.archive')}</Link>
-            <Link to="/search" className={desktopLinkClass}>{t('nav.search')}</Link>
+            <PreloadLink to="/archive" preload={routeLoaders.archive} className={desktopLinkClass}>{t('nav.archive')}</PreloadLink>
+            <PreloadLink to="/search" preload={routeLoaders.search} className={desktopLinkClass}>{t('nav.search')}</PreloadLink>
             {projectsPageEnabled && !projectsNavHidden && (
-              <Link to="/projects" className={desktopLinkClass}>{language === 'zh' ? '项目' : 'Projects'}</Link>
+              <PreloadLink to="/projects" preload={routeLoaders.projects} className={desktopLinkClass}>{language === 'zh' ? '项目' : 'Projects'}</PreloadLink>
             )}
             {resumePageEnabled && !resumeNavHidden && (
-              <Link to="/resume" className={desktopLinkClass}>{language === 'zh' ? '简介' : 'About'}</Link>
+              <PreloadLink to="/resume" preload={routeLoaders.resume} className={desktopLinkClass}>{language === 'zh' ? '简介' : 'About'}</PreloadLink>
             )}
             {user ? (
               <>
                 {(user.role === 'admin' || user.role === 'editor') && (
-                  <Link to="/admin" className="hover:text-ochre transition-colors font-bold">{t('nav.admin')}</Link>
+                  <PreloadLink to="/admin" preload={[routeLoaders.adminLayout, routeLoaders.adminDashboard]} className="hover:text-ochre transition-colors font-bold">{t('nav.admin')}</PreloadLink>
                 )}
-                <Link to="/profile" className="flex items-center space-x-2 hover:text-ink transition-colors group">
+                <PreloadLink to="/profile" preload={routeLoaders.profile} className="flex items-center space-x-2 hover:text-ink transition-colors group">
                   {shouldShowAvatar && (
                     <img src={avatarUrl} alt="avatar" className="w-6 h-6 rounded-full border border-mountain-grey group-hover:border-ochre transition-colors object-cover" />
                   )}
                   <span>{user.nickname || user.account}</span>
-                </Link>
+                </PreloadLink>
                 <span className="opacity-50 select-none">|</span>
                 <button type="button" className="hover:text-ochre transition-colors" onClick={handleLogout}>
                   {t('nav.logout')}
                 </button>
               </>
             ) : (
-              <Link to="/login" className={desktopLinkClass}>{t('nav.login')}</Link>
+              <PreloadLink to="/login" preload={routeLoaders.login} className={desktopLinkClass}>{t('nav.login')}</PreloadLink>
             )}
 
             <span className="opacity-40 select-none">|</span>
@@ -310,33 +312,33 @@ const Layout: React.FC = () => {
             className="mt-4 border-t border-mountain-grey border-opacity-70 pt-2 text-sm tracking-widest text-ink-light md:hidden"
           >
             <Link to="/" onClick={closeMobileMenu} className={mobileLinkClass}>{t('nav.home')}</Link>
-            <Link to="/archive" onClick={closeMobileMenu} className={mobileLinkClass}>{t('nav.archive')}</Link>
-            <Link to="/search" onClick={closeMobileMenu} className={mobileLinkClass}>{t('nav.search')}</Link>
+            <PreloadLink to="/archive" preload={routeLoaders.archive} onClick={closeMobileMenu} className={mobileLinkClass}>{t('nav.archive')}</PreloadLink>
+            <PreloadLink to="/search" preload={routeLoaders.search} onClick={closeMobileMenu} className={mobileLinkClass}>{t('nav.search')}</PreloadLink>
             {projectsPageEnabled && !projectsNavHidden && (
-              <Link to="/projects" onClick={closeMobileMenu} className={mobileLinkClass}>{language === 'zh' ? '项目' : 'Projects'}</Link>
+              <PreloadLink to="/projects" preload={routeLoaders.projects} onClick={closeMobileMenu} className={mobileLinkClass}>{language === 'zh' ? '项目' : 'Projects'}</PreloadLink>
             )}
             {resumePageEnabled && !resumeNavHidden && (
-              <Link to="/resume" onClick={closeMobileMenu} className={mobileLinkClass}>{language === 'zh' ? '简介' : 'About'}</Link>
+              <PreloadLink to="/resume" preload={routeLoaders.resume} onClick={closeMobileMenu} className={mobileLinkClass}>{language === 'zh' ? '简介' : 'About'}</PreloadLink>
             )}
             {user ? (
               <>
                 {(user.role === 'admin' || user.role === 'editor') && (
-                  <Link to="/admin" onClick={closeMobileMenu} className={`${mobileLinkClass} font-bold text-ochre`}>
+                  <PreloadLink to="/admin" preload={[routeLoaders.adminLayout, routeLoaders.adminDashboard]} onClick={closeMobileMenu} className={`${mobileLinkClass} font-bold text-ochre`}>
                     {t('nav.admin')}
-                  </Link>
+                  </PreloadLink>
                 )}
-                <Link to="/profile" onClick={closeMobileMenu} className={`${mobileLinkClass} flex items-center gap-3`}>
+                <PreloadLink to="/profile" preload={routeLoaders.profile} onClick={closeMobileMenu} className={`${mobileLinkClass} flex items-center gap-3`}>
                   {shouldShowAvatar && (
                     <img src={avatarUrl} alt="avatar" className="h-7 w-7 rounded-full border border-mountain-grey object-cover" />
                   )}
                   <span>{user.nickname || user.account}</span>
-                </Link>
+                </PreloadLink>
                 <button type="button" className={mobileActionClass} onClick={handleLogout}>
                   {t('nav.logout')}
                 </button>
               </>
             ) : (
-              <Link to="/login" onClick={closeMobileMenu} className={mobileLinkClass}>{t('nav.login')}</Link>
+              <PreloadLink to="/login" preload={routeLoaders.login} onClick={closeMobileMenu} className={mobileLinkClass}>{t('nav.login')}</PreloadLink>
             )}
 
             <div className="pt-3">

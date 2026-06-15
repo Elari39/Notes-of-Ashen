@@ -3,6 +3,8 @@ import { Link, useParams } from 'react-router-dom';
 import ImageLightbox, { LightboxImage } from '../components/ImageLightbox';
 import InlineNotice from '../components/InlineNotice';
 import MarkdownRenderer from '../components/MarkdownRenderer';
+import PagePendingState, { RoutePendingIndicator } from '../components/RoutePending';
+import { PreloadLink } from '../components/PreloadLink';
 import { getArticleById, getArticleContext, likeArticle } from '../api/article';
 import { useSEO } from '../utils/seo';
 import { getErrorMessage } from '../utils/error';
@@ -11,6 +13,7 @@ import { usePreferenceStore } from '../store/preferences';
 import { normalizeCoverUrl } from '../utils/cover';
 import { extractMarkdownHeadings, type MarkdownHeading } from '../utils/markdownHeadings';
 import type { Article, ArticleContext } from '../types';
+import { routeLoaders } from '../routes/lazyRoutes';
 
 type ArticleDetailData = Article & { content: string };
 
@@ -40,8 +43,10 @@ const ArticleDetail: React.FC = () => {
   const headings = useMemo(() => extractMarkdownHeadings(article?.content || '', 3), [article?.content]);
 
   useEffect(() => {
+    let active = true;
     const fetchArticle = async () => {
       if (!id) {
+        setArticle(null);
         setLoading(false);
         return;
       }
@@ -50,10 +55,7 @@ const ArticleDetail: React.FC = () => {
       setError('');
       setContextError('');
       setLikeError('');
-      setArticle(null);
       setArticleContext(null);
-      setLikeCount(0);
-      setHasLiked(false);
       setActiveHeadingId('');
       setReadingProgress(0);
       setCoverError(false);
@@ -61,24 +63,38 @@ const ArticleDetail: React.FC = () => {
 
       try {
         const res = await getArticleById(id);
+        if (!active) {
+          return;
+        }
         setArticle({ ...res.data, content: res.data.content || '' });
         setLikeCount(res.data.likeCount || 0);
         setHasLiked(localStorage.getItem(articleLikeStorageKey(res.data.id)) === '1');
 
         try {
           const contextRes = await getArticleContext(id);
-          setArticleContext(contextRes.data);
+          if (active) {
+            setArticleContext(contextRes.data);
+          }
         } catch (contextErr) {
-          setContextError(getErrorMessage(contextErr, translate(language, 'article.loadError')));
+          if (active) {
+            setContextError(getErrorMessage(contextErr, translate(language, 'article.loadError')));
+          }
         }
       } catch (err) {
-        setError(getErrorMessage(err, translate(language, 'article.loadError')));
+        if (active) {
+          setError(getErrorMessage(err, translate(language, 'article.loadError')));
+        }
       } finally {
-        setLoading(false);
+        if (active) {
+          setLoading(false);
+        }
       }
     };
 
     fetchArticle();
+    return () => {
+      active = false;
+    };
   }, [id, language]);
 
   useEffect(() => {
@@ -182,8 +198,8 @@ const ArticleDetail: React.FC = () => {
     }
   };
 
-  if (loading) {
-    return <div className="flex-grow flex items-center justify-center text-ink-light tracking-widest">{t('common.loadingArticle')}</div>;
+  if (loading && !article) {
+    return <PagePendingState label={t('common.loadingArticle')} />;
   }
 
   if (!article) {
@@ -199,6 +215,7 @@ const ArticleDetail: React.FC = () => {
 
   return (
     <>
+      {loading && <RoutePendingIndicator />}
       <div
         className="fixed left-0 top-0 z-[70] h-px bg-ochre transition-[width] duration-150"
         style={{ width: `${readingProgress}%` }}
@@ -208,6 +225,8 @@ const ArticleDetail: React.FC = () => {
         <div className="hidden lg:block" aria-hidden="true" />
 
         <article className="min-w-0 w-full">
+          {loading && <PagePendingState variant="inline" label={t('common.loadingArticle')} />}
+          <InlineNotice message={error} className="mb-6" />
           <header className="mb-16 text-center">
             {coverUrl && (
               <div className="mb-12 w-full h-64 md:h-80 overflow-hidden relative">
@@ -405,14 +424,15 @@ const ArticleContextBlock: React.FC<{ context: ArticleContext | null; error: str
           <h2 className="mb-5 text-sm font-bold tracking-widest text-ink">{labels.related}</h2>
           <div className="grid gap-4 md:grid-cols-3">
             {context.related.map((item) => (
-              <Link
+              <PreloadLink
                 key={item.id}
                 to={`/article/${item.id}`}
+                preload={routeLoaders.articleDetail}
                 className="border border-mountain-grey bg-[var(--paper-soft)] p-4 transition-colors hover:border-ochre"
               >
                 <h3 className="line-clamp-2 font-bold leading-relaxed text-ink">{item.title}</h3>
                 <p className="mt-3 line-clamp-3 text-sm leading-relaxed text-ink-light">{item.summary}</p>
-              </Link>
+              </PreloadLink>
             ))}
           </div>
         </div>
@@ -431,13 +451,14 @@ const ArticleNavLink: React.FC<{
   }
 
   return (
-    <Link
+    <PreloadLink
       to={`/article/${article.id}`}
+      preload={routeLoaders.articleDetail}
       className={`block border border-mountain-grey bg-[var(--paper-soft)] p-4 transition-colors hover:border-ochre ${align === 'right' ? 'md:text-right' : ''}`}
     >
       <span className="text-xs tracking-widest text-ink-light">{label}</span>
       <h2 className="mt-2 line-clamp-2 font-bold leading-relaxed text-ink">{article.title}</h2>
-    </Link>
+    </PreloadLink>
   );
 };
 
