@@ -2,6 +2,9 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate, useOutlet } from 'react-router-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { PreloadLink } from './PreloadLink';
+import Toaster from './Toaster';
+import BackToTop from './BackToTop';
+import RequestProgressBar from './RequestProgressBar';
 import { useAuthStore } from '../store/auth';
 import { usePreferenceStore } from '../store/preferences';
 import { useSiteSettingsStore } from '../store/siteSettings';
@@ -245,6 +248,8 @@ const Layout: React.FC = () => {
 
   return (
     <div className="min-h-screen flex flex-col font-serif bg-paper text-ink transition-colors duration-300">
+      <Toaster />
+      <RequestProgressBar />
       <header ref={headerRef} className="border-b border-mountain-grey border-opacity-70 px-4 py-4 md:px-12 md:py-6">
         <div className="flex items-center justify-between gap-4">
           <Link to="/" className="text-2xl tracking-widest text-ink hover:text-ochre transition-colors duration-300">
@@ -286,7 +291,7 @@ const Layout: React.FC = () => {
                 )}
                 <PreloadLink to="/profile" preload={routeLoaders.profile} className="flex items-center space-x-2 hover:text-ink transition-colors group">
                   {shouldShowAvatar && (
-                    <img src={avatarUrl} alt="avatar" className="w-6 h-6 rounded-full border border-mountain-grey group-hover:border-ochre transition-colors object-cover" />
+                    <img src={avatarUrl} alt="avatar" decoding="async" className="w-6 h-6 rounded-full border border-mountain-grey group-hover:border-ochre transition-colors object-cover" />
                   )}
                   <span>{user.nickname || user.account}</span>
                 </PreloadLink>
@@ -329,7 +334,7 @@ const Layout: React.FC = () => {
                 )}
                 <PreloadLink to="/profile" preload={routeLoaders.profile} onClick={closeMobileMenu} className={`${mobileLinkClass} flex items-center gap-3`}>
                   {shouldShowAvatar && (
-                    <img src={avatarUrl} alt="avatar" className="h-7 w-7 rounded-full border border-mountain-grey object-cover" />
+                    <img src={avatarUrl} alt="avatar" loading="lazy" decoding="async" className="h-7 w-7 rounded-full border border-mountain-grey object-cover" />
                   )}
                   <span>{user.nickname || user.account}</span>
                 </PreloadLink>
@@ -368,6 +373,8 @@ const Layout: React.FC = () => {
         <p>{t('footer.poem')}</p>
         <p className="mt-2">&copy; 2026 {t('brand.nameEn')}. {t('footer.crafted')}</p>
       </footer>
+
+      <BackToTop />
     </div>
   );
 };

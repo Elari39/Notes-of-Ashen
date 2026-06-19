@@ -7,8 +7,11 @@ interface AuthState {
   accessToken: string | null;
   isFetching: boolean;
   isInitialized: boolean;
+  /** 会话失效（401 刷新失败）时由 http 层触发，由 App 注入跳转逻辑 */
+  onSessionExpired?: () => void;
   setAuth: (user: User | null, token: string | null) => void;
   logout: () => void;
+  setSessionExpiredHandler: (handler: (() => void) | undefined) => void;
   fetchUser: () => Promise<void>;
   initializeAuth: () => Promise<void>;
 }
@@ -20,15 +23,21 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   accessToken: storedAccessToken,
   isFetching: false,
   isInitialized: !storedAccessToken,
+  onSessionExpired: undefined,
   setAuth: (user, token) => {
     if (token) localStorage.setItem('accessToken', token);
     else localStorage.removeItem('accessToken');
+    window.dispatchEvent(new Event('noa:auth-changed'));
     set({ user, accessToken: token, isInitialized: true });
   },
   logout: () => {
     localStorage.removeItem('accessToken');
     localStorage.removeItem('refreshToken');
+    window.dispatchEvent(new Event('noa:auth-changed'));
     set({ user: null, accessToken: null, isInitialized: true, isFetching: false });
+  },
+  setSessionExpiredHandler: (handler) => {
+    set({ onSessionExpired: handler });
   },
   fetchUser: async () => {
     if (!get().accessToken) {

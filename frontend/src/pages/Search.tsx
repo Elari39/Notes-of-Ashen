@@ -4,6 +4,7 @@ import InlineNotice from '../components/InlineNotice';
 import Pagination from '../components/Pagination';
 import SearchHighlight from '../components/SearchHighlight';
 import PagePendingState from '../components/RoutePending';
+import ArticleCardSkeleton from '../components/ArticleCardSkeleton';
 import { PreloadLink } from '../components/PreloadLink';
 import { getArticles } from '../api/article';
 import { getErrorMessage } from '../utils/error';
@@ -197,9 +198,16 @@ const Search: React.FC = () => {
 
             <InlineNotice message={error} />
 
-            {loading && (
+            {loading && articles.length === 0 && (
+              <div className="space-y-12">
+                {Array.from({ length: 5 }).map((_, index) => (
+                  <ArticleCardSkeleton key={index} className="border-b border-mountain-grey border-opacity-40 pb-12" />
+                ))}
+              </div>
+            )}
+            {loading && articles.length > 0 && (
               <PagePendingState
-                variant={articles.length > 0 ? 'inline' : 'page'}
+                variant="inline"
                 label={t('search.loading')}
               />
             )}
@@ -227,6 +235,8 @@ const Search: React.FC = () => {
                               <img
                                 src={coverUrl}
                                 alt={article.title}
+                                loading="lazy"
+                                decoding="async"
                                 onError={() => handleCoverError(article.id)}
                                 onLoad={() => handleCoverLoad(article.id)}
                                 className="h-full w-full object-cover grayscale opacity-80 transition-all duration-700 group-hover:grayscale-0 group-hover:opacity-100"

@@ -1,5 +1,5 @@
 import { Suspense, useEffect, useRef, type ReactElement } from 'react';
-import { Routes, Route, useLocation } from 'react-router-dom';
+import { Routes, Route, useLocation, useNavigate } from 'react-router-dom';
 import Layout from './components/Layout';
 import Home from './pages/Home';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -58,6 +58,18 @@ function App() {
     projectsPageEnabled,
   } = useSiteSettingsStore();
   const initializeAuth = useAuthStore((state) => state.initializeAuth);
+  const setSessionExpiredHandler = useAuthStore((state) => state.setSessionExpiredHandler);
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  // 会话失效时跳转登录页并携带来源路径，登录后可回跳
+  useEffect(() => {
+    setSessionExpiredHandler(() => {
+      const from = `${location.pathname}${location.search}${location.hash}`;
+      navigate('/login', { state: { from }, replace: true });
+    });
+    return () => setSessionExpiredHandler(undefined);
+  }, [setSessionExpiredHandler, navigate, location]);
 
   useEffect(() => {
     return initializePreferences();

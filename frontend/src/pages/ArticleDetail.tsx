@@ -4,6 +4,7 @@ import ImageLightbox, { LightboxImage } from '../components/ImageLightbox';
 import InlineNotice from '../components/InlineNotice';
 import MarkdownRenderer from '../components/MarkdownRenderer';
 import PagePendingState, { RoutePendingIndicator } from '../components/RoutePending';
+import ArticleDetailSkeleton from '../components/ArticleDetailSkeleton';
 import { PreloadLink } from '../components/PreloadLink';
 import { getArticleById, getArticleContext, likeArticle } from '../api/article';
 import { useSEO } from '../utils/seo';
@@ -199,7 +200,7 @@ const ArticleDetail: React.FC = () => {
   };
 
   if (loading && !article) {
-    return <PagePendingState label={t('common.loadingArticle')} />;
+    return <ArticleDetailSkeleton />;
   }
 
   if (!article) {
@@ -245,6 +246,8 @@ const ArticleDetail: React.FC = () => {
                       <img
                         src={coverUrl}
                         alt={article.title}
+                        loading="lazy"
+                        decoding="async"
                         onError={() => setCoverError(true)}
                         onLoad={() => setCoverError(false)}
                         className="w-full h-full object-cover grayscale hover:grayscale-0 transition-all duration-700"

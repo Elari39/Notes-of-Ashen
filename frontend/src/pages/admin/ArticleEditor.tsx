@@ -10,8 +10,10 @@ import MarkdownRenderer from '../../components/MarkdownRenderer';
 import { getErrorMessage } from '../../utils/error';
 import { generateSlug } from '../../utils/slug';
 import { isValidCoverUrl } from '../../utils/cover';
+import { notifyFromError } from '../../utils/notify';
 import { formatText, getArticleStatusLabel, translate } from '../../i18n';
 import { usePreferenceStore } from '../../store/preferences';
+import { useSubmit } from '../../hooks/useSubmit';
 
 type TaxonomyOption = {
   id: number;
@@ -248,7 +250,6 @@ const ArticleEditor: React.FC = () => {
   const [categories, setCategories] = useState<Category[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
   const [error, setError] = useState('');
-  const [submitting, setSubmitting] = useState(false);
   const [categoryError, setCategoryError] = useState('');
   const [categorySubmitting, setCategorySubmitting] = useState(false);
   const [tagError, setTagError] = useState('');
@@ -456,20 +457,12 @@ const ArticleEditor: React.FC = () => {
     setAiNotice(aiText.draftDiscarded);
   };
 
-  const handleSave = async () => {
-    const trimmedCoverUrl = coverUrl.trim();
-    if (!isValidCoverUrl(trimmedCoverUrl)) {
-      setError(t('articleEditor.coverUrlError'));
-      return;
-    }
-
-    setError('');
-    setAiNotice('');
-    setSubmitting(true);
-    let nextSummary = summary;
-    let nextSeoDescription = seoDescription;
-    let nextSeoKeywords = seoKeywords;
-    try {
+  const { submit: submitSave, submitting } = useSubmit({
+    handler: async () => {
+      const trimmedCoverUrl = coverUrl.trim();
+      let nextSummary = summary;
+      let nextSeoDescription = seoDescription;
+      let nextSeoKeywords = seoKeywords;
       if (generateSummaryOnSave && content.trim()) {
         try {
           const aiRes = await assistArticle({ action: 'metadata', title, content });
@@ -487,8 +480,9 @@ const ArticleEditor: React.FC = () => {
             nextSeoKeywords = aiRes.data.seoKeywords.trim();
             setSeoKeywords(nextSeoKeywords);
           }
-        } catch {
+        } catch (e) {
           // 自动摘要只是保存时的辅助能力，失败不应阻断文章保存。
+          notifyFromError(e, 'toast.summaryFailed');
         }
       }
 
@@ -506,19 +500,32 @@ const ArticleEditor: React.FC = () => {
 
       if (isEdit) {
         await updateArticle(id, payload);
+        removeEditorDraft(editorDraftKey(id));
       } else {
         await createArticle(payload);
         removeEditorDraft(editorDraftKey('new'));
       }
-      if (isEdit) {
-        removeEditorDraft(editorDraftKey(id));
-      }
+    },
+    successMessage: t('toast.saveSuccess'),
+    errorFallback: t('articleEditor.saveError'),
+    onSuccess: () => {
       navigate('/admin/articles');
-    } catch (e: unknown) {
-      setError(getErrorMessage(e, t('articleEditor.saveError')));
-    } finally {
-      setSubmitting(false);
+    },
+    onError: (err) => {
+      // 保留 InlineNotice 既有展示位
+      setError(err.message);
+    },
+  });
+
+  const handleSave = () => {
+    const trimmedCoverUrl = coverUrl.trim();
+    if (!isValidCoverUrl(trimmedCoverUrl)) {
+      setError(t('articleEditor.coverUrlError'));
+      return;
     }
+    setError('');
+    setAiNotice('');
+    void submitSave();
   };
 
   const handleAIAssist = async (action: AIAssistAction) => {

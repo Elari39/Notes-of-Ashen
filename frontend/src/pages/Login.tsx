@@ -1,13 +1,15 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, Link, useLocation, type Location } from 'react-router-dom';
 import { login } from '../api/auth';
 import { useAuthStore } from '../store/auth';
 import { usePreferenceStore } from '../store/preferences';
 import { useSiteSettingsStore } from '../store/siteSettings';
 import CaptchaField from '../components/CaptchaField';
+import FormField from '../components/FormField';
 import InlineNotice from '../components/InlineNotice';
-import { getErrorMessage } from '../utils/error';
 import { translate } from '../i18n';
+import { useFormValidation, type FieldRules } from '../hooks/useFormValidation';
+import { useSubmit } from '../hooks/useSubmit';
 
 const Login: React.FC = () => {
   const language = usePreferenceStore((state) => state.language);
@@ -18,8 +20,6 @@ const Login: React.FC = () => {
   const [captchaCode, setCaptchaCode] = useState('');
   const [captchaReloadKey, setCaptchaReloadKey] = useState(0);
   const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState('');
-  const [submitting, setSubmitting] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
   const { user, accessToken, isFetching, isInitialized, setAuth, fetchUser } = useAuthStore();
@@ -29,6 +29,30 @@ const Login: React.FC = () => {
     ? `${from.pathname}${from.search}${from.hash}`
     : '/';
 
+  const rules = useMemo<FieldRules<{ account: string; password: string }>>(() => ({
+    account: [{ type: 'required' }],
+    password: [{ type: 'required' }],
+  }), []);
+  const { errors, validateField, validate } = useFormValidation({ account, password }, rules);
+
+  const { submit: submitLogin, submitting, error } = useSubmit({
+    handler: async () => {
+      const res = await login({ account, password, captchaId, captchaCode });
+      const token = res.data.accessToken;
+      localStorage.setItem('refreshToken', res.data.refreshToken);
+      setAuth(null, token);
+      await fetchUser();
+    },
+    errorFallback: t('auth.loginError'),
+    onSuccess: () => {
+      navigate(redirectTo, { replace: true });
+    },
+    onError: () => {
+      // 登录失败需要刷新图形验证码（旧逻辑保持不变）
+      setCaptchaReloadKey((value) => value + 1);
+    },
+  });
+
   useEffect(() => {
     if (!isInitialized || isFetching || !accessToken || !user) {
       return;
@@ -36,23 +60,12 @@ const Login: React.FC = () => {
     navigate(redirectTo, { replace: true });
   }, [accessToken, isFetching, isInitialized, navigate, redirectTo, user]);
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
-    setSubmitting(true);
-    try {
-      const res = await login({ account, password, captchaId, captchaCode });
-      const token = res.data.accessToken;
-      localStorage.setItem('refreshToken', res.data.refreshToken);
-      setAuth(null, token);
-      await fetchUser();
-      navigate(redirectTo, { replace: true });
-    } catch (err: unknown) {
-      setError(getErrorMessage(err, t('auth.loginError')));
-      setCaptchaReloadKey((value) => value + 1);
-    } finally {
-      setSubmitting(false);
+    if (!validate()) {
+      return;
     }
+    void submitLogin();
   };
 
   if (!isInitialized || isFetching) {
@@ -68,34 +81,49 @@ const Login: React.FC = () => {
       <div className="w-full max-w-sm">
         <h1 className="text-3xl font-bold text-ink mb-12 text-center tracking-widest">{t('auth.loginTitle')}</h1>
         <form onSubmit={handleLogin} className="space-y-8">
-          <div>
+          <FormField id="login-account" label={t('auth.accountOrEmail')} error={errors.account}>
             <input
               type="text"
               placeholder={t('auth.accountOrEmail')}
               value={account}
               onChange={(e) => setAccount(e.target.value)}
+              onBlur={() => validateField('account')}
               className="w-full bg-transparent border-b border-mountain-grey py-2 px-1 text-ink focus:outline-none focus:border-ochre transition-colors placeholder-ink-light placeholder-opacity-50"
               required
             />
-          </div>
-          <div className="relative">
-            <input
-              type={showPassword ? 'text' : 'password'}
-              placeholder={t('auth.password')}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full bg-transparent border-b border-mountain-grey py-2 pl-1 pr-16 text-ink focus:outline-none focus:border-ochre transition-colors placeholder-ink-light placeholder-opacity-50"
-              required
-            />
-            <button
-              type="button"
-              onClick={() => setShowPassword((visible) => !visible)}
-              className="absolute right-1 top-1/2 -translate-y-1/2 text-xs tracking-widest text-ink-light hover:text-ochre transition-colors"
-              aria-label={showPassword ? t('auth.hidePassword') : t('auth.showPassword')}
-              title={showPassword ? t('auth.hidePassword') : t('auth.showPassword')}
-            >
-              {showPassword ? t('auth.hidePassword') : t('auth.showPassword')}
-            </button>
+          </FormField>
+          <div>
+            <label htmlFor="login-password" className="mb-2 block text-xs tracking-widest text-ink-light">
+              {t('auth.password')}
+            </label>
+            <div className="relative">
+              <input
+                id="login-password"
+                type={showPassword ? 'text' : 'password'}
+                placeholder={t('auth.password')}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                onBlur={() => validateField('password')}
+                aria-invalid={errors.password ? true : undefined}
+                aria-describedby={errors.password ? 'login-password-error' : undefined}
+                className="w-full bg-transparent border-b border-mountain-grey py-2 pl-1 pr-16 text-ink focus:outline-none focus:border-ochre transition-colors placeholder-ink-light placeholder-opacity-50"
+                required
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((visible) => !visible)}
+                className="absolute right-1 top-1/2 -translate-y-1/2 text-xs tracking-widest text-ink-light hover:text-ochre transition-colors"
+                aria-label={showPassword ? t('auth.hidePassword') : t('auth.showPassword')}
+                title={showPassword ? t('auth.hidePassword') : t('auth.showPassword')}
+              >
+                {showPassword ? t('auth.hidePassword') : t('auth.showPassword')}
+              </button>
+            </div>
+            {errors.password && (
+              <p id="login-password-error" role="alert" className="mt-2 border-l-2 border-ochre bg-[var(--notice-bg)] px-3 py-2 text-xs text-ochre">
+                {errors.password}
+              </p>
+            )}
           </div>
           <CaptchaField
             purpose="login"

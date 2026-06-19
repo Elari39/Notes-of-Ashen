@@ -35,13 +35,13 @@ func NewServiceContext(c config.Config) *ServiceContext {
 		Addr:            c.Redis.Addr,
 		Password:        c.Redis.Password,
 		DB:              c.Redis.DB,
-		DialTimeout:     300 * time.Millisecond,
-		ReadTimeout:     300 * time.Millisecond,
-		WriteTimeout:    300 * time.Millisecond,
-		PoolTimeout:     300 * time.Millisecond,
-		MaxRetries:      -1,
+		DialTimeout:     3 * time.Second,
+		ReadTimeout:     1 * time.Second,
+		WriteTimeout:    1 * time.Second,
+		PoolTimeout:     2 * time.Second,
+		MaxRetries:      2,
 		MinRetryBackoff: 50 * time.Millisecond,
-		MaxRetryBackoff: 100 * time.Millisecond,
+		MaxRetryBackoff: 300 * time.Millisecond,
 	})
 	events := mq.NewPublisher(c.RabbitMQ)
 	mq.StartConsumer(c.RabbitMQ, db)

@@ -6,6 +6,7 @@ import { getAdminResumePage, updateAdminResumePage } from '../../api/siteSetting
 import { usePreferenceStore } from '../../store/preferences';
 import type { ResumeEducation, ResumeExperience, ResumePage, ResumeSkill } from '../../types';
 import { getErrorMessage } from '../../utils/error';
+import { useSubmit } from '../../hooks/useSubmit';
 
 const emptyResume: ResumePage = {
   title: '简介',
@@ -22,14 +23,12 @@ const AdminResumeContent: React.FC = () => {
   const [saved, setSaved] = useState<ResumePage | null>(null);
   const [draft, setDraft] = useState<ResumePage>(emptyResume);
   const [isLoading, setIsLoading] = useState(true);
-  const [isSaving, setIsSaving] = useState(false);
-  const [error, setError] = useState('');
-  const [notice, setNotice] = useState('');
+  const [loadError, setLoadError] = useState('');
 
   useEffect(() => {
     let active = true;
     setIsLoading(true);
-    setError('');
+    setLoadError('');
     getAdminResumePage()
       .then((res) => {
         if (!active) {
@@ -41,7 +40,7 @@ const AdminResumeContent: React.FC = () => {
       })
       .catch((e: unknown) => {
         if (active) {
-          setError(getErrorMessage(e, text.loadError));
+          setLoadError(getErrorMessage(e, text.loadError));
         }
       })
       .finally(() => {
@@ -59,30 +58,33 @@ const AdminResumeContent: React.FC = () => {
     [draft, saved],
   );
 
-  const handleSave = async () => {
-    setError('');
-    setNotice('');
-    setIsSaving(true);
-    try {
+  const {
+    submit: handleSave,
+    submitting: isSaving,
+    error: saveError,
+    reset: resetSaveError,
+  } = useSubmit({
+    handler: async () => {
       const payload = normalizeResumeForSave(draft);
       const res = await updateAdminResumePage(payload);
-      const next = normalizeResumePage(res.data);
+      return normalizeResumePage(res.data);
+    },
+    successMessage: text.saved,
+    errorFallback: text.saveError,
+    onSuccess: (next) => {
       setSaved(next);
       setDraft(next);
-      setNotice(text.saved);
-    } catch (e: unknown) {
-      setError(getErrorMessage(e, text.saveError));
-    } finally {
-      setIsSaving(false);
-    }
-  };
+    },
+  });
+
+  const error = loadError || saveError;
 
   const handleReset = () => {
     if (saved) {
       setDraft(saved);
     }
-    setError('');
-    setNotice('');
+    setLoadError('');
+    resetSaveError();
   };
 
   return (
@@ -92,7 +94,6 @@ const AdminResumeContent: React.FC = () => {
       </div>
 
       <InlineNotice message={error} className="mb-6" />
-      <InlineNotice message={notice} tone="success" className="mb-6" />
 
       {isLoading && (
         <PagePendingState
@@ -176,7 +177,7 @@ const AdminResumeContent: React.FC = () => {
           <div className="flex flex-wrap gap-3">
             <button
               type="button"
-              onClick={handleSave}
+              onClick={() => { void handleSave(); }}
               disabled={isSaving || !hasChanges}
               className="border border-ink px-4 py-2 text-sm tracking-widest text-ink transition-colors hover:bg-ink hover:text-paper disabled:cursor-not-allowed disabled:opacity-50"
             >
@@ -484,7 +485,9 @@ const resumeItemKey = <T extends { id?: number }>(prefix: string) => (item: T, i
   if (item.id) {
     return `${prefix}:${item.id}`;
   }
-  return `${prefix}:new:${index}:${JSON.stringify(item)}`;
+  // 新建条目暂无后端 id，按 index 生成稳定 key；不能拼入 item 内容，否则
+  // 每输入一个字符 key 就变，React 会卸载并重挂整个 *Editor 子树导致 input 失焦。
+  return `${prefix}:new:${index}`;
 };
 
 const normalizeResumeForSave = (page: ResumePage) => ({

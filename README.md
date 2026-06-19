@@ -129,10 +129,10 @@ Windows PowerShell：
 Copy-Item .env.example .env
 ```
 
-至少需要检查并替换这些值：
+至少需要检查并替换这些值。模板中的 `<REPLACE_...>` 只用于提示，不是可用默认值；后端启动时会拒绝空值、示例占位值和过短的 JWT 密钥，请把真实密码/密钥只写入 `.env` 或部署平台环境变量。
 
 - `APP_DISPLAY_NAME`：站点对外展示名称，默认 `Notes of Ashen`。
-- `APP_AUTH_ACCESS_SECRET`：JWT 签名密钥，生产环境必须替换为足够长的随机字符串。
+- `APP_AUTH_ACCESS_SECRET`：JWT 签名密钥，生产环境必须替换为足够长的随机字符串，建议至少 32 位。
 - `APP_DATABASE_DSN`：远程 MySQL 连接串，例如 `notes_user:password@tcp(mysql.example.com:3306)/notes_of_ashen?charset=utf8mb4&parseTime=true&loc=Local`。
 - `APP_DATABASE_MAX_OPEN_CONNS`：MySQL 最大打开连接数。
 - `APP_DATABASE_MAX_IDLE_CONNS`：MySQL 最大空闲连接数。
@@ -143,7 +143,7 @@ Copy-Item .env.example .env
 - `APP_RABBITMQ_URL`：远程 RabbitMQ AMQP 地址，例如 `amqp://rabbit_user:password@rabbitmq.example.com:5672/`。
 - `APP_SEARCH_ENABLED`：是否启用 Meilisearch 全文搜索，默认 `false`，关闭时自动回退 MySQL 查询。
 - `APP_MEILISEARCH_HOST`：API 访问 Meilisearch 的地址，Docker 部署默认 `http://meilisearch:7700`。
-- `APP_MEILISEARCH_API_KEY`：Meilisearch API Key；Docker 部署时也作为 Meilisearch Master Key。
+- `APP_MEILISEARCH_API_KEY`：Meilisearch API Key；Docker 部署时也作为 Meilisearch Master Key。即使搜索默认关闭，Compose 中的 Meilisearch 容器也需要该值，请在 `.env` 中填写强随机字符串。
 - `APP_MEILISEARCH_INDEX`：文章索引名，默认 `articles`。
 - `APP_EMAIL_ENABLED`：是否启用邮箱验证码，使用 QQ 邮箱时设置为 `true`。
 - `APP_EMAIL_SMTP_USERNAME`：QQ 邮箱账号，例如 `yourname@qq.com`。
@@ -170,7 +170,7 @@ Copy-Item .env.example .env
 当前 `docker-compose.yml` 不再启动内置 MySQL、Redis 和 RabbitMQ，API 容器会直接读取 `.env` 中的远程连接配置。1Panel 部署前请先完成：
 
 - 远程 MySQL 创建数据库 `notes_of_ashen`，创建专用用户并只授权给 1Panel 服务器 IP 或内网网段。
-- 在远程 MySQL 执行 [deploy/mysql/schema.sql](deploy/mysql/schema.sql) 初始化表结构；旧库迁移前先备份，再按实际版本补执行 [deploy/mysql](deploy/mysql) 下的增量脚本。
+- 在远程 MySQL 执行 [deploy/mysql/schema.sql](deploy/mysql/schema.sql) 初始化表结构；旧库迁移前先备份，再按实际版本补执行 [deploy/mysql](deploy/mysql) 下的增量脚本。增量脚本应在 `notes_of_ashen` 库中执行；现有脚本均显式 `USE notes_of_ashen;`，不要在其他库中直接运行。
 - 确认远程 Redis、RabbitMQ 防火墙和安全组允许 1Panel 服务器访问，避免对公网裸露。
 - 如果 MySQL DSN 或 RabbitMQ URL 的密码包含 `@`、`:`、`/`、`?`、`#` 等 URL 分隔符，请先做 URL 转义，或使用不含这些分隔符的强随机密码。
 
