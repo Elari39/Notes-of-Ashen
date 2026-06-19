@@ -1,12 +1,14 @@
 package svc
 
 import (
+	"context"
 	"time"
 
 	"notes-of-ashen/internal/authutil"
 	appcache "notes-of-ashen/internal/cache"
 	"notes-of-ashen/internal/config"
 	"notes-of-ashen/internal/emailer"
+	"notes-of-ashen/internal/middleware"
 	"notes-of-ashen/internal/mq"
 	"notes-of-ashen/internal/search"
 	"notes-of-ashen/model"
@@ -16,14 +18,15 @@ import (
 )
 
 type ServiceContext struct {
-	Config config.Config
-	Store  *model.Store
-	Redis  *redis.Client
-	Cache  *appcache.JSONCache
-	Search *search.Client
-	Tokens *authutil.Manager
-	Events *mq.Publisher
-	Mailer *emailer.Sender
+	Config        config.Config
+	Store         *model.Store
+	Redis         *redis.Client
+	Cache         *appcache.JSONCache
+	Search        *search.Client
+	Tokens        *authutil.Manager
+	Events        *mq.Publisher
+	Mailer        *emailer.Sender
+	AuthUserCache middleware.AuthUserCache
 }
 
 func NewServiceContext(c config.Config) *ServiceContext {
@@ -43,18 +46,26 @@ func NewServiceContext(c config.Config) *ServiceContext {
 		MinRetryBackoff: 50 * time.Millisecond,
 		MaxRetryBackoff: 300 * time.Millisecond,
 	})
+	// Redis 是限流、缓存、refresh token 的关键依赖，启动时 PING 校验，失败 fail-fast。
+	pingCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	if err := redisClient.Ping(pingCtx).Err(); err != nil {
+		cancel()
+		logx.Must(err)
+	}
+	cancel()
 	events := mq.NewPublisher(c.RabbitMQ)
 	mq.StartConsumer(c.RabbitMQ, db)
 
 	return &ServiceContext{
-		Config: c,
-		Store:  store,
-		Redis:  redisClient,
-		Cache:  appcache.NewJSONCache(redisClient),
-		Search: search.NewClient(c.Search),
-		Tokens: authutil.NewManager(c.Auth.AccessSecret, c.Auth.AccessExpire, c.Auth.RefreshExpire),
-		Events: events,
-		Mailer: emailer.NewSender(c.Email),
+		Config:        c,
+		Store:         store,
+		Redis:         redisClient,
+		Cache:         appcache.NewJSONCache(redisClient),
+		Search:        search.NewClient(c.Search),
+		Tokens:        authutil.NewManager(c.Auth.AccessSecret, c.Auth.AccessExpire, c.Auth.RefreshExpire),
+		Events:        events,
+		Mailer:        emailer.NewSender(c.Email),
+		AuthUserCache: middleware.NewAuthUserCache(redisClient),
 	}
 }
 

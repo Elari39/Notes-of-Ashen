@@ -210,7 +210,12 @@ var insecureConfigMarkers = []string{
 	"notes_of_ashen_meili_master_key",
 }
 
-func (c Config) Validate() error {
+// ValidateConfig validates the resolved configuration. It is intentionally NOT
+// named Validate so go-zero's conf.MustLoad does not auto-invoke it before
+// .env / ApplyEnv have run (MustLoad calls any Validate() error method
+// immediately after unmarshalling the YAML, which would fail on the empty
+// placeholders that are meant to be filled from the environment).
+func (c Config) ValidateConfig() error {
 	if strings.TrimSpace(c.Database.DataSource) == "" {
 		return fmt.Errorf("APP_DATABASE_DSN is required")
 	}

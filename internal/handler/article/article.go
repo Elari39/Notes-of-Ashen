@@ -27,12 +27,12 @@ func ListHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		req, err := listReq(r)
 		if err != nil {
-			response.Error(w, err)
+			response.ErrorCtx(r.Context(), w, err)
 			return
 		}
 		resp, err := articlelogic.ListByFilter(r.Context(), svcCtx, req)
 		if err != nil {
-			response.Error(w, err)
+			response.ErrorCtx(r.Context(), w, err)
 			return
 		}
 		response.Ok(w, resp)
@@ -43,12 +43,12 @@ func AdminListHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		req, err := listReq(r)
 		if err != nil {
-			response.Error(w, err)
+			response.ErrorCtx(r.Context(), w, err)
 			return
 		}
 		resp, err := articlelogic.AdminList(r.Context(), svcCtx, req)
 		if err != nil {
-			response.Error(w, err)
+			response.ErrorCtx(r.Context(), w, err)
 			return
 		}
 		response.Ok(w, resp)
@@ -79,12 +79,12 @@ func DetailHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id, err := basehandler.PathID(r)
 		if err != nil {
-			response.Error(w, err)
+			response.ErrorCtx(r.Context(), w, err)
 			return
 		}
 		resp, err := articlelogic.Detail(r.Context(), svcCtx, id)
 		if err != nil {
-			response.Error(w, err)
+			response.ErrorCtx(r.Context(), w, err)
 			return
 		}
 		response.Ok(w, resp)
@@ -95,12 +95,12 @@ func PreviewHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id, err := basehandler.PathID(r)
 		if err != nil {
-			response.Error(w, err)
+			response.ErrorCtx(r.Context(), w, err)
 			return
 		}
 		resp, err := articlelogic.Preview(r.Context(), svcCtx, id)
 		if err != nil {
-			response.Error(w, err)
+			response.ErrorCtx(r.Context(), w, err)
 			return
 		}
 		response.Ok(w, resp)
@@ -111,12 +111,12 @@ func ContextHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id, err := basehandler.PathID(r)
 		if err != nil {
-			response.Error(w, err)
+			response.ErrorCtx(r.Context(), w, err)
 			return
 		}
 		resp, err := articlelogic.Context(r.Context(), svcCtx, id)
 		if err != nil {
-			response.Error(w, err)
+			response.ErrorCtx(r.Context(), w, err)
 			return
 		}
 		response.Ok(w, resp)
@@ -127,12 +127,12 @@ func LikeHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id, err := basehandler.PathID(r)
 		if err != nil {
-			response.Error(w, err)
+			response.ErrorCtx(r.Context(), w, err)
 			return
 		}
 		resp, err := articlelogic.Like(r.Context(), svcCtx, id, basehandler.Meta(r, forwardedOptions(svcCtx)))
 		if err != nil {
-			response.Error(w, err)
+			response.ErrorCtx(r.Context(), w, err)
 			return
 		}
 		response.Ok(w, resp)
@@ -143,12 +143,12 @@ func CreateHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req types.ArticleReq
 		if err := basehandler.Parse(r, &req); err != nil {
-			response.Error(w, err)
+			response.ErrorCtx(r.Context(), w, err)
 			return
 		}
 		resp, err := articlelogic.Create(r.Context(), svcCtx, req, basehandler.Meta(r, forwardedOptions(svcCtx)))
 		if err != nil {
-			response.Error(w, err)
+			response.ErrorCtx(r.Context(), w, err)
 			return
 		}
 		response.Ok(w, resp)
@@ -159,17 +159,17 @@ func UpdateHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id, err := basehandler.PathID(r)
 		if err != nil {
-			response.Error(w, err)
+			response.ErrorCtx(r.Context(), w, err)
 			return
 		}
 		var req types.ArticleReq
 		if err := basehandler.Parse(r, &req); err != nil {
-			response.Error(w, err)
+			response.ErrorCtx(r.Context(), w, err)
 			return
 		}
 		resp, err := articlelogic.Update(r.Context(), svcCtx, id, req, basehandler.Meta(r, forwardedOptions(svcCtx)))
 		if err != nil {
-			response.Error(w, err)
+			response.ErrorCtx(r.Context(), w, err)
 			return
 		}
 		response.Ok(w, resp)
@@ -180,11 +180,11 @@ func DeleteHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id, err := basehandler.PathID(r)
 		if err != nil {
-			response.Error(w, err)
+			response.ErrorCtx(r.Context(), w, err)
 			return
 		}
 		if err := articlelogic.Delete(r.Context(), svcCtx, id, basehandler.Meta(r, forwardedOptions(svcCtx))); err != nil {
-			response.Error(w, err)
+			response.ErrorCtx(r.Context(), w, err)
 			return
 		}
 		response.NoData(w)
@@ -195,13 +195,13 @@ func ListVersionsHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id, err := basehandler.PathID(r)
 		if err != nil {
-			response.Error(w, err)
+			response.ErrorCtx(r.Context(), w, err)
 			return
 		}
 		page, size := basehandler.PageSize(r)
 		resp, err := articlelogic.ListVersions(r.Context(), svcCtx, id, page, size)
 		if err != nil {
-			response.Error(w, err)
+			response.ErrorCtx(r.Context(), w, err)
 			return
 		}
 		response.Ok(w, resp)
@@ -212,17 +212,17 @@ func VersionDetailHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id, err := basehandler.PathID(r)
 		if err != nil {
-			response.Error(w, err)
+			response.ErrorCtx(r.Context(), w, err)
 			return
 		}
 		versionNo, err := basehandler.PathVersionNo(r)
 		if err != nil {
-			response.Error(w, err)
+			response.ErrorCtx(r.Context(), w, err)
 			return
 		}
 		resp, err := articlelogic.VersionDetail(r.Context(), svcCtx, id, versionNo)
 		if err != nil {
-			response.Error(w, err)
+			response.ErrorCtx(r.Context(), w, err)
 			return
 		}
 		response.Ok(w, resp)
@@ -233,17 +233,17 @@ func RestoreVersionHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id, err := basehandler.PathID(r)
 		if err != nil {
-			response.Error(w, err)
+			response.ErrorCtx(r.Context(), w, err)
 			return
 		}
 		versionNo, err := basehandler.PathVersionNo(r)
 		if err != nil {
-			response.Error(w, err)
+			response.ErrorCtx(r.Context(), w, err)
 			return
 		}
 		resp, err := articlelogic.RestoreVersion(r.Context(), svcCtx, id, versionNo, basehandler.Meta(r, forwardedOptions(svcCtx)))
 		if err != nil {
-			response.Error(w, err)
+			response.ErrorCtx(r.Context(), w, err)
 			return
 		}
 		response.Ok(w, resp)
@@ -254,17 +254,17 @@ func UpdateStatusHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id, err := basehandler.PathID(r)
 		if err != nil {
-			response.Error(w, err)
+			response.ErrorCtx(r.Context(), w, err)
 			return
 		}
 		var req types.ArticleStatusReq
 		if err := basehandler.Parse(r, &req); err != nil {
-			response.Error(w, err)
+			response.ErrorCtx(r.Context(), w, err)
 			return
 		}
 		resp, err := articlelogic.UpdateStatus(r.Context(), svcCtx, id, req, basehandler.Meta(r, forwardedOptions(svcCtx)))
 		if err != nil {
-			response.Error(w, err)
+			response.ErrorCtx(r.Context(), w, err)
 			return
 		}
 		response.Ok(w, resp)
@@ -275,12 +275,12 @@ func AIAssistHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req types.AIAssistReq
 		if err := basehandler.Parse(r, &req); err != nil {
-			response.Error(w, err)
+			response.ErrorCtx(r.Context(), w, err)
 			return
 		}
 		resp, err := articlelogic.AIAssist(r.Context(), svcCtx, req)
 		if err != nil {
-			response.Error(w, err)
+			response.ErrorCtx(r.Context(), w, err)
 			return
 		}
 		response.Ok(w, resp)
@@ -291,32 +291,32 @@ func ImportMarkdownHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		r.Body = http.MaxBytesReader(w, r.Body, maxMarkdownUploadBytes+1024)
 		if err := r.ParseMultipartForm(maxMarkdownUploadBytes); err != nil {
-			response.Error(w, apperrors.BadRequest("markdown file is invalid"))
+			response.ErrorCtx(r.Context(), w, apperrors.BadRequest("markdown file is invalid"))
 			return
 		}
 		file, header, err := r.FormFile("file")
 		if err != nil {
-			response.Error(w, apperrors.BadRequest("markdown file is required"))
+			response.ErrorCtx(r.Context(), w, apperrors.BadRequest("markdown file is required"))
 			return
 		}
 		defer file.Close()
 		filename := strings.TrimSpace(header.Filename)
 		if strings.ToLower(filepath.Ext(filename)) != ".md" {
-			response.Error(w, apperrors.BadRequest("markdown file must be .md"))
+			response.ErrorCtx(r.Context(), w, apperrors.BadRequest("markdown file must be .md"))
 			return
 		}
 		raw, err := io.ReadAll(io.LimitReader(file, maxMarkdownUploadBytes+1))
 		if err != nil {
-			response.Error(w, err)
+			response.ErrorCtx(r.Context(), w, err)
 			return
 		}
 		if len(raw) > maxMarkdownUploadBytes {
-			response.Error(w, apperrors.BadRequest("markdown file is too large"))
+			response.ErrorCtx(r.Context(), w, apperrors.BadRequest("markdown file is too large"))
 			return
 		}
 		resp, err := articlelogic.ImportMarkdown(r.Context(), svcCtx, filename, string(raw), basehandler.Meta(r, forwardedOptions(svcCtx)))
 		if err != nil {
-			response.Error(w, err)
+			response.ErrorCtx(r.Context(), w, err)
 			return
 		}
 		response.Ok(w, resp)
@@ -327,12 +327,12 @@ func ExportMarkdownHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id, err := basehandler.PathID(r)
 		if err != nil {
-			response.Error(w, err)
+			response.ErrorCtx(r.Context(), w, err)
 			return
 		}
 		filename, content, err := articlelogic.ExportMarkdown(r.Context(), svcCtx, id)
 		if err != nil {
-			response.Error(w, err)
+			response.ErrorCtx(r.Context(), w, err)
 			return
 		}
 		w.Header().Set("Content-Type", "text/markdown; charset=utf-8")

@@ -40,6 +40,10 @@ func TooManyRequests(message string) *CodeError {
 	return New(42900, message, http.StatusTooManyRequests)
 }
 
+func ServiceUnavailable(message string) *CodeError {
+	return New(50300, message, http.StatusServiceUnavailable)
+}
+
 func Internal(message string) *CodeError {
 	return New(50000, message, http.StatusInternalServerError)
 }

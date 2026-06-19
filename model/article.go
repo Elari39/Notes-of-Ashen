@@ -413,6 +413,45 @@ ORDER BY t.id`, articleID)
 	return items, rows.Err()
 }
 
+// ArticleTagsBatch 一次性按 article ID 加载多篇文章的标签，用于列表/搜索/索引重建等
+// 批量组装场景，避免逐条 ArticleTags 触发的 N+1 查询。
+// 返回值按 article_id 分组，组内顺序与单条 ArticleTags 一致（ORDER BY t.id）。
+// 空入参返回空 map 且不执行查询。
+func (s *Store) ArticleTagsBatch(ctx context.Context, articleIDs []uint64) (map[uint64][]Tag, error) {
+	articleIDs = uniqueUint64(articleIDs)
+	if len(articleIDs) == 0 {
+		return map[uint64][]Tag{}, nil
+	}
+	placeholders := strings.TrimRight(strings.Repeat("?,", len(articleIDs)), ",")
+	args := make([]interface{}, 0, len(articleIDs))
+	for _, id := range articleIDs {
+		args = append(args, id)
+	}
+	rows, err := s.db.QueryContext(ctx, `
+SELECT at.article_id, t.id, t.name, t.slug, t.description, t.created_by, t.created_at, t.updated_at
+FROM article_tags at
+JOIN tags t ON at.tag_id = t.id
+WHERE at.article_id IN (`+placeholders+`)
+ORDER BY at.article_id, t.id`, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	out := make(map[uint64][]Tag, len(articleIDs))
+	for rows.Next() {
+		var articleID uint64
+		var item Tag
+		var description sql.NullString
+		if err := rows.Scan(&articleID, &item.ID, &item.Name, &item.Slug, &description, &item.CreatedBy, &item.CreatedAt, &item.UpdatedAt); err != nil {
+			return nil, scanErr(err)
+		}
+		item.Description = stringFromNull(description)
+		out[articleID] = append(out[articleID], item)
+	}
+	return out, rows.Err()
+}
+
 func (s *Store) EnsureTagsExist(ctx context.Context, tagIDs []uint64) error {
 	if len(tagIDs) == 0 {
 		return nil
@@ -626,7 +665,10 @@ func createArticleVersion(ctx context.Context, tx *sql.Tx, articleID, changedBy 
 		return err
 	}
 	var versionNo int
-	if err := tx.QueryRowContext(ctx, "SELECT COALESCE(MAX(version_no), 0) + 1 FROM article_versions WHERE article_id = ?", articleID).Scan(&versionNo); err != nil {
+	// FOR UPDATE 在事务内对 article_id 的版本行加排他锁（空结果集时 RR 隔离级别下加 gap lock），
+	// 串行化并发版本号分配，避免两个事务读到相同 MAX(version_no)+1 后依赖唯一键冲突兜底。
+	// uniq_article_version (article_id, version_no) 仍作为最终兜底。
+	if err := tx.QueryRowContext(ctx, "SELECT COALESCE(MAX(version_no), 0) + 1 FROM article_versions WHERE article_id = ? FOR UPDATE", articleID).Scan(&versionNo); err != nil {
 		return err
 	}
 	_, err = tx.ExecContext(ctx, `

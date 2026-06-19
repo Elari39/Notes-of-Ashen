@@ -18,6 +18,8 @@ import (
 	"notes-of-ashen/internal/types"
 	"notes-of-ashen/internal/validator"
 	"notes-of-ashen/model"
+
+	"github.com/zeromicro/go-zero/core/logx"
 )
 
 var statuses = map[string]struct{}{
@@ -106,10 +108,7 @@ func listWithFilter(ctx context.Context, svcCtx *svc.ServiceContext, req types.A
 	if err != nil {
 		return nil, err
 	}
-	resp := make([]types.ArticleResp, 0, len(items))
-	for _, item := range items {
-		resp = append(resp, articleResp(ctx, svcCtx, item, false))
-	}
+	resp := articlesResp(ctx, svcCtx, items, false)
 	out := &types.ArticleListResp{Items: resp, Total: total, Page: page, Size: size}
 	if cacheablePublicArticleList(req, filter.Role, filter.UserID, query) {
 		setCachedArticleList(ctx, svcCtx, publicArticleListCacheKey(req, page, size, status), out)
@@ -128,7 +127,10 @@ func Detail(ctx context.Context, svcCtx *svc.ServiceContext, id uint64) (*types.
 	if err := svcCtx.Store.IncreaseArticleView(ctx, id); err == nil {
 		item.ViewCount++
 	}
-	resp := articleResp(ctx, svcCtx, *item, true)
+	resp, err := articleResp(ctx, svcCtx, *item, true)
+	if err != nil {
+		return nil, logicutil.MapError(err)
+	}
 	return &resp, nil
 }
 
@@ -144,7 +146,10 @@ func Preview(ctx context.Context, svcCtx *svc.ServiceContext, id uint64) (*types
 	if err := canManageArticle(userID, role, *item); err != nil {
 		return nil, err
 	}
-	resp := articleResp(ctx, svcCtx, *item, true)
+	resp, err := articleResp(ctx, svcCtx, *item, true)
+	if err != nil {
+		return nil, logicutil.MapError(err)
+	}
 	return &resp, nil
 }
 
@@ -160,18 +165,29 @@ func Context(ctx context.Context, svcCtx *svc.ServiceContext, id uint64) (*types
 	if err != nil {
 		return nil, err
 	}
-	resp := &types.ArticleContextResp{Related: make([]types.ArticleResp, 0, len(related))}
+	// 将 prev/next/related 合并批量组装，避免逐篇 articleResp 触发 N+1 查询。
+	batchItems := make([]model.Article, 0, 2+len(related))
 	if previous != nil {
-		prevResp := articleResp(ctx, svcCtx, *previous, false)
-		resp.Previous = &prevResp
+		batchItems = append(batchItems, *previous)
 	}
 	if next != nil {
-		nextResp := articleResp(ctx, svcCtx, *next, false)
+		batchItems = append(batchItems, *next)
+	}
+	batchItems = append(batchItems, related...)
+	batchResp := articlesResp(ctx, svcCtx, batchItems, false)
+	resp := &types.ArticleContextResp{Related: make([]types.ArticleResp, 0, len(related))}
+	idx := 0
+	if previous != nil {
+		prevResp := batchResp[idx]
+		resp.Previous = &prevResp
+		idx++
+	}
+	if next != nil {
+		nextResp := batchResp[idx]
 		resp.Next = &nextResp
+		idx++
 	}
-	for _, relatedItem := range related {
-		resp.Related = append(resp.Related, articleResp(ctx, svcCtx, relatedItem, false))
-	}
+	resp.Related = append(resp.Related, batchResp[idx:]...)
 	return resp, nil
 }
 
@@ -249,7 +265,10 @@ func Create(ctx context.Context, svcCtx *svc.ServiceContext, req types.ArticleRe
 	})
 	syncArticleSearch(ctx, svcCtx, id)
 	evictArticleCaches(ctx, svcCtx)
-	resp := articleResp(ctx, svcCtx, *item, true)
+	resp, err := articleResp(ctx, svcCtx, *item, true)
+	if err != nil {
+		return nil, logicutil.MapError(err)
+	}
 	return &resp, nil
 }
 
@@ -315,7 +334,10 @@ func Update(ctx context.Context, svcCtx *svc.ServiceContext, id uint64, req type
 	})
 	syncArticleSearch(ctx, svcCtx, id)
 	evictArticleCaches(ctx, svcCtx)
-	resp := articleResp(ctx, svcCtx, *item, true)
+	resp, err := articleResp(ctx, svcCtx, *item, true)
+	if err != nil {
+		return nil, logicutil.MapError(err)
+	}
 	return &resp, nil
 }
 
@@ -381,7 +403,10 @@ func UpdateStatus(ctx context.Context, svcCtx *svc.ServiceContext, id uint64, re
 	})
 	syncArticleSearch(ctx, svcCtx, id)
 	evictArticleCaches(ctx, svcCtx)
-	resp := articleResp(ctx, svcCtx, *item, true)
+	resp, err := articleResp(ctx, svcCtx, *item, true)
+	if err != nil {
+		return nil, logicutil.MapError(err)
+	}
 	return &resp, nil
 }
 
@@ -510,7 +535,10 @@ func RestoreVersion(ctx context.Context, svcCtx *svc.ServiceContext, articleID u
 	})
 	syncArticleSearch(ctx, svcCtx, articleID)
 	evictArticleCaches(ctx, svcCtx)
-	resp := articleResp(ctx, svcCtx, *item, true)
+	resp, err := articleResp(ctx, svcCtx, *item, true)
+	if err != nil {
+		return nil, logicutil.MapError(err)
+	}
 	return &resp, nil
 }
 
@@ -611,16 +639,57 @@ func canManageArticle(userID uint64, role string, item model.Article) error {
 	return apperrors.Forbidden("cannot manage other user's article")
 }
 
-func articleResp(ctx context.Context, svcCtx *svc.ServiceContext, item model.Article, includeContent bool) types.ArticleResp {
+func articleResp(ctx context.Context, svcCtx *svc.ServiceContext, item model.Article, includeContent bool) (types.ArticleResp, error) {
 	tags, err := svcCtx.Store.ArticleTags(ctx, item.ID)
 	if err != nil {
-		tags = nil
+		return types.ArticleResp{}, err
 	}
 	var category *model.Category
 	if item.CategoryID > 0 {
-		category, _ = svcCtx.Store.FindCategory(ctx, item.CategoryID)
+		category, err = svcCtx.Store.FindCategory(ctx, item.CategoryID)
+		if err != nil {
+			return types.ArticleResp{}, err
+		}
 	}
-	return logicutil.ArticleResp(item, tags, category, includeContent)
+	return logicutil.ArticleResp(item, tags, category, includeContent), nil
+}
+
+// articlesResp 批量组装多篇文章响应，一次性加载 tags 与分类，
+// 避免列表/搜索/上下文等场景逐篇 articleResp 触发的 N+1 查询。
+// 容错语义与单条 articleResp 保持一致：批量查询失败时降级为空 tags/分类，
+// 不向调用方返回错误（不引入新的 500），仅补一条日志便于排查。
+func articlesResp(ctx context.Context, svcCtx *svc.ServiceContext, items []model.Article, includeContent bool) []types.ArticleResp {
+	articleIDs := make([]uint64, 0, len(items))
+	categoryIDs := make([]uint64, 0, len(items))
+	for _, item := range items {
+		articleIDs = append(articleIDs, item.ID)
+		if item.CategoryID > 0 {
+			categoryIDs = append(categoryIDs, item.CategoryID)
+		}
+	}
+
+	tagsByArticle, err := svcCtx.Store.ArticleTagsBatch(ctx, articleIDs)
+	if err != nil {
+		logx.Errorf("batch load article tags failed, fallback to empty: articleCount=%d, err=%v", len(items), err)
+		tagsByArticle = map[uint64][]model.Tag{}
+	}
+	categories, err := svcCtx.Store.FindCategoriesByIDs(ctx, categoryIDs)
+	if err != nil {
+		logx.Errorf("batch load article categories failed, fallback to empty: categoryCount=%d, err=%v", len(categoryIDs), err)
+		categories = map[uint64]model.Category{}
+	}
+
+	resp := make([]types.ArticleResp, 0, len(items))
+	for _, item := range items {
+		var category *model.Category
+		if item.CategoryID > 0 {
+			if c, ok := categories[item.CategoryID]; ok {
+				category = &c
+			}
+		}
+		resp = append(resp, logicutil.ArticleResp(item, tagsByArticle[item.ID], category, includeContent))
+	}
+	return resp
 }
 
 func publishEvent(ctx context.Context, svcCtx *svc.ServiceContext, event mq.Event) {

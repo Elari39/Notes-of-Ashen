@@ -6,12 +6,18 @@ import { translate } from '../../i18n';
 import { usePreferenceStore } from '../../store/preferences';
 import { useAuthStore } from '../../store/auth';
 import { useSiteSettingsStore } from '../../store/siteSettings';
+import { useShallow } from 'zustand/react/shallow';
 import { routeLoaders } from '../../routes/lazyRoutes';
 
 const AdminLayout: React.FC = () => {
   const language = usePreferenceStore((state) => state.language);
   const user = useAuthStore((state) => state.user);
-  const { resumePageEnabled, projectsPageEnabled } = useSiteSettingsStore();
+  const { resumePageEnabled, projectsPageEnabled } = useSiteSettingsStore(
+    useShallow((state) => ({
+      resumePageEnabled: state.resumePageEnabled,
+      projectsPageEnabled: state.projectsPageEnabled,
+    })),
+  );
   const location = useLocation();
   const outlet = useOutlet();
   const shouldReduceMotion = useReducedMotion();

@@ -6,6 +6,7 @@ import (
 	"notes-of-ashen/internal/authutil"
 	apperrors "notes-of-ashen/internal/errors"
 	"notes-of-ashen/internal/logicutil"
+	"notes-of-ashen/internal/middleware"
 	"notes-of-ashen/internal/svc"
 	"notes-of-ashen/internal/types"
 	"notes-of-ashen/internal/validator"
@@ -55,7 +56,11 @@ func UpdateUserStatus(ctx context.Context, svcCtx *svc.ServiceContext, userID ui
 			return err
 		}
 	}
-	return logicutil.MapError(svcCtx.Store.UpdateUserStatus(ctx, userID, req.Status))
+	if err := svcCtx.Store.UpdateUserStatus(ctx, userID, req.Status); err != nil {
+		return logicutil.MapError(err)
+	}
+	middleware.EvictAuthUserCache(ctx, svcCtx.AuthUserCache, userID)
+	return nil
 }
 
 func UpdateUserRole(ctx context.Context, svcCtx *svc.ServiceContext, userID uint64, req types.UserRoleReq) error {
@@ -81,7 +86,11 @@ func UpdateUserRole(ctx context.Context, svcCtx *svc.ServiceContext, userID uint
 			return err
 		}
 	}
-	return logicutil.MapError(svcCtx.Store.UpdateUserRole(ctx, userID, req.Role))
+	if err := svcCtx.Store.UpdateUserRole(ctx, userID, req.Role); err != nil {
+		return logicutil.MapError(err)
+	}
+	middleware.EvictAuthUserCache(ctx, svcCtx.AuthUserCache, userID)
+	return nil
 }
 
 func ListLogs(ctx context.Context, svcCtx *svc.ServiceContext, page, size int) (*types.ListResp[types.OperationLogResp], error) {

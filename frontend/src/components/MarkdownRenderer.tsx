@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { memo, useCallback, useMemo, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
@@ -6,25 +6,31 @@ import rehypeKatex from 'rehype-katex';
 import 'katex/dist/katex.min.css';
 import ImageLightbox, { LightboxImage } from './ImageLightbox';
 import { createMarkdownComponents } from './MarkdownCode';
-import { extractMarkdownHeadings } from '../utils/markdownHeadings';
+import { extractMarkdownHeadings, type MarkdownHeading } from '../utils/markdownHeadings';
 
 type MarkdownRendererProps = {
   content: string;
   className?: string;
   headingIdPrefix?: string;
+  /** 外部已提取的 headings；传入可避免渲染器内部重复提取。 */
+  headings?: MarkdownHeading[];
 };
 
-const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, className = '', headingIdPrefix = '' }) => {
+const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, className = '', headingIdPrefix = '', headings }) => {
   const [lightboxImage, setLightboxImage] = useState<LightboxImage | null>(null);
   const openLightbox = useCallback((image: LightboxImage) => setLightboxImage(image), []);
   const closeLightbox = useCallback(() => setLightboxImage(null), []);
+  // 外部传入 headings 时复用，否则内部按 content 提取一次。
+  const resolvedHeadings = useMemo(
+    () => headings ?? extractMarkdownHeadings(content, 3),
+    [headings, content],
+  );
   const headingIdByLine = useMemo(() => {
-    const headings = extractMarkdownHeadings(content, 3);
-    return headings.reduce<Record<string, string>>((map, heading) => {
+    return resolvedHeadings.reduce<Record<string, string>>((map, heading) => {
       map[`${heading.depth}:${heading.line}`] = `${headingIdPrefix}${heading.id}`;
       return map;
     }, {});
-  }, [content, headingIdPrefix]);
+  }, [resolvedHeadings, headingIdPrefix]);
   const components = useMemo(
     () => createMarkdownComponents({ onImageClick: openLightbox, headingIdByLine }),
     [headingIdByLine, openLightbox],
@@ -48,4 +54,4 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, className 
   );
 };
 
-export default MarkdownRenderer;
+export default memo(MarkdownRenderer);

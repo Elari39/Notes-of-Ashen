@@ -15,7 +15,7 @@ func ListUsersHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 		page, size := basehandler.PageSize(r)
 		resp, err := adminlogic.ListUsers(r.Context(), svcCtx, page, size)
 		if err != nil {
-			response.Error(w, err)
+			response.ErrorCtx(r.Context(), w, err)
 			return
 		}
 		response.Ok(w, resp)
@@ -26,16 +26,16 @@ func UpdateUserStatusHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id, err := basehandler.PathID(r)
 		if err != nil {
-			response.Error(w, err)
+			response.ErrorCtx(r.Context(), w, err)
 			return
 		}
 		var req types.UserStatusReq
 		if err := basehandler.Parse(r, &req); err != nil {
-			response.Error(w, err)
+			response.ErrorCtx(r.Context(), w, err)
 			return
 		}
 		if err := adminlogic.UpdateUserStatus(r.Context(), svcCtx, id, req); err != nil {
-			response.Error(w, err)
+			response.ErrorCtx(r.Context(), w, err)
 			return
 		}
 		response.NoData(w)
@@ -46,16 +46,16 @@ func UpdateUserRoleHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id, err := basehandler.PathID(r)
 		if err != nil {
-			response.Error(w, err)
+			response.ErrorCtx(r.Context(), w, err)
 			return
 		}
 		var req types.UserRoleReq
 		if err := basehandler.Parse(r, &req); err != nil {
-			response.Error(w, err)
+			response.ErrorCtx(r.Context(), w, err)
 			return
 		}
 		if err := adminlogic.UpdateUserRole(r.Context(), svcCtx, id, req); err != nil {
-			response.Error(w, err)
+			response.ErrorCtx(r.Context(), w, err)
 			return
 		}
 		response.NoData(w)
@@ -67,7 +67,7 @@ func ListLogsHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 		page, size := basehandler.PageSize(r)
 		resp, err := adminlogic.ListLogs(r.Context(), svcCtx, page, size)
 		if err != nil {
-			response.Error(w, err)
+			response.ErrorCtx(r.Context(), w, err)
 			return
 		}
 		response.Ok(w, resp)
@@ -78,7 +78,7 @@ func StatsHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		resp, err := adminlogic.Stats(r.Context(), svcCtx)
 		if err != nil {
-			response.Error(w, err)
+			response.ErrorCtx(r.Context(), w, err)
 			return
 		}
 		response.Ok(w, resp)

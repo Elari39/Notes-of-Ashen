@@ -28,19 +28,42 @@ func (s *Store) ListArticleSearchDocuments(ctx context.Context) ([]ArticleSearch
 	}
 	defer rows.Close()
 
-	docs := make([]ArticleSearchDocument, 0)
+	articles := make([]Article, 0)
 	for rows.Next() {
 		item, err := scanArticleRows(rows)
 		if err != nil {
 			return nil, err
 		}
-		doc, err := s.articleSearchDocument(ctx, *item)
-		if err != nil {
-			return nil, err
-		}
-		docs = append(docs, *doc)
+		articles = append(articles, *item)
 	}
-	return docs, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	// 批量加载 tags 与分类，避免逐篇 ArticleTags / FindCategory 的 N+1 查询。
+	articleIDs := make([]uint64, 0, len(articles))
+	categoryIDs := make([]uint64, 0, len(articles))
+	for _, item := range articles {
+		articleIDs = append(articleIDs, item.ID)
+		if item.CategoryID > 0 {
+			categoryIDs = append(categoryIDs, item.CategoryID)
+		}
+	}
+	tagsByArticle, err := s.ArticleTagsBatch(ctx, articleIDs)
+	if err != nil {
+		return nil, err
+	}
+	categories, err := s.FindCategoriesByIDs(ctx, categoryIDs)
+	if err != nil {
+		return nil, err
+	}
+
+	docs := make([]ArticleSearchDocument, 0, len(articles))
+	for _, item := range articles {
+		doc := articleSearchDocumentFromLoaded(item, tagsByArticle[item.ID], categories)
+		docs = append(docs, doc)
+	}
+	return docs, nil
 }
 
 func (s *Store) FindArticleSearchDocument(ctx context.Context, id uint64) (*ArticleSearchDocument, error) {
@@ -95,6 +118,30 @@ func (s *Store) articleSearchDocument(ctx context.Context, item Article) (*Artic
 	if err != nil {
 		return nil, err
 	}
+	var category *Category
+	if item.CategoryID > 0 {
+		category, err = s.FindCategory(ctx, item.CategoryID)
+		if err != nil && err != ErrNotFound {
+			return nil, err
+		}
+	}
+	return buildArticleSearchDocument(item, tags, category), nil
+}
+
+// articleSearchDocumentFromLoaded 在已批量加载 tags（按文章分组）与分类 map 的前提下
+// 纯内存组装搜索文档，避免重建期逐篇查询。
+func articleSearchDocumentFromLoaded(item Article, tags []Tag, categories map[uint64]Category) ArticleSearchDocument {
+	var category *Category
+	if item.CategoryID > 0 {
+		if c, ok := categories[item.CategoryID]; ok {
+			category = &c
+		}
+	}
+	return *buildArticleSearchDocument(item, tags, category)
+}
+
+// buildArticleSearchDocument 是 articleSearchDocument 与批量组装共用的纯内存组装逻辑。
+func buildArticleSearchDocument(item Article, tags []Tag, category *Category) *ArticleSearchDocument {
 	tagNames := make([]string, 0, len(tags))
 	tagIDs := make([]uint64, 0, len(tags))
 	for _, tag := range tags {
@@ -102,14 +149,8 @@ func (s *Store) articleSearchDocument(ctx context.Context, item Article) (*Artic
 		tagIDs = append(tagIDs, tag.ID)
 	}
 	categoryName := ""
-	if item.CategoryID > 0 {
-		category, err := s.FindCategory(ctx, item.CategoryID)
-		if err != nil && err != ErrNotFound {
-			return nil, err
-		}
-		if category != nil {
-			categoryName = category.Name
-		}
+	if category != nil {
+		categoryName = category.Name
 	}
 	visibleAt := item.CreatedAt
 	if item.PublishedAt != nil {
@@ -134,7 +175,7 @@ func (s *Store) articleSearchDocument(ctx context.Context, item Article) (*Artic
 	if item.PublishedAt != nil {
 		doc.PublishedAt = unixOrZero(*item.PublishedAt)
 	}
-	return doc, nil
+	return doc
 }
 
 func unixOrZero(value time.Time) int64 {

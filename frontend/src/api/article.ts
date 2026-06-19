@@ -10,20 +10,20 @@ import {
   UpdateArticleStatusReq,
 } from '../types/api';
 
-export const getArticles = (params?: ArticleListParams) => 
-  http.get<unknown, BaseResp<PaginatedResp<Article>>>('/articles', { params });
+export const getArticles = (params?: ArticleListParams, signal?: AbortSignal) =>
+  http.get<unknown, BaseResp<PaginatedResp<Article>>>('/articles', { params, signal });
 
-export const getAdminArticles = (params?: ArticleListParams) => 
-  http.get<unknown, BaseResp<PaginatedResp<Article>>>('/admin/articles', { params });
+export const getAdminArticles = (params?: ArticleListParams, signal?: AbortSignal) =>
+  http.get<unknown, BaseResp<PaginatedResp<Article>>>('/admin/articles', { params, signal });
 
-export const getArticleById = (id: number | string) => 
-  http.get<unknown, BaseResp<Article>>(`/articles/${id}`);
+export const getArticleById = (id: number | string, signal?: AbortSignal) =>
+  http.get<unknown, BaseResp<Article>>(`/articles/${id}`, { signal });
 
-export const getArticlePreview = (id: number | string) =>
-  http.get<unknown, BaseResp<Article>>(`/articles/${id}/preview`);
+export const getArticlePreview = (id: number | string, signal?: AbortSignal) =>
+  http.get<unknown, BaseResp<Article>>(`/articles/${id}/preview`, { signal });
 
-export const getArticleContext = (id: number | string) =>
-  http.get<unknown, BaseResp<ArticleContext>>(`/articles/${id}/context`);
+export const getArticleContext = (id: number | string, signal?: AbortSignal) =>
+  http.get<unknown, BaseResp<ArticleContext>>(`/articles/${id}/context`, { signal });
 
 export const likeArticle = (id: number | string) =>
   http.post<unknown, BaseResp<{ liked: boolean; likeCount: number }>>(`/articles/${id}/like`);
@@ -59,11 +59,11 @@ export const exportArticleMarkdown = async (id: number | string) => {
   };
 };
 
-export const getArticleVersions = (id: number | string, params?: { page?: number; size?: number }) =>
-  http.get<unknown, BaseResp<PaginatedResp<ArticleVersion>>>(`/articles/${id}/versions`, { params });
+export const getArticleVersions = (id: number | string, params?: { page?: number; size?: number }, signal?: AbortSignal) =>
+  http.get<unknown, BaseResp<PaginatedResp<ArticleVersion>>>(`/articles/${id}/versions`, { params, signal });
 
-export const getArticleVersion = (id: number | string, versionNo: number | string) =>
-  http.get<unknown, BaseResp<ArticleVersion>>(`/articles/${id}/versions/${versionNo}`);
+export const getArticleVersion = (id: number | string, versionNo: number | string, signal?: AbortSignal) =>
+  http.get<unknown, BaseResp<ArticleVersion>>(`/articles/${id}/versions/${versionNo}`, { signal });
 
 export const restoreArticleVersion = (id: number | string, versionNo: number | string) =>
   http.post<unknown, BaseResp<Article>>(`/articles/${id}/versions/${versionNo}/restore`);

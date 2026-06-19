@@ -12,7 +12,7 @@ func ReindexHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		resp, err := searchlogic.Reindex(r.Context(), svcCtx)
 		if err != nil {
-			response.Error(w, err)
+			response.ErrorCtx(r.Context(), w, err)
 			return
 		}
 		response.Ok(w, resp)

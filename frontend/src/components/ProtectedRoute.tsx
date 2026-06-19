@@ -2,6 +2,7 @@ import React from 'react';
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../store/auth';
 import { usePreferenceStore } from '../store/preferences';
+import { useShallow } from 'zustand/react/shallow';
 import { translate } from '../i18n';
 import PagePendingState from './RoutePending';
 
@@ -11,7 +12,14 @@ interface ProtectedRouteProps {
 }
 
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ requireAdmin = false, allowedRoles }) => {
-  const { user, accessToken, isFetching, isInitialized } = useAuthStore();
+  const { user, accessToken, isFetching, isInitialized } = useAuthStore(
+    useShallow((state) => ({
+      user: state.user,
+      accessToken: state.accessToken,
+      isFetching: state.isFetching,
+      isInitialized: state.isInitialized,
+    })),
+  );
   const language = usePreferenceStore((state) => state.language);
   const location = useLocation();
   const t = (key: Parameters<typeof translate>[1]) => translate(language, key);

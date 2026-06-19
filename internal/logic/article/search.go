@@ -33,20 +33,23 @@ func searchPublicArticles(ctx context.Context, svcCtx *svc.ServiceContext, req t
 		logx.Errorf("load meilisearch article ids failed, fallback to mysql: %v", err)
 		return nil, false
 	}
-	resp := make([]types.ArticleResp, 0, len(items))
+	// 先过滤掉非公开可见文章并保持顺序，再一次性批量组装，避免逐篇 N+1 查询。
+	visible := make([]model.Article, 0, len(items))
 	for _, item := range items {
 		if !model.IsArticlePubliclyVisible(item, time.Now()) {
 			continue
 		}
-		article := articleResp(ctx, svcCtx, item, false)
+		visible = append(visible, item)
+	}
+	resp := articlesResp(ctx, svcCtx, visible, false)
+	for i, item := range visible {
 		if highlight, ok := result.Highlights[item.ID]; ok {
-			article.SearchHighlights = &types.ArticleSearchHighlights{
+			resp[i].SearchHighlights = &types.ArticleSearchHighlights{
 				Title:   highlight.Title,
 				Summary: highlight.Summary,
 				Content: highlight.Content,
 			}
 		}
-		resp = append(resp, article)
 	}
 	return &types.ArticleListResp{Items: resp, Total: result.Total, Page: page, Size: size}, true
 }

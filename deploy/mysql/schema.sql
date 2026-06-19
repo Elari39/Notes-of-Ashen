@@ -273,7 +273,8 @@ CREATE TABLE IF NOT EXISTS article_versions (
 CREATE TABLE IF NOT EXISTS article_tags (
     article_id BIGINT UNSIGNED NOT NULL,
     tag_id BIGINT UNSIGNED NOT NULL,
-    PRIMARY KEY (article_id, tag_id)
+    PRIMARY KEY (article_id, tag_id),
+    INDEX idx_article_tags_tag (tag_id, article_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- Article likes

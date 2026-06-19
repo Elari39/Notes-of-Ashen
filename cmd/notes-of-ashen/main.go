@@ -27,7 +27,7 @@ func main() {
 		logx.Must(err)
 	}
 	logx.Must(c.ApplyEnv())
-	logx.Must(c.Validate())
+	logx.Must(c.ValidateConfig())
 
 	server := rest.MustNewServer(c.RestConf)
 	defer server.Stop()

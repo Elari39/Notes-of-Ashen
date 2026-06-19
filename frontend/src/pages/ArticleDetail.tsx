@@ -11,6 +11,7 @@ import { useSEO } from '../utils/seo';
 import { getErrorMessage } from '../utils/error';
 import { getDateLocale, translate } from '../i18n';
 import { usePreferenceStore } from '../store/preferences';
+import { useReadingProgress } from '../hooks/useReadingProgress';
 import { normalizeCoverUrl } from '../utils/cover';
 import { extractMarkdownHeadings, type MarkdownHeading } from '../utils/markdownHeadings';
 import type { Article, ArticleContext } from '../types';
@@ -32,7 +33,7 @@ const ArticleDetail: React.FC = () => {
   const [isLiking, setIsLiking] = useState(false);
   const [activeHeadingId, setActiveHeadingId] = useState('');
   const [tocCollapsed, setTocCollapsed] = useState(false);
-  const [readingProgress, setReadingProgress] = useState(0);
+  const readingProgressRef = useReadingProgress();
   const [coverError, setCoverError] = useState(false);
   const [lightboxImage, setLightboxImage] = useState<LightboxImage | null>(null);
   const closeLightbox = useCallback(() => setLightboxImage(null), []);
@@ -44,7 +45,7 @@ const ArticleDetail: React.FC = () => {
   const headings = useMemo(() => extractMarkdownHeadings(article?.content || '', 3), [article?.content]);
 
   useEffect(() => {
-    let active = true;
+    const controller = new AbortController();
     const fetchArticle = async () => {
       if (!id) {
         setArticle(null);
@@ -58,13 +59,12 @@ const ArticleDetail: React.FC = () => {
       setLikeError('');
       setArticleContext(null);
       setActiveHeadingId('');
-      setReadingProgress(0);
       setCoverError(false);
       setLightboxImage(null);
 
       try {
-        const res = await getArticleById(id);
-        if (!active) {
+        const res = await getArticleById(id, controller.signal);
+        if (controller.signal.aborted) {
           return;
         }
         setArticle({ ...res.data, content: res.data.content || '' });
@@ -72,21 +72,21 @@ const ArticleDetail: React.FC = () => {
         setHasLiked(localStorage.getItem(articleLikeStorageKey(res.data.id)) === '1');
 
         try {
-          const contextRes = await getArticleContext(id);
-          if (active) {
+          const contextRes = await getArticleContext(id, controller.signal);
+          if (!controller.signal.aborted) {
             setArticleContext(contextRes.data);
           }
         } catch (contextErr) {
-          if (active) {
+          if (!controller.signal.aborted) {
             setContextError(getErrorMessage(contextErr, translate(language, 'article.loadError')));
           }
         }
       } catch (err) {
-        if (active) {
+        if (!controller.signal.aborted) {
           setError(getErrorMessage(err, translate(language, 'article.loadError')));
         }
       } finally {
-        if (active) {
+        if (!controller.signal.aborted) {
           setLoading(false);
         }
       }
@@ -94,25 +94,9 @@ const ArticleDetail: React.FC = () => {
 
     fetchArticle();
     return () => {
-      active = false;
+      controller.abort();
     };
   }, [id, language]);
-
-  useEffect(() => {
-    const updateReadingProgress = () => {
-      const scrollTop = window.scrollY || document.documentElement.scrollTop;
-      const maxScroll = Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
-      setReadingProgress(Math.min(100, Math.max(0, (scrollTop / maxScroll) * 100)));
-    };
-
-    updateReadingProgress();
-    window.addEventListener('scroll', updateReadingProgress, { passive: true });
-    window.addEventListener('resize', updateReadingProgress);
-    return () => {
-      window.removeEventListener('scroll', updateReadingProgress);
-      window.removeEventListener('resize', updateReadingProgress);
-    };
-  }, []);
 
   useEffect(() => {
     const fallbackActiveHeading = () => {
@@ -218,8 +202,10 @@ const ArticleDetail: React.FC = () => {
     <>
       {loading && <RoutePendingIndicator />}
       <div
+        ref={readingProgressRef}
         className="fixed left-0 top-0 z-[70] h-px bg-ochre transition-[width] duration-150"
-        style={{ width: `${readingProgress}%` }}
+        style={{ width: '0%' }}
+        aria-hidden="true"
       />
 
       <div className="mx-auto grid w-full max-w-[86rem] gap-8 lg:grid-cols-[16rem_minmax(0,46rem)_16rem] lg:items-start lg:justify-center">
@@ -300,7 +286,7 @@ const ArticleDetail: React.FC = () => {
             />
           )}
 
-          <MarkdownRenderer content={article.content} className="prose-lg mx-auto" />
+          <MarkdownRenderer content={article.content} headings={headings} className="prose-lg mx-auto" />
 
           <div className="mt-16 border-t border-mountain-grey border-opacity-50 pt-8 text-center">
             <button

@@ -14,7 +14,7 @@ func SettingsHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		resp, err := sitelogic.Settings(r.Context(), svcCtx)
 		if err != nil {
-			response.Error(w, err)
+			response.ErrorCtx(r.Context(), w, err)
 			return
 		}
 		response.Ok(w, resp)
@@ -25,7 +25,7 @@ func ResumePageHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		resp, err := sitelogic.ResumePage(r.Context(), svcCtx)
 		if err != nil {
-			response.Error(w, err)
+			response.ErrorCtx(r.Context(), w, err)
 			return
 		}
 		response.Ok(w, resp)
@@ -36,7 +36,7 @@ func ProjectsPageHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		resp, err := sitelogic.ProjectsPage(r.Context(), svcCtx)
 		if err != nil {
-			response.Error(w, err)
+			response.ErrorCtx(r.Context(), w, err)
 			return
 		}
 		response.Ok(w, resp)
@@ -49,7 +49,7 @@ func RSSHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 			TrustedProxyCIDRs: svcCtx.Config.Proxy.TrustedCIDRs,
 		}))
 		if err != nil {
-			response.Error(w, err)
+			response.ErrorCtx(r.Context(), w, err)
 			return
 		}
 		w.Header().Set("Content-Type", "application/rss+xml; charset=utf-8")
@@ -63,7 +63,7 @@ func SitemapHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 			TrustedProxyCIDRs: svcCtx.Config.Proxy.TrustedCIDRs,
 		}))
 		if err != nil {
-			response.Error(w, err)
+			response.ErrorCtx(r.Context(), w, err)
 			return
 		}
 		w.Header().Set("Content-Type", "application/xml; charset=utf-8")
@@ -75,7 +75,7 @@ func AdminResumePageHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		resp, err := sitelogic.AdminResumePage(r.Context(), svcCtx)
 		if err != nil {
-			response.Error(w, err)
+			response.ErrorCtx(r.Context(), w, err)
 			return
 		}
 		response.Ok(w, resp)
@@ -86,12 +86,12 @@ func UpdateResumePageHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req types.UpdateResumePageReq
 		if err := basehandler.Parse(r, &req); err != nil {
-			response.Error(w, err)
+			response.ErrorCtx(r.Context(), w, err)
 			return
 		}
 		resp, err := sitelogic.UpdateResumePage(r.Context(), svcCtx, req)
 		if err != nil {
-			response.Error(w, err)
+			response.ErrorCtx(r.Context(), w, err)
 			return
 		}
 		response.Ok(w, resp)
@@ -102,7 +102,7 @@ func AdminProjectsPageHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		resp, err := sitelogic.AdminProjectsPage(r.Context(), svcCtx)
 		if err != nil {
-			response.Error(w, err)
+			response.ErrorCtx(r.Context(), w, err)
 			return
 		}
 		response.Ok(w, resp)
@@ -113,12 +113,12 @@ func UpdateProjectsPageHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req types.UpdateProjectsPageReq
 		if err := basehandler.Parse(r, &req); err != nil {
-			response.Error(w, err)
+			response.ErrorCtx(r.Context(), w, err)
 			return
 		}
 		resp, err := sitelogic.UpdateProjectsPage(r.Context(), svcCtx, req)
 		if err != nil {
-			response.Error(w, err)
+			response.ErrorCtx(r.Context(), w, err)
 			return
 		}
 		response.Ok(w, resp)
@@ -129,12 +129,12 @@ func UpdateSettingsHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req types.UpdateSiteSettingsReq
 		if err := basehandler.Parse(r, &req); err != nil {
-			response.Error(w, err)
+			response.ErrorCtx(r.Context(), w, err)
 			return
 		}
 		resp, err := sitelogic.UpdateSettings(r.Context(), svcCtx, req)
 		if err != nil {
-			response.Error(w, err)
+			response.ErrorCtx(r.Context(), w, err)
 			return
 		}
 		response.Ok(w, resp)

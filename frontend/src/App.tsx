@@ -7,6 +7,7 @@ import PagePendingState, { RoutePendingIndicator } from './components/RoutePendi
 import { usePreferenceStore } from './store/preferences';
 import { useSiteSettingsStore } from './store/siteSettings';
 import { useAuthStore } from './store/auth';
+import { useShallow } from 'zustand/react/shallow';
 import { reportVisit } from './api/traffic';
 import {
   AdminAISettings,
@@ -52,11 +53,13 @@ const withRouteSuspense = (element: ReactElement, variant: SuspenseVariant = 'pa
 
 function App() {
   const initializePreferences = usePreferenceStore((state) => state.initializePreferences);
-  const {
-    fetchSettings: fetchSiteSettings,
-    resumePageEnabled,
-    projectsPageEnabled,
-  } = useSiteSettingsStore();
+  const { fetchSettings: fetchSiteSettings, resumePageEnabled, projectsPageEnabled } = useSiteSettingsStore(
+    useShallow((state) => ({
+      fetchSettings: state.fetchSettings,
+      resumePageEnabled: state.resumePageEnabled,
+      projectsPageEnabled: state.projectsPageEnabled,
+    })),
+  );
   const initializeAuth = useAuthStore((state) => state.initializeAuth);
   const setSessionExpiredHandler = useAuthStore((state) => state.setSessionExpiredHandler);
   const navigate = useNavigate();
@@ -148,7 +151,9 @@ export default App;
 const ignoredTrafficPrefixes = ['/admin', '/login', '/register', '/profile', '/forgot-password'];
 
 const PublicFeatureRoute = ({ enabled, children }: { enabled: boolean; children: ReactElement }) => {
-  const { hasLoaded, error } = useSiteSettingsStore();
+  const { hasLoaded, error } = useSiteSettingsStore(
+    useShallow((state) => ({ hasLoaded: state.hasLoaded, error: state.error })),
+  );
 
   if (!hasLoaded) {
     return <PagePendingState />;
@@ -164,11 +169,13 @@ const PublicFeatureRoute = ({ enabled, children }: { enabled: boolean; children:
 const TrafficReporter = () => {
   const location = useLocation();
   const previousPublicPath = useRef('');
-  const {
-    hasLoaded: siteSettingsLoaded,
-    resumePageEnabled,
-    projectsPageEnabled,
-  } = useSiteSettingsStore();
+  const { hasLoaded: siteSettingsLoaded, resumePageEnabled, projectsPageEnabled } = useSiteSettingsStore(
+    useShallow((state) => ({
+      hasLoaded: state.hasLoaded,
+      resumePageEnabled: state.resumePageEnabled,
+      projectsPageEnabled: state.projectsPageEnabled,
+    })),
+  );
 
   useEffect(() => {
     const path = `${location.pathname}${location.search}`;

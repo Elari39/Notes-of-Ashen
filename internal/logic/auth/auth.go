@@ -18,6 +18,7 @@ import (
 	"notes-of-ashen/model"
 
 	"github.com/redis/go-redis/v9"
+	"github.com/zeromicro/go-zero/core/logx"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -265,14 +266,8 @@ func Refresh(ctx context.Context, svcCtx *svc.ServiceContext, req types.RefreshR
 		return nil, err
 	}
 	hash := authutil.HashRefreshToken(req.RefreshToken)
-	userIDRaw, err := svcCtx.Redis.Get(ctx, refreshKey(hash)).Result()
-	if err != nil {
-		if errors.Is(err, redis.Nil) {
-			return nil, apperrors.Unauthorized("refresh token is invalid")
-		}
-		return nil, err
-	}
-
+	// Redis 仅作缓存，DB 为准。Redis miss 时回退 DB 查询并回填，
+	// 避免 Redis 逐出但 DB token 仍有效时刷新失败。
 	token, err := svcCtx.Store.FindRefreshToken(ctx, hash)
 	if err != nil {
 		return nil, logicutil.MapError(err)
@@ -280,9 +275,14 @@ func Refresh(ctx context.Context, svcCtx *svc.ServiceContext, req types.RefreshR
 	if token.RevokedAt != nil || time.Now().After(token.ExpiresAt) {
 		return nil, apperrors.Unauthorized("refresh token is expired")
 	}
-	redisUserID, err := strconv.ParseUint(userIDRaw, 10, 64)
-	if err != nil || redisUserID != token.UserID {
-		return nil, apperrors.Unauthorized("refresh token is invalid")
+	// 校验 Redis 缓存中的 userID 是否与 DB 一致；缓存缺失或不一致时以 DB 为准并回填。
+	if cachedUserID, err := svcCtx.Redis.Get(ctx, refreshKey(hash)).Result(); err == nil {
+		redisUserID, parseErr := strconv.ParseUint(cachedUserID, 10, 64)
+		if parseErr != nil || redisUserID != token.UserID {
+			return nil, apperrors.Unauthorized("refresh token is invalid")
+		}
+	} else if !errors.Is(err, redis.Nil) {
+		return nil, err
 	}
 	user, err := svcCtx.Store.FindUserByID(ctx, token.UserID)
 	if err != nil {
@@ -298,7 +298,10 @@ func Refresh(ctx context.Context, svcCtx *svc.ServiceContext, req types.RefreshR
 		}
 		return nil, err
 	}
-	_ = svcCtx.Redis.Del(ctx, refreshKey(hash)).Err()
+	// token 已在 DB 撤销，缓存残留由 TTL 自然过期，不影响安全；删除失败仅记 warn。
+	if err := svcCtx.Redis.Del(ctx, refreshKey(hash)).Err(); err != nil && !errors.Is(err, redis.Nil) {
+		logx.Errorf("refresh token cache delete failed after revoke: %v", err)
+	}
 	return issueTokens(ctx, svcCtx, user.ID, user.Role)
 }
 
@@ -328,7 +331,9 @@ func Logout(ctx context.Context, svcCtx *svc.ServiceContext, req types.RefreshRe
 		}
 		return err
 	}
-	_ = svcCtx.Redis.Del(ctx, refreshKey(hash)).Err()
+	if err := svcCtx.Redis.Del(ctx, refreshKey(hash)).Err(); err != nil && !errors.Is(err, redis.Nil) {
+		logx.Errorf("refresh token cache delete failed after logout revoke: %v", err)
+	}
 	publishEvent(ctx, svcCtx, mq.Event{
 		UserID:       userID,
 		EventType:    "user.logged_out",

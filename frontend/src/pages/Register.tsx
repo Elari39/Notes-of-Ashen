@@ -109,6 +109,10 @@ const Register: React.FC = () => {
   const handleSendEmailCode = async () => {
     setError('');
     setMessage('');
+    // 发送前先校验邮箱，避免对非法格式发起无效请求并浪费验证码。
+    if (!validateField('email')) {
+      return;
+    }
     setSendingCode(true);
     try {
       await sendVerifyCode({

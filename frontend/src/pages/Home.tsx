@@ -32,7 +32,7 @@ const Home: React.FC = () => {
   const hasActiveFilters = Boolean(categoryId || tagId);
 
   useEffect(() => {
-    let active = true;
+    const controller = new AbortController();
     const fetchArticles = async () => {
       setLoading(true);
       setError('');
@@ -43,26 +43,26 @@ const Home: React.FC = () => {
           size,
           ...(categoryId ? { categoryId } : {}),
           ...(tagId ? { tagId } : {}),
-        });
-        if (!active) {
+        }, controller.signal);
+        if (controller.signal.aborted) {
           return;
         }
         setArticles(res.data.items || []);
         setTotal(res.data.total || 0);
         setCoverErrors({});
       } catch (err) {
-        if (active) {
+        if (!controller.signal.aborted) {
           setError(getErrorMessage(err, translate(language, 'home.loadError')));
         }
       } finally {
-        if (active) {
+        if (!controller.signal.aborted) {
           setLoading(false);
         }
       }
     };
     fetchArticles();
     return () => {
-      active = false;
+      controller.abort();
     };
   }, [page, categoryId, tagId, language]);
 

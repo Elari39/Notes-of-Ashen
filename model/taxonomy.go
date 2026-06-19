@@ -3,6 +3,7 @@ package model
 import (
 	"context"
 	"database/sql"
+	"strings"
 	"time"
 )
 
@@ -74,6 +75,37 @@ func (s *Store) FindCategory(ctx context.Context, id uint64) (*Category, error) 
 SELECT id, name, slug, description, created_by, created_at, updated_at
 FROM categories WHERE id = ?`, id)
 	return scanCategory(row)
+}
+
+// FindCategoriesByIDs 一次性加载多个分类，用于列表/搜索/索引重建等批量组装场景，
+// 避免逐条 FindCategory 触发的 N+1 查询。空入参返回空 map 且不执行查询。
+func (s *Store) FindCategoriesByIDs(ctx context.Context, ids []uint64) (map[uint64]Category, error) {
+	ids = uniqueUint64(ids)
+	if len(ids) == 0 {
+		return map[uint64]Category{}, nil
+	}
+	placeholders := strings.TrimRight(strings.Repeat("?,", len(ids)), ",")
+	args := make([]interface{}, 0, len(ids))
+	for _, id := range ids {
+		args = append(args, id)
+	}
+	rows, err := s.db.QueryContext(ctx, `
+SELECT id, name, slug, description, created_by, created_at, updated_at
+FROM categories WHERE id IN (`+placeholders+`)`, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	out := make(map[uint64]Category, len(ids))
+	for rows.Next() {
+		item, err := scanCategory(rows)
+		if err != nil {
+			return nil, err
+		}
+		out[item.ID] = *item
+	}
+	return out, rows.Err()
 }
 
 func (s *Store) FindCategoryByNameOrSlug(ctx context.Context, name, slug string) (*Category, error) {

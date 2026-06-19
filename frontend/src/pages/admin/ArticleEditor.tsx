@@ -14,6 +14,7 @@ import { notifyFromError } from '../../utils/notify';
 import { formatText, getArticleStatusLabel, translate } from '../../i18n';
 import { usePreferenceStore } from '../../store/preferences';
 import { useSubmit } from '../../hooks/useSubmit';
+import { useDebouncedValue } from '../../hooks/useDebouncedValue';
 
 type TaxonomyOption = {
   id: number;
@@ -58,6 +59,11 @@ const TaxonomyCombobox = <T extends TaxonomyOption>({
 }: TaxonomyComboboxProps<T>) => {
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(-1);
+  const activeOptionRef = useRef<HTMLButtonElement | null>(null);
+  const listboxId = React.useId();
+  const inputId = React.useId();
+  const optionId = (index: number) => `${listboxId}-option-${index}`;
   const selectedIdSet = useMemo(() => new Set(selectedIds), [selectedIds]);
   const selectedItems = useMemo(
     () => items.filter(item => selectedIdSet.has(item.id)),
@@ -96,6 +102,7 @@ const TaxonomyCombobox = <T extends TaxonomyOption>({
     onSelect(item);
     setQuery(multiple ? '' : item.name);
     setOpen(false);
+    setActiveIndex(-1);
   };
 
   const handleCreate = async () => {
@@ -106,6 +113,7 @@ const TaxonomyCombobox = <T extends TaxonomyOption>({
     if (created) {
       setQuery('');
       setOpen(false);
+      setActiveIndex(-1);
     }
   };
 
@@ -115,11 +123,57 @@ const TaxonomyCombobox = <T extends TaxonomyOption>({
     }
     setQuery(value);
     setOpen(true);
+    setActiveIndex(-1);
   };
 
+  // 下拉可选条目总数：已过滤项 + 可创建项（创建项固定排在最后）。
+  const optionCount = filteredItems.length + (canCreate ? 1 : 0);
+
   const handleKeyDown = async (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      if (!open) {
+        setOpen(true);
+      }
+      if (optionCount > 0) {
+        setActiveIndex(prev => (prev + 1) % optionCount);
+      }
+      return;
+    }
+    if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (!open) {
+        setOpen(true);
+      }
+      if (optionCount > 0) {
+        setActiveIndex(prev => (prev <= 0 ? optionCount - 1 : prev - 1));
+      }
+      return;
+    }
+    if (e.key === 'Home') {
+      if (open && optionCount > 0) {
+        e.preventDefault();
+        setActiveIndex(0);
+      }
+      return;
+    }
+    if (e.key === 'End') {
+      if (open && optionCount > 0) {
+        e.preventDefault();
+        setActiveIndex(optionCount - 1);
+      }
+      return;
+    }
     if (e.key === 'Enter') {
       e.preventDefault();
+      if (activeIndex >= 0 && activeIndex < filteredItems.length) {
+        handleSelect(filteredItems[activeIndex]);
+        return;
+      }
+      if (activeIndex === filteredItems.length && canCreate) {
+        await handleCreate();
+        return;
+      }
       if (exactNameItem) {
         handleSelect(exactNameItem);
         return;
@@ -128,11 +182,25 @@ const TaxonomyCombobox = <T extends TaxonomyOption>({
     }
     if (e.key === 'Escape') {
       setOpen(false);
+      setActiveIndex(-1);
     }
     if (multiple && e.key === 'Backspace' && query === '' && selectedIds.length > 0) {
       onRemove(selectedIds[selectedIds.length - 1]);
     }
   };
+
+  // 方向键移动活跃项时，把它滚动进下拉可视区。
+  useEffect(() => {
+    if (activeIndex < 0 || !open) {
+      return;
+    }
+    activeOptionRef.current?.scrollIntoView({ block: 'nearest' });
+  }, [activeIndex, open]);
+
+  // 选项列表变化（输入过滤）时重置活跃项，避免越界。
+  useEffect(() => {
+    setActiveIndex(-1);
+  }, [normalizedQuery]);
 
   return (
     <div
@@ -158,7 +226,14 @@ const TaxonomyCombobox = <T extends TaxonomyOption>({
           </button>
         ))}
         <input
+          id={inputId}
           type="text"
+          role="combobox"
+          aria-expanded={open && (filteredItems.length > 0 || canCreate)}
+          aria-controls={listboxId}
+          aria-autocomplete="list"
+          aria-activedescendant={activeIndex >= 0 ? optionId(activeIndex) : undefined}
+          aria-label={label}
           value={query}
           placeholder={multiple || !selectedCategory ? placeholder : ''}
           onFocus={() => setOpen(true)}
@@ -185,13 +260,23 @@ const TaxonomyCombobox = <T extends TaxonomyOption>({
       <InlineNotice message={error} />
 
       {open && (filteredItems.length > 0 || canCreate) && (
-        <div className="absolute left-0 right-0 top-full z-20 mt-1 max-h-56 overflow-y-auto border border-mountain-grey bg-paper shadow-sm">
-          {filteredItems.map(item => (
+        <div
+          id={listboxId}
+          role="listbox"
+          aria-label={label}
+          className="absolute left-0 right-0 top-full z-20 mt-1 max-h-56 overflow-y-auto border border-mountain-grey bg-paper shadow-sm"
+        >
+          {filteredItems.map((item, index) => (
             <button
               key={item.id}
+              ref={activeIndex === index ? activeOptionRef : undefined}
               type="button"
+              role="option"
+              id={optionId(index)}
+              aria-selected={activeIndex === index}
+              onMouseEnter={() => setActiveIndex(index)}
               onClick={() => handleSelect(item)}
-              className="block w-full px-3 py-2 text-left text-sm text-ink hover:bg-mountain-grey hover:bg-opacity-20"
+              className={`block w-full px-3 py-2 text-left text-sm text-ink hover:bg-mountain-grey hover:bg-opacity-20 ${activeIndex === index ? 'bg-mountain-grey bg-opacity-20' : ''}`}
             >
               <span className="font-bold">{item.name}</span>
               <span className="ml-2 text-xs text-ink-light">{item.slug}</span>
@@ -199,10 +284,15 @@ const TaxonomyCombobox = <T extends TaxonomyOption>({
           ))}
           {canCreate && (
             <button
+              ref={activeIndex === filteredItems.length ? activeOptionRef : undefined}
               type="button"
+              role="option"
+              id={optionId(filteredItems.length)}
+              aria-selected={activeIndex === filteredItems.length}
+              onMouseEnter={() => setActiveIndex(filteredItems.length)}
               onClick={handleCreate}
               disabled={creating}
-              className="block w-full px-3 py-2 text-left text-sm text-ochre hover:bg-mountain-grey hover:bg-opacity-20 disabled:opacity-50 disabled:cursor-not-allowed"
+              className={`block w-full px-3 py-2 text-left text-sm text-ochre hover:bg-mountain-grey hover:bg-opacity-20 disabled:opacity-50 disabled:cursor-not-allowed ${activeIndex === filteredItems.length ? 'bg-mountain-grey bg-opacity-20' : ''}`}
             >
               {creating ? creatingLabel : createLabel(trimmedQuery)}
             </button>
@@ -268,6 +358,8 @@ const ArticleEditor: React.FC = () => {
   const aiText = getAIEditorLabels(language);
   const pinText = getPinPriorityLabels(language);
   const scheduledPublishHint = getScheduledPublishHint(language, status, scheduledAt);
+  // 预览防抖：每次按键只更新 content，预览用延迟值，避免全文重解析。
+  const debouncedPreviewContent = useDebouncedValue(content, 250);
 
   useEffect(() => {
     const state = location.state as { aiNotice?: string } | null;
@@ -876,9 +968,9 @@ const ArticleEditor: React.FC = () => {
             placeholder={t('articleEditor.content')}
           ></textarea>
         </div>
-        <div className="w-full md:w-1/2 border border-mountain-grey p-4 overflow-y-auto bg-[var(--paper-soft)]">
-          <MarkdownRenderer content={content} />
-        </div>
+<div className="w-full md:w-1/2 border border-mountain-grey p-4 overflow-y-auto bg-[var(--paper-soft)]">
+  <MarkdownRenderer content={debouncedPreviewContent} />
+</div>
       </div>
     </div>
   );

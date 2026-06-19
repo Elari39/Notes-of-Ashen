@@ -22,11 +22,14 @@ import (
 )
 
 func RegisterHandlers(server *rest.Server, svcCtx *svc.ServiceContext) {
-	authMiddleware := middleware.NewAuthMiddleware(svcCtx.Tokens, svcCtx.Store)
+	// RequestID 为所有请求注入 X-Request-Id 与请求上下文，供错误日志关联排查。
+	server.Use(middleware.RequestID)
+	authMiddleware := middleware.NewAuthMiddleware(svcCtx.Tokens, svcCtx.Store).
+		WithUserCache(svcCtx.AuthUserCache)
 	forwardedOptions := middlewareForwardedOptions(svcCtx)
-	loginRateLimit := middleware.NewRateLimitMiddleware(svcCtx.Redis, "auth_login", 5, time.Minute, forwardedOptions)
-	verifyCodeRateLimit := middleware.NewRateLimitMiddleware(svcCtx.Redis, "verify_code_send", 5, time.Minute, forwardedOptions)
-	resetPasswordRateLimit := middleware.NewRateLimitMiddleware(svcCtx.Redis, "password_reset", 5, time.Minute, forwardedOptions)
+	loginRateLimit := middleware.NewFailClosedRateLimitMiddleware(svcCtx.Redis, "auth_login", 5, time.Minute, forwardedOptions)
+	verifyCodeRateLimit := middleware.NewFailClosedRateLimitMiddleware(svcCtx.Redis, "verify_code_send", 5, time.Minute, forwardedOptions)
+	resetPasswordRateLimit := middleware.NewFailClosedRateLimitMiddleware(svcCtx.Redis, "password_reset", 5, time.Minute, forwardedOptions)
 	trafficRateLimit := middleware.NewRateLimitMiddleware(svcCtx.Redis, "traffic_visit", 120, time.Minute, forwardedOptions)
 	articleLikeRateLimit := middleware.NewRateLimitMiddleware(svcCtx.Redis, "article_like", 60, time.Minute, forwardedOptions)
 	aiRateLimit := middleware.NewRateLimitMiddleware(svcCtx.Redis, "ai_assist", 20, time.Minute, forwardedOptions)
@@ -35,6 +38,7 @@ func RegisterHandlers(server *rest.Server, svcCtx *svc.ServiceContext) {
 	}
 
 	server.AddRoutes([]rest.Route{
+		{Method: http.MethodGet, Path: "/healthz", Handler: sitehandler.HealthzHandler(svcCtx)},
 		{Method: http.MethodGet, Path: "/rss.xml", Handler: sitehandler.RSSHandler(svcCtx)},
 		{Method: http.MethodGet, Path: "/sitemap.xml", Handler: sitehandler.SitemapHandler(svcCtx)},
 		{Method: http.MethodPost, Path: "/api/v1/auth/captcha", Handler: authhandler.CaptchaHandler(svcCtx)},

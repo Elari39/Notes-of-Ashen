@@ -7,6 +7,7 @@ import { usePreferenceStore } from '../../store/preferences';
 import type { ResumeEducation, ResumeExperience, ResumePage, ResumeSkill } from '../../types';
 import { getErrorMessage } from '../../utils/error';
 import { useSubmit } from '../../hooks/useSubmit';
+import { useDebouncedValue } from '../../hooks/useDebouncedValue';
 
 const emptyResume: ResumePage = {
   title: '简介',
@@ -24,6 +25,8 @@ const AdminResumeContent: React.FC = () => {
   const [draft, setDraft] = useState<ResumePage>(emptyResume);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
+  // 预览防抖：每次按键只更新 draft，预览用延迟值，避免全文重解析。
+  const debouncedPreviewMarkdown = useDebouncedValue(draft.contentMarkdown, 250);
 
   useEffect(() => {
     let active = true;
@@ -121,11 +124,11 @@ const AdminResumeContent: React.FC = () => {
             </section>
             <section className="min-h-[24rem] overflow-y-auto border border-mountain-grey bg-[var(--paper-soft)] p-4">
               <div className="mb-3 text-sm font-bold tracking-widest text-ink">{text.preview}</div>
-              {draft.contentMarkdown.trim() ? (
-                <MarkdownRenderer content={draft.contentMarkdown} />
-              ) : (
-                <p className="py-12 text-center text-sm tracking-[0.2em] text-ink-light">{text.emptyPreview}</p>
-              )}
+  {debouncedPreviewMarkdown.trim() ? (
+    <MarkdownRenderer content={debouncedPreviewMarkdown} />
+  ) : (
+    <p className="py-12 text-center text-sm tracking-[0.2em] text-ink-light">{text.emptyPreview}</p>
+  )}
             </section>
           </div>
 

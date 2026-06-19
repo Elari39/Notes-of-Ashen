@@ -1,10 +1,13 @@
-import React from 'react';
+import React, { memo } from 'react';
 
 type SearchHighlightProps = {
   value?: string;
   fallback: string;
   className?: string;
 };
+
+// 模块级复用单个 textarea 节点做 HTML 实体解码，避免每段文本都 createElement。
+const decoderTextarea = typeof document !== 'undefined' ? document.createElement('textarea') : null;
 
 const SearchHighlight: React.FC<SearchHighlightProps> = ({ value, fallback, className = '' }) => {
   const source = sanitizeHighlight(value || fallback);
@@ -38,15 +41,14 @@ const SearchHighlight: React.FC<SearchHighlightProps> = ({ value, fallback, clas
   );
 };
 
-export default SearchHighlight;
+export default memo(SearchHighlight);
 
 const sanitizeHighlight = (value: string) => value.replace(/<(?!\/?mark\b)[^>]+>/gi, '');
 
 const decodeEntities = (value: string) => {
-  if (typeof document === 'undefined') {
+  if (!decoderTextarea) {
     return value;
   }
-  const textarea = document.createElement('textarea');
-  textarea.innerHTML = value;
-  return textarea.value;
+  decoderTextarea.innerHTML = value;
+  return decoderTextarea.value;
 };

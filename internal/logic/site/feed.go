@@ -43,7 +43,7 @@ type sitemapURL struct {
 }
 
 func RSS(ctx context.Context, svcCtx *svc.ServiceContext, requestBaseURL string) ([]byte, error) {
-	settings, err := svcCtx.Store.SiteSettings(ctx)
+	settings, err := cachedSiteSettings(ctx, svcCtx)
 	if err != nil {
 		return nil, err
 	}
@@ -54,7 +54,7 @@ func RSS(ctx context.Context, svcCtx *svc.ServiceContext, requestBaseURL string)
 	}
 	items := make([]rssItem, 0, len(articles))
 	if settings.ResumePageEnabled {
-		content, err := svcCtx.Store.ResumePageContent(ctx)
+		content, err := cachedResumePageContent(ctx, svcCtx)
 		if err != nil {
 			return nil, err
 		}
@@ -66,7 +66,7 @@ func RSS(ctx context.Context, svcCtx *svc.ServiceContext, requestBaseURL string)
 		})
 	}
 	if settings.ProjectsPageEnabled {
-		content, err := svcCtx.Store.ProjectsPageContent(ctx)
+		content, err := cachedProjectsPageContent(ctx, svcCtx)
 		if err != nil {
 			return nil, err
 		}
@@ -107,7 +107,7 @@ func RSS(ctx context.Context, svcCtx *svc.ServiceContext, requestBaseURL string)
 }
 
 func Sitemap(ctx context.Context, svcCtx *svc.ServiceContext, requestBaseURL string) ([]byte, error) {
-	settings, err := svcCtx.Store.SiteSettings(ctx)
+	settings, err := cachedSiteSettings(ctx, svcCtx)
 	if err != nil {
 		return nil, err
 	}

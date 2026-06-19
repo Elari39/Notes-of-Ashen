@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useId, useState } from 'react';
 import { createCaptcha } from '../api/auth';
 import type { CaptchaPurpose } from '../types/api';
 import { usePreferenceStore } from '../store/preferences';
@@ -27,6 +27,8 @@ const CaptchaField: React.FC<CaptchaFieldProps> = ({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [manualReloadKey, setManualReloadKey] = useState(0);
+  const inputId = useId();
+  const errorId = useId();
   const captchaLabel = translate(language, 'auth.captcha');
   const captchaErrorText = translate(language, 'auth.captchaError');
   const captchaLoadingText = translate(language, 'auth.captchaLoading');
@@ -69,8 +71,12 @@ const CaptchaField: React.FC<CaptchaFieldProps> = ({
     <div className="space-y-3">
       <div className="flex items-end gap-3">
         <input
+          id={inputId}
           type="text"
           inputMode="numeric"
+          aria-label={captchaLabel}
+          aria-invalid={Boolean(error)}
+          aria-describedby={error ? errorId : undefined}
           placeholder={captchaLabel}
           value={captchaCode}
           onChange={(e) => onCaptchaCodeChange(e.target.value.trim())}
@@ -94,7 +100,7 @@ const CaptchaField: React.FC<CaptchaFieldProps> = ({
           )}
         </button>
       </div>
-      {error && <p className="text-xs leading-5 text-red-700">{error}</p>}
+      {error && <p id={errorId} role="alert" className="text-xs leading-5 text-red-700">{error}</p>}
     </div>
   );
 };

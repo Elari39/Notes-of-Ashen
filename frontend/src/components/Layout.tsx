@@ -8,6 +8,7 @@ import RequestProgressBar from './RequestProgressBar';
 import { useAuthStore } from '../store/auth';
 import { usePreferenceStore } from '../store/preferences';
 import { useSiteSettingsStore } from '../store/siteSettings';
+import { useShallow } from 'zustand/react/shallow';
 import { logout as apiLogout } from '../api/auth';
 import { isHttpAvatarUrl, normalizeAvatarUrl } from '../utils/avatar';
 import { formatText, translate } from '../i18n';
@@ -15,7 +16,7 @@ import { useSEO } from '../utils/seo';
 import { routeLoaders } from '../routes/lazyRoutes';
 
 const Layout: React.FC = () => {
-  const { user, logout } = useAuthStore();
+  const { user, logout } = useAuthStore(useShallow((state) => ({ user: state.user, logout: state.logout })));
   const {
     language,
     themePreference,
@@ -25,8 +26,26 @@ const Layout: React.FC = () => {
     setThemePreference,
     setAccentColor,
     resetAccentColor,
-  } = usePreferenceStore();
-  const { resumePageEnabled, resumeNavHidden, projectsPageEnabled, projectsNavHidden } = useSiteSettingsStore();
+  } = usePreferenceStore(
+    useShallow((state) => ({
+      language: state.language,
+      themePreference: state.themePreference,
+      effectiveTheme: state.effectiveTheme,
+      accentColor: state.accentColor,
+      setLanguage: state.setLanguage,
+      setThemePreference: state.setThemePreference,
+      setAccentColor: state.setAccentColor,
+      resetAccentColor: state.resetAccentColor,
+    })),
+  );
+  const { resumePageEnabled, resumeNavHidden, projectsPageEnabled, projectsNavHidden } = useSiteSettingsStore(
+    useShallow((state) => ({
+      resumePageEnabled: state.resumePageEnabled,
+      resumeNavHidden: state.resumeNavHidden,
+      projectsPageEnabled: state.projectsPageEnabled,
+      projectsNavHidden: state.projectsNavHidden,
+    })),
+  );
   const navigate = useNavigate();
   const location = useLocation();
   const outlet = useOutlet();

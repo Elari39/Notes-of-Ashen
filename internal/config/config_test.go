@@ -109,8 +109,8 @@ func TestValidateRejectsDefaultOrMissingSecrets(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if err := tt.conf.Validate(); err == nil {
-				t.Fatal("Validate() error = nil, want error")
+			if err := tt.conf.ValidateConfig(); err == nil {
+				t.Fatal("ValidateConfig() error = nil, want error")
 			}
 		})
 	}
@@ -125,7 +125,7 @@ func TestValidateAllowsEnvBackedConfig(t *testing.T) {
 		RabbitMQ: RabbitMQConf{Enabled: true, URL: "amqp://rabbit_user:strong-rabbitmq-password@rabbitmq:5672/"},
 	}
 
-	if err := c.Validate(); err != nil {
-		t.Fatalf("Validate() error = %v, want nil", err)
+	if err := c.ValidateConfig(); err != nil {
+		t.Fatalf("ValidateConfig() error = %v, want nil", err)
 	}
 }

@@ -14,13 +14,13 @@ func VisitHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req types.TrafficVisitReq
 		if err := basehandler.Parse(r, &req); err != nil {
-			response.Error(w, err)
+			response.ErrorCtx(r.Context(), w, err)
 			return
 		}
 		if err := trafficlogic.Visit(r.Context(), svcCtx, req, basehandler.Meta(r, basehandler.ForwardedOptions{
 			TrustedProxyCIDRs: svcCtx.Config.Proxy.TrustedCIDRs,
 		})); err != nil {
-			response.Error(w, err)
+			response.ErrorCtx(r.Context(), w, err)
 			return
 		}
 		response.NoData(w)

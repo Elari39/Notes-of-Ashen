@@ -37,16 +37,16 @@ const Search: React.FC = () => {
   }, [query]);
 
   useEffect(() => {
+    const controller = new AbortController();
     if (!hasSearchScope) {
       setArticles([]);
       setTotal(0);
       setError('');
       setLoading(false);
       setCoverErrors({});
-      return;
+      return () => controller.abort();
     }
 
-    let active = true;
     const fetchArticles = async () => {
       setLoading(true);
       setError('');
@@ -58,19 +58,19 @@ const Search: React.FC = () => {
           ...(query ? { q: query } : {}),
           ...(categoryId ? { categoryId } : {}),
           ...(tagId ? { tagId } : {}),
-        });
-        if (!active) {
+        }, controller.signal);
+        if (controller.signal.aborted) {
           return;
         }
         setArticles(res.data.items || []);
         setTotal(res.data.total || 0);
         setCoverErrors({});
       } catch (err) {
-        if (active) {
+        if (!controller.signal.aborted) {
           setError(getErrorMessage(err, translate(language, 'search.loadError')));
         }
       } finally {
-        if (active) {
+        if (!controller.signal.aborted) {
           setLoading(false);
         }
       }
@@ -78,7 +78,7 @@ const Search: React.FC = () => {
 
     fetchArticles();
     return () => {
-      active = false;
+      controller.abort();
     };
   }, [hasSearchScope, page, query, categoryId, tagId, language]);
 
