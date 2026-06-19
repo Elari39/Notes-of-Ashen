@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import Pagination from '../components/Pagination';
 import InlineNotice from '../components/InlineNotice';
 import PagePendingState from '../components/RoutePending';
+import ArticleCardSkeleton from '../components/ArticleCardSkeleton';
 import { PreloadLink } from '../components/PreloadLink';
 import { getErrorMessage } from '../utils/error';
 import { getDateLocale, translate } from '../i18n';
@@ -113,9 +114,16 @@ const Home: React.FC = () => {
         </div>
       )}
       <InlineNotice message={error} />
-      {loading && (
+      {loading && articles.length === 0 && (
+        <div className="space-y-14 md:space-y-20">
+          {Array.from({ length: 5 }).map((_, index) => (
+            <ArticleCardSkeleton key={index} />
+          ))}
+        </div>
+      )}
+      {loading && articles.length > 0 && (
         <PagePendingState
-          variant={articles.length > 0 ? 'inline' : 'page'}
+          variant="inline"
           label={t('common.loadingArticles')}
         />
       )}
@@ -143,6 +151,8 @@ const Home: React.FC = () => {
                       <img
                         src={coverUrl}
                         alt={article.title}
+                        loading="lazy"
+                        decoding="async"
                         onError={() => handleCoverError(article.id)}
                         onLoad={() => handleCoverLoad(article.id)}
                         className="w-full h-full object-cover grayscale opacity-80 group-hover:grayscale-0 group-hover:opacity-100 transition-all duration-700"

@@ -178,6 +178,8 @@ export const createMarkdownComponents = ({ onImageClick, headingIdByLine }: Mark
             alt={imageAlt}
             title={imageTitle}
             className={className}
+            loading="lazy"
+            decoding="async"
           />
         );
       }
@@ -210,6 +212,8 @@ export const createMarkdownComponents = ({ onImageClick, headingIdByLine }: Mark
           alt={imageAlt}
           title={imageTitle}
           className={imageClassName}
+          loading="lazy"
+          decoding="async"
           role="button"
           tabIndex={0}
           aria-label={openImageLabel(imageAlt)}

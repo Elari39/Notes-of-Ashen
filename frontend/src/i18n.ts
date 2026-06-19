@@ -274,9 +274,31 @@ const zh = {
   'logs.event': '事件',
   'logs.source': '来源',
   'logs.loadError': '日志列表加载失败',
+
+  'toast.saveSuccess': '保存成功',
+  'toast.sessionExpired': '会话已失效，请重新登录',
+  'toast.summaryFailed': '摘要生成失败',
+  'toast.requestPending': '请求处理中，请稍候…',
+  'toast.dismiss': '关闭',
+
+  'error.timeoutRead': '请求超时，请稍后重试',
+  'error.timeoutWrite': '网络较慢，操作可能仍在处理中，请稍后刷新页面确认，避免重复提交',
+  'error.network': '网络连接异常，请检查后重试',
+  'error.duplicateSubmit': '请勿重复提交，正在处理中…',
+
+  'common.backToTop': '回到顶部',
+
+  'validation.required': '此项必填',
+  'validation.minLength': '至少 {n} 个字符',
+  'validation.maxLength': '最多 {n} 个字符',
+  'validation.email': '邮箱格式不正确',
+  'validation.passwordMismatch': '两次密码不一致',
+  'validation.accountPattern': '账号仅允许字母、数字与下划线',
+
+  'auth.resendIn': '{n}s 后重发',
 } as const;
 
-type TranslationKey = keyof typeof zh;
+export type TranslationKey = keyof typeof zh;
 
 const en: Record<TranslationKey, string> = {
   'auth.captcha': 'Captcha',
@@ -552,6 +574,28 @@ const en: Record<TranslationKey, string> = {
   'logs.event': 'Event',
   'logs.source': 'Source',
   'logs.loadError': 'Failed to load logs',
+
+  'toast.saveSuccess': 'Saved',
+  'toast.sessionExpired': 'Session expired. Please sign in again.',
+  'toast.summaryFailed': 'Failed to generate summary',
+  'toast.requestPending': 'Working on it — please hold on…',
+  'toast.dismiss': 'Close',
+
+  'error.timeoutRead': 'The request timed out. Please try again later.',
+  'error.timeoutWrite': 'The network is slow. Your request may still be processing — please refresh the page later to verify, to avoid duplicate submissions.',
+  'error.network': 'Network connection failed. Please check your connection and try again.',
+  'error.duplicateSubmit': 'Please do not submit again — your request is still being processed.',
+
+  'common.backToTop': 'Back to top',
+
+  'validation.required': 'This field is required',
+  'validation.minLength': 'At least {n} characters',
+  'validation.maxLength': 'At most {n} characters',
+  'validation.email': 'Invalid email',
+  'validation.passwordMismatch': 'Passwords do not match',
+  'validation.accountPattern': 'Account may only contain letters, numbers and underscores',
+
+  'auth.resendIn': 'Resend in {n}s',
 };
 
 const dictionaries: Record<Language, Record<TranslationKey, string>> = {

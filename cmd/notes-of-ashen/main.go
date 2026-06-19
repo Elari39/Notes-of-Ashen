@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"os"
 
 	"notes-of-ashen/internal/config"
 	"notes-of-ashen/internal/handler"
@@ -20,6 +21,11 @@ func main() {
 
 	var c config.Config
 	conf.MustLoad(*configFile, &c)
+	// Load .env (if present) so local `go run` picks up remote DB/Redis/MQ
+	// addresses without manual shell exports. Real env vars still win.
+	if err := config.LoadDotEnv(os.Getenv("APP_ENV_FILE")); err != nil {
+		logx.Must(err)
+	}
 	logx.Must(c.ApplyEnv())
 
 	server := rest.MustNewServer(c.RestConf)

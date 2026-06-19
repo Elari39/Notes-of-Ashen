@@ -95,7 +95,12 @@ const exactMessages: Record<string, LocalizedText> = {
   '登录已过期，请重新登录': localized('登录已过期，请重新登录', 'Your session has expired. Please sign in again.'),
   '操作失败，请稍后重试': localized('操作失败，请稍后重试', 'Operation failed. Please try again later.'),
   '请求超时，请稍后重试': localized('请求超时，请稍后重试', 'The request timed out. Please try again later.'),
+  '请求超时-写': localized(
+    '网络较慢，操作可能仍在处理中，请稍后刷新页面确认，避免重复提交',
+    'The network is slow. Your request may still be processing — please refresh the page later to verify, to avoid duplicate submissions.',
+  ),
   '网络连接异常，请检查后重试': localized('网络连接异常，请检查后重试', 'Network connection failed. Please check your connection and try again.'),
+  '请勿重复提交': localized('请勿重复提交，正在处理中…', 'Please do not submit again — your request is still being processed.'),
 };
 
 const defaultFallbacks: Record<Language, string> = {
@@ -150,8 +155,12 @@ export const toAppError = (error: unknown, fallback?: string) => {
 
   if (axios.isAxiosError(error)) {
     const axiosError = error as AxiosError<ErrorResponse>;
+    const method = (axiosError.config?.method || 'get').toLowerCase();
+    const isWrite = method !== 'get';
     if (axiosError.code === 'ECONNABORTED') {
-      return new AppError(translateMessage('请求超时，请稍后重试', fallback), undefined, axiosError.response?.status);
+      // 写操作超时大概率服务端仍在处理；提示用户稍后刷新核对，而不是反复提交
+      const key = isWrite ? '请求超时-写' : '请求超时，请稍后重试';
+      return new AppError(translateMessage(key, fallback), undefined, axiosError.response?.status);
     }
     if (!axiosError.response) {
       return new AppError(translateMessage('网络连接异常，请检查后重试', fallback));

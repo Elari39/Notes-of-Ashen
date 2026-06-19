@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { register, sendVerifyCode } from '../api/auth';
 import { useAuthStore } from '../store/auth';
@@ -6,9 +6,15 @@ import { usePreferenceStore } from '../store/preferences';
 import { useSiteSettingsStore } from '../store/siteSettings';
 import { normalizeAvatarUrl } from '../utils/avatar';
 import CaptchaField from '../components/CaptchaField';
+import FormField from '../components/FormField';
 import InlineNotice from '../components/InlineNotice';
 import { getErrorMessage } from '../utils/error';
-import { translate } from '../i18n';
+import { formatText, translate } from '../i18n';
+import { useFormValidation, type FieldRules } from '../hooks/useFormValidation';
+import { useCountdown } from '../hooks/useCountdown';
+
+const ACCOUNT_PATTERN = /^[a-zA-Z0-9_]+$/;
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const Register: React.FC = () => {
   const language = usePreferenceStore((state) => state.language);
@@ -33,6 +39,36 @@ const Register: React.FC = () => {
   const { setAuth, fetchUser } = useAuthStore();
   const t = (key: Parameters<typeof translate>[1]) => translate(language, key);
   const requiresEmailCode = !hasLoaded || registrationEmailCodeRequired;
+  const { remaining: resendRemaining, isCounting: isResending, start: startResendCountdown } = useCountdown(60);
+
+  const rules = useMemo<FieldRules<{ account: string; email: string; password: string; confirmPassword: string }>>(
+    () => ({
+      account: [
+        { type: 'required' },
+        { type: 'minLength', value: 3 },
+        { type: 'maxLength', value: 64 },
+        { type: 'pattern', value: ACCOUNT_PATTERN, key: 'validation.accountPattern' },
+      ],
+      email: [
+        { type: 'required' },
+        { type: 'pattern', value: EMAIL_PATTERN, key: 'validation.email' },
+      ],
+      password: [
+        { type: 'required' },
+        { type: 'minLength', value: 8 },
+      ],
+      confirmPassword: [
+        { type: 'required' },
+        { type: 'match', field: 'password', key: 'validation.passwordMismatch' },
+      ],
+    }),
+    [],
+  );
+
+  const { errors, validateField, validate } = useFormValidation(
+    { account, email, password, confirmPassword },
+    rules,
+  );
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -40,8 +76,7 @@ const Register: React.FC = () => {
       setError(t('auth.registrationDisabled'));
       return;
     }
-    if (password !== confirmPassword) {
-      setError(t('auth.passwordMismatch'));
+    if (!validate()) {
       return;
     }
     setError('');
@@ -83,6 +118,7 @@ const Register: React.FC = () => {
         captchaCode,
       });
       setMessage(t('auth.emailCodeSent'));
+      startResendCountdown(60);
     } catch (err: unknown) {
       setError(getErrorMessage(err, t('auth.sendEmailCodeError')));
       setCaptchaReloadKey((value) => value + 1);
@@ -104,26 +140,28 @@ const Register: React.FC = () => {
           </div>
         ) : (
         <form onSubmit={handleRegister} className="space-y-8">
-          <div>
+          <FormField id="register-account" label={t('auth.accountWithHint')} error={errors.account}>
             <input
               type="text"
               placeholder={t('auth.accountWithHint')}
               value={account}
               onChange={(e) => setAccount(e.target.value)}
+              onBlur={() => validateField('account')}
               className="w-full bg-transparent border-b border-mountain-grey py-2 px-1 text-ink focus:outline-none focus:border-ochre transition-colors placeholder-ink-light placeholder-opacity-50"
               required
             />
-          </div>
-          <div>
+          </FormField>
+          <FormField id="register-email" label={t('auth.email')} error={errors.email}>
             <input
               type="email"
               placeholder={t('auth.email')}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              onBlur={() => validateField('email')}
               className="w-full bg-transparent border-b border-mountain-grey py-2 px-1 text-ink focus:outline-none focus:border-ochre transition-colors placeholder-ink-light placeholder-opacity-50"
               required
             />
-          </div>
+          </FormField>
           {requiresEmailCode && (
             <>
               <CaptchaField
@@ -147,10 +185,14 @@ const Register: React.FC = () => {
                 <button
                   type="button"
                   onClick={handleSendEmailCode}
-                  disabled={sendingCode || !email.trim() || !captchaId || !captchaCode.trim()}
+                  disabled={sendingCode || isResending || !email.trim() || !captchaId || !captchaCode.trim()}
                   className="h-10 shrink-0 border border-ink px-4 text-xs tracking-widest text-ink hover:bg-ink hover:text-paper transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {sendingCode ? t('auth.sendingEmailCode') : t('auth.sendEmailCode')}
+                  {sendingCode
+                    ? t('auth.sendingEmailCode')
+                    : isResending
+                      ? formatText(t('auth.resendIn'), { n: resendRemaining })
+                      : t('auth.sendEmailCode')}
                 </button>
               </div>
             </>
@@ -173,43 +215,71 @@ const Register: React.FC = () => {
               className="w-full bg-transparent border-b border-mountain-grey py-2 px-1 text-ink focus:outline-none focus:border-ochre transition-colors placeholder-ink-light placeholder-opacity-50"
             />
           </div>
-          <div className="relative">
-            <input
-              type={showPassword ? 'text' : 'password'}
-              placeholder={t('auth.passwordWithHint')}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full bg-transparent border-b border-mountain-grey py-2 pl-1 pr-16 text-ink focus:outline-none focus:border-ochre transition-colors placeholder-ink-light placeholder-opacity-50"
-              required
-            />
-            <button
-              type="button"
-              onClick={() => setShowPassword((visible) => !visible)}
-              className="absolute right-1 top-1/2 -translate-y-1/2 text-xs tracking-widest text-ink-light hover:text-ochre transition-colors"
-              aria-label={showPassword ? t('auth.hidePassword') : t('auth.showPassword')}
-              title={showPassword ? t('auth.hidePassword') : t('auth.showPassword')}
-            >
-              {showPassword ? t('auth.hidePassword') : t('auth.showPassword')}
-            </button>
+          <div>
+            <label htmlFor="register-password" className="mb-2 block text-xs tracking-widest text-ink-light">
+              {t('auth.passwordWithHint')}
+            </label>
+            <div className="relative">
+              <input
+                id="register-password"
+                type={showPassword ? 'text' : 'password'}
+                placeholder={t('auth.passwordWithHint')}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                onBlur={() => validateField('password')}
+                aria-invalid={errors.password ? true : undefined}
+                aria-describedby={errors.password ? 'register-password-error' : undefined}
+                className="w-full bg-transparent border-b border-mountain-grey py-2 pl-1 pr-16 text-ink focus:outline-none focus:border-ochre transition-colors placeholder-ink-light placeholder-opacity-50"
+                required
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((visible) => !visible)}
+                className="absolute right-1 top-1/2 -translate-y-1/2 text-xs tracking-widest text-ink-light hover:text-ochre transition-colors"
+                aria-label={showPassword ? t('auth.hidePassword') : t('auth.showPassword')}
+                title={showPassword ? t('auth.hidePassword') : t('auth.showPassword')}
+              >
+                {showPassword ? t('auth.hidePassword') : t('auth.showPassword')}
+              </button>
+            </div>
+            {errors.password && (
+              <p id="register-password-error" role="alert" className="mt-2 border-l-2 border-ochre bg-[var(--notice-bg)] px-3 py-2 text-xs text-ochre">
+                {errors.password}
+              </p>
+            )}
           </div>
-          <div className="relative">
-            <input
-              type={showConfirmPassword ? 'text' : 'password'}
-              placeholder={t('auth.confirmPasswordWithHint')}
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              className="w-full bg-transparent border-b border-mountain-grey py-2 pl-1 pr-16 text-ink focus:outline-none focus:border-ochre transition-colors placeholder-ink-light placeholder-opacity-50"
-              required
-            />
-            <button
-              type="button"
-              onClick={() => setShowConfirmPassword((visible) => !visible)}
-              className="absolute right-1 top-1/2 -translate-y-1/2 text-xs tracking-widest text-ink-light hover:text-ochre transition-colors"
-              aria-label={showConfirmPassword ? t('auth.hidePassword') : t('auth.showPassword')}
-              title={showConfirmPassword ? t('auth.hidePassword') : t('auth.showPassword')}
-            >
-              {showConfirmPassword ? t('auth.hidePassword') : t('auth.showPassword')}
-            </button>
+          <div>
+            <label htmlFor="register-confirm-password" className="mb-2 block text-xs tracking-widest text-ink-light">
+              {t('auth.confirmPasswordWithHint')}
+            </label>
+            <div className="relative">
+              <input
+                id="register-confirm-password"
+                type={showConfirmPassword ? 'text' : 'password'}
+                placeholder={t('auth.confirmPasswordWithHint')}
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                onBlur={() => validateField('confirmPassword')}
+                aria-invalid={errors.confirmPassword ? true : undefined}
+                aria-describedby={errors.confirmPassword ? 'register-confirm-password-error' : undefined}
+                className="w-full bg-transparent border-b border-mountain-grey py-2 pl-1 pr-16 text-ink focus:outline-none focus:border-ochre transition-colors placeholder-ink-light placeholder-opacity-50"
+                required
+              />
+              <button
+                type="button"
+                onClick={() => setShowConfirmPassword((visible) => !visible)}
+                className="absolute right-1 top-1/2 -translate-y-1/2 text-xs tracking-widest text-ink-light hover:text-ochre transition-colors"
+                aria-label={showConfirmPassword ? t('auth.hidePassword') : t('auth.showPassword')}
+                title={showConfirmPassword ? t('auth.hidePassword') : t('auth.showPassword')}
+              >
+                {showConfirmPassword ? t('auth.hidePassword') : t('auth.showPassword')}
+              </button>
+            </div>
+            {errors.confirmPassword && (
+              <p id="register-confirm-password-error" role="alert" className="mt-2 border-l-2 border-ochre bg-[var(--notice-bg)] px-3 py-2 text-xs text-ochre">
+                {errors.confirmPassword}
+              </p>
+            )}
           </div>
           <InlineNotice message={error} />
           <InlineNotice message={message} tone="success" />
