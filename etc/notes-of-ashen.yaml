@@ -4,29 +4,34 @@ Port: 19000
 Timeout: 610000
 
 Database:
-  DataSource: "root:root123456@tcp(127.0.0.1:3306)/notes_of_ashen?charset=utf8mb4&parseTime=true&loc=Local"
+  # 必须通过 .env 或真实环境变量 APP_DATABASE_DSN 注入。
+  DataSource: ""
   MaxOpenConns: 20
   MaxIdleConns: 10
 
 Auth:
-  AccessSecret: "please-change-this-secret-in-production"
+  # 必须通过 .env 或真实环境变量 APP_AUTH_ACCESS_SECRET 注入。
+  AccessSecret: ""
   AccessExpire: 7200
   RefreshExpire: 604800
 
 Redis:
   Addr: "127.0.0.1:6379"
-  Password: "redis123456"
+  # 如 Redis 有密码，请通过 .env 或真实环境变量 APP_REDIS_PASSWORD 注入。
+  Password: ""
   DB: 0
 
 Search:
   Enabled: false
   MeilisearchHost: "http://127.0.0.1:7700"
-  MeilisearchAPIKey: "1234567890"
+  # 启用搜索时必须通过 .env 或真实环境变量 APP_MEILISEARCH_API_KEY 注入。
+  MeilisearchAPIKey: ""
   MeilisearchIndex: "articles"
 
 RabbitMQ:
   Enabled: true
-  URL: "amqp://admin:admin123@127.0.0.1:5672/"
+  # 必须通过 .env 或真实环境变量 APP_RABBITMQ_URL 注入。
+  URL: ""
   Exchange: "notes-of-ashen.events"
   Queue: "notes-of-ashen.operation_logs"
   RoutingKey: "operation.log"

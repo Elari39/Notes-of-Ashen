@@ -75,3 +75,57 @@ func TestApplyEnvRejectsInvalidInteger(t *testing.T) {
 		t.Fatal("ApplyEnv() error = nil, want error")
 	}
 }
+
+func TestValidateRejectsDefaultOrMissingSecrets(t *testing.T) {
+	tests := []struct {
+		name string
+		conf Config
+	}{
+		{
+			name: "missing database dsn",
+			conf: Config{Auth: AuthConf{AccessSecret: "a-long-enough-secret-value"}},
+		},
+		{
+			name: "missing access secret",
+			conf: Config{Database: DatabaseConf{DataSource: "user:pass@tcp(mysql:3306)/notes_of_ashen"}},
+		},
+		{
+			name: "default access secret",
+			conf: Config{Database: DatabaseConf{DataSource: "user:pass@tcp(mysql:3306)/notes_of_ashen"}, Auth: AuthConf{AccessSecret: "please-change-this-secret-in-production"}},
+		},
+		{
+			name: "short access secret",
+			conf: Config{Database: DatabaseConf{DataSource: "user:pass@tcp(mysql:3306)/notes_of_ashen"}, Auth: AuthConf{AccessSecret: "short"}},
+		},
+		{
+			name: "enabled search with placeholder api key",
+			conf: Config{Database: DatabaseConf{DataSource: "user:pass@tcp(mysql:3306)/notes_of_ashen"}, Auth: AuthConf{AccessSecret: "a-long-enough-secret-value"}, Search: SearchConf{Enabled: true, MeilisearchAPIKey: "notes_of_ashen_meili_master_key"}},
+		},
+		{
+			name: "enabled rabbitmq with placeholder password",
+			conf: Config{Database: DatabaseConf{DataSource: "user:pass@tcp(mysql:3306)/notes_of_ashen"}, Auth: AuthConf{AccessSecret: "a-long-enough-secret-value"}, RabbitMQ: RabbitMQConf{Enabled: true, URL: "amqp://user:replace-with-password@rabbitmq:5672/"}},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if err := tt.conf.Validate(); err == nil {
+				t.Fatal("Validate() error = nil, want error")
+			}
+		})
+	}
+}
+
+func TestValidateAllowsEnvBackedConfig(t *testing.T) {
+	c := Config{
+		Database: DatabaseConf{DataSource: "notes_user:strong-db-password@tcp(mysql:3306)/notes_of_ashen"},
+		Auth:     AuthConf{AccessSecret: "a-long-enough-secret-value"},
+		Redis:    RedisConf{Addr: "redis:6379", Password: "strong-redis-password"},
+		Search:   SearchConf{Enabled: false},
+		RabbitMQ: RabbitMQConf{Enabled: true, URL: "amqp://rabbit_user:strong-rabbitmq-password@rabbitmq:5672/"},
+	}
+
+	if err := c.Validate(); err != nil {
+		t.Fatalf("Validate() error = %v, want nil", err)
+	}
+}

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/zeromicro/go-zero/rest"
 )
@@ -197,4 +198,70 @@ func (c *Config) ApplyEnv() error {
 	setString("APP_TRUSTED_PROXY_CIDRS", &c.Proxy.TrustedCIDRs)
 
 	return nil
+}
+
+const minAccessSecretLength = 16
+
+var insecureConfigMarkers = []string{
+	"please-change",
+	"replace-with",
+	"change-me",
+	"<replace",
+	"notes_of_ashen_meili_master_key",
+}
+
+func (c Config) Validate() error {
+	if strings.TrimSpace(c.Database.DataSource) == "" {
+		return fmt.Errorf("APP_DATABASE_DSN is required")
+	}
+	if err := validateRequiredSecret("APP_AUTH_ACCESS_SECRET", c.Auth.AccessSecret, minAccessSecretLength); err != nil {
+		return err
+	}
+	if c.Search.MeilisearchAPIKey != "" && containsInsecureMarker(c.Search.MeilisearchAPIKey) {
+		return fmt.Errorf("APP_MEILISEARCH_API_KEY contains an insecure placeholder value")
+	}
+	if c.Search.Enabled {
+		if err := validateRequiredSecret("APP_MEILISEARCH_API_KEY", c.Search.MeilisearchAPIKey, 8); err != nil {
+			return err
+		}
+	}
+	if c.RabbitMQ.Enabled {
+		if strings.TrimSpace(c.RabbitMQ.URL) == "" {
+			return fmt.Errorf("APP_RABBITMQ_URL is required when RabbitMQ is enabled")
+		}
+		if containsInsecureMarker(c.RabbitMQ.URL) {
+			return fmt.Errorf("APP_RABBITMQ_URL contains an insecure placeholder value")
+		}
+	}
+	if containsInsecureMarker(c.Database.DataSource) {
+		return fmt.Errorf("APP_DATABASE_DSN contains an insecure placeholder value")
+	}
+	if c.Redis.Password != "" && containsInsecureMarker(c.Redis.Password) {
+		return fmt.Errorf("APP_REDIS_PASSWORD contains an insecure placeholder value")
+	}
+	return nil
+}
+
+func validateRequiredSecret(name, value string, minLen int) error {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return fmt.Errorf("%s is required", name)
+	}
+	if len(value) < minLen {
+		return fmt.Errorf("%s must be at least %d characters", name, minLen)
+	}
+	if containsInsecureMarker(value) {
+		return fmt.Errorf("%s contains an insecure placeholder value", name)
+	}
+	return nil
+}
+
+func containsInsecureMarker(value string) bool {
+	lower := strings.ToLower(value)
+	for _, marker := range insecureConfigMarkers {
+		if strings.Contains(lower, marker) {
+			return true
+		}
+	}
+	return false
 }

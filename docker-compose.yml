@@ -33,7 +33,7 @@ services:
       APP_DATABASE_DSN: "${APP_DATABASE_DSN}"
       APP_DATABASE_MAX_OPEN_CONNS: "${APP_DATABASE_MAX_OPEN_CONNS:-20}"
       APP_DATABASE_MAX_IDLE_CONNS: "${APP_DATABASE_MAX_IDLE_CONNS:-10}"
-      APP_AUTH_ACCESS_SECRET: "${APP_AUTH_ACCESS_SECRET:-please-change-this-secret-in-production}"
+      APP_AUTH_ACCESS_SECRET: "${APP_AUTH_ACCESS_SECRET:?set APP_AUTH_ACCESS_SECRET in .env}"
       APP_AUTH_ACCESS_EXPIRE: "${APP_AUTH_ACCESS_EXPIRE:-7200}"
       APP_AUTH_REFRESH_EXPIRE: "${APP_AUTH_REFRESH_EXPIRE:-604800}"
       APP_REDIS_ADDR: "${APP_REDIS_ADDR}"
@@ -41,10 +41,10 @@ services:
       APP_REDIS_DB: "${APP_REDIS_DB:-0}"
       APP_SEARCH_ENABLED: "${APP_SEARCH_ENABLED:-false}"
       APP_MEILISEARCH_HOST: "${APP_MEILISEARCH_HOST:-http://meilisearch:7700}"
-      APP_MEILISEARCH_API_KEY: "${APP_MEILISEARCH_API_KEY:-notes_of_ashen_meili_master_key}"
+      APP_MEILISEARCH_API_KEY: "${APP_MEILISEARCH_API_KEY:?set APP_MEILISEARCH_API_KEY in .env}"
       APP_MEILISEARCH_INDEX: "${APP_MEILISEARCH_INDEX:-articles}"
       APP_RABBITMQ_ENABLED: "${APP_RABBITMQ_ENABLED:-true}"
-      APP_RABBITMQ_URL: "${APP_RABBITMQ_URL}"
+      APP_RABBITMQ_URL: "${APP_RABBITMQ_URL:?set APP_RABBITMQ_URL in .env}"
       APP_RABBITMQ_EXCHANGE: "${APP_RABBITMQ_EXCHANGE:-notes-of-ashen.events}"
       APP_RABBITMQ_QUEUE: "${APP_RABBITMQ_QUEUE:-notes-of-ashen.operation_logs}"
       APP_RABBITMQ_ROUTING_KEY: "${APP_RABBITMQ_ROUTING_KEY:-operation.log}"
@@ -75,7 +75,7 @@ services:
     restart: unless-stopped
     environment:
       MEILI_ENV: "${MEILI_ENV:-production}"
-      MEILI_MASTER_KEY: "${APP_MEILISEARCH_API_KEY:-notes_of_ashen_meili_master_key}"
+      MEILI_MASTER_KEY: "${APP_MEILISEARCH_API_KEY:?set APP_MEILISEARCH_API_KEY in .env}"
       TZ: Asia/Shanghai
     volumes:
       - goblog_meili_data:/meili_data

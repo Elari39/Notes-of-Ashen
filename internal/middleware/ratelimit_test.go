@@ -12,17 +12,15 @@ import (
 )
 
 type fakeRedisLimiter struct {
-	incrValue int64
-	incrErr   error
-	expireErr error
+	evalValue int64
+	evalErr   error
+	evalCalls int
+	incrCalls int
 }
 
-func (f fakeRedisLimiter) Incr(context.Context, string) *redis.IntCmd {
-	return redis.NewIntResult(f.incrValue, f.incrErr)
-}
-
-func (f fakeRedisLimiter) Expire(context.Context, string, time.Duration) *redis.BoolCmd {
-	return redis.NewBoolResult(f.expireErr == nil, f.expireErr)
+func (f *fakeRedisLimiter) Eval(context.Context, string, []string, ...interface{}) *redis.Cmd {
+	f.evalCalls++
+	return redis.NewCmdResult(f.evalValue, f.evalErr)
 }
 
 func TestRateLimitMiddlewareAllowsWhenRedisClientIsNil(t *testing.T) {
@@ -35,24 +33,9 @@ func TestRateLimitMiddlewareAllowsWhenRedisClientIsNil(t *testing.T) {
 	}
 }
 
-func TestRateLimitMiddlewareAllowsWhenRedisIncrFails(t *testing.T) {
+func TestRateLimitMiddlewareAllowsWhenRedisEvalFails(t *testing.T) {
 	middleware := &RateLimitMiddleware{
-		redisClient: fakeRedisLimiter{incrErr: errors.New("redis unavailable")},
-		name:        "login",
-		limit:       1,
-		window:      time.Minute,
-	}
-
-	rec := serveRateLimitedRequest(middleware)
-
-	if rec.Code != http.StatusNoContent {
-		t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusNoContent, rec.Body.String())
-	}
-}
-
-func TestRateLimitMiddlewareAllowsWhenRedisExpireFails(t *testing.T) {
-	middleware := &RateLimitMiddleware{
-		redisClient: fakeRedisLimiter{incrValue: 1, expireErr: errors.New("redis unavailable")},
+		redisClient: &fakeRedisLimiter{evalErr: errors.New("redis unavailable")},
 		name:        "login",
 		limit:       1,
 		window:      time.Minute,
@@ -67,7 +50,7 @@ func TestRateLimitMiddlewareAllowsWhenRedisExpireFails(t *testing.T) {
 
 func TestRateLimitMiddlewareRejectsOverLimit(t *testing.T) {
 	middleware := &RateLimitMiddleware{
-		redisClient: fakeRedisLimiter{incrValue: 2},
+		redisClient: &fakeRedisLimiter{evalValue: 2},
 		name:        "login",
 		limit:       1,
 		window:      time.Minute,
@@ -76,6 +59,28 @@ func TestRateLimitMiddlewareRejectsOverLimit(t *testing.T) {
 	rec := serveRateLimitedRequest(middleware)
 
 	assertErrorResponse(t, rec, http.StatusTooManyRequests, 42900)
+}
+
+func TestRateLimitMiddlewareUsesAtomicEval(t *testing.T) {
+	client := &fakeRedisLimiter{evalValue: 1}
+	middleware := &RateLimitMiddleware{
+		redisClient: client,
+		name:        "login",
+		limit:       1,
+		window:      time.Minute,
+	}
+
+	rec := serveRateLimitedRequest(middleware)
+
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusNoContent, rec.Body.String())
+	}
+	if client.evalCalls != 1 {
+		t.Fatalf("Eval calls = %d, want 1", client.evalCalls)
+	}
+	if client.incrCalls != 0 {
+		t.Fatalf("Incr calls = %d, want 0", client.incrCalls)
+	}
 }
 
 func serveRateLimitedRequest(middleware *RateLimitMiddleware) *httptest.ResponseRecorder {

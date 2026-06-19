@@ -30,6 +30,7 @@ func LoadDotEnv(envFile string) error {
 	defer file.Close()
 
 	scanner := bufio.NewScanner(file)
+	scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
 		if line == "" || strings.HasPrefix(line, "#") {
@@ -59,7 +60,9 @@ func LoadDotEnv(envFile string) error {
 		if _, ok := os.LookupEnv(key); ok {
 			continue
 		}
-		_ = os.Setenv(key, value)
+		if err := os.Setenv(key, value); err != nil {
+			return err
+		}
 	}
 
 	return scanner.Err()

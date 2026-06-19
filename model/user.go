@@ -6,6 +6,15 @@ import (
 	"time"
 )
 
+const (
+	createUserSQL = `
+	INSERT INTO users (account, password_hash, email, avatar_url, nickname, role)
+	VALUES (?, ?, ?, ?, ?, ?)`
+	userRegistrationLockName       = "notes-of-ashen:user-registration"
+	userRegistrationLockAcquireSQL = "SELECT GET_LOCK(?, 10)"
+	userRegistrationLockReleaseSQL = "SELECT RELEASE_LOCK(?)"
+)
+
 type User struct {
 	ID           uint64
 	Account      string
@@ -40,10 +49,16 @@ func (s *Store) CountUsers(ctx context.Context) (int64, error) {
 	return count, err
 }
 
+func (s *Store) WithUserRegistrationLock(ctx context.Context, fn func(context.Context) error) error {
+	if _, err := s.db.ExecContext(ctx, userRegistrationLockAcquireSQL, userRegistrationLockName); err != nil {
+		return err
+	}
+	defer s.db.ExecContext(context.Background(), userRegistrationLockReleaseSQL, userRegistrationLockName)
+	return fn(ctx)
+}
+
 func (s *Store) CreateUser(ctx context.Context, in UserCreate) (uint64, error) {
-	res, err := s.db.ExecContext(ctx, `
-INSERT INTO users (account, password_hash, email, avatar_url, nickname, role)
-VALUES (?, ?, ?, ?, ?, ?)`,
+	res, err := s.db.ExecContext(ctx, createUserSQL,
 		in.Account, in.PasswordHash, in.Email, in.AvatarURL, in.Nickname, in.Role)
 	if err != nil {
 		return 0, err
@@ -57,35 +72,35 @@ VALUES (?, ?, ?, ?, ?, ?)`,
 
 func (s *Store) FindUserByID(ctx context.Context, id uint64) (*User, error) {
 	row := s.db.QueryRowContext(ctx, `
-SELECT id, account, password_hash, email, avatar_url, nickname, role, status, created_at, updated_at
-FROM users WHERE id = ?`, id)
+	SELECT id, account, password_hash, email, avatar_url, nickname, role, status, created_at, updated_at
+	FROM users WHERE id = ?`, id)
 	return scanUser(row)
 }
 
 func (s *Store) FindUserByAccountOrEmail(ctx context.Context, accountOrEmail string) (*User, error) {
 	row := s.db.QueryRowContext(ctx, `
-SELECT id, account, password_hash, email, avatar_url, nickname, role, status, created_at, updated_at
-FROM users WHERE account = ? OR email = ? LIMIT 1`, accountOrEmail, accountOrEmail)
+	SELECT id, account, password_hash, email, avatar_url, nickname, role, status, created_at, updated_at
+	FROM users WHERE account = ? OR email = ? LIMIT 1`, accountOrEmail, accountOrEmail)
 	return scanUser(row)
 }
 
 func (s *Store) FindUserByAccount(ctx context.Context, account string) (*User, error) {
 	row := s.db.QueryRowContext(ctx, `
-SELECT id, account, password_hash, email, avatar_url, nickname, role, status, created_at, updated_at
-FROM users WHERE account = ? LIMIT 1`, account)
+	SELECT id, account, password_hash, email, avatar_url, nickname, role, status, created_at, updated_at
+	FROM users WHERE account = ? LIMIT 1`, account)
 	return scanUser(row)
 }
 
 func (s *Store) FindUserByEmail(ctx context.Context, email string) (*User, error) {
 	row := s.db.QueryRowContext(ctx, `
-SELECT id, account, password_hash, email, avatar_url, nickname, role, status, created_at, updated_at
-FROM users WHERE email = ? LIMIT 1`, email)
+	SELECT id, account, password_hash, email, avatar_url, nickname, role, status, created_at, updated_at
+	FROM users WHERE email = ? LIMIT 1`, email)
 	return scanUser(row)
 }
 
 func (s *Store) UpdateUserProfile(ctx context.Context, id uint64, in UserUpdate) error {
 	res, err := s.db.ExecContext(ctx, `
-UPDATE users SET email = ?, avatar_url = ?, nickname = ? WHERE id = ?`,
+	UPDATE users SET email = ?, avatar_url = ?, nickname = ? WHERE id = ?`,
 		in.Email, in.AvatarURL, in.Nickname, id)
 	if err != nil {
 		return err
@@ -131,8 +146,8 @@ func (s *Store) ListUsers(ctx context.Context, page, size int) ([]User, int64, e
 	}
 
 	rows, err := s.db.QueryContext(ctx, `
-SELECT id, account, password_hash, email, avatar_url, nickname, role, status, created_at, updated_at
-FROM users ORDER BY id DESC LIMIT ? OFFSET ?`, size, offset)
+	SELECT id, account, password_hash, email, avatar_url, nickname, role, status, created_at, updated_at
+	FROM users ORDER BY id DESC LIMIT ? OFFSET ?`, size, offset)
 	if err != nil {
 		return nil, 0, err
 	}

@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -31,11 +32,11 @@ APP_EMPTY=
 	}
 
 	cases := map[string]string{
-		"APP_DISPLAY_NAME":        "Notes of Ashen",
-		"APP_DATABASE_DSN":        "user:pass@tcp(host:3306)/db?charset=utf8mb4",
-		"APP_REDIS_PASSWORD":      "redis_r7PfKf",
+		"APP_DISPLAY_NAME":   "Notes of Ashen",
+		"APP_DATABASE_DSN":   "user:pass@tcp(host:3306)/db?charset=utf8mb4",
+		"APP_REDIS_PASSWORD": "redis_r7PfKf",
 		// '#' inside an unquoted value without preceding whitespace must be preserved.
-		"APP_RABBITMQ_URL":        "amqp://user:Elaina10#0d1017@mq@host:50212/",
+		"APP_RABBITMQ_URL": "amqp://user:Elaina10#0d1017@mq@host:50212/",
 		// Inline " #" comment stripped for unquoted values.
 		"APP_WITH_INLINE_COMMENT": "value",
 		"APP_EMPTY":               "",
@@ -80,5 +81,17 @@ func TestLoadDotEnv_ExportPrefixAndSingleQuote(t *testing.T) {
 	}
 	if got := os.Getenv("APP_NUM"); got != "42" {
 		t.Errorf("APP_NUM = %q, want 42", got)
+	}
+}
+
+func TestLoadDotEnv_LongValue(t *testing.T) {
+	longValue := strings.Repeat("x", 128*1024)
+	path := writeEnvFile(t, "APP_LONG_VALUE="+longValue+"\n")
+
+	if err := LoadDotEnv(path); err != nil {
+		t.Fatalf("LoadDotEnv: %v", err)
+	}
+	if got := os.Getenv("APP_LONG_VALUE"); got != longValue {
+		t.Fatalf("APP_LONG_VALUE length = %d, want %d", len(got), len(longValue))
 	}
 }

@@ -27,11 +27,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   setAuth: (user, token) => {
     if (token) localStorage.setItem('accessToken', token);
     else localStorage.removeItem('accessToken');
+    window.dispatchEvent(new Event('noa:auth-changed'));
     set({ user, accessToken: token, isInitialized: true });
   },
   logout: () => {
     localStorage.removeItem('accessToken');
     localStorage.removeItem('refreshToken');
+    window.dispatchEvent(new Event('noa:auth-changed'));
     set({ user: null, accessToken: null, isInitialized: true, isFetching: false });
   },
   setSessionExpiredHandler: (handler) => {

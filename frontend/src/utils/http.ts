@@ -24,6 +24,7 @@ const http = axios.create({
 const TIMEOUT_DEFAULT_GET = 10_000;
 const TIMEOUT_DEFAULT_WRITE = 30_000;
 const TIMEOUT_LONG_RUNNING = 600_000;
+const TIMEOUT_REFRESH_TOKEN = 15_000;
 
 const LONG_RUNNING_PATTERNS: RegExp[] = [
   /\/ai\//,
@@ -51,6 +52,15 @@ type RefreshTokenResp = {
 };
 
 let refreshTokenTask: Promise<string> | null = null;
+let sessionExpiredHandled = false;
+
+const resetSessionExpiredGuard = () => {
+  sessionExpiredHandled = false;
+};
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('noa:auth-changed', resetSessionExpiredGuard);
+}
 
 const isAuthRetryEndpoint = (url?: string) => {
   return Boolean(
@@ -77,7 +87,7 @@ const refreshAccessToken = async () => {
     throw new AppError('登录已过期，请重新登录', 40100, 401);
   }
 
-  const res = await axios.post<RefreshTokenResp>('/api/v1/auth/refresh', { refreshToken });
+  const res = await axios.post<RefreshTokenResp>('/api/v1/auth/refresh', { refreshToken }, { timeout: TIMEOUT_REFRESH_TOKEN });
   if (res.data.code !== 0 || !res.data.data?.accessToken || !res.data.data.refreshToken) {
     throw new AppError(res.data.message || '登录已过期，请重新登录', res.data.code, res.status);
   }
@@ -85,6 +95,7 @@ const refreshAccessToken = async () => {
   const { accessToken, refreshToken: newRefreshToken } = res.data.data;
   localStorage.setItem('accessToken', accessToken);
   localStorage.setItem('refreshToken', newRefreshToken);
+  resetSessionExpiredGuard();
   useAuthStore.setState({ accessToken, isInitialized: true });
 
   return accessToken;
@@ -100,6 +111,8 @@ const getRefreshTokenTask = () => {
 };
 
 const handleSessionExpired = (refreshError: unknown) => {
+  if (sessionExpiredHandled) return;
+  sessionExpiredHandled = true;
   useAuthStore.getState().logout();
   notifyFromError(refreshError, 'toast.sessionExpired');
   const handler = useAuthStore.getState().onSessionExpired;

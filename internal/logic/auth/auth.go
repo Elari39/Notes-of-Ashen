@@ -97,55 +97,63 @@ func Register(ctx context.Context, svcCtx *svc.ServiceContext, req types.Registe
 		return nil, err
 	}
 
-	total, err := svcCtx.Store.CountUsers(ctx)
-	if err != nil {
-		return nil, err
-	}
-	isFirstUser := total == 0
-	role := "user"
-	if isFirstUser {
-		role = "admin"
-	} else {
-		settings, err := svcCtx.Store.SiteSettings(ctx)
-		if err != nil {
-			return nil, err
-		}
-		if !settings.RegistrationEnabled {
-			return nil, apperrors.Forbidden("registration is disabled")
-		}
-	}
-	if _, err := svcCtx.Store.FindUserByAccount(ctx, req.Account); err == nil {
-		return nil, apperrors.Conflict("account or email already exists")
-	} else if !errors.Is(err, model.ErrNotFound) {
-		return nil, err
-	}
-	if _, err := svcCtx.Store.FindUserByEmail(ctx, req.Email); err == nil {
-		return nil, apperrors.Conflict("account or email already exists")
-	} else if !errors.Is(err, model.ErrNotFound) {
-		return nil, err
-	}
-	if logicutil.RegistrationEmailCodeRequired(isFirstUser, svcCtx.Config.Email.Enabled) {
-		if err := security.ConsumeEmailCode(ctx, svcCtx.Redis, "register", req.Email, req.EmailCode); err != nil {
-			return nil, err
-		}
-	}
-
 	passwordHash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {
 		return nil, err
 	}
-	id, err := svcCtx.Store.CreateUser(ctx, model.UserCreate{
-		Account:      req.Account,
-		PasswordHash: string(passwordHash),
-		Email:        req.Email,
-		AvatarURL:    req.AvatarURL,
-		Nickname:     req.Nickname,
-		Role:         role,
-	})
-	if err != nil {
-		if logicutil.IsDuplicate(err) {
-			return nil, apperrors.Conflict("account or email already exists")
+
+	var id uint64
+	var role string
+	if err := svcCtx.Store.WithUserRegistrationLock(ctx, func(ctx context.Context) error {
+		total, err := svcCtx.Store.CountUsers(ctx)
+		if err != nil {
+			return err
 		}
+		isFirstUser := total == 0
+		role = "user"
+		if isFirstUser {
+			role = "admin"
+		} else {
+			settings, err := svcCtx.Store.SiteSettings(ctx)
+			if err != nil {
+				return err
+			}
+			if !settings.RegistrationEnabled {
+				return apperrors.Forbidden("registration is disabled")
+			}
+		}
+		if _, err := svcCtx.Store.FindUserByAccount(ctx, req.Account); err == nil {
+			return apperrors.Conflict("account or email already exists")
+		} else if !errors.Is(err, model.ErrNotFound) {
+			return err
+		}
+		if _, err := svcCtx.Store.FindUserByEmail(ctx, req.Email); err == nil {
+			return apperrors.Conflict("account or email already exists")
+		} else if !errors.Is(err, model.ErrNotFound) {
+			return err
+		}
+		if logicutil.RegistrationEmailCodeRequired(isFirstUser, svcCtx.Config.Email.Enabled) {
+			if err := security.ConsumeEmailCode(ctx, svcCtx.Redis, "register", req.Email, req.EmailCode); err != nil {
+				return err
+			}
+		}
+		createdID, err := svcCtx.Store.CreateUser(ctx, model.UserCreate{
+			Account:      req.Account,
+			PasswordHash: string(passwordHash),
+			Email:        req.Email,
+			AvatarURL:    req.AvatarURL,
+			Nickname:     req.Nickname,
+			Role:         role,
+		})
+		if err != nil {
+			if logicutil.IsDuplicate(err) {
+				return apperrors.Conflict("account or email already exists")
+			}
+			return err
+		}
+		id = createdID
+		return nil
+	}); err != nil {
 		return nil, err
 	}
 
