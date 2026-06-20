@@ -179,11 +179,13 @@ POST /api/v1/auth/password/reset
 POST /api/v1/auth/refresh
 ```
 
-权限：公开。刷新成功后，旧 Refresh Token 会被撤销，并返回新的 Access Token 和 Refresh Token。
+权限：公开。刷新成功后，旧 Refresh Token 会被撤销，并返回新的 Access Token。
+
+> Refresh Token 默认通过后端下发的 `HttpOnly` + `SameSite=Strict` Cookie（`noa_refresh_token`）携带，请求需带凭证（`withCredentials`）；Body 中的 `refreshToken` 字段可选，仅用于直接调用 API 的客户端兜底。响应中的 `refreshToken` 字段已置空，前端不应再依赖。
 
 | 字段 | 类型 | 必填 | 说明 |
 | --- | --- | --- | --- |
-| refreshToken | string | 是 | 登录或注册返回的 Refresh Token |
+| refreshToken | string | 否 | 默认由 Cookie 携带；Body 兜底传入旧 Refresh Token |
 
 Token 响应示例：
 
@@ -193,7 +195,7 @@ Token 响应示例：
   "message": "success",
   "data": {
     "accessToken": "jwt",
-    "refreshToken": "refresh-token",
+    "refreshToken": "",
     "tokenType": "Bearer",
     "expiresIn": 7200
   }
@@ -206,11 +208,11 @@ Token 响应示例：
 POST /api/v1/auth/logout
 ```
 
-权限：登录用户。
+权限：登录用户。撤销当前 Refresh Token 并清除 `noa_refresh_token` Cookie；Cookie 缺失时幂等返回成功。
 
 | 字段 | 类型 | 必填 | 说明 |
 | --- | --- | --- | --- |
-| refreshToken | string | 是 | 要撤销的 Refresh Token |
+| refreshToken | string | 否 | 默认由 Cookie 携带；Body 兜底传入要撤销的 Refresh Token |
 
 ## 用户接口
 

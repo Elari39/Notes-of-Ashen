@@ -27,13 +27,14 @@ type Event struct {
 
 type Publisher struct {
 	conf config.RabbitMQConf
+	db   *sql.DB
 	mu   sync.Mutex
 	conn *amqp.Connection
 	ch   *amqp.Channel
 }
 
-func NewPublisher(conf config.RabbitMQConf) *Publisher {
-	p := &Publisher{conf: conf}
+func NewPublisher(conf config.RabbitMQConf, db *sql.DB) *Publisher {
+	p := &Publisher{conf: conf, db: db}
 	if !conf.Enabled {
 		return p
 	}
@@ -75,6 +76,17 @@ func (p *Publisher) connect() error {
 
 func (p *Publisher) Publish(ctx context.Context, event Event) {
 	if !p.conf.Enabled {
+		// MQ 未启用时，audit / 操作事件必须同步落库，否则 /admin/logs 永远为空。
+		if p.db == nil {
+			logx.Errorf("operation log dropped: rabbitmq disabled and db writer unavailable")
+			return
+		}
+		if event.CreatedAt.IsZero() {
+			event.CreatedAt = time.Now()
+		}
+		if err := writeOperationLogEvent(p.db, event); err != nil {
+			logx.Errorf("write operation log directly failed: %v", err)
+		}
 		return
 	}
 	if event.CreatedAt.IsZero() {
@@ -192,6 +204,20 @@ func writeOperationLogMessage(db *sql.DB, msg amqp.Delivery) {
 		_ = msg.Nack(false, false)
 		return
 	}
+	if err := writeOperationLogEvent(db, event); err != nil {
+		logx.Errorf("write operation log failed: %v", err)
+		_ = msg.Nack(false, true)
+		return
+	}
+	_ = msg.Ack(false)
+}
+
+// writeOperationLogEvent 将单个操作事件写入 operation_logs 表。
+// 消费端（MQ 启用）与禁用兜底（MQ 关闭）共用此函数，确保审计日志在任何情况下都不丢失。
+func writeOperationLogEvent(db *sql.DB, event Event) error {
+	if event.CreatedAt.IsZero() {
+		event.CreatedAt = time.Now()
+	}
 	metadata, _ := json.Marshal(event.Metadata)
 	var metadataValue interface{}
 	if len(event.Metadata) > 0 {
@@ -206,13 +232,8 @@ func writeOperationLogMessage(db *sql.DB, msg amqp.Delivery) {
 		resourceID = event.ResourceID
 	}
 	_, err := db.Exec(`
-INSERT INTO operation_logs (user_id, event_type, resource_type, resource_id, metadata, ip, user_agent)
-VALUES (?, ?, ?, ?, ?, ?, ?)`,
-		userID, event.EventType, event.ResourceType, resourceID, metadataValue, event.IP, event.UserAgent)
-	if err != nil {
-		logx.Errorf("write operation log failed: %v", err)
-		_ = msg.Nack(false, true)
-		return
-	}
-	_ = msg.Ack(false)
+INSERT INTO operation_logs (user_id, event_type, resource_type, resource_id, metadata, ip, user_agent, created_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+		userID, event.EventType, event.ResourceType, resourceID, metadataValue, event.IP, event.UserAgent, event.CreatedAt)
+	return err
 }

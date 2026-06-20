@@ -26,7 +26,8 @@ export interface LoginReq {
 }
 
 export interface RefreshReq {
-  refreshToken: string;
+  // refreshToken 现由后端 HttpOnly Cookie 携带；此字段可选，仅兼容直接调用 API 的客户端。
+  refreshToken?: string;
 }
 
 export type CaptchaPurpose = 'login' | 'register' | 'reset_password' | 'change_password' | 'update_email';

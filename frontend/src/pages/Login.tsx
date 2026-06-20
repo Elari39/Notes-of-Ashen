@@ -39,7 +39,7 @@ const Login: React.FC = () => {
     handler: async () => {
       const res = await login({ account, password, captchaId, captchaCode });
       const token = res.data.accessToken;
-      localStorage.setItem('refreshToken', res.data.refreshToken);
+      // refreshToken 由后端 HttpOnly Cookie 下发，前端无需也无需读取。
       setAuth(null, token);
       await fetchUser();
     },

@@ -98,5 +98,10 @@ func WithTx(ctx context.Context, db *sql.DB, fn func(*sql.Tx) error) error {
 		_ = tx.Rollback()
 		return err
 	}
-	return tx.Commit()
+	if err := tx.Commit(); err != nil {
+		// Commit 失败时事务状态未定，回滚以避免业务误以为写入成功。
+		_ = tx.Rollback()
+		return err
+	}
+	return nil
 }

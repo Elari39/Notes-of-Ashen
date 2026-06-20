@@ -12,9 +12,11 @@ http://127.0.0.1:1270
 
 适合已经准备好远程 MySQL、Redis 和 RabbitMQ 后，用 Docker / 1Panel 跑起来：
 
+> ⚠️ 复制 `.env` 后，必须把其中所有 `<REPLACE_…>` 占位符替换为真实强随机值，否则后端启动或 `docker compose config` 会直接失败。
+
 ```powershell
 Copy-Item .env.example .env
-# 编辑 .env，填入远程 MySQL、Redis、RabbitMQ 连接信息
+# 编辑 .env，替换所有 <REPLACE_…> 占位符，填入远程 MySQL、Redis、RabbitMQ 连接信息
 docker compose config --quiet
 docker compose up -d --build
 ```
@@ -23,7 +25,7 @@ Linux / macOS：
 
 ```bash
 cp .env.example .env
-# 编辑 .env，填入远程 MySQL、Redis、RabbitMQ 连接信息
+# 编辑 .env，替换所有 <REPLACE_…> 占位符，填入远程 MySQL、Redis、RabbitMQ 连接信息
 docker compose config --quiet
 docker compose up -d --build
 ```

@@ -262,12 +262,13 @@ func ResetPassword(ctx context.Context, svcCtx *svc.ServiceContext, req types.Re
 
 func Refresh(ctx context.Context, svcCtx *svc.ServiceContext, req types.RefreshReq) (*types.TokenPair, error) {
 	req.RefreshToken = trim(req.RefreshToken)
-	if err := validator.Required(req.RefreshToken, "refreshToken"); err != nil {
-		return nil, err
+	if req.RefreshToken == "" {
+		// refreshToken 通常由 HttpOnly Cookie 携带；缺失表示未登录或 Cookie 失效。
+		return nil, apperrors.Unauthorized("refresh token is required")
 	}
 	hash := authutil.HashRefreshToken(req.RefreshToken)
-	// Redis 仅作缓存，DB 为准。Redis miss 时回退 DB 查询并回填，
-	// 避免 Redis 逐出但 DB token 仍有效时刷新失败。
+	// Redis 仅作缓存，DB 为准。缓存缺失或出错时以 DB 为准并继续后续校验，
+	// 避免 Redis 抖动直接 500 导致刷新失败；token 旋转成功后由 issueTokens 写入新缓存。
 	token, err := svcCtx.Store.FindRefreshToken(ctx, hash)
 	if err != nil {
 		return nil, logicutil.MapError(err)
@@ -275,14 +276,14 @@ func Refresh(ctx context.Context, svcCtx *svc.ServiceContext, req types.RefreshR
 	if token.RevokedAt != nil || time.Now().After(token.ExpiresAt) {
 		return nil, apperrors.Unauthorized("refresh token is expired")
 	}
-	// 校验 Redis 缓存中的 userID 是否与 DB 一致；缓存缺失或不一致时以 DB 为准并回填。
+	// 校验 Redis 缓存中的 userID 是否与 DB 一致；缓存缺失或非 Nil 错误降级为 miss（不 fail-closed）。
 	if cachedUserID, err := svcCtx.Redis.Get(ctx, refreshKey(hash)).Result(); err == nil {
 		redisUserID, parseErr := strconv.ParseUint(cachedUserID, 10, 64)
 		if parseErr != nil || redisUserID != token.UserID {
 			return nil, apperrors.Unauthorized("refresh token is invalid")
 		}
 	} else if !errors.Is(err, redis.Nil) {
-		return nil, err
+		logx.Errorf("refresh token cache read failed, fallback to db: %v", err)
 	}
 	user, err := svcCtx.Store.FindUserByID(ctx, token.UserID)
 	if err != nil {
@@ -311,8 +312,10 @@ func Logout(ctx context.Context, svcCtx *svc.ServiceContext, req types.RefreshRe
 		return err
 	}
 	req.RefreshToken = trim(req.RefreshToken)
-	if err := validator.Required(req.RefreshToken, "refreshToken"); err != nil {
-		return err
+	// refreshToken 现由 HttpOnly Cookie 携带；缺失时视为已登出，幂等返回成功，
+	// 避免前端在 Cookie 过期/清理后登出反复失败。
+	if req.RefreshToken == "" {
+		return nil
 	}
 	hash := authutil.HashRefreshToken(req.RefreshToken)
 	token, err := svcCtx.Store.FindRefreshToken(ctx, hash)

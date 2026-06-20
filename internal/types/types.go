@@ -26,7 +26,7 @@ type LoginReq struct {
 }
 
 type RefreshReq struct {
-	RefreshToken string `json:"refreshToken"`
+	RefreshToken string `json:"refreshToken,optional"`
 }
 
 type CaptchaReq struct {

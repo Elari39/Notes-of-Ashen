@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"net/url"
 	"strings"
 	"time"
@@ -36,8 +37,23 @@ func Visit(ctx context.Context, svcCtx *svc.ServiceContext, req types.TrafficVis
 	if len(req.Referrer) > 512 {
 		return apperrors.BadRequest("referrer length is invalid")
 	}
-	if !isPublicTrafficPath(req.Path) {
+	// 规范化 path，避免 "/admin/../articles" 之类绕过黑名单。
+	normalizedPath := normalizeTrafficPath(req.Path)
+	if !isPublicTrafficPath(normalizedPath) {
 		return nil
+	}
+	// articleId 来自 body 任意值，校验其指向真实已发布文章，防止伪造刷统计。
+	if req.ArticleID > 0 {
+		article, err := svcCtx.Store.FindArticle(ctx, req.ArticleID)
+		if err != nil {
+			if errors.Is(err, model.ErrNotFound) {
+				return nil
+			}
+			return err
+		}
+		if article.Status != "published" {
+			return nil
+		}
 	}
 
 	now := time.Now()
@@ -88,6 +104,17 @@ func isPublicTrafficPath(path string) bool {
 		}
 	}
 	return true
+}
+
+// normalizeTrafficPath 规范化 path：去除首尾空白与斜杠后补回单个前导斜杠，
+// 避免 "/admin/" "/admin/../articles" 等变体绕过黑名单前缀匹配。
+func normalizeTrafficPath(path string) string {
+	path = strings.TrimSpace(path)
+	path = strings.Trim(path, "/")
+	if path == "" {
+		return "/"
+	}
+	return "/" + path
 }
 
 func visitorDailyHash(date, ip, userAgent string) string {

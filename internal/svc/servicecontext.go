@@ -53,7 +53,7 @@ func NewServiceContext(c config.Config) *ServiceContext {
 		logx.Must(err)
 	}
 	cancel()
-	events := mq.NewPublisher(c.RabbitMQ)
+	events := mq.NewPublisher(c.RabbitMQ, db)
 	mq.StartConsumer(c.RabbitMQ, db)
 
 	return &ServiceContext{

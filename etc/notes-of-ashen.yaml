@@ -14,6 +14,9 @@ Auth:
   AccessSecret: ""
   AccessExpire: 7200
   RefreshExpire: 604800
+  # refreshToken 通过 HttpOnly+SameSite=Strict Cookie 下发；生产 HTTPS 保持 true，
+  # 本机 dev（HTTP）需在 .env 设 APP_AUTH_COOKIE_SECURE=false，否则浏览器不会保存 Cookie。
+  CookieSecure: true
 
 Redis:
   Addr: "127.0.0.1:6379"

@@ -12,7 +12,8 @@ export interface User {
 
 export interface TokenPair {
   accessToken: string;
-  refreshToken: string;
+  // refreshToken 由后端 HttpOnly Cookie 下发，响应体中此字段可能为空。
+  refreshToken?: string;
   tokenType: string;
   expiresIn: number;
 }

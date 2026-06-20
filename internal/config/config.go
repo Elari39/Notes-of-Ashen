@@ -31,6 +31,7 @@ type AuthConf struct {
 	AccessSecret  string
 	AccessExpire  int64
 	RefreshExpire int64
+	CookieSecure  bool
 }
 
 type RedisConf struct {
@@ -145,6 +146,9 @@ func (c *Config) ApplyEnv() error {
 		return err
 	}
 	if err := setInt64("APP_AUTH_REFRESH_EXPIRE", &c.Auth.RefreshExpire); err != nil {
+		return err
+	}
+	if err := setBool("APP_AUTH_COOKIE_SECURE", &c.Auth.CookieSecure); err != nil {
 		return err
 	}
 	setString("APP_REDIS_ADDR", &c.Redis.Addr)

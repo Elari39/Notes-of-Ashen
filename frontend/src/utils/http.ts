@@ -10,9 +10,12 @@ import { useUIStore } from '../store/ui';
 import { AppError, toAppError } from './error';
 import { fixVisibleMojibakeDeep } from './mojibake';
 import { notifyFromError } from './notify';
+import { refreshAccessToken } from './refresh';
 
 const http = axios.create({
   baseURL: '/api/v1',
+  // refreshToken 已迁移到后端 HttpOnly Cookie，刷新请求需携带凭证。
+  withCredentials: true,
   // 不在实例上写死 timeout，由请求拦截器按 method/路径注入分级超时；
   // 业务方仍可在单次调用里显式传 timeout 覆盖。
 });
@@ -24,7 +27,6 @@ const http = axios.create({
 const TIMEOUT_DEFAULT_GET = 10_000;
 const TIMEOUT_DEFAULT_WRITE = 30_000;
 const TIMEOUT_LONG_RUNNING = 600_000;
-const TIMEOUT_REFRESH_TOKEN = 15_000;
 
 const LONG_RUNNING_PATTERNS: RegExp[] = [
   /\/ai\//,
@@ -40,15 +42,6 @@ const resolveDefaultTimeout = (config: AxiosRequestConfig): number => {
   }
   const method = (config.method || 'get').toLowerCase();
   return method === 'get' ? TIMEOUT_DEFAULT_GET : TIMEOUT_DEFAULT_WRITE;
-};
-
-type RefreshTokenResp = {
-  code: number;
-  message?: string;
-  data?: {
-    accessToken?: string;
-    refreshToken?: string;
-  };
 };
 
 let refreshTokenTask: Promise<string> | null = null;
@@ -81,29 +74,18 @@ const shouldNetworkRetry = (config?: AxiosRequestConfig) => {
   return contentType !== 'multipart';
 };
 
-const refreshAccessToken = async () => {
-  const refreshToken = localStorage.getItem('refreshToken');
-  if (!refreshToken) {
-    throw new AppError('登录已过期，请重新登录', 40100, 401);
-  }
-
-  const res = await axios.post<RefreshTokenResp>('/api/v1/auth/refresh', { refreshToken }, { timeout: TIMEOUT_REFRESH_TOKEN });
-  if (res.data.code !== 0 || !res.data.data?.accessToken || !res.data.data.refreshToken) {
-    throw new AppError(res.data.message || '登录已过期，请重新登录', res.data.code, res.status);
-  }
-
-  const { accessToken, refreshToken: newRefreshToken } = res.data.data;
-  localStorage.setItem('accessToken', accessToken);
-  localStorage.setItem('refreshToken', newRefreshToken);
+// 刷新 accessToken：成功后同步更新内存 store。
+// 实际的 HTTP 调用放在 utils/refresh.ts 以避免与 store/auth.ts 的循环依赖。
+const refreshAccessTokenInStore = async (): Promise<string> => {
+  const accessToken = await refreshAccessToken();
   resetSessionExpiredGuard();
   useAuthStore.setState({ accessToken, isInitialized: true });
-
   return accessToken;
 };
 
 const getRefreshTokenTask = () => {
   if (!refreshTokenTask) {
-    refreshTokenTask = refreshAccessToken().finally(() => {
+    refreshTokenTask = refreshAccessTokenInStore().finally(() => {
       refreshTokenTask = null;
     });
   }

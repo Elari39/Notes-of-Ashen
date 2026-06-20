@@ -18,6 +18,8 @@ import (
 	"notes-of-ashen/internal/types"
 	"notes-of-ashen/internal/validator"
 	"notes-of-ashen/model"
+
+	"github.com/zeromicro/go-zero/core/logx"
 )
 
 const (
@@ -119,6 +121,9 @@ func EffectiveConfig(ctx context.Context, svcCtx *svc.ServiceContext) (config.AI
 	if strings.TrimSpace(settings.APIKeyCipher) != "" {
 		apiKey, err := decryptAIAPIKey(settings.APIKeyCipher, svcCtx.Config.AI.KeyEncryptionSecret, svcCtx.Config.Auth.AccessSecret)
 		if err != nil {
+			// 旧密文（无 v2: 前缀）在缺失 KeyEncryptionSecret 时不再回退到 Auth.AccessSecret 解密，
+			// 避免 AccessSecret 轮换后旧密文不可读却被静默忽略。提示需迁移。
+			logx.WithContext(ctx).Errorf("decrypt ai api key failed (cipher may need migration): %v", err)
 			return conf, true, fmt.Errorf("decrypt ai api key: %w", err)
 		}
 		conf.APIKey = apiKey
@@ -223,6 +228,16 @@ func decryptAIAPIKey(encoded, keyEncryptionSecret, legacySecret string) (string,
 	encoded = strings.TrimSpace(encoded)
 	if strings.HasPrefix(encoded, secretCipherV2Prefix) {
 		return decryptSecret(encoded, keyEncryptionSecret)
+	}
+	// 旧密文（无 v2: 前缀）。安全策略：仅在配置了 KeyEncryptionSecret 时兼容回退解密，
+	// 避免轮换 APP_AUTH_ACCESS_SECRET 后旧密文被静默用 legacy 密钥解密失败仍可读取的歧义；
+	// 缺失 KeyEncryptionSecret 则直接 fail-closed，要求管理员重新填写 AI Key 完成迁移。
+	if strings.TrimSpace(keyEncryptionSecret) == "" {
+		return "", fmt.Errorf("legacy ai api key ciphertext requires KeyEncryptionSecret to decrypt")
+	}
+	// 优先尝试用 KeyEncryptionSecret 解密（兼容已迁移但前缀未更新的情形），失败再回退 legacySecret。
+	if plain, err := decryptSecretPayload(encoded, keyEncryptionSecret); err == nil {
+		return plain, nil
 	}
 	return decryptSecretPayload(encoded, legacySecret)
 }

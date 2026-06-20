@@ -92,7 +92,7 @@ const Register: React.FC = () => {
         avatarUrl: normalizeAvatarUrl(avatarUrl),
       });
       const token = res.data.accessToken;
-      localStorage.setItem('refreshToken', res.data.refreshToken);
+      // refreshToken 由后端 HttpOnly Cookie 下发，前端无需也无需读取。
       setAuth(null, token);
       await fetchUser();
       navigate('/');

@@ -122,13 +122,11 @@ const Layout: React.FC = () => {
   }, [isPreferenceOpen, isMobileMenuOpen]);
 
   const handleLogout = async () => {
-    const refreshToken = localStorage.getItem('refreshToken');
-    if (refreshToken) {
-      try {
-        await apiLogout({ refreshToken });
-      } catch {
-        // Local logout should still complete if the server-side token revoke fails.
-      }
+    // refreshToken 走 HttpOnly Cookie，请求体留空；服务端按 Cookie 撤销并清除 Cookie。
+    try {
+      await apiLogout({});
+    } catch {
+      // Local logout should still complete if the server-side token revoke fails.
     }
     logout();
     setIsPreferenceOpen(false);

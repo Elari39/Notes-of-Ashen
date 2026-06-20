@@ -14,6 +14,25 @@ func forwardedOptions(svcCtx *svc.ServiceContext) basehandler.ForwardedOptions {
 	return basehandler.ForwardedOptions{TrustedProxyCIDRs: svcCtx.Config.Proxy.TrustedCIDRs}
 }
 
+// issueRefreshCookie 将 TokenPair 中的 refreshToken 写入 HttpOnly Cookie，
+// 并把响应体内的 refreshToken 置空——前端不再依赖该字段，长期凭证仅存于 Cookie。
+func issueRefreshCookie(w http.ResponseWriter, svcCtx *svc.ServiceContext, resp *types.TokenPair) {
+	if resp != nil {
+		authlogic.SetRefreshCookie(w, svcCtx, resp.RefreshToken)
+		resp.RefreshToken = ""
+	}
+}
+
+// resolveRefreshToken 优先从 Cookie 读取 refreshToken，缺失时回退请求体（兼容 API 客户端）。
+func resolveRefreshToken(r *http.Request, req types.RefreshReq) types.RefreshReq {
+	if req.RefreshToken == "" {
+		if token := authlogic.RefreshTokenFromCookie(r); token != "" {
+			req.RefreshToken = token
+		}
+	}
+	return req
+}
+
 func RegisterHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req types.RegisterReq
@@ -26,6 +45,7 @@ func RegisterHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 			response.ErrorCtx(r.Context(), w, err)
 			return
 		}
+		issueRefreshCookie(w, svcCtx, resp)
 		response.Ok(w, resp)
 	}
 }
@@ -73,6 +93,7 @@ func LoginHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 			response.ErrorCtx(r.Context(), w, err)
 			return
 		}
+		issueRefreshCookie(w, svcCtx, resp)
 		response.Ok(w, resp)
 	}
 }
@@ -99,11 +120,13 @@ func RefreshHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 			response.ErrorCtx(r.Context(), w, err)
 			return
 		}
+		req = resolveRefreshToken(r, req)
 		resp, err := authlogic.Refresh(r.Context(), svcCtx, req)
 		if err != nil {
 			response.ErrorCtx(r.Context(), w, err)
 			return
 		}
+		issueRefreshCookie(w, svcCtx, resp)
 		response.Ok(w, resp)
 	}
 }
@@ -115,10 +138,12 @@ func LogoutHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 			response.ErrorCtx(r.Context(), w, err)
 			return
 		}
+		req = resolveRefreshToken(r, req)
 		if err := authlogic.Logout(r.Context(), svcCtx, req, basehandler.Meta(r, forwardedOptions(svcCtx))); err != nil {
 			response.ErrorCtx(r.Context(), w, err)
 			return
 		}
+		authlogic.ClearRefreshCookie(w, svcCtx)
 		response.NoData(w)
 	}
 }

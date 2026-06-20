@@ -3,8 +3,13 @@ package model
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"time"
+
+	"github.com/zeromicro/go-zero/core/logx"
 )
+
+var errRegistrationLockNotAcquired = errors.New("user registration lock not acquired")
 
 const (
 	createUserSQL = `
@@ -50,10 +55,23 @@ func (s *Store) CountUsers(ctx context.Context) (int64, error) {
 }
 
 func (s *Store) WithUserRegistrationLock(ctx context.Context, fn func(context.Context) error) error {
-	if _, err := s.db.ExecContext(ctx, userRegistrationLockAcquireSQL, userRegistrationLockName); err != nil {
+	// GET_LOCK 返回 1 表示加锁成功，0 表示超时，NULL 表示出错（如线程被杀死）。
+	// 必须校验返回值，否则超时/失败会被当作加锁成功，并发注册可能让多个用户都成为 admin。
+	var acquired sql.NullInt64
+	if err := s.db.QueryRowContext(ctx, userRegistrationLockAcquireSQL, userRegistrationLockName).Scan(&acquired); err != nil {
 		return err
 	}
-	defer s.db.ExecContext(context.Background(), userRegistrationLockReleaseSQL, userRegistrationLockName)
+	if !acquired.Valid || acquired.Int64 != 1 {
+		return errRegistrationLockNotAcquired
+	}
+	defer func() {
+		var released sql.NullInt64
+		if err := s.db.QueryRowContext(context.Background(), userRegistrationLockReleaseSQL, userRegistrationLockName).Scan(&released); err != nil {
+			logx.Errorf("release user registration lock failed: %v", err)
+		} else if !released.Valid || released.Int64 != 1 {
+			logx.Errorf("release user registration lock returned non-one: %v", released)
+		}
+	}()
 	return fn(ctx)
 }
 
@@ -117,7 +135,7 @@ func (s *Store) UpdateUserPassword(ctx context.Context, id uint64, passwordHash 
 }
 
 func (s *Store) UpdateUserStatus(ctx context.Context, id uint64, status string) error {
-	res, err := s.db.ExecContext(ctx, "UPDATE users SET status = ? WHERE id = ?", status, id)
+	res, err := s.db.ExecContext(ctx, "UPDATE users SET status = ?, updated_at = NOW() WHERE id = ?", status, id)
 	if err != nil {
 		return err
 	}
@@ -125,7 +143,7 @@ func (s *Store) UpdateUserStatus(ctx context.Context, id uint64, status string) 
 }
 
 func (s *Store) UpdateUserRole(ctx context.Context, id uint64, role string) error {
-	res, err := s.db.ExecContext(ctx, "UPDATE users SET role = ? WHERE id = ?", role, id)
+	res, err := s.db.ExecContext(ctx, "UPDATE users SET role = ?, updated_at = NOW() WHERE id = ?", role, id)
 	if err != nil {
 		return err
 	}
