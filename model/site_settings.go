@@ -391,7 +391,9 @@ func (s *Store) ProjectsPageContent(ctx context.Context) (*ProjectsPageContent, 
 
 func (s *Store) UpdateProjectsPageContent(ctx context.Context, content ProjectsPageContent) error {
 	items := NormalizeProjectItems(content.Items)
-	encoded, err := json.Marshal([]ProjectItem{})
+	// 将归一化后的 items 同步写入 projects_items_json 列作为快照，
+	// 保证独立表为空时的读路径回退（见 ProjectsPageContent）仍能拿到数据。
+	encoded, err := json.Marshal(items)
 	if err != nil {
 		return err
 	}

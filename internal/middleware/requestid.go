@@ -3,7 +3,10 @@ package middleware
 import (
 	"crypto/rand"
 	"encoding/hex"
+	"fmt"
 	"net/http"
+	"sync/atomic"
+	"time"
 
 	"notes-of-ashen/internal/response"
 )
@@ -23,11 +26,16 @@ func RequestID(next http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
+// fallbackCounter 在 rand.Read 失败时为退化 ID 提供递增计数，配合纳秒时间戳保证唯一，
+// 避免所有请求共用同一占位串导致日志聚合无法区分链路。
+var fallbackCounter uint64
+
 func newRequestID() string {
 	var b [12]byte
 	if _, err := rand.Read(b[:]); err != nil {
-		// rand.Read 极少失败；退化为占位串，保证非空。
-		return "000000000000000000000000"
+		// rand.Read 极少失败；退化为纳秒时间戳 + 原子计数，保证唯一且非空。
+		seq := atomic.AddUint64(&fallbackCounter, 1)
+		return fmt.Sprintf("%016x-%012d", time.Now().UnixNano(), seq)
 	}
 	return hex.EncodeToString(b[:])
 }

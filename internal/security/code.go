@@ -3,20 +3,17 @@ package security
 import (
 	"context"
 	"crypto/rand"
-	"encoding/base64"
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"image"
 	"image/color"
-	"image/draw"
-	"image/png"
 	"math/big"
 	"strings"
 	"time"
 
 	apperrors "notes-of-ashen/internal/errors"
 
+	"github.com/mojocn/base64Captcha"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -210,117 +207,26 @@ func NormalizeEmailPurpose(purpose string) (string, error) {
 	}
 }
 
+// captchaDriver 使用 base64Captcha 的 DriverString 绘制带扭曲/干扰的验证码图像，
+// 抗 OCR 能力显著强于此前的七段数码管手绘实现。Source 限定为纯数字，与 RandomDigits 保持一致。
+var captchaDriver = (&base64Captcha.DriverString{
+	Height:          48,
+	Width:           140,
+	NoiseCount:      60,
+	ShowLineOptions: base64Captcha.OptionShowHollowLine | base64Captcha.OptionShowSlimeLine,
+	Length:          4,
+	Source:          "0123456789",
+	BgColor:         &color.RGBA{R: 245, G: 241, B: 232, A: 255},
+	Fonts:           []string{"wqy-microhei.ttc"},
+}).ConvertFonts()
+
+// captchaPNGBase64 用配置好的 DriverString 绘制给定 code，返回 base64 编码的 PNG。
+// code 由调用方（NewCaptcha）生成并写入 Redis，校验流程不变。
 func captchaPNGBase64(code string) string {
-	const (
-		width  = 140
-		height = 48
-	)
-	img := image.NewRGBA(image.Rect(0, 0, width, height))
-	draw.Draw(img, img.Bounds(), &image.Uniform{C: color.RGBA{R: 245, G: 241, B: 232, A: 255}}, image.Point{}, draw.Src)
-
-	drawNoise(img)
-	for i, digit := range code {
-		drawDigit(img, int(digit-'0'), 14+i*32, 8, color.RGBA{R: 41, G: 42, B: 37, A: 255})
-	}
-
-	var buffer strings.Builder
-	encoder := base64.NewEncoder(base64.StdEncoding, &buffer)
-	_ = png.Encode(encoder, img)
-	_ = encoder.Close()
-	return buffer.String()
-}
-
-func drawNoise(img *image.RGBA) {
-	bounds := img.Bounds()
-	for i := 0; i < 100; i++ {
-		x := randomInt(bounds.Dx())
-		y := randomInt(bounds.Dy())
-		img.SetRGBA(x, y, color.RGBA{R: 190, G: 173, B: 126, A: 255})
-	}
-	for i := 0; i < 4; i++ {
-		x1 := randomInt(bounds.Dx())
-		y1 := randomInt(bounds.Dy())
-		x2 := randomInt(bounds.Dx())
-		y2 := randomInt(bounds.Dy())
-		drawLine(img, x1, y1, x2, y2, color.RGBA{R: 166, G: 137, B: 78, A: 255})
-	}
-}
-
-func drawDigit(img *image.RGBA, digit, x, y int, ink color.RGBA) {
-	segments := [10][7]bool{
-		{true, true, true, true, true, true, false},
-		{false, true, true, false, false, false, false},
-		{true, true, false, true, true, false, true},
-		{true, true, true, true, false, false, true},
-		{false, true, true, false, false, true, true},
-		{true, false, true, true, false, true, true},
-		{true, false, true, true, true, true, true},
-		{true, true, true, false, false, false, false},
-		{true, true, true, true, true, true, true},
-		{true, true, true, true, false, true, true},
-	}
-	if digit < 0 || digit > 9 {
-		return
-	}
-	rects := []image.Rectangle{
-		image.Rect(x+4, y, x+22, y+5),
-		image.Rect(x+22, y+4, x+27, y+18),
-		image.Rect(x+22, y+22, x+27, y+36),
-		image.Rect(x+4, y+36, x+22, y+41),
-		image.Rect(x, y+22, x+5, y+36),
-		image.Rect(x, y+4, x+5, y+18),
-		image.Rect(x+4, y+18, x+22, y+23),
-	}
-	for i, on := range segments[digit] {
-		if on {
-			draw.Draw(img, rects[i], &image.Uniform{C: ink}, image.Point{}, draw.Src)
-		}
-	}
-}
-
-func drawLine(img *image.RGBA, x1, y1, x2, y2 int, ink color.RGBA) {
-	dx := abs(x2 - x1)
-	dy := -abs(y2 - y1)
-	sx := -1
-	if x1 < x2 {
-		sx = 1
-	}
-	sy := -1
-	if y1 < y2 {
-		sy = 1
-	}
-	err := dx + dy
-	for {
-		img.SetRGBA(x1, y1, ink)
-		if x1 == x2 && y1 == y2 {
-			return
-		}
-		e2 := 2 * err
-		if e2 >= dy {
-			err += dy
-			x1 += sx
-		}
-		if e2 <= dx {
-			err += dx
-			y1 += sy
-		}
-	}
-}
-
-func randomInt(max int) int {
-	if max <= 0 {
-		return 0
-	}
-	n, err := rand.Int(rand.Reader, big.NewInt(int64(max)))
+	item, err := captchaDriver.DrawCaptcha(code)
 	if err != nil {
-		return 0
+		// DrawCaptcha 仅在字体加载失败等极端情况报错；退化为纯文字 base64，保证非空。
+		return ""
 	}
-	return int(n.Int64())
-}
-
-func abs(value int) int {
-	if value < 0 {
-		return -value
-	}
-	return value
+	return item.EncodeB64string()
 }

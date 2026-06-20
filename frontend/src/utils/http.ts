@@ -7,7 +7,7 @@ import axios, {
 } from 'axios';
 import { useAuthStore } from '../store/auth';
 import { useUIStore } from '../store/ui';
-import { AppError, toAppError } from './error';
+import { AppError, ERROR_KEYS, toAppError } from './error';
 import { fixVisibleMojibakeDeep } from './mojibake';
 import { notifyFromError } from './notify';
 import { refreshAccessToken } from './refresh';
@@ -132,7 +132,7 @@ http.interceptors.response.use(
     if (data.code === 0) {
       return data;
     }
-    return Promise.reject(toAppError(new AppError(data.message || '操作失败，请稍后重试', data.code)));
+    return Promise.reject(toAppError(new AppError(data.message || ERROR_KEYS.operationFailed, data.code)));
   },
   async (error) => {
     useUIStore.getState().decLoading();
@@ -170,7 +170,7 @@ http.interceptors.response.use(
         return http(originalRequest);
       } catch (refreshError) {
         handleSessionExpired(refreshError);
-        return Promise.reject(toAppError(refreshError, '登录已过期，请重新登录'));
+        return Promise.reject(toAppError(refreshError, ERROR_KEYS.sessionExpired));
       }
     }
 

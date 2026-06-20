@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import ImageLightbox, { LightboxImage } from '../components/ImageLightbox';
 import InlineNotice from '../components/InlineNotice';
@@ -39,6 +39,10 @@ const ArticleDetail: React.FC = () => {
   const closeLightbox = useCallback(() => setLightboxImage(null), []);
   const t = (key: Parameters<typeof translate>[1]) => translate(language, key);
   const labels = articleDetailLabels(language);
+  // 用 ref 持有最新 language，避免切换语言时重新拉取文章正文（正文与语言无关，
+  // language 仅用于错误兜底文案）。
+  const languageRef = useRef(language);
+  languageRef.current = language;
 
   useSEO(article?.seoTitle || article?.title, article?.seoDescription || article?.summary, article?.seoKeywords);
 
@@ -78,12 +82,12 @@ const ArticleDetail: React.FC = () => {
           }
         } catch (contextErr) {
           if (!controller.signal.aborted) {
-            setContextError(getErrorMessage(contextErr, translate(language, 'article.loadError')));
+            setContextError(getErrorMessage(contextErr, translate(languageRef.current, 'article.loadError')));
           }
         }
       } catch (err) {
         if (!controller.signal.aborted) {
-          setError(getErrorMessage(err, translate(language, 'article.loadError')));
+          setError(getErrorMessage(err, translate(languageRef.current, 'article.loadError')));
         }
       } finally {
         if (!controller.signal.aborted) {
@@ -96,7 +100,7 @@ const ArticleDetail: React.FC = () => {
     return () => {
       controller.abort();
     };
-  }, [id, language]);
+  }, [id]);
 
   useEffect(() => {
     const fallbackActiveHeading = () => {

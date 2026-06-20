@@ -136,7 +136,7 @@ Copy-Item .env.example .env
 
 - `APP_DISPLAY_NAME`：站点对外展示名称，默认 `Notes of Ashen`。
 - `APP_AUTH_ACCESS_SECRET`：JWT 签名密钥，生产环境必须替换为足够长的随机字符串，建议至少 32 位。
-- `APP_DATABASE_DSN`：远程 MySQL 连接串，例如 `notes_user:password@tcp(mysql.example.com:3306)/notes_of_ashen?charset=utf8mb4&parseTime=true&loc=Local`。
+- `APP_DATABASE_DSN`：远程 MySQL 连接串，例如 `notes_user:password@tcp(mysql.example.com:3306)/notes_of_ashen?charset=utf8mb4&parseTime=true&loc=Local`。如需固定 MySQL 会话时区，可追加 `&time_zone='%2B08:00'`（URL 转义后为 `%27%2B08%3A00%27`）。
 - `APP_DATABASE_MAX_OPEN_CONNS`：MySQL 最大打开连接数。
 - `APP_DATABASE_MAX_IDLE_CONNS`：MySQL 最大空闲连接数。
 - `APP_REDIS_ADDR`：远程 Redis 地址，例如 `redis.example.com:6379`。
@@ -477,6 +477,8 @@ http://127.0.0.1:1271
 ```text
 notes_user:password@tcp(mysql.example.com:3306)/notes_of_ashen?charset=utf8mb4&parseTime=true&loc=Local
 ```
+
+如需固定 MySQL 会话时区，可在 DSN 末尾追加 `&time_zone='%2B08:00'`（URL 转义后为 `%27%2B08%3A00%27`）。
 
 不要在容器内使用 `127.0.0.1:3306` 连接远程 MySQL，因为容器里的 `127.0.0.1` 只代表 API 容器自己。还要确认远程 MySQL 已执行初始化 SQL，并允许 1Panel 服务器访问。
 

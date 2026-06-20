@@ -62,8 +62,8 @@ func Assist(ctx context.Context, conf config.AIConf, req Request) (*Response, er
 
 	body, err := json.Marshal(chatRequest{
 		Model:          strings.TrimSpace(conf.Model),
-		Temperature:    0.3,
-		MaxTokens:      maxTokens(req.Action),
+		Temperature:    assistTemperature(conf),
+		MaxTokens:      assistMaxTokens(conf, req.Action),
 		ResponseFormat: responseFormat{Type: "json_object"},
 		Messages: []chatMessage{
 			{Role: "system", Content: systemPrompt(req.Action)},
@@ -83,7 +83,6 @@ func Assist(ctx context.Context, conf config.AIConf, req Request) (*Response, er
 	httpReq.Header.Set("Authorization", "Bearer "+strings.TrimSpace(conf.APIKey))
 
 	client := &http.Client{
-		Timeout: timeout,
 		Transport: &http.Transport{
 			Proxy: http.ProxyFromEnvironment,
 			DialContext: (&net.Dialer{
@@ -212,6 +211,22 @@ func maxTokens(action string) int {
 	default:
 		return 4000
 	}
+}
+
+// assistTemperature 取配置覆盖的温度，<=0 回退默认 0.3。
+func assistTemperature(conf config.AIConf) float64 {
+	if conf.Temperature > 0 {
+		return conf.Temperature
+	}
+	return 0.3
+}
+
+// assistMaxTokens 取配置覆盖的最大 token 数，<=0 时按 action 回退默认值。
+func assistMaxTokens(conf config.AIConf, action string) int {
+	if conf.MaxTokens > 0 {
+		return conf.MaxTokens
+	}
+	return maxTokens(action)
 }
 
 func firstByteTimeout(conf config.AIConf) time.Duration {

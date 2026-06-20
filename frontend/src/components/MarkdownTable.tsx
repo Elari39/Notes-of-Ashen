@@ -1,9 +1,14 @@
 import { useState, type ReactNode } from 'react';
+import { usePreferenceStore } from '../store/preferences';
 
-const markdownTableLabels = () => {
-  const isEnglish = typeof localStorage !== 'undefined' && localStorage.getItem('notesOfAshen.language') === 'en'
-    || typeof document !== 'undefined' && document.documentElement.lang.toLowerCase().startsWith('en');
-  return isEnglish
+type MarkdownTableLabels = {
+  table: string;
+  collapse: string;
+  expand: string;
+};
+
+const markdownTableLabels = (language: 'zh' | 'en'): MarkdownTableLabels => {
+  return language === 'en'
     ? { table: 'Table', collapse: 'Collapse', expand: 'Expand' }
     : { table: '表格', collapse: '收起', expand: '展开' };
 };
@@ -14,7 +19,9 @@ type MarkdownTableProps = {
 
 const MarkdownTable = ({ children }: MarkdownTableProps) => {
   const [collapsed, setCollapsed] = useState(false);
-  const labels = markdownTableLabels();
+  // 订阅 preference store，使 i18n 切换时工具栏文案立即重渲。
+  const language = usePreferenceStore((state) => state.language);
+  const labels = markdownTableLabels(language);
 
   return (
     <div className="article-table-shell">

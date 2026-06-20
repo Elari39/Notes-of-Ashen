@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/zeromicro/go-zero/core/logx"
+
 	sitelogic "notes-of-ashen/internal/logic/site"
 	"notes-of-ashen/internal/svc"
 )
@@ -15,6 +17,8 @@ func HealthzHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 		report := sitelogic.Health(r.Context(), svcCtx)
 		w.Header().Set("Content-Type", "application/json; charset=utf-8")
 		w.WriteHeader(sitelogic.HTTPStatus(report))
-		_ = json.NewEncoder(w).Encode(report)
+		if err := json.NewEncoder(w).Encode(report); err != nil {
+			logx.Errorf("healthz: encode response failed: %v", err)
+		}
 	}
 }

@@ -1,4 +1,4 @@
-import { defineConfig } from 'vite'
+import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 
 const chunkGroups: Array<[string, string[]]> = [
@@ -13,33 +13,38 @@ const chunkGroups: Array<[string, string[]]> = [
 const packagePath = (packageName: string) => `/node_modules/${packageName}/`
 
 // https://vitejs.dev/config/
-export default defineConfig({
-  plugins: [react()],
-  build: {
-    chunkSizeWarningLimit: 1000,
-    rollupOptions: {
-      output: {
-        manualChunks(id) {
-          if (!id.includes('node_modules')) {
-            return undefined
-          }
-          const normalized = id.replace(/\\/g, '/')
-          for (const [chunkName, packages] of chunkGroups) {
-            if (packages.some((packageName) => normalized.includes(packagePath(packageName)))) {
-              return chunkName
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, process.cwd(), '')
+  const apiTarget = env.VITE_API_TARGET || 'http://127.0.0.1:19000'
+  return {
+    plugins: [react()],
+    build: {
+      sourcemap: 'hidden',
+      chunkSizeWarningLimit: 1000,
+      rollupOptions: {
+        output: {
+          manualChunks(id) {
+            if (!id.includes('node_modules')) {
+              return undefined
             }
-          }
-          return undefined
+            const normalized = id.replace(/\\/g, '/')
+            for (const [chunkName, packages] of chunkGroups) {
+              if (packages.some((packageName) => normalized.includes(packagePath(packageName)))) {
+                return chunkName
+              }
+            }
+            return undefined
+          },
         },
       },
     },
-  },
-  server: {
-    port: 3000,
-    proxy: {
-      '/api': {
-        target: 'http://127.0.0.1:19000',
-        changeOrigin: true,
+    server: {
+      port: 3000,
+      proxy: {
+        '/api': {
+          target: apiTarget,
+          changeOrigin: true,
+        }
       }
     }
   }

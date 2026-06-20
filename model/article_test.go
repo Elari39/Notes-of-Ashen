@@ -11,16 +11,15 @@ func TestArticleWherePublicFilters(t *testing.T) {
 		Query:      "go",
 		CategoryID: 2,
 		TagID:      3,
-	})
+	}, queryFulltext)
 
 	assertContains(t, where, "status = 'published'")
 	assertContains(t, where, "(scheduled_at IS NULL OR scheduled_at <= NOW())")
 	assertContains(t, where, "MATCH(title, content) AGAINST(? IN NATURAL LANGUAGE MODE)")
-	assertContains(t, where, "summary LIKE ? ESCAPE '!'")
 	assertContains(t, where, "category_id = ?")
 	assertContains(t, where, "EXISTS (SELECT 1 FROM article_tags at WHERE at.article_id = articles.id AND at.tag_id = ?)")
 
-	wantArgs := []interface{}{"go", "%go%", "%go%", "%go%", uint64(2), uint64(3)}
+	wantArgs := []interface{}{"go", uint64(2), uint64(3)}
 	if len(args) != len(wantArgs) {
 		t.Fatalf("args length = %d, want %d: %#v", len(args), len(wantArgs), args)
 	}
@@ -31,11 +30,24 @@ func TestArticleWherePublicFilters(t *testing.T) {
 	}
 }
 
+func TestArticleWhereFulltextMissFallsBackToTitleLike(t *testing.T) {
+	where, args := articleWhere(ArticleFilter{Query: "go"}, queryLike)
+
+	assertContains(t, where, "title LIKE ? ESCAPE '!'")
+	if strings.Contains(where, "MATCH(") {
+		t.Fatalf("like mode should not include MATCH clause: %s", where)
+	}
+	wantArgs := []interface{}{"%go%"}
+	if len(args) != len(wantArgs) || args[0] != wantArgs[0] {
+		t.Fatalf("args = %#v, want %#v", args, wantArgs)
+	}
+}
+
 func TestArticleWhereAdminStatus(t *testing.T) {
 	where, args := articleWhere(ArticleFilter{
 		Role:   "admin",
 		Status: "draft",
-	})
+	}, queryNone)
 
 	assertContains(t, where, "status = ?")
 	if len(args) != 1 || args[0] != "draft" {
@@ -47,7 +59,7 @@ func TestArticleWhereContentRoleScheduledStatus(t *testing.T) {
 	where, args := articleWhere(ArticleFilter{
 		Role:   "editor",
 		Status: ArticleStatusScheduled,
-	})
+	}, queryNone)
 
 	assertContains(t, where, "status = 'published' AND scheduled_at > NOW()")
 	if len(args) != 0 {

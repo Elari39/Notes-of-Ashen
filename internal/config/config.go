@@ -76,6 +76,10 @@ type AIConf struct {
 	FirstByteTimeoutSeconds int
 	StreamTimeoutSeconds    int
 	NonStreamTimeoutSeconds int
+	// Temperature 覆盖 AI 请求温度；<=0 时回退默认 0.3。
+	Temperature float64 `json:",optional"`
+	// MaxTokens 覆盖 AI 请求最大 token 数；<=0 时按 action 回退默认值。
+	MaxTokens int `json:",optional"`
 }
 
 type ProxyConf struct {
@@ -123,6 +127,19 @@ func (c *Config) ApplyEnv() error {
 		parsed, err := strconv.ParseBool(value)
 		if err != nil {
 			return fmt.Errorf("invalid boolean env %s: %w", key, err)
+		}
+		*target = parsed
+		return nil
+	}
+
+	setFloat64 := func(key string, target *float64) error {
+		value, ok := os.LookupEnv(key)
+		if !ok {
+			return nil
+		}
+		parsed, err := strconv.ParseFloat(value, 64)
+		if err != nil {
+			return fmt.Errorf("invalid float env %s: %w", key, err)
 		}
 		*target = parsed
 		return nil
@@ -199,6 +216,12 @@ func (c *Config) ApplyEnv() error {
 		return err
 	}
 	if err := setInt("APP_AI_NON_STREAM_TIMEOUT_SECONDS", &c.AI.NonStreamTimeoutSeconds); err != nil {
+		return err
+	}
+	if err := setFloat64("APP_AI_TEMPERATURE", &c.AI.Temperature); err != nil {
+		return err
+	}
+	if err := setInt("APP_AI_MAX_TOKENS", &c.AI.MaxTokens); err != nil {
 		return err
 	}
 	setString("APP_TRUSTED_PROXY_CIDRS", &c.Proxy.TrustedCIDRs)

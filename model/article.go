@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"strings"
 	"time"
+
+	"github.com/zeromicro/go-zero/core/logx"
 )
 
 const (
@@ -285,8 +287,39 @@ VALUES (?, ?)`, id, visitorHash)
 	return likeCount, liked, err
 }
 
+// queryMode 控制 filter.Query 的拼接方式：queryFulltext 仅走全文索引（命中时使用），
+// queryLike 仅走 title LIKE 兜底（fulltext 无命中时使用），queryNone 不拼接 query 条件。
+type queryMode int
+
+const (
+	queryNone queryMode = iota
+	queryFulltext
+	queryLike
+)
+
 func (s *Store) ListArticles(ctx context.Context, filter ArticleFilter) ([]Article, int64, error) {
-	where, args := articleWhere(filter)
+	mode := queryNone
+	if filter.Query != "" {
+		// 先以基础过滤（不含 query）判定 fulltext 是否命中，命中则走全文索引，
+		// 否则退化为单字段 title LIKE，避免 MATCH 与 LIKE 用 OR 并列导致全表扫描。
+		mode = queryFulltext
+		baseWhere, baseArgs := articleWhere(filter, queryNone)
+		var checkSQL string
+		if baseWhere == "" {
+			checkSQL = "SELECT COUNT(*) FROM articles WHERE MATCH(title, content) AGAINST(? IN NATURAL LANGUAGE MODE)"
+		} else {
+			checkSQL = "SELECT COUNT(*) FROM articles " + baseWhere + " AND MATCH(title, content) AGAINST(? IN NATURAL LANGUAGE MODE)"
+		}
+		var hits int64
+		if err := s.db.QueryRowContext(ctx, checkSQL, append(baseArgs, filter.Query)...).Scan(&hits); err != nil {
+			return nil, 0, err
+		}
+		if hits == 0 {
+			mode = queryLike
+		}
+	}
+
+	where, args := articleWhere(filter, mode)
 	countSQL := "SELECT COUNT(*) FROM articles " + where
 	var total int64
 	if err := s.db.QueryRowContext(ctx, countSQL, args...).Scan(&total); err != nil {
@@ -500,7 +533,7 @@ func (s *Store) FindArticleVersion(ctx context.Context, articleID uint64, versio
 	return scanArticleVersion(row)
 }
 
-func articleWhere(filter ArticleFilter) (string, []interface{}) {
+func articleWhere(filter ArticleFilter, mode queryMode) (string, []interface{}) {
 	clauses := make([]string, 0)
 	args := make([]interface{}, 0)
 	if isContentRole(filter.Role) {
@@ -533,10 +566,18 @@ func articleWhere(filter ArticleFilter) (string, []interface{}) {
 	} else {
 		clauses = append(clauses, "status = 'published' AND (scheduled_at IS NULL OR scheduled_at <= NOW())")
 	}
-	if filter.Query != "" {
+	if filter.Query != "" && mode != queryNone {
 		likeQuery := "%" + escapeLike(filter.Query) + "%"
-		clauses = append(clauses, "(MATCH(title, content) AGAINST(? IN NATURAL LANGUAGE MODE) OR title LIKE ? ESCAPE '!' OR summary LIKE ? ESCAPE '!' OR content LIKE ? ESCAPE '!')")
-		args = append(args, filter.Query, likeQuery, likeQuery, likeQuery)
+		switch mode {
+		case queryFulltext:
+			// fulltext 命中时仅走全文索引，避免 LIKE 拖累索引。
+			clauses = append(clauses, "MATCH(title, content) AGAINST(? IN NATURAL LANGUAGE MODE)")
+			args = append(args, filter.Query)
+		case queryLike:
+			// fulltext 无命中时退化为主键字段单 LIKE，去掉 summary/content 冗余 LIKE。
+			clauses = append(clauses, "title LIKE ? ESCAPE '!'")
+			args = append(args, likeQuery)
+		}
 	}
 	if filter.CategoryID > 0 {
 		clauses = append(clauses, "category_id = ?")
@@ -647,6 +688,7 @@ func scanArticleVersion(row rowScanner) (*ArticleVersion, error) {
 	item.OriginalCreatedAt = timeFromNull(originalCreatedAt)
 	item.OriginalUpdatedAt = timeFromNull(originalUpdatedAt)
 	if err := json.Unmarshal([]byte(tagIDsRaw), &item.TagIDs); err != nil {
+		logx.Errorf("scanArticleVersion: unmarshal tag_ids failed article_id=%d version_no=%d raw=%q err=%v", item.ArticleID, item.VersionNo, tagIDsRaw, err)
 		item.TagIDs = nil
 	}
 	return &item, nil

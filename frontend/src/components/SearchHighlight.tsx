@@ -6,9 +6,6 @@ type SearchHighlightProps = {
   className?: string;
 };
 
-// 模块级复用单个 textarea 节点做 HTML 实体解码，避免每段文本都 createElement。
-const decoderTextarea = typeof document !== 'undefined' ? document.createElement('textarea') : null;
-
 const SearchHighlight: React.FC<SearchHighlightProps> = ({ value, fallback, className = '' }) => {
   const source = sanitizeHighlight(value || fallback);
   const parts = source.split(/(<mark>|<\/mark>)/i);
@@ -45,10 +42,20 @@ export default memo(SearchHighlight);
 
 const sanitizeHighlight = (value: string) => value.replace(/<(?!\/?mark\b)[^>]+>/gi, '');
 
+// 纯函数解码常见 HTML 实体，避免共享 textarea 节点的重入与潜在 XSS 隐患。
+const entityMap: ReadonlyArray<[RegExp, string]> = [
+  [/&lt;/gi, '<'],
+  [/&gt;/gi, '>'],
+  [/&quot;/gi, '"'],
+  [/&#39;/gi, "'"],
+  [/&nbsp;/gi, ' '],
+  [/&amp;/gi, '&'],
+];
+
 const decodeEntities = (value: string) => {
-  if (!decoderTextarea) {
-    return value;
+  let result = value;
+  for (const [pattern, replacement] of entityMap) {
+    result = result.replace(pattern, replacement);
   }
-  decoderTextarea.innerHTML = value;
-  return decoderTextarea.value;
+  return result;
 };

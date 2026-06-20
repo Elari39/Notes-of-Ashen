@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"math/rand"
 	"sync"
 	"time"
 
@@ -154,13 +155,15 @@ func StartConsumer(conf config.RabbitMQConf, db *sql.DB) {
 
 func nextConsumerBackoff(current time.Duration) time.Duration {
 	if current <= 0 {
-		return time.Second
+		current = time.Second
 	}
 	next := current * 2
 	if next > 30*time.Second {
-		return 30 * time.Second
+		next = 30 * time.Second
 	}
-	return next
+	// 加随机抖动 [0.5*next, 1.5*next)，避免多 consumer 在 broker 恢复后同时重连形成惊群。
+	jitter := time.Duration(rand.Int63n(int64(next)))
+	return next/2 + jitter
 }
 
 func consumeOperationLogs(conf config.RabbitMQConf, db *sql.DB) error {

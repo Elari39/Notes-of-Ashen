@@ -97,10 +97,11 @@ func Parse(r *http.Request, v interface{}) error {
 }
 
 func Meta(r *http.Request, options ...ForwardedOptions) types.RequestMeta {
+	opts := forwardedOptions(options)
 	ip := remoteIP(r.RemoteAddr)
 	host := strings.TrimSpace(r.Host)
-	if trustedProxy(r.RemoteAddr, forwardedOptions(options).TrustedProxyCIDRs) {
-		if forwardedIP := forwardedClientIP(r); forwardedIP != "" {
+	if trustedProxy(r.RemoteAddr, opts.TrustedProxyCIDRs) {
+		if forwardedIP := forwardedClientIP(r, opts.TrustedProxyCIDRs); forwardedIP != "" {
 			ip = forwardedIP
 		}
 		if forwardedHost := forwardedHost(r); forwardedHost != "" {
@@ -126,11 +127,19 @@ func forwardedOptions(options []ForwardedOptions) ForwardedOptions {
 	return options[0]
 }
 
-func forwardedClientIP(r *http.Request) string {
+// forwardedClientIP 从 XFF 链中取最右侧“不可信”来源 IP：从右向左遍历，
+// 跳过所有属于可信代理 CIDR 的分段，返回第一个不可信 IP。
+// XFF 全部为可信代理时回退到 X-Real-IP。
+func forwardedClientIP(r *http.Request, trustedCIDRs string) string {
 	forwardedFor := strings.TrimSpace(r.Header.Get("X-Forwarded-For"))
 	if forwardedFor != "" {
-		for _, part := range strings.Split(forwardedFor, ",") {
-			if ip := validIP(part); ip != "" {
+		parts := strings.Split(forwardedFor, ",")
+		for i := len(parts) - 1; i >= 0; i-- {
+			ip := validIP(parts[i])
+			if ip == "" {
+				continue
+			}
+			if !trustedProxy(ip, trustedCIDRs) {
 				return ip
 			}
 		}

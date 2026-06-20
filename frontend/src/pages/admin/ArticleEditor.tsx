@@ -335,7 +335,11 @@ const ArticleEditor: React.FC = () => {
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const [isEditorReady, setIsEditorReady] = useState(false);
   const [draftRecovery, setDraftRecovery] = useState<EditorDraft | null>(null);
+  const draftRecoveryRef = useRef<EditorDraft | null>(null);
+  draftRecoveryRef.current = draftRecovery;
   const editorBaselineRef = useRef<EditorDraft | null>(null);
+  // discard 草稿后置位，跳过下一次自动保存写入，避免 effect 基于当前字段又把刚丢弃的草稿写回。
+  const skipAutosaveOnceRef = useRef(false);
 
   const [categories, setCategories] = useState<Category[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
@@ -461,6 +465,11 @@ const ArticleEditor: React.FC = () => {
     if (!isEditorReady) {
       return;
     }
+    // discard 后跳过本次自动保存，避免把刚丢弃的草稿又写回。
+    if (skipAutosaveOnceRef.current) {
+      skipAutosaveOnceRef.current = false;
+      return;
+    }
     const key = editorDraftKey(isEdit ? id : 'new');
     const baseline = editorBaselineRef.current;
     if (!baseline) {
@@ -487,7 +496,7 @@ const ArticleEditor: React.FC = () => {
       editorDraftEquals(draft, baseline) ||
       (!hasMeaningfulEditorDraft(draft) && !hasMeaningfulEditorDraft(baseline))
     ) {
-      if (!draftRecovery) {
+      if (!draftRecoveryRef.current) {
         removeEditorDraft(key);
       }
       return;
@@ -501,7 +510,6 @@ const ArticleEditor: React.FC = () => {
     content,
     coverUrl,
     displayPriority,
-    draftRecovery,
     generateSummaryOnSave,
     id,
     isEdit,
@@ -546,6 +554,8 @@ const ArticleEditor: React.FC = () => {
   const discardLocalDraft = () => {
     removeEditorDraft(editorDraftKey(isEdit ? id : 'new'));
     setDraftRecovery(null);
+    // 丢弃后表单字段未变，effect 重跑会基于当前字段再次写入草稿；置位跳过下一次自动保存。
+    skipAutosaveOnceRef.current = true;
     setAiNotice(aiText.draftDiscarded);
   };
 

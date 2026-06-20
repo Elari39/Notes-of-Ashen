@@ -1,4 +1,4 @@
-import axios, { AxiosError } from 'axios';
+import type { AxiosError } from 'axios';
 
 type ErrorResponse = {
   code?: number;
@@ -7,6 +7,17 @@ type ErrorResponse = {
 
 type Language = 'zh' | 'en';
 type LocalizedText = Record<Language, string>;
+
+// 前端自构造的错误标识符（稳定 key，避免中文短语拼串作 key 的脆弱性）。
+// 后端返回的英文 message 仍作为 exactMessages 的 key 直接匹配。
+export const ERROR_KEYS = {
+  sessionExpired: '__session_expired__',
+  operationFailed: '__operation_failed__',
+  timeout: '__timeout__',
+  timeoutWrite: '__timeout_write__',
+  network: '__network_error__',
+  duplicateSubmit: '__duplicate_submit__',
+} as const;
 
 export class AppError extends Error {
   code?: number;
@@ -92,15 +103,15 @@ const exactMessages: Record<string, LocalizedText> = {
   'at least one active admin is required': localized('至少需要保留一个可用管理员', 'At least one active administrator is required'),
   'email is unchanged': localized('新邮箱不能与当前邮箱相同', 'The new email cannot be the same as the current email'),
   'internal server error': localized('服务暂时不可用，请稍后重试', 'The service is temporarily unavailable. Please try again later.'),
-  '登录已过期，请重新登录': localized('登录已过期，请重新登录', 'Your session has expired. Please sign in again.'),
-  '操作失败，请稍后重试': localized('操作失败，请稍后重试', 'Operation failed. Please try again later.'),
-  '请求超时，请稍后重试': localized('请求超时，请稍后重试', 'The request timed out. Please try again later.'),
-  '请求超时-写': localized(
+  [ERROR_KEYS.sessionExpired]: localized('登录已过期，请重新登录', 'Your session has expired. Please sign in again.'),
+  [ERROR_KEYS.operationFailed]: localized('操作失败，请稍后重试', 'Operation failed. Please try again later.'),
+  [ERROR_KEYS.timeout]: localized('请求超时，请稍后重试', 'The request timed out. Please try again later.'),
+  [ERROR_KEYS.timeoutWrite]: localized(
     '网络较慢，操作可能仍在处理中，请稍后刷新页面确认，避免重复提交',
     'The network is slow. Your request may still be processing — please refresh the page later to verify, to avoid duplicate submissions.',
   ),
-  '网络连接异常，请检查后重试': localized('网络连接异常，请检查后重试', 'Network connection failed. Please check your connection and try again.'),
-  '请勿重复提交': localized('请勿重复提交，正在处理中…', 'Please do not submit again — your request is still being processed.'),
+  [ERROR_KEYS.network]: localized('网络连接异常，请检查后重试', 'Network connection failed. Please check your connection and try again.'),
+  [ERROR_KEYS.duplicateSubmit]: localized('请勿重复提交，正在处理中…', 'Please do not submit again — your request is still being processed.'),
 };
 
 const defaultFallbacks: Record<Language, string> = {
@@ -122,7 +133,7 @@ const textFor = (value: LocalizedText | undefined, language: Language, fallback:
 
 const translateMessage = (message?: string, fallback?: string) => {
   const language = readLanguage();
-  const fallbackText = fallback || defaultFallbacks[language];
+  const fallbackText = (fallback && exactMessages[fallback]?.[language]) || fallback || defaultFallbacks[language];
   const raw = message?.trim();
   if (!raw) return fallbackText;
   if (exactMessages[raw]) return textFor(exactMessages[raw], language, fallbackText);
@@ -148,27 +159,43 @@ const translateMessage = (message?: string, fallback?: string) => {
   return raw;
 };
 
+// 鸭子类型判断类 axios 错误，避免运行时硬耦合 axios 实例（降低与 HTTP 客户端的耦合）。
+type HttpErrorLike = {
+  code?: string;
+  config?: { method?: string };
+  response?: { status?: number; data?: ErrorResponse };
+};
+
+const isHttpErrorLike = (error: unknown): error is HttpErrorLike => {
+  if (typeof error !== 'object' || error === null) {
+    return false;
+  }
+  const candidate = error as Record<string, unknown>;
+  // axios 错误对象特征：携带 config 或 response 字段，且本身是 Error 实例。
+  return error instanceof Error && ('config' in candidate || 'response' in candidate);
+};
+
 export const toAppError = (error: unknown, fallback?: string) => {
   if (error instanceof AppError) {
     return new AppError(translateMessage(error.message, fallback), error.code, error.status);
   }
 
-  if (axios.isAxiosError(error)) {
-    const axiosError = error as AxiosError<ErrorResponse>;
-    const method = (axiosError.config?.method || 'get').toLowerCase();
+  if (isHttpErrorLike(error)) {
+    const httpError = error as AxiosError<ErrorResponse> & HttpErrorLike;
+    const method = (httpError.config?.method || 'get').toLowerCase();
     const isWrite = method !== 'get';
-    if (axiosError.code === 'ECONNABORTED') {
+    if (httpError.code === 'ECONNABORTED') {
       // 写操作超时大概率服务端仍在处理；提示用户稍后刷新核对，而不是反复提交
-      const key = isWrite ? '请求超时-写' : '请求超时，请稍后重试';
-      return new AppError(translateMessage(key, fallback), undefined, axiosError.response?.status);
+      const key = isWrite ? ERROR_KEYS.timeoutWrite : ERROR_KEYS.timeout;
+      return new AppError(translateMessage(key, fallback), undefined, httpError.response?.status);
     }
-    if (!axiosError.response) {
-      return new AppError(translateMessage('网络连接异常，请检查后重试', fallback));
+    if (!httpError.response) {
+      return new AppError(translateMessage(ERROR_KEYS.network, fallback));
     }
 
-    const data = axiosError.response.data;
+    const data = httpError.response.data;
     const message = translateMessage(data?.message, fallback);
-    return new AppError(message, data?.code, axiosError.response.status);
+    return new AppError(message, data?.code, httpError.response.status);
   }
 
   if (error instanceof Error) {

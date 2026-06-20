@@ -30,10 +30,12 @@ func main() {
 	logx.Must(c.ValidateConfig())
 
 	server := rest.MustNewServer(c.RestConf)
-	defer server.Stop()
 
 	ctx := svc.NewServiceContext(c)
+	// defer 为 LIFO：先注册 ctx.Close（后执行），再注册 server.Stop（先执行），
+	// 确保优雅停机（处理完在途请求）后再关闭下游 DB/Redis/MQ 资源池。
 	defer ctx.Close()
+	defer server.Stop()
 
 	handler.RegisterHandlers(server, ctx)
 

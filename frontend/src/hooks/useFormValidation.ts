@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { usePreferenceStore } from '../store/preferences';
 import { formatText, translate, type TranslationKey } from '../i18n';
 
@@ -77,17 +77,25 @@ export function useFormValidation<T extends Record<string, string>>(values: T, r
   const language = usePreferenceStore((state) => state.language);
   const [touched, setTouched] = useState<Partial<Record<keyof T, boolean>>>({});
 
+  // 调用方常传入内联对象字面量作为 values，每次 render 都是新引用，会让 useMemo 失效。
+  // 这里对 values 做字段级浅比较：字段未变则复用上一次的引用，使 memo 真正生效。
+  const valuesRef = useRef<T>(values);
+  if (!shallowEqualByKeys(valuesRef.current, values, rules)) {
+    valuesRef.current = values;
+  }
+  const stableValues = valuesRef.current;
+
   // 依赖 language，切换语言后重算所有已 touched 字段的错误文案
   const errors = useMemo<ValidationErrors<T>>(() => {
     const result: ValidationErrors<T> = {};
     (Object.keys(rules) as (keyof T)[]).forEach((field) => {
       if (touched[field]) {
-        const message = validateField(language, field, values, rules);
+        const message = validateField(language, field, stableValues, rules);
         if (message) result[field] = message;
       }
     });
     return result;
-  }, [values, touched, language, rules]);
+  }, [stableValues, touched, language, rules]);
 
   const setFieldTouched = useCallback((field: keyof T, isTouched = true) => {
     setTouched((prev) => ({ ...prev, [field]: isTouched }));
@@ -95,11 +103,11 @@ export function useFormValidation<T extends Record<string, string>>(values: T, r
 
   const validateFieldOnly = useCallback(
     (field: keyof T): boolean => {
-      const message = validateField(language, field, values, rules);
+      const message = validateField(language, field, stableValues, rules);
       setTouched((prev) => ({ ...prev, [field]: true }));
       return !message;
     },
-    [language, values, rules],
+    [language, stableValues, rules],
   );
 
   const validate = useCallback((): boolean => {
@@ -107,12 +115,12 @@ export function useFormValidation<T extends Record<string, string>>(values: T, r
     const nextTouched: Partial<Record<keyof T, boolean>> = {};
     (Object.keys(rules) as (keyof T)[]).forEach((field) => {
       nextTouched[field] = true;
-      const message = validateField(language, field, values, rules);
+      const message = validateField(language, field, stableValues, rules);
       if (message) allValid = false;
     });
     setTouched(nextTouched);
     return allValid;
-  }, [language, values, rules]);
+  }, [language, stableValues, rules]);
 
   const resetTouched = useCallback(() => setTouched({}), []);
 
@@ -125,3 +133,18 @@ export function useFormValidation<T extends Record<string, string>>(values: T, r
     resetTouched,
   };
 }
+
+// 按 rules 涉及的字段做浅比较（rules 的 key 即需校验的字段集合）。
+const shallowEqualByKeys = <T extends Record<string, string>>(
+  prev: T,
+  next: T,
+  rules: FieldRules<T>,
+): boolean => {
+  const keys = Object.keys(rules) as (keyof T)[];
+  for (const key of keys) {
+    if ((prev[key] ?? '') !== (next[key] ?? '')) {
+      return false;
+    }
+  }
+  return true;
+};

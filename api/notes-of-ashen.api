@@ -6,6 +6,7 @@
 //   - 文档型列表响应（UserListResp / CategoryListResp / TagListResp / OperationLogListResp）为
 //     types.go 中泛型 ListResp[T] 的具体化展示，便于阅读。
 //   - 时间字段统一为 time.Time（与 types.go 一致），指针类型用 *time.Time + omitempty。
+//   - /healthz 为运维探活手写路由（见 internal/handler/site/healthz.go），不在此文件声明。
 
 syntax = "v1"
 

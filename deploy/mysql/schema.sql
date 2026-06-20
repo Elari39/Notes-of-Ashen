@@ -1,4 +1,4 @@
-CREATE DATABASE IF NOT EXISTS notes_of_ashen;
+CREATE DATABASE IF NOT EXISTS notes_of_ashen CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;
 
 USE notes_of_ashen;
 
@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS users (
     status VARCHAR(20) DEFAULT 'active',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE utf8mb4_0900_ai_ci;
 
 -- 站点设置
 CREATE TABLE IF NOT EXISTS site_settings (
@@ -22,7 +22,7 @@ CREATE TABLE IF NOT EXISTS site_settings (
     setting_value MEDIUMTEXT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE utf8mb4_0900_ai_ci;
 
 INSERT INTO site_settings (setting_key, setting_value)
 VALUES ('registration_enabled', 'true')
@@ -134,7 +134,7 @@ CREATE TABLE IF NOT EXISTS resume_experiences (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     INDEX idx_resume_experiences_order (display_order, id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE utf8mb4_0900_ai_ci;
 
 CREATE TABLE IF NOT EXISTS resume_educations (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -150,7 +150,7 @@ CREATE TABLE IF NOT EXISTS resume_educations (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     INDEX idx_resume_educations_order (display_order, id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE utf8mb4_0900_ai_ci;
 
 CREATE TABLE IF NOT EXISTS resume_skills (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -162,7 +162,7 @@ CREATE TABLE IF NOT EXISTS resume_skills (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     INDEX idx_resume_skills_order (display_order, id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE utf8mb4_0900_ai_ci;
 
 -- Categories
 CREATE TABLE IF NOT EXISTS categories (
@@ -173,7 +173,7 @@ CREATE TABLE IF NOT EXISTS categories (
     created_by BIGINT UNSIGNED NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE utf8mb4_0900_ai_ci;
 
 -- Tags
 CREATE TABLE IF NOT EXISTS tags (
@@ -184,7 +184,7 @@ CREATE TABLE IF NOT EXISTS tags (
     created_by BIGINT UNSIGNED NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE utf8mb4_0900_ai_ci;
 
 -- Portfolio projects
 CREATE TABLE IF NOT EXISTS projects (
@@ -202,14 +202,14 @@ CREATE TABLE IF NOT EXISTS projects (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     INDEX idx_projects_order (featured, display_order, id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE utf8mb4_0900_ai_ci;
 
 CREATE TABLE IF NOT EXISTS project_tags (
     project_id BIGINT UNSIGNED NOT NULL,
     tag_id BIGINT UNSIGNED NOT NULL,
     PRIMARY KEY (project_id, tag_id),
     INDEX idx_project_tags_tag (tag_id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE utf8mb4_0900_ai_ci;
 
 -- Articles
 CREATE TABLE IF NOT EXISTS articles (
@@ -236,7 +236,7 @@ CREATE TABLE IF NOT EXISTS articles (
     INDEX idx_articles_status_schedule (status, scheduled_at),
     INDEX idx_articles_display_order (status, scheduled_at, is_pinned, display_priority, published_at, id),
     FULLTEXT KEY ft_articles_title_content (title, content)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE utf8mb4_0900_ai_ci;
 
 -- Article versions
 CREATE TABLE IF NOT EXISTS article_versions (
@@ -267,7 +267,7 @@ CREATE TABLE IF NOT EXISTS article_versions (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     UNIQUE KEY uniq_article_version (article_id, version_no),
     INDEX idx_article_versions_article (article_id, version_no)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE utf8mb4_0900_ai_ci;
 
 -- Article tags
 CREATE TABLE IF NOT EXISTS article_tags (
@@ -275,7 +275,7 @@ CREATE TABLE IF NOT EXISTS article_tags (
     tag_id BIGINT UNSIGNED NOT NULL,
     PRIMARY KEY (article_id, tag_id),
     INDEX idx_article_tags_tag (tag_id, article_id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE utf8mb4_0900_ai_ci;
 
 -- Article likes
 CREATE TABLE IF NOT EXISTS article_likes (
@@ -283,7 +283,7 @@ CREATE TABLE IF NOT EXISTS article_likes (
     visitor_hash CHAR(64) NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (article_id, visitor_hash)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE utf8mb4_0900_ai_ci;
 
 -- Refresh tokens
 CREATE TABLE IF NOT EXISTS refresh_tokens (
@@ -294,7 +294,7 @@ CREATE TABLE IF NOT EXISTS refresh_tokens (
     revoked_at TIMESTAMP NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     INDEX (user_id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE utf8mb4_0900_ai_ci;
 
 -- Operation logs
 CREATE TABLE IF NOT EXISTS operation_logs (
@@ -307,7 +307,7 @@ CREATE TABLE IF NOT EXISTS operation_logs (
     ip VARCHAR(45),
     user_agent TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE utf8mb4_0900_ai_ci;
 
 -- Traffic daily stats
 CREATE TABLE IF NOT EXISTS traffic_daily_stats (
@@ -316,7 +316,7 @@ CREATE TABLE IF NOT EXISTS traffic_daily_stats (
     uv BIGINT NOT NULL DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE utf8mb4_0900_ai_ci;
 
 -- Traffic daily visitors
 CREATE TABLE IF NOT EXISTS traffic_daily_visitors (
@@ -324,7 +324,7 @@ CREATE TABLE IF NOT EXISTS traffic_daily_visitors (
     visitor_hash CHAR(64) NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (stat_date, visitor_hash)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE utf8mb4_0900_ai_ci;
 
 -- Traffic referer stats
 CREATE TABLE IF NOT EXISTS traffic_referer_stats (
@@ -338,4 +338,4 @@ CREATE TABLE IF NOT EXISTS traffic_referer_stats (
     PRIMARY KEY (stat_date, article_id, source_type, source_name),
     INDEX idx_traffic_referer_stats_date (stat_date),
     INDEX idx_traffic_referer_stats_article (article_id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE utf8mb4_0900_ai_ci;

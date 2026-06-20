@@ -1,5 +1,5 @@
 import { type CSSProperties, type KeyboardEvent, type MouseEvent } from 'react';
-import type { Components } from 'react-markdown';
+import type { Components, ExtraProps } from 'react-markdown';
 import SyntaxHighlighter from 'react-syntax-highlighter/dist/esm/prism-light';
 import bash from 'react-syntax-highlighter/dist/esm/languages/prism/bash';
 import css from 'react-syntax-highlighter/dist/esm/languages/prism/css';
@@ -16,6 +16,7 @@ import yaml from 'react-syntax-highlighter/dist/esm/languages/prism/yaml';
 import type { LightboxImage } from './ImageLightbox';
 import MarkdownCodeBlock from './MarkdownCodeBlock';
 import MarkdownTable from './MarkdownTable';
+import { usePreferenceStore } from '../store/preferences';
 
 SyntaxHighlighter.registerLanguage('bash', bash);
 SyntaxHighlighter.registerLanguage('sh', bash);
@@ -105,10 +106,8 @@ const getLanguage = (className?: string) => {
   return languageAliases[language] || language;
 };
 
-const openImageLabel = (alt = '') => {
-  const isEnglish = typeof localStorage !== 'undefined' && localStorage.getItem('notesOfAshen.language') === 'en'
-    || typeof document !== 'undefined' && document.documentElement.lang.toLowerCase().startsWith('en');
-  if (isEnglish) {
+const openImageLabel = (language: 'zh' | 'en', alt = '') => {
+  if (language === 'en') {
     return alt ? `View full-size image: ${alt}` : 'View full-size image';
   }
   return alt ? `查看大图：${alt}` : '查看大图';
@@ -126,6 +125,8 @@ export const createMarkdownComponents = ({ onImageClick, headingIdByLine }: Mark
       : undefined;
     return line ? headingIdByLine?.[`${depth}:${line}`] : undefined;
   };
+
+  const MarkdownImage = createMarkdownImage(onImageClick);
 
   return {
     pre({ children }) {
@@ -162,67 +163,77 @@ export const createMarkdownComponents = ({ onImageClick, headingIdByLine }: Mark
         </code>
       );
     },
-    img({ src, alt, title, className, node, ...props }) {
-      void node;
+    img: MarkdownImage,
+  };
+};
 
-      const imageSrc = typeof src === 'string' ? src : '';
-      const imageAlt = typeof alt === 'string' ? alt : '';
-      const imageTitle = typeof title === 'string' ? title : undefined;
-      const imageClassName = ['article-image-clickable', className].filter(Boolean).join(' ');
+// 独立命名组件以符合 React Hooks 规则；通过闭包捕获 onImageClick。
+// 订阅 preference store，使 i18n 切换时图片 aria-label 文案立即重渲。
+type MarkdownImageProps = React.ClassAttributes<HTMLImageElement> & React.ImgHTMLAttributes<HTMLImageElement> & ExtraProps;
 
-      if (!imageSrc || !onImageClick) {
-        return (
-          <img
-            {...props}
-            src={src}
-            alt={imageAlt}
-            title={imageTitle}
-            className={className}
-            loading="lazy"
-            decoding="async"
-          />
-        );
-      }
+function createMarkdownImage(onImageClick?: (image: LightboxImage) => void) {
+  const MarkdownImage = ({ src, alt, title, className, node, ...rest }: MarkdownImageProps) => {
+    void node;
+    const language = usePreferenceStore((state) => state.language);
 
-      const openImage = () => {
-        onImageClick({
-          src: imageSrc,
-          alt: imageAlt || imageTitle || '',
-        });
-      };
+    const imageSrc = typeof src === 'string' ? src : '';
+    const imageAlt = typeof alt === 'string' ? alt : '';
+    const imageTitle = typeof title === 'string' ? title : undefined;
+    const imageClassName = ['article-image-clickable', className].filter(Boolean).join(' ');
 
-      const handleClick = (event: MouseEvent<HTMLImageElement>) => {
+    if (!imageSrc || !onImageClick) {
+      return (
+        <img
+          {...rest}
+          src={src}
+          alt={imageAlt}
+          title={imageTitle}
+          className={className}
+          loading="lazy"
+          decoding="async"
+        />
+      );
+    }
+
+    const openImage = () => {
+      onImageClick({
+        src: imageSrc,
+        alt: imageAlt || imageTitle || '',
+      });
+    };
+
+    const handleClick = (event: MouseEvent<HTMLImageElement>) => {
+      event.preventDefault();
+      event.stopPropagation();
+      openImage();
+    };
+
+    const handleKeyDown = (event: KeyboardEvent<HTMLImageElement>) => {
+      if (event.key === 'Enter' || event.key === ' ') {
         event.preventDefault();
         event.stopPropagation();
         openImage();
-      };
+      }
+    };
 
-      const handleKeyDown = (event: KeyboardEvent<HTMLImageElement>) => {
-        if (event.key === 'Enter' || event.key === ' ') {
-          event.preventDefault();
-          event.stopPropagation();
-          openImage();
-        }
-      };
-
-      return (
-        <img
-          {...props}
-          src={imageSrc}
-          alt={imageAlt}
-          title={imageTitle}
-          className={imageClassName}
-          loading="lazy"
-          decoding="async"
-          role="button"
-          tabIndex={0}
-          aria-label={openImageLabel(imageAlt)}
-          onClick={handleClick}
-          onKeyDown={handleKeyDown}
-        />
-      );
-    },
+    return (
+      <img
+        {...rest}
+        src={imageSrc}
+        alt={imageAlt}
+        title={imageTitle}
+        className={imageClassName}
+        loading="lazy"
+        decoding="async"
+        role="button"
+        tabIndex={0}
+        aria-label={openImageLabel(language, imageAlt)}
+        onClick={handleClick}
+        onKeyDown={handleKeyDown}
+      />
+    );
   };
-};
+  return MarkdownImage;
+}
 
 export const markdownComponents = createMarkdownComponents();
