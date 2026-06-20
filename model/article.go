@@ -509,8 +509,14 @@ func articleWhere(filter ArticleFilter) (string, []interface{}) {
 			clauses = append(clauses, "status = 'published' AND scheduled_at > NOW()")
 		case "":
 		default:
-			clauses = append(clauses, "status = ?")
-			args = append(args, filter.Status)
+			// admin 筛选 published 时与 AdminStats.PublishedTotal 对齐：仅“已发布且当前可见”，
+			// 不含未到点的排程文章（排程中应通过 status=scheduled 筛选），避免仪表盘与列表数字对不上。
+			if filter.Status == ArticleStatusPublished {
+				clauses = append(clauses, "status = 'published' AND (scheduled_at IS NULL OR scheduled_at <= NOW())")
+			} else {
+				clauses = append(clauses, "status = ?")
+				args = append(args, filter.Status)
+			}
 		}
 	} else if filter.UserID > 0 {
 		switch filter.Status {

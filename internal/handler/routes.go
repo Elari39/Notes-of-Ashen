@@ -30,6 +30,7 @@ func RegisterHandlers(server *rest.Server, svcCtx *svc.ServiceContext) {
 	loginRateLimit := middleware.NewFailClosedRateLimitMiddleware(svcCtx.Redis, "auth_login", 5, time.Minute, forwardedOptions)
 	verifyCodeRateLimit := middleware.NewFailClosedRateLimitMiddleware(svcCtx.Redis, "verify_code_send", 5, time.Minute, forwardedOptions)
 	resetPasswordRateLimit := middleware.NewFailClosedRateLimitMiddleware(svcCtx.Redis, "password_reset", 5, time.Minute, forwardedOptions)
+	changePasswordRateLimit := middleware.NewFailClosedRateLimitMiddleware(svcCtx.Redis, "password_change", 5, time.Minute, forwardedOptions)
 	trafficRateLimit := middleware.NewRateLimitMiddleware(svcCtx.Redis, "traffic_visit", 120, time.Minute, forwardedOptions)
 	articleLikeRateLimit := middleware.NewRateLimitMiddleware(svcCtx.Redis, "article_like", 60, time.Minute, forwardedOptions)
 	aiRateLimit := middleware.NewRateLimitMiddleware(svcCtx.Redis, "ai_assist", 20, time.Minute, forwardedOptions)
@@ -64,7 +65,7 @@ func RegisterHandlers(server *rest.Server, svcCtx *svc.ServiceContext) {
 		{Method: http.MethodGet, Path: "/api/v1/users/me", Handler: authRequired(userhandler.MeHandler(svcCtx))},
 		{Method: http.MethodPut, Path: "/api/v1/users/me", Handler: authRequired(userhandler.UpdateMeHandler(svcCtx))},
 		{Method: http.MethodPost, Path: "/api/v1/users/me/verify-code/send", Handler: verifyCodeRateLimit.Handle(authRequired(userhandler.SendVerifyCodeHandler(svcCtx)))},
-		{Method: http.MethodPut, Path: "/api/v1/users/me/password", Handler: authRequired(userhandler.ChangePasswordHandler(svcCtx))},
+		{Method: http.MethodPut, Path: "/api/v1/users/me/password", Handler: changePasswordRateLimit.Handle(authRequired(userhandler.ChangePasswordHandler(svcCtx)))},
 		{Method: http.MethodPost, Path: "/api/v1/articles", Handler: authRequired(articlehandler.CreateHandler(svcCtx))},
 		{Method: http.MethodPost, Path: "/api/v1/articles/ai/assist", Handler: aiRateLimit.Handle(authRequired(articlehandler.AIAssistHandler(svcCtx)))},
 		{Method: http.MethodPost, Path: "/api/v1/articles/import", Handler: authRequired(articlehandler.ImportMarkdownHandler(svcCtx))},

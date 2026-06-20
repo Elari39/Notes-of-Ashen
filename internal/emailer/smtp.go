@@ -39,24 +39,72 @@ func (s *Sender) SendVerifyCode(ctx context.Context, to, purpose, code string) e
 	host := strings.TrimSpace(s.conf.SMTPHost)
 	addr := fmt.Sprintf("%s:%d", host, s.conf.SMTPPort)
 	dialer := net.Dialer{Timeout: defaultSendTimeout}
-	conn, err := tls.DialWithDialer(&dialer, "tcp", addr, &tls.Config{
-		ServerName: host,
-		MinVersion: tls.VersionTLS12,
-	})
-	if err != nil {
-		return fmt.Errorf("connect smtp server: %w", err)
-	}
-	defer conn.Close()
 
-	if deadline, ok := ctx.Deadline(); ok {
-		_ = conn.SetDeadline(deadline)
-	} else {
-		_ = conn.SetDeadline(time.Now().Add(defaultSendTimeout))
+	mode := strings.ToLower(strings.TrimSpace(s.conf.TLSMode))
+	if mode == "" {
+		mode = "implicit"
 	}
 
-	client, err := smtp.NewClient(conn, host)
-	if err != nil {
-		return fmt.Errorf("create smtp client: %w", err)
+	var client *smtp.Client
+	switch mode {
+	case "implicit":
+		conn, err := tls.DialWithDialer(&dialer, "tcp", addr, &tls.Config{
+			ServerName: host,
+			MinVersion: tls.VersionTLS12,
+		})
+		if err != nil {
+			return fmt.Errorf("connect smtp server: %w", err)
+		}
+		defer conn.Close()
+		if deadline, ok := ctx.Deadline(); ok {
+			_ = conn.SetDeadline(deadline)
+		} else {
+			_ = conn.SetDeadline(time.Now().Add(defaultSendTimeout))
+		}
+		client, err = smtp.NewClient(conn, host)
+		if err != nil {
+			return fmt.Errorf("create smtp client: %w", err)
+		}
+	case "starttls":
+		conn, err := dialer.DialContext(ctx, "tcp", addr)
+		if err != nil {
+			return fmt.Errorf("connect smtp server: %w", err)
+		}
+		defer conn.Close()
+		if deadline, ok := ctx.Deadline(); ok {
+			_ = conn.SetDeadline(deadline)
+		} else {
+			_ = conn.SetDeadline(time.Now().Add(defaultSendTimeout))
+		}
+		client, err = smtp.NewClient(conn, host)
+		if err != nil {
+			return fmt.Errorf("create smtp client: %w", err)
+		}
+		// STARTTLS 必须在 Auth 之前完成，先升级为 TLS 连接。
+		if err := client.StartTLS(&tls.Config{
+			ServerName: host,
+			MinVersion: tls.VersionTLS12,
+		}); err != nil {
+			return fmt.Errorf("smtp starttls: %w", err)
+		}
+	case "none":
+		// 明文传输，仅用于内网测试环境，生产环境请勿使用。
+		conn, err := dialer.DialContext(ctx, "tcp", addr)
+		if err != nil {
+			return fmt.Errorf("connect smtp server: %w", err)
+		}
+		defer conn.Close()
+		if deadline, ok := ctx.Deadline(); ok {
+			_ = conn.SetDeadline(deadline)
+		} else {
+			_ = conn.SetDeadline(time.Now().Add(defaultSendTimeout))
+		}
+		client, err = smtp.NewClient(conn, host)
+		if err != nil {
+			return fmt.Errorf("create smtp client: %w", err)
+		}
+	default:
+		return fmt.Errorf("unsupported email tls mode: %s", s.conf.TLSMode)
 	}
 	defer client.Close()
 

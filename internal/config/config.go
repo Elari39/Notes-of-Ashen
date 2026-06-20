@@ -63,6 +63,7 @@ type EmailConf struct {
 	SMTPPassword string
 	From         string
 	FromName     string
+	TLSMode      string // implicit(默认,465) | starttls(587) | none(明文,仅内网测试)
 }
 
 type AIConf struct {
@@ -180,6 +181,7 @@ func (c *Config) ApplyEnv() error {
 	setString("APP_EMAIL_SMTP_PASSWORD", &c.Email.SMTPPassword)
 	setString("APP_EMAIL_FROM", &c.Email.From)
 	setString("APP_EMAIL_FROM_NAME", &c.Email.FromName)
+	setString("APP_EMAIL_TLS_MODE", &c.Email.TLSMode)
 	if err := setBool("APP_AI_ENABLED", &c.AI.Enabled); err != nil {
 		return err
 	}
@@ -247,6 +249,13 @@ func (c Config) ValidateConfig() error {
 	}
 	if c.Redis.Password != "" && containsInsecureMarker(c.Redis.Password) {
 		return fmt.Errorf("APP_REDIS_PASSWORD contains an insecure placeholder value")
+	}
+	if c.Email.Enabled {
+		switch strings.ToLower(strings.TrimSpace(c.Email.TLSMode)) {
+		case "", "implicit", "starttls", "none":
+		default:
+			return fmt.Errorf("APP_EMAIL_TLS_MODE must be one of implicit|starttls|none, got %q", c.Email.TLSMode)
+		}
 	}
 	return nil
 }

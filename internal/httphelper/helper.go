@@ -115,6 +115,7 @@ func Meta(r *http.Request, options ...ForwardedOptions) types.RequestMeta {
 		UserAgent: r.UserAgent(),
 		Referrer:  r.Referer(),
 		Host:      host,
+		VisitorID: strings.TrimSpace(r.Header.Get("X-Visitor-Id")),
 	}
 }
 

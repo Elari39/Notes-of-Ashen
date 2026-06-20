@@ -28,6 +28,9 @@ var statuses = map[string]struct{}{
 	model.ArticleStatusArchived:  {},
 }
 
+// articleLikePerHourLimit 限制单篇文章每小时不同 visitor 的点赞数，防刷赞。
+const articleLikePerHourLimit int64 = 500
+
 var listStatuses = map[string]struct{}{
 	model.ArticleStatusDraft:     {},
 	model.ArticleStatusPublished: {},
@@ -199,7 +202,23 @@ func Like(ctx context.Context, svcCtx *svc.ServiceContext, id uint64, meta types
 	if !model.IsArticlePubliclyVisible(*item, time.Now()) {
 		return nil, apperrors.NotFound("article not found")
 	}
-	likeCount, liked, err := svcCtx.Store.LikeArticle(ctx, id, articleLikeVisitorHash(meta.IP, meta.UserAgent))
+	visitorHash := articleLikeVisitorHash(meta.IP, meta.UserAgent, meta.VisitorID)
+	// 每篇文章每小时唯一点赞者去重：用 Redis SET 统计不同 visitor_hash 数量，
+	// 超阈值视为刷赞并拒绝。Redis 异常时 fail-open，仅记日志不阻断正常点赞。
+	if svcCtx.Redis != nil {
+		hourKey := "article:like:hour:" + strconv.FormatUint(id, 10) + ":" + strconv.FormatInt(time.Now().Unix()/3600, 10)
+		if err := svcCtx.Redis.SAdd(ctx, hourKey, visitorHash).Err(); err != nil {
+			logx.Errorf("record article like hour set failed: %v", err)
+		} else {
+			_ = svcCtx.Redis.Expire(ctx, hourKey, time.Hour).Err()
+			if cnt, err := svcCtx.Redis.SCard(ctx, hourKey).Result(); err != nil {
+				logx.Errorf("count article like hour set failed: %v", err)
+			} else if cnt > articleLikePerHourLimit {
+				return nil, apperrors.TooManyRequests("too many likes for this article")
+			}
+		}
+	}
+	likeCount, liked, err := svcCtx.Store.LikeArticle(ctx, id, visitorHash)
 	if err != nil {
 		return nil, err
 	}
@@ -698,7 +717,7 @@ func publishEvent(ctx context.Context, svcCtx *svc.ServiceContext, event mq.Even
 	}
 }
 
-func articleLikeVisitorHash(ip, userAgent string) string {
-	sum := sha256.Sum256([]byte("article-like|" + strings.TrimSpace(ip) + "|" + strings.TrimSpace(userAgent)))
+func articleLikeVisitorHash(ip, userAgent, visitorID string) string {
+	sum := sha256.Sum256([]byte("article-like|" + strings.TrimSpace(visitorID) + "|" + strings.TrimSpace(ip) + "|" + strings.TrimSpace(userAgent)))
 	return hex.EncodeToString(sum[:])
 }

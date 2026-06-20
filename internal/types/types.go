@@ -163,6 +163,7 @@ type RequestMeta struct {
 	UserAgent string
 	Referrer  string
 	Host      string
+	VisitorID string
 }
 
 type UserResp struct {

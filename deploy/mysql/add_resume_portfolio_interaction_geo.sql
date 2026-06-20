@@ -1,3 +1,8 @@
+-- ============================================================
+-- 脚本：add_resume_portfolio_interaction_geo.sql
+-- 作用：补 article_versions.like_count 列，建简历/作品集/点赞表
+-- 前置依赖：add_content_growth_features.sql（article_versions 表必须已存在）
+-- ============================================================
 USE notes_of_ashen;
 
 SET @schema_name := DATABASE();

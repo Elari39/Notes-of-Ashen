@@ -51,7 +51,14 @@ func searchPublicArticles(ctx context.Context, svcCtx *svc.ServiceContext, req t
 			}
 		}
 	}
-	return &types.ArticleListResp{Items: resp, Total: result.Total, Page: page, Size: size}, true
+	// 索引与 DB 状态不一致时 visible 兜底会过滤掉部分命中，此时 result.Total（Meilisearch
+	// 估计值）会大于实际可见数，导致分页出现“空页”。发生过滤时用本页可见数作下限校正，
+	// 优先保证不泄露不可见文章；末页 Total 可能偏小属可接受失真，搜索为辅助路径且有 MySQL 回退。
+	total := result.Total
+	if int64(len(visible)) < int64(len(items)) {
+		total = int64(len(visible))
+	}
+	return &types.ArticleListResp{Items: resp, Total: total, Page: page, Size: size}, true
 }
 
 func ReindexSearch(ctx context.Context, svcCtx *svc.ServiceContext) (int, error) {

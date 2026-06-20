@@ -111,6 +111,17 @@ func Register(ctx context.Context, svcCtx *svc.ServiceContext, req types.Registe
 			return err
 		}
 		isFirstUser := total == 0
+		// DB 双保险：GET_LOCK 失效的极端并发下，先落库者成为 admin，后到者通过行锁
+		// 读到 admin 已存在并降级为普通用户，避免出现多个 admin。
+		if isFirstUser {
+			adminExists, err := svcCtx.Store.AdminExists(ctx)
+			if err != nil {
+				return err
+			}
+			if adminExists {
+				isFirstUser = false
+			}
+		}
 		role = "user"
 		if isFirstUser {
 			role = "admin"

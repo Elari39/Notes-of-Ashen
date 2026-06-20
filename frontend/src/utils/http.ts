@@ -11,6 +11,7 @@ import { AppError, toAppError } from './error';
 import { fixVisibleMojibakeDeep } from './mojibake';
 import { notifyFromError } from './notify';
 import { refreshAccessToken } from './refresh';
+import { getVisitorId } from './visitor';
 
 const http = axios.create({
   baseURL: '/api/v1',
@@ -109,6 +110,11 @@ http.interceptors.request.use((config) => {
   if (token && config.headers) {
     config.headers.Authorization = `Bearer ${token}`;
   }
+  // 全局注入持久化 visitor id，用于点赞等场景的去重 hash，防换 UA 刷赞。
+  const visitorId = getVisitorId();
+  if (visitorId && config.headers) {
+    config.headers['X-Visitor-Id'] = visitorId;
+  }
   // 调用方未显式指定 timeout 时按 method/路径注入分级默认值；显式传入 0 也视为未指定。
   if (config.timeout == null || config.timeout === 0) {
     config.timeout = resolveDefaultTimeout(config);
@@ -147,6 +153,16 @@ http.interceptors.response.use(
 
     if (error.response?.status === 401 && originalRequest && !originalRequest._retry) {
       originalRequest._retry = true;
+      // 旋转竞态修复：后端 refresh 即旋转 token。若本请求所用旧 token 与 store 中最新
+      // token 不一致，说明 refresh 已被其他并发 401 触发完成，直接换 header 用最新 token
+      // 重发即可，无需再触发一次 refresh（避免用旧 token 刷新失败导致强制登出）。
+      const failedToken = originalRequest.headers?.Authorization;
+      const currentToken = useAuthStore.getState().accessToken;
+      if (failedToken && currentToken && failedToken !== `Bearer ${currentToken}`) {
+        originalRequest.headers = originalRequest.headers ?? {};
+        originalRequest.headers.Authorization = `Bearer ${currentToken}`;
+        return http(originalRequest);
+      }
       try {
         const accessToken = await getRefreshTokenTask();
         originalRequest.headers = originalRequest.headers ?? {};
@@ -198,6 +214,10 @@ const isDedupeDisabled = () => {
 
 const buildDedupeKey = (config: AxiosRequestConfig): string | null => {
   if (isDedupeDisabled()) return null;
+  // 401 / 网络重试请求虽与原请求同 method+url+body，但 Authorization header 已换，
+  // 不能复用 in-flight 的原 Promise，否则重试机制失效。重试请求跳过去重独立发出。
+  const retryConfig = config as InternalAxiosRequestConfig & { _retry?: boolean; _networkRetry?: boolean };
+  if (retryConfig._retry || retryConfig._networkRetry) return null;
   const method = (config.method || 'get').toLowerCase();
   if (method === 'get') return null;
   if (config.responseType === 'blob') return null;

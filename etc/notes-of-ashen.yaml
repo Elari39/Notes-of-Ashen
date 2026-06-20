@@ -43,6 +43,8 @@ Email:
   Enabled: false
   SMTPHost: "smtp.qq.com"
   SMTPPort: 465
+  # TLSMode: implicit(默认,465 隐式 TLS) | starttls(587 STARTTLS) | none(明文,仅内网测试)
+  TLSMode: "implicit"
   SMTPUsername: ""
   SMTPPassword: ""
   From: ""

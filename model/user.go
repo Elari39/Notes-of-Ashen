@@ -54,6 +54,21 @@ func (s *Store) CountUsers(ctx context.Context) (int64, error) {
 	return count, err
 }
 
+// AdminExists 在 GET_LOCK 保护的会话内对 users 表加行锁，确认是否已存在 admin。
+// 用作首位 admin 提升的 DB 双保险：即使 GET_LOCK 失效，并发注册也只会让先落库者成为 admin，
+// 后到者读到 admin 已存在则降级为普通用户，避免出现多个 admin。
+func (s *Store) AdminExists(ctx context.Context) (bool, error) {
+	var one int
+	err := s.db.QueryRowContext(ctx, "SELECT 1 FROM users WHERE role = 'admin' LIMIT 1 FOR UPDATE").Scan(&one)
+	if errors.Is(err, sql.ErrNoRows) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
 func (s *Store) WithUserRegistrationLock(ctx context.Context, fn func(context.Context) error) error {
 	// GET_LOCK 返回 1 表示加锁成功，0 表示超时，NULL 表示出错（如线程被杀死）。
 	// 必须校验返回值，否则超时/失败会被当作加锁成功，并发注册可能让多个用户都成为 admin。

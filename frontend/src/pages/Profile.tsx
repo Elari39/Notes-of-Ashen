@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useAuthStore } from '../store/auth';
 import { usePreferenceStore } from '../store/preferences';
 import { sendCurrentUserVerifyCode, updateCurrentUser, updatePassword } from '../api/user';
@@ -7,6 +7,7 @@ import CaptchaField from '../components/CaptchaField';
 import InlineNotice from '../components/InlineNotice';
 import { getErrorMessage } from '../utils/error';
 import { translate } from '../i18n';
+import { useFormValidation, type FieldRules } from '../hooks/useFormValidation';
 
 const Profile: React.FC = () => {
   const { user, fetchUser } = useAuthStore();
@@ -37,6 +38,18 @@ const Profile: React.FC = () => {
   const shouldShowAvatarPreview = isHttpAvatarUrl(previewAvatarUrl);
   const profileEmailChanged = email.trim().toLowerCase() !== (user?.email || '').trim().toLowerCase();
   const t = (key: Parameters<typeof translate>[1]) => translate(language, key);
+
+  const passwordRules = useMemo<FieldRules<{ oldPassword: string; newPassword: string }>>(
+    () => ({
+      oldPassword: [{ type: 'required' }],
+      newPassword: [{ type: 'required' }, { type: 'minLength', value: 8 }],
+    }),
+    [],
+  );
+  const { errors: pwdFieldErrors, validate: validatePassword } = useFormValidation(
+    { oldPassword, newPassword },
+    passwordRules,
+  );
 
   useEffect(() => {
     setNickname(user?.nickname || '');
@@ -110,6 +123,7 @@ const Profile: React.FC = () => {
 
   const handleUpdatePassword = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!validatePassword()) return;
     setPwdError('');
     setPwdMsg('');
     setPasswordSubmitting(true);
@@ -135,7 +149,7 @@ const Profile: React.FC = () => {
             <label className="block text-sm text-ink-light opacity-70 mb-2">{t('profile.accountLabel')}</label>
             <input
               type="text"
-              value={user?.account}
+              value={user?.account ?? ''}
               disabled
               className="w-full bg-transparent border-b border-mountain-grey py-2 px-1 text-ink-light opacity-50 cursor-not-allowed"
             />
@@ -228,6 +242,9 @@ const Profile: React.FC = () => {
               required
               className="w-full bg-transparent border-b border-mountain-grey py-2 px-1 text-ink focus:outline-none focus:border-ochre transition-colors placeholder-ink-light placeholder-opacity-50"
             />
+            {pwdFieldErrors.oldPassword && (
+              <p className="mt-1 text-xs text-red-500">{pwdFieldErrors.oldPassword}</p>
+            )}
           </div>
           <div>
             <input
@@ -238,6 +255,9 @@ const Profile: React.FC = () => {
               required
               className="w-full bg-transparent border-b border-mountain-grey py-2 px-1 text-ink focus:outline-none focus:border-ochre transition-colors placeholder-ink-light placeholder-opacity-50"
             />
+            {pwdFieldErrors.newPassword && (
+              <p className="mt-1 text-xs text-red-500">{pwdFieldErrors.newPassword}</p>
+            )}
           </div>
           <CaptchaField
             purpose="change_password"

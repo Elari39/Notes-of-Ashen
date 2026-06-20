@@ -172,7 +172,24 @@ Copy-Item .env.example .env
 当前 `docker-compose.yml` 不再启动内置 MySQL、Redis 和 RabbitMQ，API 容器会直接读取 `.env` 中的远程连接配置。1Panel 部署前请先完成：
 
 - 远程 MySQL 创建数据库 `notes_of_ashen`，创建专用用户并只授权给 1Panel 服务器 IP 或内网网段。
-- 在远程 MySQL 执行 [deploy/mysql/schema.sql](deploy/mysql/schema.sql) 初始化表结构；旧库迁移前先备份，再按实际版本补执行 [deploy/mysql](deploy/mysql) 下的增量脚本。增量脚本应在 `notes_of_ashen` 库中执行；现有脚本均显式 `USE notes_of_ashen;`，不要在其他库中直接运行。
+- 在远程 MySQL 执行 [deploy/mysql/schema.sql](deploy/mysql/schema.sql) 初始化表结构；旧库迁移前先备份，再按实际版本补执行 [deploy/mysql](deploy/mysql) 下的增量脚本。增量脚本应在 `notes_of_ashen` 库中执行；现有脚本均显式 `USE notes_of_ashen;`，不要在其他库中直接运行。新库可直接用 `schema.sql` 一步到位，无需补跑增量脚本。
+
+  增量脚本按以下时间顺序执行（已在 `schema.sql` 基础上）：
+
+  1. `add_site_settings.sql` — 站点设置表
+  2. `add_content_growth_features.sql` — 文章排程字段、文章版本表 `article_versions`（仅基础列）
+  3. `add_article_pin_priority.sql` — 补 `article_versions.is_pinned` / `display_priority`
+  4. `add_resume_portfolio_interaction_geo.sql` — 补 `article_versions.like_count`，简历/作品集/点赞表
+  5. `alter_site_settings_value_text.sql` — 站点设置 value 列改 TEXT
+  6. `add_traffic_ai_import_features.sql` — 流量/AI/导入相关字段
+  7. `add_ai_settings.sql` — AI 设置表
+  8. `add_public_page_content_settings.sql`、`add_public_page_visibility_settings.sql` — 公开页内容/可见性设置
+  9. `add_article_fulltext_index.sql` — 文章全文索引
+  10. `drop_traffic_geo.sql` — 移除流量地理字段
+  11. `cleanup_invalid_avatar_url.sql` — 清理无效头像 URL
+  12. `add_article_tags_tag_index.sql` — 文章标签索引
+
+  > 注意：`article_versions` 表的 `like_count` / `is_pinned` / `display_priority` 三列分别由第 3、4 步脚本补齐，必须在 `add_content_growth_features.sql`（第 2 步）之后执行，否则 `model/article.go` 的 `articleVersionSelectFields` 查询会因缺列报 `Unknown column`。
 - 确认远程 Redis、RabbitMQ 防火墙和安全组允许 1Panel 服务器访问，避免对公网裸露。
 - 如果 MySQL DSN 或 RabbitMQ URL 的密码包含 `@`、`:`、`/`、`?`、`#` 等 URL 分隔符，请先做 URL 转义，或使用不含这些分隔符的强随机密码。
 
@@ -278,14 +295,11 @@ docker compose logs -f web
 
 ### 端口说明
 
-- Web：`127.0.0.1:1270 -> 80`
-- API：容器内部 `api:19000`
-- MySQL：容器内部 `mysql:3306`
-- Redis：容器内部 `redis:6379`
-- Meilisearch：容器内部 `meilisearch:7700`
-- RabbitMQ：容器内部 `rabbitmq:5672`
+- Web：`127.0.0.1:1270 -> 80`（唯一暴露到宿主机的端口）
+- API：容器内部 `api:19000`（仅 Docker 内部网络可达）
+- Meilisearch：容器内部 `meilisearch:7700`（仅 Docker 内部网络可达）
 
-只有 Web 会暴露到宿主机的 `1270` 端口。API、MySQL、Redis、Meilisearch、RabbitMQ 默认只在 Docker 内部网络访问。
+MySQL、Redis、RabbitMQ 由远程服务提供（见 1Panel 远程中间件配置），不在 `docker-compose.yml` 内启动，也不会映射端口到宿主机。Web 通过 Nginx 反向代理访问 API。
 
 ### 访问验证
 
@@ -338,7 +352,7 @@ http://127.0.0.1:1270/api/v1/articles?page=1&size=10
 
 7. 绑定域名并开启 HTTPS。
 
-项目内部 MySQL 不会映射到宿主机 `3306`，因此不会和 1Panel 已有 MySQL 容器端口冲突。Go 后端通过 Docker 内部服务名 `mysql:3306` 连接项目内部 MySQL。
+项目使用远程 MySQL/Redis/RabbitMQ，不会在宿主机映射 `3306`/`6379`/`5672` 端口，因此不会与 1Panel 已有中间件端口冲突。Go 后端通过 `.env` 中的 DSN/URL 连接远程服务。
 
 ## 本地非 Docker 开发
 

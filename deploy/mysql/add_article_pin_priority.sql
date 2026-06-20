@@ -1,3 +1,8 @@
+-- ============================================================
+-- 脚本：add_article_pin_priority.sql
+-- 作用：补 articles / article_versions 的 is_pinned、display_priority 列
+-- 前置依赖：add_content_growth_features.sql（article_versions 表必须已存在）
+-- ============================================================
 USE notes_of_ashen;
 
 SET @schema_name := DATABASE();

@@ -1,3 +1,12 @@
+-- ============================================================
+-- 脚本：add_content_growth_features.sql
+-- 作用：新增 articles.scheduled_at 等 SEO/排程列，并建 article_versions 表（仅基础列）
+-- 前置依赖：schema.sql
+-- 后续依赖：add_article_pin_priority.sql（补 is_pinned/display_priority）、
+--           add_resume_portfolio_interaction_geo.sql（补 like_count）
+-- 说明：article_versions 建表仅含基础列，like_count/is_pinned/display_priority 由后续脚本补齐。
+--       新库可直接用 schema.sql 一步到位，无需本脚本。
+-- ============================================================
 USE notes_of_ashen;
 
 SET @schema_name := DATABASE();
