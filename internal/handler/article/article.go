@@ -82,7 +82,7 @@ func DetailHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 			response.ErrorCtx(r.Context(), w, err)
 			return
 		}
-		resp, err := articlelogic.Detail(r.Context(), svcCtx, id)
+		resp, err := articlelogic.Detail(r.Context(), svcCtx, id, basehandler.Meta(r, forwardedOptions(svcCtx)))
 		if err != nil {
 			response.ErrorCtx(r.Context(), w, err)
 			return

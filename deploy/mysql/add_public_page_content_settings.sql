@@ -1,7 +1,7 @@
 USE notes_of_ashen;
 
-ALTER TABLE site_settings
-    MODIFY setting_value MEDIUMTEXT NOT NULL;
+-- 注意：site_settings.setting_value 的 MEDIUMTEXT 变更由 alter_site_settings_value_text.sql 负责，
+-- 本脚本仅插入公开页面内容相关默认设置，避免与该脚本重复 ALTER。
 
 INSERT INTO site_settings (setting_key, setting_value)
 VALUES ('resume_title', '简介')

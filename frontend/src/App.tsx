@@ -64,15 +64,19 @@ function App() {
   const setSessionExpiredHandler = useAuthStore((state) => state.setSessionExpiredHandler);
   const navigate = useNavigate();
   const location = useLocation();
+  // 用 ref 持有最新 location，避免每次路由变化都重建 sessionExpiredHandler 造成竞态窗口。
+  const locationRef = useRef(location);
+  locationRef.current = location;
 
   // 会话失效时跳转登录页并携带来源路径，登录后可回跳
   useEffect(() => {
     setSessionExpiredHandler(() => {
-      const from = `${location.pathname}${location.search}${location.hash}`;
+      const current = locationRef.current;
+      const from = `${current.pathname}${current.search}${current.hash}`;
       navigate('/login', { state: { from }, replace: true });
     });
     return () => setSessionExpiredHandler(undefined);
-  }, [setSessionExpiredHandler, navigate, location]);
+  }, [setSessionExpiredHandler, navigate]);
 
   useEffect(() => {
     return initializePreferences();

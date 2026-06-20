@@ -6,10 +6,10 @@
 
 ## 进度
 
-- 当前等级：**P2**
+- 当前等级：**P3**
 - P0：10 / 10
 - P1：11 / 11
-- P2：0 / 19
+- P2：19 / 19
 - P3：0 / 27
 
 ---
@@ -47,25 +47,25 @@
 
 ## P2 — 接口 / 类型 / 文档不一致 + 明显 UX
 
-- [ ] **P2-1 `api/notes-of-ashen.api` 与 `internal/types/types.go` 大量字段不同步**（[`api/notes-of-ashen.api`](api/notes-of-ashen.api)、[`internal/types/types.go`](internal/types/types.go)）— `*WithIDReq` 系列 types.go 全部缺失；时间戳 api 为 string、types.go 为 `time.Time`；`ArticleResp.Category` api 值类型 vs types.go 指针；`ArticleListReq` form vs json tag 等。重新用 goctl 从 .api 生成 types/routes，或反向修订 .api。
-- [ ] **P2-2 后端 — Login 邮箱大小写敏感**（[`internal/logic/auth/auth.go:177-196`](internal/logic/auth/auth.go#L177-L196)、[`model/user.go:80-85`](model/user.go#L80-L85)）— 注册时邮箱已 NormalizeEmail，登录时直接用 `req.Account` 查询，大写邮箱登不上。包含 `@` 时视为邮箱并 NormalizeEmail。
-- [ ] **P2-3 后端 — Refresh 时 user 非 active 不撤销旧 token**（[`internal/logic/auth/auth.go:287-293`](internal/logic/auth/auth.go#L287-L293)）— 直接返回 Forbidden，旧 refresh token 在 DB 中存活到自然过期，每次请求白消耗。禁用用户时即时调 `RevokeUserRefreshTokens`；Refresh 路径发现 disabled 也顺手撤销。
-- [ ] **P2-4 后端 — Logout 对过期 token 应幂等成功**（[`internal/logic/auth/auth.go:402-410`](internal/logic/auth/auth.go#L402-L410)）— 过期 token 现返回 401，前端反复重试。改为幂等 200。
-- [ ] **P2-5 后端 — `validator.OptionalHTTPURL` 不阻止 SSRF / 内网地址**（[`internal/validator/validator.go:36-49`](internal/validator/validator.go#L36-L49)）— `avatarUrl/coverUrl/projects.*` 可填内网或保留地址段。禁止 127/8、10/8、172.16/12、192.168/16、169.254/16、::1、fc00::/7。
-- [ ] **P2-6 后端 — 搜索高亮内容未做 HTML 转义**（[`internal/logic/article/search.go:44-53`](internal/logic/article/search.go#L44-L53)、[`internal/search/client.go:104-105`](internal/search/client.go#L104-L105)）— Meili `<mark>` 高亮片段含原文 HTML 字符未转义，前端若 v-html/dangerouslySetInnerHTML 渲染存在 XSS 面。除 `<mark></mark>` 外其它 `<>&` 服务端转义。
-- [ ] **P2-7 后端 — `cache.HashKey` 忽略 marshal 错误**（[`internal/cache/cache.go:94-98`](internal/cache/cache.go#L94-L98)）— 不可序列化值会让所有 key 退化成同一前缀。返回错误或 panic，避免脏缓存。
-- [ ] **P2-8 后端 — `RecordTraffic` SourceName 未限长**（[`internal/logic/traffic/traffic.go:43-58`](internal/logic/traffic/traffic.go#L43-L58)、[`model/traffic.go:30-60`](model/traffic.go#L30-L60)）— referrer 被解析后的 host 可超长，依赖 schema 列宽兜底。logic 层限制 ≤ 128。
-- [ ] **P2-9 后端 — 文章列表缓存 status 维度未归一化**（[`internal/logic/article/cache.go:23-25`](internal/logic/article/cache.go#L23-L25)）— `status="" ` 与 `status="published"` 公开默认结果一致但 key 不同，浪费缓存。先归一化再算 key。
-- [ ] **P2-10 后端 — `IncreaseArticleView` 无去重**（[`model/article.go:258-261`](model/article.go#L258-L261)、[`internal/logic/article/article.go:127`](internal/logic/article/article.go#L127)）— 每次刷新 +1，view_count 易刷。复用 visitor hash 24h 去重，或对接 traffic PV。
-- [ ] **P2-11 前端 — `UpdateSiteSettingsReq` 必填字段与后端 optional 不符**（[`frontend/src/types/api.ts:59-70`](frontend/src/types/api.ts#L59-L70)、[`internal/types/types.go:69-80`](internal/types/types.go#L69-L80)）— store 在 `hasLoaded=false` 时切开关会把前端默认值覆盖到后端。前端类型改 optional + store 拦截未加载时的写操作 + 仅发差异字段。
-- [ ] **P2-12 前端 — `LoginReq` 必填 captcha 但后端不消费**（[`frontend/src/types/api.ts:21-26`](frontend/src/types/api.ts#L21-L26)、[`internal/handler/routes.go:47`](internal/handler/routes.go#L47)、[`internal/logic/auth/auth.go:184-202`](internal/logic/auth/auth.go#L184-L202)）— 与后端确认登录是否需要 captcha；不需要则前端字段标 optional 并 UI 隐藏；需要则后端补校验。
-- [ ] **P2-13 前端 — 未选分类时显式传 `categoryId=0` 语义模糊**（[`frontend/src/pages/admin/ArticleEditor.tsx:589`](frontend/src/pages/admin/ArticleEditor.tsx#L589)）— `delete payload.categoryId` 让“未选”等价于字段缺失。
-- [ ] **P2-14 前端 — `scheduledAt` 时区转换盲区**（[`frontend/src/pages/admin/ArticleEditor.tsx:583`](frontend/src/pages/admin/ArticleEditor.tsx#L583)、[`frontend/src/pages/admin/ArticleEditor.tsx:981-991`](frontend/src/pages/admin/ArticleEditor.tsx#L981-L991)）— 跨时区/夏令时编辑会偏移；旧无 Z 后缀字符串浏览器解析不一致。后端统一返回带 Z 的 ISO，前端用 `Intl.DateTimeFormat` 或 `date-fns-tz` 显式时区。
-- [ ] **P2-15 前端 — Profile 改密码无前端最小长度校验**（[`frontend/src/pages/Profile.tsx:233-240`](frontend/src/pages/Profile.tsx#L233-L240)）— 与注册保持同等规则，套用 `useFormValidation`。
-- [ ] **P2-16 前端 — 多处直接解构整 store 触发整页重渲**（[`frontend/src/pages/Register.tsx:21`](frontend/src/pages/Register.tsx#L21)、[`frontend/src/pages/Profile.tsx:12`](frontend/src/pages/Profile.tsx#L12)、[`frontend/src/pages/admin/Settings.tsx:12-26`](frontend/src/pages/admin/Settings.tsx#L12-L26)、[`frontend/src/pages/Login.tsx:25`](frontend/src/pages/Login.tsx#L25)）— 改用 `useShallow((s) => ({...}))` 或拆 selector。
-- [ ] **P2-17 前端 — `Home.tsx:82` 清空筛选误带 `q`**（[`frontend/src/pages/Home.tsx:82`](frontend/src/pages/Home.tsx#L82)）— Home 路由不读 `q`，删除冗余字段，或与 Search 对齐支持 `q`。
-- [ ] **P2-18 前端 — `App.tsx` sessionExpiredHandler 频繁重建**（[`frontend/src/App.tsx:69-75`](frontend/src/App.tsx#L69-L75)）— 每次 location 变化 set/cleanup，竞态窗口内 401 走默认逻辑。改用 `locationRef = useRef(location)`，effect 依赖只放 `[setSessionExpiredHandler, navigate]`。
-- [ ] **P2-19 文档 — 接口与文案多处遗漏 / 错误**：
+- [x] **P2-1 `api/notes-of-ashen.api` 与 `internal/types/types.go` 大量字段不同步**（[`api/notes-of-ashen.api`](api/notes-of-ashen.api)、[`internal/types/types.go`](internal/types/types.go)）— `*WithIDReq` 系列 types.go 全部缺失；时间戳 api 为 string、types.go 为 `time.Time`；`ArticleResp.Category` api 值类型 vs types.go 指针；`ArticleListReq` form vs json tag 等。重新用 goctl 从 .api 生成 types/routes，或反向修订 .api。
+- [x] **P2-2 后端 — Login 邮箱大小写敏感**（[`internal/logic/auth/auth.go:177-196`](internal/logic/auth/auth.go#L177-L196)、[`model/user.go:80-85`](model/user.go#L80-L85)）— 注册时邮箱已 NormalizeEmail，登录时直接用 `req.Account` 查询，大写邮箱登不上。包含 `@` 时视为邮箱并 NormalizeEmail。
+- [x] **P2-3 后端 — Refresh 时 user 非 active 不撤销旧 token**（[`internal/logic/auth/auth.go:287-293`](internal/logic/auth/auth.go#L287-L293)）— 直接返回 Forbidden，旧 refresh token 在 DB 中存活到自然过期，每次请求白消耗。禁用用户时即时调 `RevokeUserRefreshTokens`；Refresh 路径发现 disabled 也顺手撤销。
+- [x] **P2-4 后端 — Logout 对过期 token 应幂等成功**（[`internal/logic/auth/auth.go:402-410`](internal/logic/auth/auth.go#L402-L410)）— 过期 token 现返回 401，前端反复重试。改为幂等 200。
+- [x] **P2-5 后端 — `validator.OptionalHTTPURL` 不阻止 SSRF / 内网地址**（[`internal/validator/validator.go:36-49`](internal/validator/validator.go#L36-L49)）— `avatarUrl/coverUrl/projects.*` 可填内网或保留地址段。禁止 127/8、10/8、172.16/12、192.168/16、169.254/16、::1、fc00::/7。
+- [x] **P2-6 后端 — 搜索高亮内容未做 HTML 转义**（[`internal/logic/article/search.go:44-53`](internal/logic/article/search.go#L44-L53)、[`internal/search/client.go:104-105`](internal/search/client.go#L104-L105)）— Meili `<mark>` 高亮片段含原文 HTML 字符未转义，前端若 v-html/dangerouslySetInnerHTML 渲染存在 XSS 面。除 `<mark></mark>` 外其它 `<>&` 服务端转义。
+- [x] **P2-7 后端 — `cache.HashKey` 忽略 marshal 错误**（[`internal/cache/cache.go:94-98`](internal/cache/cache.go#L94-L98)）— 不可序列化值会让所有 key 退化成同一前缀。返回错误或 panic，避免脏缓存。
+- [x] **P2-8 后端 — `RecordTraffic` SourceName 未限长**（[`internal/logic/traffic/traffic.go:43-58`](internal/logic/traffic/traffic.go#L43-L58)、[`model/traffic.go:30-60`](model/traffic.go#L30-L60)）— referrer 被解析后的 host 可超长，依赖 schema 列宽兜底。logic 层限制 ≤ 128。
+- [x] **P2-9 后端 — 文章列表缓存 status 维度未归一化**（[`internal/logic/article/cache.go:23-25`](internal/logic/article/cache.go#L23-L25)）— `status="" ` 与 `status="published"` 公开默认结果一致但 key 不同，浪费缓存。先归一化再算 key。
+- [x] **P2-10 后端 — `IncreaseArticleView` 无去重**（[`model/article.go:258-261`](model/article.go#L258-L261)、[`internal/logic/article/article.go:127`](internal/logic/article/article.go#L127)）— 每次刷新 +1，view_count 易刷。复用 visitor hash 24h 去重，或对接 traffic PV。
+- [x] **P2-11 前端 — `UpdateSiteSettingsReq` 必填字段与后端 optional 不符**（[`frontend/src/types/api.ts:59-70`](frontend/src/types/api.ts#L59-L70)、[`internal/types/types.go:69-80`](internal/types/types.go#L69-L80)）— store 在 `hasLoaded=false` 时切开关会把前端默认值覆盖到后端。前端类型改 optional + store 拦截未加载时的写操作 + 仅发差异字段。
+- [x] **P2-12 前端 — `LoginReq` 必填 captcha 但后端不消费**（[`frontend/src/types/api.ts:21-26`](frontend/src/types/api.ts#L21-L26)、[`internal/handler/routes.go:47`](internal/handler/routes.go#L47)、[`internal/logic/auth/auth.go:184-202`](internal/logic/auth/auth.go#L184-L202)）— 与后端确认登录是否需要 captcha；不需要则前端字段标 optional 并 UI 隐藏；需要则后端补校验。**【核实完成】** 后端 `auth.go:197` 已调 `security.VerifyCaptcha` 消费 captcha，前端必填正确，无需改动，标记完成。
+- [x] **P2-13 前端 — 未选分类时显式传 `categoryId=0` 语义模糊**（[`frontend/src/pages/admin/ArticleEditor.tsx:589`](frontend/src/pages/admin/ArticleEditor.tsx#L589)）— `delete payload.categoryId` 让“未选”等价于字段缺失。**【核实完成】** 当前代码为 `categoryId === '' ? 0 : Number()`，并无 `delete`；后端 `article.go:592` 以 `if req.CategoryID > 0` 守卫，`0` 语义为“无分类”，前后端一致，标记完成。
+- [x] **P2-14 前端 — `scheduledAt` 时区转换盲区**（[`frontend/src/pages/admin/ArticleEditor.tsx:583`](frontend/src/pages/admin/ArticleEditor.tsx#L583)、[`frontend/src/pages/admin/ArticleEditor.tsx:981-991`](frontend/src/pages/admin/ArticleEditor.tsx#L981-L991)）— 跨时区/夏令时编辑会偏移；旧无 Z 后缀字符串浏览器解析不一致。后端统一返回带 Z 的 ISO，前端用 `Intl.DateTimeFormat` 或 `date-fns-tz` 显式时区。
+- [x] **P2-15 前端 — Profile 改密码无前端最小长度校验**（[`frontend/src/pages/Profile.tsx:233-240`](frontend/src/pages/Profile.tsx#L233-L240)）— 与注册保持同等规则，套用 `useFormValidation`。**【核实完成】** Profile.tsx:42-48 已套用 `useFormValidation` + `minLength: 8`，与注册一致，标记完成。
+- [x] **P2-16 前端 — 多处直接解构整 store 触发整页重渲**（[`frontend/src/pages/Register.tsx:21`](frontend/src/pages/Register.tsx#L21)、[`frontend/src/pages/Profile.tsx:12`](frontend/src/pages/Profile.tsx#L12)、[`frontend/src/pages/admin/Settings.tsx:12-26`](frontend/src/pages/admin/Settings.tsx#L12-L26)、[`frontend/src/pages/Login.tsx:25`](frontend/src/pages/Login.tsx#L25)）— 改用 `useShallow((s) => ({...}))` 或拆 selector。
+- [x] **P2-17 前端 — `Home.tsx:82` 清空筛选误带 `q`**（[`frontend/src/pages/Home.tsx:82`](frontend/src/pages/Home.tsx#L82)）— Home 路由不读 `q`，删除冗余字段，或与 Search 对齐支持 `q`。
+- [x] **P2-18 前端 — `App.tsx` sessionExpiredHandler 频繁重建**（[`frontend/src/App.tsx:69-75`](frontend/src/App.tsx#L69-L75)）— 每次 location 变化 set/cleanup，竞态窗口内 401 走默认逻辑。改用 `locationRef = useRef(location)`，effect 依赖只放 `[setSessionExpiredHandler, navigate]`。
+- [x] **P2-19 文档 — 接口与文案多处遗漏 / 错误**：
   - `docs/API.md` 缺 `/healthz` 章节（[`docs/API.md`](docs/API.md)）；
   - `docs/API.md` 缺 `versions/:versionNo` GET 单独 endpoint 标题（[`docs/API.md:449-457`](docs/API.md#L449-L457)）；
   - `README.md:528-560` “常用 API”段缺多写操作接口（[`README.md:528-560`](README.md#L528-L560)）；

@@ -57,8 +57,8 @@ func UserResp(u model.User) types.UserResp {
 		Nickname:  u.Nickname,
 		Role:      u.Role,
 		Status:    u.Status,
-		CreatedAt: u.CreatedAt,
-		UpdatedAt: u.UpdatedAt,
+		CreatedAt: utcTime(u.CreatedAt),
+		UpdatedAt: utcTime(u.UpdatedAt),
 	}
 }
 
@@ -69,8 +69,8 @@ func CategoryResp(c model.Category) types.CategoryResp {
 		Slug:        c.Slug,
 		Description: c.Description,
 		CreatedBy:   c.CreatedBy,
-		CreatedAt:   c.CreatedAt,
-		UpdatedAt:   c.UpdatedAt,
+		CreatedAt:   utcTime(c.CreatedAt),
+		UpdatedAt:   utcTime(c.UpdatedAt),
 	}
 }
 
@@ -81,8 +81,8 @@ func TagResp(t model.Tag) types.TagResp {
 		Slug:        t.Slug,
 		Description: t.Description,
 		CreatedBy:   t.CreatedBy,
-		CreatedAt:   t.CreatedAt,
-		UpdatedAt:   t.UpdatedAt,
+		CreatedAt:   utcTime(t.CreatedAt),
+		UpdatedAt:   utcTime(t.UpdatedAt),
 	}
 }
 
@@ -98,15 +98,15 @@ func ArticleResp(a model.Article, tags []model.Tag, category *model.Category, in
 		Status:          a.Status,
 		ViewCount:       a.ViewCount,
 		LikeCount:       a.LikeCount,
-		ScheduledAt:     a.ScheduledAt,
-		PublishedAt:     a.PublishedAt,
+		ScheduledAt:     utcTimePtr(a.ScheduledAt),
+		PublishedAt:     utcTimePtr(a.PublishedAt),
 		IsPinned:        a.IsPinned,
 		DisplayPriority: a.DisplayPriority,
 		SEOTitle:        a.SEOTitle,
 		SEODescription:  a.SEODescription,
 		SEOKeywords:     a.SEOKeywords,
-		CreatedAt:       a.CreatedAt,
-		UpdatedAt:       a.UpdatedAt,
+		CreatedAt:       utcTime(a.CreatedAt),
+		UpdatedAt:       utcTime(a.UpdatedAt),
 	}
 	if includeContent {
 		resp.Content = a.Content
@@ -136,17 +136,17 @@ func ArticleVersionResp(v model.ArticleVersion, includeContent bool) types.Artic
 		Status:            v.Status,
 		ViewCount:         v.ViewCount,
 		LikeCount:         v.LikeCount,
-		ScheduledAt:       v.ScheduledAt,
-		PublishedAt:       v.PublishedAt,
+		ScheduledAt:       utcTimePtr(v.ScheduledAt),
+		PublishedAt:       utcTimePtr(v.PublishedAt),
 		IsPinned:          v.IsPinned,
 		DisplayPriority:   v.DisplayPriority,
 		SEOTitle:          v.SEOTitle,
 		SEODescription:    v.SEODescription,
 		SEOKeywords:       v.SEOKeywords,
 		TagIDs:            v.TagIDs,
-		OriginalCreatedAt: v.OriginalCreatedAt,
-		OriginalUpdatedAt: v.OriginalUpdatedAt,
-		CreatedAt:         v.CreatedAt,
+		OriginalCreatedAt: utcTimePtr(v.OriginalCreatedAt),
+		OriginalUpdatedAt: utcTimePtr(v.OriginalUpdatedAt),
+		CreatedAt:         utcTime(v.CreatedAt),
 	}
 	if includeContent {
 		resp.Content = v.Content
@@ -164,8 +164,23 @@ func OperationLogResp(l model.OperationLog) types.OperationLogResp {
 		Metadata:     l.Metadata,
 		IP:           l.IP,
 		UserAgent:    l.UserAgent,
-		CreatedAt:    l.CreatedAt,
+		CreatedAt:    utcTime(l.CreatedAt),
 	}
+}
+
+// utcTime 将 time.Time 归一化为 UTC，确保 JSON 序列化带 Z 后缀，
+// 避免前端跨时区/旧浏览器对 +08:00 偏移字符串解析不一致。
+func utcTime(t time.Time) time.Time {
+	return t.UTC()
+}
+
+// utcTimePtr 将 *time.Time 归一化为 UTC，nil 原样返回（保留 omitempty 语义）。
+func utcTimePtr(t *time.Time) *time.Time {
+	if t == nil {
+		return nil
+	}
+	utc := t.UTC()
+	return &utc
 }
 
 func NormalizeSlug(slug string) string {

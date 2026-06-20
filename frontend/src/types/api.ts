@@ -59,11 +59,11 @@ export interface ResetPasswordReq {
 
 export interface UpdateSiteSettingsReq {
   registrationEnabled?: boolean;
-  homeArticleLayout: 'standard' | 'alternating';
-  siteTitle: string;
-  siteDescription: string;
-  siteKeywords: string;
-  siteBaseUrl: string;
+  homeArticleLayout?: 'standard' | 'alternating';
+  siteTitle?: string;
+  siteDescription?: string;
+  siteKeywords?: string;
+  siteBaseUrl?: string;
   resumePageEnabled?: boolean;
   resumeNavHidden?: boolean;
   projectsPageEnabled?: boolean;

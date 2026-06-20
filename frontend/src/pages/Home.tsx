@@ -79,7 +79,8 @@ const Home: React.FC = () => {
   };
 
   const handleClear = () => {
-    updateParams({ q: undefined, categoryId: undefined, tagId: undefined, page: undefined });
+    // Home 路由不消费 q（仅 Search 路由使用），清空筛选只重置 categoryId/tagId/page。
+    updateParams({ categoryId: undefined, tagId: undefined, page: undefined });
   };
 
   const handleCoverError = (articleId: number) => {

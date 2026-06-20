@@ -1,3 +1,12 @@
+// 本文件为接口文档/契约描述，项目从未使用 goctl 生成（无 Makefile/脚本，handler 与 routes 均为手写），
+// 不参与编译。运行时唯一类型源为 internal/types/types.go，本文档应与之保持一致。
+// 差异说明：
+//   - 路径/查询参数由 handler 用 basehandler.PathID / basehandler.Query 手动解析，因此没有独立的
+//     *WithIDReq 类型；:id 路径参数对应 IDPathReq，:id/:versionNo 对应 ArticleVersionPathReq。
+//   - 文档型列表响应（UserListResp / CategoryListResp / TagListResp / OperationLogListResp）为
+//     types.go 中泛型 ListResp[T] 的具体化展示，便于阅读。
+//   - 时间字段统一为 time.Time（与 types.go 一致），指针类型用 *time.Time + omitempty。
+
 syntax = "v1"
 
 info (
@@ -19,8 +28,8 @@ type ArticleVersionPathReq {
 }
 
 type PageReq {
-	Page int `form:"page,optional"`
-	Size int `form:"size,optional"`
+	Page int `json:"page,optional"`
+	Size int `json:"size,optional"`
 }
 
 type RegisterReq {
@@ -31,7 +40,7 @@ type RegisterReq {
 	EmailCode string `json:"emailCode,optional"`
 	Nickname  string `json:"nickname,optional"`
 	// Optional. Empty means no avatar; non-empty must be http(s) URL.
-	AvatarUrl string `json:"avatarUrl,optional"`
+	AvatarURL string `json:"avatarUrl,optional"`
 }
 
 type LoginReq {
@@ -42,7 +51,8 @@ type LoginReq {
 }
 
 type RefreshReq {
-	RefreshToken string `json:"refreshToken"`
+	// refreshToken 现由 HttpOnly Cookie 携带，缺失时 logic 层按未登录处理，故 optional。
+	RefreshToken string `json:"refreshToken,optional"`
 }
 
 type CaptchaReq {
@@ -68,7 +78,7 @@ type ResetPasswordReq {
 	NewPassword string `json:"newPassword"`
 }
 
-type TokenResp {
+type TokenPair {
 	AccessToken  string `json:"accessToken"`
 	RefreshToken string `json:"refreshToken"`
 	TokenType    string `json:"tokenType"`
@@ -82,7 +92,7 @@ type SiteSettingsResp {
 	SiteTitle                     string `json:"siteTitle"`
 	SiteDescription               string `json:"siteDescription"`
 	SiteKeywords                  string `json:"siteKeywords"`
-	SiteBaseUrl                   string `json:"siteBaseUrl"`
+	SiteBaseURL                   string `json:"siteBaseUrl"`
 	ResumePageEnabled             bool   `json:"resumePageEnabled"`
 	ResumeNavHidden               bool   `json:"resumeNavHidden"`
 	ProjectsPageEnabled           bool   `json:"projectsPageEnabled"`
@@ -95,7 +105,7 @@ type UpdateSiteSettingsReq {
 	SiteTitle           string `json:"siteTitle,optional"`
 	SiteDescription     string `json:"siteDescription,optional"`
 	SiteKeywords        string `json:"siteKeywords,optional"`
-	SiteBaseUrl         string `json:"siteBaseUrl,optional"`
+	SiteBaseURL         string `json:"siteBaseUrl,optional"`
 	ResumePageEnabled   *bool  `json:"resumePageEnabled,optional"`
 	ResumeNavHidden     *bool  `json:"resumeNavHidden,optional"`
 	ProjectsPageEnabled *bool  `json:"projectsPageEnabled,optional"`
@@ -103,25 +113,25 @@ type UpdateSiteSettingsReq {
 }
 
 type ResumePageResp {
-	Title           string `json:"title"`
-	Subtitle        string `json:"subtitle"`
-	ContentMarkdown string `json:"contentMarkdown"`
+	Title           string             `json:"title"`
+	Subtitle        string             `json:"subtitle"`
+	ContentMarkdown string             `json:"contentMarkdown"`
 	Experiences     []ResumeExperience `json:"experiences"`
 	Educations      []ResumeEducation  `json:"educations"`
 	Skills          []ResumeSkill      `json:"skills"`
 }
 
 type UpdateResumePageReq {
-	Title           string `json:"title"`
-	Subtitle        string `json:"subtitle,optional"`
-	ContentMarkdown string `json:"contentMarkdown,optional"`
+	Title           string             `json:"title"`
+	Subtitle        string             `json:"subtitle,optional"`
+	ContentMarkdown string             `json:"contentMarkdown,optional"`
 	Experiences     []ResumeExperience `json:"experiences,optional"`
 	Educations      []ResumeEducation  `json:"educations,optional"`
 	Skills          []ResumeSkill      `json:"skills,optional"`
 }
 
 type ResumeExperience {
-	ID           uint64   `json:"id,optional"`
+	ID           uint64   `json:"id,optional,omitempty"`
 	Role         string   `json:"role"`
 	Organization string   `json:"organization"`
 	Location     string   `json:"location"`
@@ -133,7 +143,7 @@ type ResumeExperience {
 }
 
 type ResumeEducation {
-	ID           uint64   `json:"id,optional"`
+	ID           uint64   `json:"id,optional,omitempty"`
 	School       string   `json:"school"`
 	Degree       string   `json:"degree"`
 	Major        string   `json:"major"`
@@ -146,7 +156,7 @@ type ResumeEducation {
 }
 
 type ResumeSkill {
-	ID           uint64 `json:"id,optional"`
+	ID           uint64 `json:"id,optional,omitempty"`
 	Category     string `json:"category"`
 	Name         string `json:"name"`
 	Level        int    `json:"level"`
@@ -156,15 +166,15 @@ type ResumeSkill {
 
 type ProjectItem {
 	ID              string   `json:"id"`
-	TagIDs          []uint64 `json:"tagIds,optional"`
+	TagIDs          []uint64 `json:"tagIds,omitempty"`
 	Title           string   `json:"title"`
 	Summary         string   `json:"summary"`
 	Role            string   `json:"role"`
 	Period          string   `json:"period"`
 	Tags            []string `json:"tags"`
-	CoverUrl        string   `json:"coverUrl"`
-	DemoUrl         string   `json:"demoUrl"`
-	RepoUrl         string   `json:"repoUrl"`
+	CoverURL        string   `json:"coverUrl"`
+	DemoURL         string   `json:"demoUrl"`
+	RepoURL         string   `json:"repoUrl"`
 	ContentMarkdown string   `json:"contentMarkdown"`
 	Featured        bool     `json:"featured"`
 }
@@ -184,7 +194,7 @@ type UpdateProjectsPageReq {
 type UpdateMeReq {
 	Email     string `json:"email,optional"`
 	EmailCode string `json:"emailCode,optional"`
-	AvatarUrl string `json:"avatarUrl,optional"`
+	AvatarURL string `json:"avatarUrl,optional"`
 	Nickname  string `json:"nickname,optional"`
 }
 
@@ -202,17 +212,18 @@ type UserVerifyCodeReq {
 }
 
 type UserResp {
-	ID        uint64 `json:"id"`
-	Account   string `json:"account"`
-	Email     string `json:"email"`
-	AvatarUrl string `json:"avatarUrl"`
-	Nickname  string `json:"nickname"`
-	Role      string `json:"role"`
-	Status    string `json:"status"`
-	CreatedAt string `json:"createdAt"`
-	UpdatedAt string `json:"updatedAt"`
+	ID        uint64    `json:"id"`
+	Account   string    `json:"account"`
+	Email     string    `json:"email"`
+	AvatarURL string    `json:"avatarUrl"`
+	Nickname  string    `json:"nickname"`
+	Role      string    `json:"role"`
+	Status    string    `json:"status"`
+	CreatedAt time.Time `json:"createdAt"`
+	UpdatedAt time.Time `json:"updatedAt"`
 }
 
+// UserListResp 为文档展示用，对应 types.go 泛型 ListResp[UserResp]。
 type UserListResp {
 	Items []UserResp `json:"items"`
 	Total int64      `json:"total"`
@@ -228,57 +239,24 @@ type UserRoleReq {
 	Role string `json:"role"`
 }
 
-type UserStatusWithIDReq {
-	ID     uint64 `path:"id"`
-	Status string `json:"status"`
-}
-
-type UserRoleWithIDReq {
-	ID   uint64 `path:"id"`
-	Role string `json:"role"`
-}
-
 type ArticleReq {
-	CategoryID      uint64   `json:"categoryId,optional"`
-	Title           string   `json:"title"`
-	Slug            string   `json:"slug"`
-	Summary         string   `json:"summary,optional"`
-	Content         string   `json:"content"`
-	CoverURL        string   `json:"coverUrl,optional"`
-	Status          string   `json:"status,optional"`
-	ScheduledAt     string   `json:"scheduledAt,optional"`
-	IsPinned        *bool    `json:"isPinned,optional"`
-	DisplayPriority *int     `json:"displayPriority,optional"`
-	SEOTitle        string   `json:"seoTitle,optional"`
-	SEODescription  string   `json:"seoDescription,optional"`
-	SEOKeywords     string   `json:"seoKeywords,optional"`
-	TagIDs          []uint64 `json:"tagIds,optional"`
-}
-
-type ArticleWithIDReq {
-	ID              uint64   `path:"id"`
-	CategoryID      uint64   `json:"categoryId,optional"`
-	Title           string   `json:"title"`
-	Slug            string   `json:"slug"`
-	Summary         string   `json:"summary,optional"`
-	Content         string   `json:"content"`
-	CoverURL        string   `json:"coverUrl,optional"`
-	Status          string   `json:"status,optional"`
-	ScheduledAt     string   `json:"scheduledAt,optional"`
-	IsPinned        *bool    `json:"isPinned,optional"`
-	DisplayPriority *int     `json:"displayPriority,optional"`
-	SEOTitle        string   `json:"seoTitle,optional"`
-	SEODescription  string   `json:"seoDescription,optional"`
-	SEOKeywords     string   `json:"seoKeywords,optional"`
-	TagIDs          []uint64 `json:"tagIds,optional"`
+	CategoryID      uint64     `json:"categoryId,optional"`
+	Title           string     `json:"title"`
+	Slug            string     `json:"slug"`
+	Summary         string     `json:"summary,optional"`
+	Content         string     `json:"content"`
+	CoverURL        string     `json:"coverUrl,optional"`
+	Status          string     `json:"status,optional"`
+	ScheduledAt     *time.Time `json:"scheduledAt,optional"`
+	IsPinned        *bool      `json:"isPinned,optional"`
+	DisplayPriority *int       `json:"displayPriority,optional"`
+	SEOTitle        string     `json:"seoTitle,optional"`
+	SEODescription  string     `json:"seoDescription,optional"`
+	SEOKeywords     string     `json:"seoKeywords,optional"`
+	TagIDs          []uint64   `json:"tagIds,optional"`
 }
 
 type ArticleStatusReq {
-	Status string `json:"status"`
-}
-
-type ArticleStatusWithIDReq {
-	ID     uint64 `path:"id"`
 	Status string `json:"status"`
 }
 
@@ -289,11 +267,11 @@ type AIAssistReq {
 }
 
 type AIAssistResp {
-	Summary        string   `json:"summary,optional"`
-	SEODescription string   `json:"seoDescription,optional"`
-	SEOKeywords    string   `json:"seoKeywords,optional"`
-	RevisedContent string   `json:"revisedContent,optional"`
-	Suggestions    []string `json:"suggestions,optional"`
+	Summary        string   `json:"summary,omitempty"`
+	SEODescription string   `json:"seoDescription,omitempty"`
+	SEOKeywords    string   `json:"seoKeywords,omitempty"`
+	RevisedContent string   `json:"revisedContent,omitempty"`
+	Suggestions    []string `json:"suggestions,omitempty"`
 }
 
 type AISettingsResp {
@@ -317,25 +295,27 @@ type UpdateAISettingsReq {
 	NonStreamTimeoutSeconds int    `json:"nonStreamTimeoutSeconds,optional"`
 }
 
+// ArticleListReq 由 handler 用 basehandler.Query 手动解析，tag 与 types.go 一致使用 json。
 type ArticleListReq {
-	Page       int    `form:"page,optional"`
-	Size       int    `form:"size,optional"`
-	Status     string `form:"status,optional"`
-	Query      string `form:"q,optional"`
-	CategoryID uint64 `form:"categoryId,optional"`
-	TagID      uint64 `form:"tagId,optional"`
+	Page       int    `json:"page,optional"`
+	Size       int    `json:"size,optional"`
+	Status     string `json:"status,optional"`
+	Query      string `json:"q,optional"`
+	CategoryID uint64 `json:"categoryId,optional"`
+	TagID      uint64 `json:"tagId,optional"`
 }
 
 type CategoryResp {
-	ID          uint64 `json:"id"`
-	Name        string `json:"name"`
-	Slug        string `json:"slug"`
-	Description string `json:"description"`
-	CreatedBy   uint64 `json:"createdBy"`
-	CreatedAt   string `json:"createdAt"`
-	UpdatedAt   string `json:"updatedAt"`
+	ID          uint64    `json:"id"`
+	Name        string    `json:"name"`
+	Slug        string    `json:"slug"`
+	Description string    `json:"description"`
+	CreatedBy   uint64    `json:"createdBy"`
+	CreatedAt   time.Time `json:"createdAt"`
+	UpdatedAt   time.Time `json:"updatedAt"`
 }
 
+// CategoryListResp 为文档展示用，对应 types.go 泛型 ListResp[CategoryResp]。
 type CategoryListResp {
 	Items []CategoryResp `json:"items"`
 	Total int64          `json:"total"`
@@ -344,15 +324,16 @@ type CategoryListResp {
 }
 
 type TagResp {
-	ID          uint64 `json:"id"`
-	Name        string `json:"name"`
-	Slug        string `json:"slug"`
-	Description string `json:"description"`
-	CreatedBy   uint64 `json:"createdBy"`
-	CreatedAt   string `json:"createdAt"`
-	UpdatedAt   string `json:"updatedAt"`
+	ID          uint64    `json:"id"`
+	Name        string    `json:"name"`
+	Slug        string    `json:"slug"`
+	Description string    `json:"description"`
+	CreatedBy   uint64    `json:"createdBy"`
+	CreatedAt   time.Time `json:"createdAt"`
+	UpdatedAt   time.Time `json:"updatedAt"`
 }
 
+// TagListResp 为文档展示用，对应 types.go 泛型 ListResp[TagResp]。
 type TagListResp {
 	Items []TagResp `json:"items"`
 	Total int64     `json:"total"`
@@ -361,35 +342,35 @@ type TagListResp {
 }
 
 type ArticleSearchHighlights {
-	Title   string `json:"title,optional"`
-	Summary string `json:"summary,optional"`
-	Content string `json:"content,optional"`
+	Title   string `json:"title,omitempty"`
+	Summary string `json:"summary,omitempty"`
+	Content string `json:"content,omitempty"`
 }
 
 type ArticleResp {
-	ID               uint64                  `json:"id"`
-	AuthorID         uint64                  `json:"authorId"`
-	CategoryID       uint64                  `json:"categoryId,optional"`
-	Title            string                  `json:"title"`
-	Slug             string                  `json:"slug"`
-	Summary          string                  `json:"summary"`
-	Content          string                  `json:"content,optional"`
-	CoverURL         string                  `json:"coverUrl"`
-	Status           string                  `json:"status"`
-	ViewCount        uint64                  `json:"viewCount"`
-	LikeCount        uint64                  `json:"likeCount"`
-	ScheduledAt      string                  `json:"scheduledAt,optional"`
-	PublishedAt      string                  `json:"publishedAt,optional"`
-	IsPinned         bool                    `json:"isPinned"`
-	DisplayPriority  int                     `json:"displayPriority"`
-	SEOTitle         string                  `json:"seoTitle"`
-	SEODescription   string                  `json:"seoDescription"`
-	SEOKeywords      string                  `json:"seoKeywords"`
-	CreatedAt        string                  `json:"createdAt"`
-	UpdatedAt        string                  `json:"updatedAt"`
-	Tags             []TagResp               `json:"tags,optional"`
-	Category         CategoryResp            `json:"category,optional"`
-	SearchHighlights ArticleSearchHighlights `json:"searchHighlights,optional"`
+	ID               uint64                   `json:"id"`
+	AuthorID         uint64                   `json:"authorId"`
+	CategoryID       uint64                   `json:"categoryId,omitempty"`
+	Title            string                   `json:"title"`
+	Slug             string                   `json:"slug"`
+	Summary          string                   `json:"summary"`
+	Content          string                   `json:"content,omitempty"`
+	CoverURL         string                   `json:"coverUrl"`
+	Status           string                   `json:"status"`
+	ViewCount        uint64                   `json:"viewCount"`
+	LikeCount        uint64                   `json:"likeCount"`
+	ScheduledAt      *time.Time               `json:"scheduledAt,omitempty"`
+	PublishedAt      *time.Time               `json:"publishedAt,omitempty"`
+	IsPinned         bool                     `json:"isPinned"`
+	DisplayPriority  int                      `json:"displayPriority"`
+	SEOTitle         string                   `json:"seoTitle"`
+	SEODescription   string                   `json:"seoDescription"`
+	SEOKeywords      string                   `json:"seoKeywords"`
+	CreatedAt        time.Time                `json:"createdAt"`
+	UpdatedAt        time.Time                `json:"updatedAt"`
+	Tags             []TagResp                `json:"tags,omitempty"`
+	Category         *CategoryResp            `json:"category,omitempty"`
+	SearchHighlights *ArticleSearchHighlights `json:"searchHighlights,omitempty"`
 }
 
 type ArticleListResp {
@@ -400,37 +381,37 @@ type ArticleListResp {
 }
 
 type ArticleContextResp {
-	Previous ArticleResp   `json:"previous,optional"`
-	Next     ArticleResp   `json:"next,optional"`
+	Previous *ArticleResp  `json:"previous,omitempty"`
+	Next     *ArticleResp  `json:"next,omitempty"`
 	Related  []ArticleResp `json:"related"`
 }
 
 type ArticleVersionResp {
-	ID                uint64   `json:"id"`
-	ArticleID         uint64   `json:"articleId"`
-	VersionNo         int      `json:"versionNo"`
-	ChangedBy         uint64   `json:"changedBy"`
-	AuthorID          uint64   `json:"authorId"`
-	CategoryID        uint64   `json:"categoryId,optional"`
-	Title             string   `json:"title"`
-	Slug              string   `json:"slug"`
-	Summary           string   `json:"summary"`
-	Content           string   `json:"content,optional"`
-	CoverURL          string   `json:"coverUrl"`
-	Status            string   `json:"status"`
-	ViewCount         uint64   `json:"viewCount"`
-	LikeCount         uint64   `json:"likeCount"`
-	ScheduledAt       string   `json:"scheduledAt,optional"`
-	PublishedAt       string   `json:"publishedAt,optional"`
-	IsPinned          bool     `json:"isPinned"`
-	DisplayPriority   int      `json:"displayPriority"`
-	SEOTitle          string   `json:"seoTitle"`
-	SEODescription    string   `json:"seoDescription"`
-	SEOKeywords       string   `json:"seoKeywords"`
-	TagIDs            []uint64 `json:"tagIds"`
-	OriginalCreatedAt string   `json:"originalCreatedAt,optional"`
-	OriginalUpdatedAt string   `json:"originalUpdatedAt,optional"`
-	CreatedAt         string   `json:"createdAt"`
+	ID                uint64     `json:"id"`
+	ArticleID         uint64     `json:"articleId"`
+	VersionNo         int        `json:"versionNo"`
+	ChangedBy         uint64     `json:"changedBy"`
+	AuthorID          uint64     `json:"authorId"`
+	CategoryID        uint64     `json:"categoryId,omitempty"`
+	Title             string     `json:"title"`
+	Slug              string     `json:"slug"`
+	Summary           string     `json:"summary"`
+	Content           string     `json:"content,omitempty"`
+	CoverURL          string     `json:"coverUrl"`
+	Status            string     `json:"status"`
+	ViewCount         uint64     `json:"viewCount"`
+	LikeCount         uint64     `json:"likeCount"`
+	ScheduledAt       *time.Time `json:"scheduledAt,omitempty"`
+	PublishedAt       *time.Time `json:"publishedAt,omitempty"`
+	IsPinned          bool       `json:"isPinned"`
+	DisplayPriority   int        `json:"displayPriority"`
+	SEOTitle          string     `json:"seoTitle"`
+	SEODescription    string     `json:"seoDescription"`
+	SEOKeywords       string     `json:"seoKeywords"`
+	TagIDs            []uint64   `json:"tagIds"`
+	OriginalCreatedAt *time.Time `json:"originalCreatedAt,omitempty"`
+	OriginalUpdatedAt *time.Time `json:"originalUpdatedAt,omitempty"`
+	CreatedAt         time.Time  `json:"createdAt"`
 }
 
 type ArticleVersionListResp {
@@ -490,30 +471,29 @@ type TaxonomyReq {
 	Description string `json:"description,optional"`
 }
 
-type TaxonomyWithIDReq {
-	ID          uint64 `path:"id"`
-	Name        string `json:"name"`
-	Slug        string `json:"slug"`
-	Description string `json:"description,optional"`
-}
-
 type OperationLogResp {
-	ID           uint64 `json:"id"`
-	UserID       uint64 `json:"userId,optional"`
-	EventType    string `json:"eventType"`
-	ResourceType string `json:"resourceType"`
-	ResourceID   uint64 `json:"resourceId,optional"`
-	Metadata     string `json:"metadata,optional"`
-	IP           string `json:"ip"`
-	UserAgent    string `json:"userAgent"`
-	CreatedAt    string `json:"createdAt"`
+	ID           uint64    `json:"id"`
+	UserID       uint64    `json:"userId,omitempty"`
+	EventType    string    `json:"eventType"`
+	ResourceType string    `json:"resourceType"`
+	ResourceID   uint64    `json:"resourceId,omitempty"`
+	Metadata     string    `json:"metadata,omitempty"`
+	IP           string    `json:"ip"`
+	UserAgent    string    `json:"userAgent"`
+	CreatedAt    time.Time `json:"createdAt"`
 }
 
+// OperationLogListResp 为文档展示用，对应 types.go 泛型 ListResp[OperationLogResp]。
 type OperationLogListResp {
 	Items []OperationLogResp `json:"items"`
 	Total int64              `json:"total"`
 	Page  int                `json:"page"`
 	Size  int                `json:"size"`
+}
+
+type ArticleLikeResp {
+	Liked     bool   `json:"liked"`
+	LikeCount uint64 `json:"likeCount"`
 }
 
 service notesOfAshen-api {
@@ -530,16 +510,16 @@ service notesOfAshen-api {
 	post /api/v1/auth/verify-code/send (SendVerifyCodeReq) returns (EmptyResp)
 
 	@handler register
-	post /api/v1/auth/register (RegisterReq) returns (TokenResp)
+	post /api/v1/auth/register (RegisterReq) returns (TokenPair)
 
 	@handler login
-	post /api/v1/auth/login (LoginReq) returns (TokenResp)
+	post /api/v1/auth/login (LoginReq) returns (TokenPair)
 
 	@handler resetPassword
 	post /api/v1/auth/password/reset (ResetPasswordReq) returns (EmptyResp)
 
 	@handler refresh
-	post /api/v1/auth/refresh (RefreshReq) returns (TokenResp)
+	post /api/v1/auth/refresh (RefreshReq) returns (TokenPair)
 
 	@handler trafficVisit
 	post /api/v1/traffic/visit (TrafficVisitReq) returns (EmptyResp)
@@ -611,19 +591,19 @@ service notesOfAshen-api {
 	post /api/v1/articles/:id/versions/:versionNo/restore (ArticleVersionPathReq) returns (ArticleResp)
 
 	@handler articleUpdate
-	put /api/v1/articles/:id (ArticleWithIDReq) returns (ArticleResp)
+	put /api/v1/articles/:id (ArticleReq) returns (ArticleResp)
 
 	@handler articleDelete
 	delete /api/v1/articles/:id (IDPathReq) returns (EmptyResp)
 
 	@handler articleUpdateStatus
-	patch /api/v1/articles/:id/status (ArticleStatusWithIDReq) returns (ArticleResp)
+	patch /api/v1/articles/:id/status (ArticleStatusReq) returns (ArticleResp)
 
 	@handler categoryCreate
 	post /api/v1/categories (TaxonomyReq) returns (CategoryResp)
 
 	@handler categoryUpdate
-	put /api/v1/categories/:id (TaxonomyWithIDReq) returns (CategoryResp)
+	put /api/v1/categories/:id (TaxonomyReq) returns (CategoryResp)
 
 	@handler categoryDelete
 	delete /api/v1/categories/:id (IDPathReq) returns (EmptyResp)
@@ -632,7 +612,7 @@ service notesOfAshen-api {
 	post /api/v1/tags (TaxonomyReq) returns (TagResp)
 
 	@handler tagUpdate
-	put /api/v1/tags/:id (TaxonomyWithIDReq) returns (TagResp)
+	put /api/v1/tags/:id (TaxonomyReq) returns (TagResp)
 
 	@handler tagDelete
 	delete /api/v1/tags/:id (IDPathReq) returns (EmptyResp)
@@ -653,10 +633,10 @@ service notesOfAshen-api {
 	get /api/v1/admin/users (PageReq) returns (UserListResp)
 
 	@handler adminUpdateUserStatus
-	patch /api/v1/admin/users/:id/status (UserStatusWithIDReq) returns (EmptyResp)
+	patch /api/v1/admin/users/:id/status (UserStatusReq) returns (EmptyResp)
 
 	@handler adminUpdateUserRole
-	patch /api/v1/admin/users/:id/role (UserRoleWithIDReq) returns (EmptyResp)
+	patch /api/v1/admin/users/:id/role (UserRoleReq) returns (EmptyResp)
 
 	@handler adminLogList
 	get /api/v1/admin/logs (PageReq) returns (OperationLogListResp)
@@ -678,9 +658,4 @@ service notesOfAshen-api {
 
 	@handler adminUpdateProjectsPage
 	put /api/v1/admin/site/projects (UpdateProjectsPageReq) returns (ProjectsPageResp)
-}
-
-type ArticleLikeResp {
-	Liked     bool   `json:"liked"`
-	LikeCount uint64 `json:"likeCount"`
 }

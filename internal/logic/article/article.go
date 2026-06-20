@@ -93,7 +93,12 @@ func listWithFilter(ctx context.Context, svcCtx *svc.ServiceContext, req types.A
 		}
 	}
 	if cacheablePublicArticleList(req, filter.Role, filter.UserID, query) {
-		cacheKey := publicArticleListCacheKey(req, page, size, status)
+		// 公开列表空 status 与 "published" 结果一致，归一化为同一 cache key 避免重复缓存。
+		cacheStatus := status
+		if cacheStatus == "" {
+			cacheStatus = "published"
+		}
+		cacheKey := publicArticleListCacheKey(req, page, size, cacheStatus)
 		if cached, ok := getCachedArticleList(ctx, svcCtx, cacheKey); ok {
 			return cached, nil
 		}
@@ -114,12 +119,16 @@ func listWithFilter(ctx context.Context, svcCtx *svc.ServiceContext, req types.A
 	resp := articlesResp(ctx, svcCtx, items, false)
 	out := &types.ArticleListResp{Items: resp, Total: total, Page: page, Size: size}
 	if cacheablePublicArticleList(req, filter.Role, filter.UserID, query) {
-		setCachedArticleList(ctx, svcCtx, publicArticleListCacheKey(req, page, size, status), out)
+		cacheStatus := status
+		if cacheStatus == "" {
+			cacheStatus = "published"
+		}
+		setCachedArticleList(ctx, svcCtx, publicArticleListCacheKey(req, page, size, cacheStatus), out)
 	}
 	return out, nil
 }
 
-func Detail(ctx context.Context, svcCtx *svc.ServiceContext, id uint64) (*types.ArticleResp, error) {
+func Detail(ctx context.Context, svcCtx *svc.ServiceContext, id uint64, meta types.RequestMeta) (*types.ArticleResp, error) {
 	item, err := svcCtx.Store.FindArticle(ctx, id)
 	if err != nil {
 		return nil, logicutil.MapError(err)
@@ -127,8 +136,14 @@ func Detail(ctx context.Context, svcCtx *svc.ServiceContext, id uint64) (*types.
 	if !model.IsArticlePubliclyVisible(*item, time.Now()) {
 		return nil, apperrors.NotFound("article not found")
 	}
-	if err := svcCtx.Store.IncreaseArticleView(ctx, id); err == nil {
-		item.ViewCount++
+	// 浏览量去重：同一访客 24h 内多次访问同一篇文章只计 1 次，防刷新/爬虫刷量。
+	// Redis 不可用时降级为原行为（不阻塞浏览），失败仅记日志。
+	if recordArticleViewDedup(ctx, svcCtx, id, meta) {
+		if err := svcCtx.Store.IncreaseArticleView(ctx, id); err != nil {
+			logx.Errorf("increase article view failed, articleID=%d: %v", id, err)
+		} else {
+			item.ViewCount++
+		}
 	}
 	resp, err := articleResp(ctx, svcCtx, *item, true)
 	if err != nil {
@@ -719,5 +734,30 @@ func publishEvent(ctx context.Context, svcCtx *svc.ServiceContext, event mq.Even
 
 func articleLikeVisitorHash(ip, userAgent, visitorID string) string {
 	sum := sha256.Sum256([]byte("article-like|" + strings.TrimSpace(visitorID) + "|" + strings.TrimSpace(ip) + "|" + strings.TrimSpace(userAgent)))
+	return hex.EncodeToString(sum[:])
+}
+
+// articleViewDedupTTL 控制同一访客对同一篇文章的浏览量去重窗口。
+const articleViewDedupTTL = 24 * time.Hour
+
+// recordArticleViewDedup 用 Redis SET NX 对文章浏览做 24h 去重。
+// 返回 true 表示该访客在此窗口内首次访问，应计 +1；false 表示已计过。
+// Redis 不可用时降级为 true（放行计数），避免缓存层故障影响浏览体验。
+func recordArticleViewDedup(ctx context.Context, svcCtx *svc.ServiceContext, articleID uint64, meta types.RequestMeta) bool {
+	if svcCtx.Redis == nil {
+		return true
+	}
+	visitorHash := articleViewVisitorHash(meta.IP, meta.UserAgent, meta.VisitorID)
+	key := "article:view:" + strconv.FormatUint(articleID, 10) + ":" + visitorHash
+	ok, err := svcCtx.Redis.SetNX(ctx, key, 1, articleViewDedupTTL).Result()
+	if err != nil {
+		logx.Errorf("article view dedup failed, fallback to count, articleID=%d: %v", articleID, err)
+		return true
+	}
+	return ok
+}
+
+func articleViewVisitorHash(ip, userAgent, visitorID string) string {
+	sum := sha256.Sum256([]byte("article-view|" + strings.TrimSpace(visitorID) + "|" + strings.TrimSpace(ip) + "|" + strings.TrimSpace(userAgent)))
 	return hex.EncodeToString(sum[:])
 }

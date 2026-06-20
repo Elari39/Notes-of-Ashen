@@ -6,6 +6,7 @@ import { translate } from '../../i18n';
 import { usePreferenceStore } from '../../store/preferences';
 import { useSiteSettingsStore } from '../../store/siteSettings';
 import type { HomeArticleLayout } from '../../types';
+import { useShallow } from 'zustand/react/shallow';
 
 const AdminSettings: React.FC = () => {
   const language = usePreferenceStore((state) => state.language);
@@ -23,7 +24,23 @@ const AdminSettings: React.FC = () => {
     isLoading,
     fetchSettings,
     updateSettings,
-  } = useSiteSettingsStore();
+  } = useSiteSettingsStore(
+    useShallow((state) => ({
+      registrationEnabled: state.registrationEnabled,
+      homeArticleLayout: state.homeArticleLayout,
+      siteTitle: state.siteTitle,
+      siteDescription: state.siteDescription,
+      siteKeywords: state.siteKeywords,
+      siteBaseUrl: state.siteBaseUrl,
+      resumePageEnabled: state.resumePageEnabled,
+      resumeNavHidden: state.resumeNavHidden,
+      projectsPageEnabled: state.projectsPageEnabled,
+      projectsNavHidden: state.projectsNavHidden,
+      isLoading: state.isLoading,
+      fetchSettings: state.fetchSettings,
+      updateSettings: state.updateSettings,
+    })),
+  );
   const [draftRegistrationEnabled, setDraftRegistrationEnabled] = useState(registrationEnabled);
   const [draftHomeArticleLayout, setDraftHomeArticleLayout] = useState<HomeArticleLayout>(homeArticleLayout);
   const [draftSiteTitle, setDraftSiteTitle] = useState(siteTitle);

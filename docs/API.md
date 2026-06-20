@@ -84,11 +84,21 @@ Authorization: Bearer <accessToken>
 2026-06-05T20:00:00+08:00
 ```
 
-`etc/notes-of-ashen.yaml` 是本地开发默认配置，包含示例数据库密码、Redis 密码、JWT Secret、RabbitMQ 地址、Meilisearch 搜索配置和 AI 配置占位。生产环境部署前必须替换敏感值，并通过受控配置或环境变量注入管理。
+`etc/notes-of-ashen.yaml` 是本地开发默认配置，敏感字段（数据库密码、Redis 密码、JWT Secret、RabbitMQ 地址、Meilisearch 配置、AI 配置等）默认留空或为占位，需通过受控配置或环境变量注入。生产环境部署前必须填入真实值，不要提交密钥到仓库。
 
 默认不信任客户端传入的 `X-Forwarded-*` / `X-Real-IP`。只有 `RemoteAddr` 命中 `APP_TRUSTED_PROXY_CIDRS` 时，后端才会使用这些转发头参与限流、操作日志、流量统计和 RSS/Sitemap 基础 URL 生成。
 
 后台保存的 AI API Key 使用 `APP_AI_KEY_ENCRYPTION_SECRET` 加密。旧版本使用 `APP_AUTH_ACCESS_SECRET` 派生密钥保存的密文仍可读取；管理员再次保存 AI 设置时会迁移为新格式。
+
+## 健康检查
+
+### 健康探针
+
+```text
+GET /healthz
+```
+
+无需鉴权。返回 `200 OK`（纯文本 `ok`）表示进程存活、依赖初始化完成。用于容器 healthcheck / 负载均衡探活。注意 `/healthz` 为手写 handler，未在 `api/notes-of-ashen.api` 中声明（详见该文件头注释）。
 
 ## 认证接口
 
@@ -448,9 +458,21 @@ GET /api/v1/articles/:id/export
 
 ### 文章版本
 
+#### 文章版本列表
+
 ```text
 GET /api/v1/articles/:id/versions
+```
+
+#### 单个文章版本详情
+
+```text
 GET /api/v1/articles/:id/versions/:versionNo
+```
+
+#### 恢复文章版本
+
+```text
 POST /api/v1/articles/:id/versions/:versionNo/restore
 ```
 

@@ -60,6 +60,7 @@ http://127.0.0.1:1270
 ## 技术栈
 
 - 后端：Go 1.25、go-zero REST、MySQL 8.4、Redis 7.4、Meilisearch 1.13、RabbitMQ 4、JWT、bcrypt。
+  - 上述 MySQL / Redis / Meilisearch / RabbitMQ 版本为远程依赖的**推荐版本**，需由外部服务提供（compose 不再启动它们）。
 - 前端：React 18、TypeScript、Vite 5、Tailwind CSS 3、Zustand、Axios、Framer Motion、Recharts、React Markdown。
 - 部署：Docker、Docker Compose、Nginx、1Panel。
 - 文档与脚本：API 文档位于 [docs/API.md](docs/API.md)，数据库脚本位于 [deploy/mysql](deploy/mysql)。
@@ -559,9 +560,28 @@ docker compose up -d --build
 - `GET /api/v1/articles/:id/export`
 - `GET /api/v1/articles/:id/versions`
 - `POST /api/v1/articles/:id/versions/:versionNo/restore`
+- `GET /api/v1/articles/:id/versions/:versionNo`
 - `GET /api/v1/categories`
+- `POST /api/v1/categories`
+- `PUT /api/v1/categories/:id`
+- `DELETE /api/v1/categories/:id`
 - `GET /api/v1/tags`
+- `POST /api/v1/tags`
+- `PUT /api/v1/tags/:id`
+- `DELETE /api/v1/tags/:id`
 - `GET /api/v1/site/settings`
+- `GET /api/v1/site/resume`
+- `GET /api/v1/site/projects`
+- `GET /api/v1/users/me`
+- `PUT /api/v1/users/me`
+- `PUT /api/v1/users/me/password`
+- `POST /api/v1/users/me/verify-code/send`
+- 管理后台（需管理员鉴权）：
+  - `POST/PUT/DELETE /api/v1/articles`、`PUT /api/v1/articles/:id`、`PATCH /api/v1/articles/:id/status`
+  - `GET /api/v1/admin/articles`、`GET /api/v1/admin/stats`、`GET /api/v1/admin/logs`
+  - `GET/PUT /api/v1/admin/users`、`PATCH /api/v1/admin/users/:id/status`、`PATCH /api/v1/admin/users/:id/role`
+  - `GET/PUT /api/v1/admin/site/settings`、`GET/PUT /api/v1/admin/site/resume`、`GET/PUT /api/v1/admin/site/projects`
+  - `GET/PUT /api/v1/admin/ai/settings`、`POST /api/v1/admin/search/reindex`
 - `GET /api/v1/site/resume`
 - `GET /api/v1/site/projects`
 - `GET /api/v1/users/me`
@@ -577,7 +597,7 @@ docker compose up -d --build
 
 ## 维护建议
 
-- 生产环境务必替换 `.env` 中的默认密码、`APP_AUTH_ACCESS_SECRET` 和 `APP_AI_KEY_ENCRYPTION_SECRET`。
+- 生产环境务必填写真实强随机密码替换所有 `<REPLACE_…>` 占位符，并设置 `APP_AUTH_ACCESS_SECRET` 和 `APP_AI_KEY_ENCRYPTION_SECRET`。
 - 前端依赖管理统一使用 `pnpm`，不要混用 `npm` 或 `yarn`。
 - 不要提交 `.env`、数据库备份、日志文件或任何真实密钥；数据库备份建议放在仓库目录外。
 - 升级前先备份远程 MySQL 数据，并确认远程 Redis、RabbitMQ 的持久化策略符合预期。

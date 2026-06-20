@@ -8,9 +8,12 @@ import InlineNotice from '../components/InlineNotice';
 import { getErrorMessage } from '../utils/error';
 import { translate } from '../i18n';
 import { useFormValidation, type FieldRules } from '../hooks/useFormValidation';
+import { useShallow } from 'zustand/react/shallow';
 
 const Profile: React.FC = () => {
-  const { user, fetchUser } = useAuthStore();
+  const { user, fetchUser } = useAuthStore(
+    useShallow((state) => ({ user: state.user, fetchUser: state.fetchUser })),
+  );
   const language = usePreferenceStore((state) => state.language);
   const [nickname, setNickname] = useState(user?.nickname || '');
   const [email, setEmail] = useState(user?.email || '');

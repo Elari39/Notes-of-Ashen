@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -92,7 +93,11 @@ func (c *JSONCache) DeletePrefix(ctx context.Context, prefix string) error {
 }
 
 func HashKey(prefix string, values ...interface{}) string {
-	raw, _ := json.Marshal(values)
+	raw, err := json.Marshal(values)
+	if err != nil {
+		// marshal 失败属编程错误（传入不可序列化值），fail-fast 优于让所有 key 退化成同一前缀造成脏缓存。
+		panic(fmt.Sprintf("cache.HashKey marshal failed: %v", err))
+	}
 	sum := sha256.Sum256(raw)
 	return prefix + hex.EncodeToString(sum[:])
 }

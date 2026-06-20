@@ -144,6 +144,10 @@ func classifyReferer(referrer, currentHost string) (string, string) {
 	if engine := searchEngineName(host); engine != "" {
 		return "search", engine
 	}
+	// 限制 sourceName 长度，避免超长 host 撑大 traffic_referer_stats 与 Redis ZSet member。
+	if len(host) > 128 {
+		host = host[:128]
+	}
 	return "external", host
 }
 

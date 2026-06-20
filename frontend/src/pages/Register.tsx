@@ -12,13 +12,21 @@ import { getErrorMessage } from '../utils/error';
 import { formatText, translate } from '../i18n';
 import { useFormValidation, type FieldRules } from '../hooks/useFormValidation';
 import { useCountdown } from '../hooks/useCountdown';
+import { useShallow } from 'zustand/react/shallow';
 
 const ACCOUNT_PATTERN = /^[a-zA-Z0-9_]+$/;
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const Register: React.FC = () => {
   const language = usePreferenceStore((state) => state.language);
-  const { registrationEnabled, registrationEmailCodeRequired, hasLoaded, isLoading } = useSiteSettingsStore();
+  const { registrationEnabled, registrationEmailCodeRequired, hasLoaded, isLoading } = useSiteSettingsStore(
+    useShallow((state) => ({
+      registrationEnabled: state.registrationEnabled,
+      registrationEmailCodeRequired: state.registrationEmailCodeRequired,
+      hasLoaded: state.hasLoaded,
+      isLoading: state.isLoading,
+    })),
+  );
   const [account, setAccount] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');

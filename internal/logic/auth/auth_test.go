@@ -36,7 +36,9 @@ func TestValidateLogoutRefreshTokenAllowsOwnedActiveToken(t *testing.T) {
 	}
 }
 
-func TestValidateLogoutRefreshTokenRejectsExpiredOrRevokedToken(t *testing.T) {
+// TestValidateLogoutRefreshTokenIsIdempotentForExpiredOrRevokedToken 验证过期/已撤销 token
+// 登出幂等成功（P2-4）：归属正确时不再返回 401，避免前端在 Cookie 过期后登出反复重试。
+func TestValidateLogoutRefreshTokenIsIdempotentForExpiredOrRevokedToken(t *testing.T) {
 	now := time.Now()
 	revokedAt := now.Add(-time.Minute)
 	tests := []struct {
@@ -62,13 +64,8 @@ func TestValidateLogoutRefreshTokenRejectsExpiredOrRevokedToken(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := validateLogoutRefreshToken(tt.token, 100, now)
-			if err == nil {
-				t.Fatal("validateLogoutRefreshToken should reject token")
-			}
-			codeErr, ok := err.(*apperrors.CodeError)
-			if !ok || codeErr.Code != 40100 {
-				t.Fatalf("error = %#v, want unauthorized CodeError", err)
+			if err := validateLogoutRefreshToken(tt.token, 100, now); err != nil {
+				t.Fatalf("validateLogoutRefreshToken should be idempotent, got error: %v", err)
 			}
 		})
 	}

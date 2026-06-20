@@ -186,6 +186,10 @@ func Register(ctx context.Context, svcCtx *svc.ServiceContext, req types.Registe
 
 func Login(ctx context.Context, svcCtx *svc.ServiceContext, req types.LoginReq, meta types.RequestMeta) (*types.TokenPair, error) {
 	req.Account = trim(req.Account)
+	// 注册时邮箱已 NormalizeEmail 落库为小写，登录含 @ 时按邮箱归一化，避免大小写/前后空格导致 email 分支匹配失败。
+	if strings.Contains(req.Account, "@") {
+		req.Account = security.NormalizeEmail(req.Account)
+	}
 	req.CaptchaID = trim(req.CaptchaID)
 	req.CaptchaCode = trim(req.CaptchaCode)
 	if err := validator.Required(req.Account, "account"); err != nil {
@@ -301,6 +305,11 @@ func Refresh(ctx context.Context, svcCtx *svc.ServiceContext, req types.RefreshR
 		return nil, logicutil.MapError(err)
 	}
 	if user.Status != "active" {
+		// 用户被禁用时即时撤销当前 refresh token，避免它存活到自然过期持续消耗校验。
+		if err := svcCtx.Store.RevokeRefreshToken(ctx, hash); err != nil && !errors.Is(err, model.ErrNotFound) {
+			return nil, err
+		}
+		_ = svcCtx.Redis.Del(ctx, refreshKey(hash)).Err()
 		return nil, apperrors.Forbidden("user is disabled")
 	}
 
@@ -341,7 +350,8 @@ func Logout(ctx context.Context, svcCtx *svc.ServiceContext, req types.RefreshRe
 	}
 	if err := svcCtx.Store.RevokeRefreshTokenForUser(ctx, hash, userID); err != nil {
 		if errors.Is(err, model.ErrNotFound) {
-			return apperrors.Unauthorized("refresh token is invalid")
+			// token 已被撤销（revoked_at 非空）或并发清理，登出幂等成功。
+			return nil
 		}
 		return err
 	}
@@ -415,11 +425,11 @@ func revokeRefreshTokenBestEffort(svcCtx *svc.ServiceContext, refreshHash string
 
 func validateLogoutRefreshToken(token *model.RefreshToken, userID uint64, now time.Time) error {
 	if token.UserID != userID {
+		// 归属不一致属非法调用（token 不属于当前用户），不幂等，仍返回 401。
 		return apperrors.Unauthorized("refresh token is invalid")
 	}
-	if token.RevokedAt != nil || now.After(token.ExpiresAt) {
-		return apperrors.Unauthorized("refresh token is expired")
-	}
+	// 过期/已撤销的 token 登出应幂等成功（200），避免前端在 Cookie 过期后登出反复重试。
+	// 后续 RevokeRefreshTokenForUser 对已撤销 token 返回 ErrNotFound，由 Logout 当作幂等成功处理。
 	return nil
 }
 

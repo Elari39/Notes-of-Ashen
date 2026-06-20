@@ -1,8 +1,7 @@
 import { create } from 'zustand';
 import { getSiteSettings, updateSiteSettings } from '../api/siteSettings';
-import type { HomeArticleLayout, SiteSettings } from '../types';
-
-type SiteSettingsUpdateInput = Omit<SiteSettings, 'registrationEmailCodeRequired'>;
+import type { HomeArticleLayout } from '../types';
+import type { UpdateSiteSettingsReq } from '../types/api';
 
 interface SiteSettingsState {
   registrationEnabled: boolean;
@@ -20,10 +19,17 @@ interface SiteSettingsState {
   hasLoaded: boolean;
   error: string;
   fetchSettings: () => Promise<void>;
-  updateSettings: (settings: SiteSettingsUpdateInput) => Promise<void>;
+  updateSettings: (settings: UpdateSiteSettingsReq) => Promise<void>;
   setRegistrationEnabled: (enabled: boolean) => Promise<void>;
   setHomeArticleLayout: (layout: HomeArticleLayout) => Promise<void>;
 }
+
+// 未加载完成时拦截写操作，避免用 store 默认值覆盖后端真实值。
+const ensureLoaded = (hasLoaded: boolean): void => {
+  if (!hasLoaded) {
+    throw new Error('site settings are not loaded yet');
+  }
+};
 
 export const useSiteSettingsStore = create<SiteSettingsState>((set, get) => ({
   registrationEnabled: true,
@@ -65,6 +71,7 @@ export const useSiteSettingsStore = create<SiteSettingsState>((set, get) => ({
     }
   },
   updateSettings: async (settings) => {
+    ensureLoaded(get().hasLoaded);
     set({ isLoading: true, error: '' });
     try {
       const res = await updateSiteSettings(settings);
@@ -83,18 +90,17 @@ export const useSiteSettingsStore = create<SiteSettingsState>((set, get) => ({
         hasLoaded: true,
       });
     } catch (error) {
-      set({ error: error instanceof Error ? error.message : 'Failed to update site settings' });
+      set({ error: error instanceof Error ? error.message : 'Failed to update site settings', hasLoaded: true });
       throw error;
     } finally {
       set({ isLoading: false });
     }
   },
   setRegistrationEnabled: async (enabled) => {
-    const { homeArticleLayout, siteTitle, siteDescription, siteKeywords, siteBaseUrl, resumePageEnabled, resumeNavHidden, projectsPageEnabled, projectsNavHidden, updateSettings } = get();
-    await updateSettings({ registrationEnabled: enabled, homeArticleLayout, siteTitle, siteDescription, siteKeywords, siteBaseUrl, resumePageEnabled, resumeNavHidden, projectsPageEnabled, projectsNavHidden });
+    // 仅发差异字段，后端 UpdateSiteSettingsReq 全部 optional，缺失字段保留当前值。
+    await get().updateSettings({ registrationEnabled: enabled });
   },
   setHomeArticleLayout: async (layout) => {
-    const { registrationEnabled, siteTitle, siteDescription, siteKeywords, siteBaseUrl, resumePageEnabled, resumeNavHidden, projectsPageEnabled, projectsNavHidden, updateSettings } = get();
-    await updateSettings({ registrationEnabled, homeArticleLayout: layout, siteTitle, siteDescription, siteKeywords, siteBaseUrl, resumePageEnabled, resumeNavHidden, projectsPageEnabled, projectsNavHidden });
+    await get().updateSettings({ homeArticleLayout: layout });
   },
 }));

@@ -10,6 +10,7 @@ import InlineNotice from '../components/InlineNotice';
 import { translate } from '../i18n';
 import { useFormValidation, type FieldRules } from '../hooks/useFormValidation';
 import { useSubmit } from '../hooks/useSubmit';
+import { useShallow } from 'zustand/react/shallow';
 
 const Login: React.FC = () => {
   const language = usePreferenceStore((state) => state.language);
@@ -22,7 +23,16 @@ const Login: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, accessToken, isFetching, isInitialized, setAuth, fetchUser } = useAuthStore();
+  const { user, accessToken, isFetching, isInitialized, setAuth, fetchUser } = useAuthStore(
+    useShallow((state) => ({
+      user: state.user,
+      accessToken: state.accessToken,
+      isFetching: state.isFetching,
+      isInitialized: state.isInitialized,
+      setAuth: state.setAuth,
+      fetchUser: state.fetchUser,
+    })),
+  );
   const t = (key: Parameters<typeof translate>[1]) => translate(language, key);
   const from = (location.state as { from?: Location } | null)?.from;
   const redirectTo = from && from.pathname !== '/login'

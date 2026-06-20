@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"html"
 	"io"
 	"net/http"
 	"net/url"
@@ -119,9 +120,11 @@ func (c *Client) Search(ctx context.Context, req SearchRequest) (*SearchResult, 
 		}
 		result.IDs = append(result.IDs, hit.ID)
 		result.Highlights[hit.ID] = Highlight{
-			Title:   hit.Formatted.Title,
-			Summary: hit.Formatted.Summary,
-			Content: hit.Formatted.Content,
+			// Meili 返回的 _formatted 仅在命中词外包 <mark>，原文 HTML 字符未转义。
+			// 对 <mark>/</mark> 之外的内容做 HTML 转义，防止前端渲染高亮片段时 XSS。
+			Title:   escapeHighlight(hit.Formatted.Title),
+			Summary: escapeHighlight(hit.Formatted.Summary),
+			Content: escapeHighlight(hit.Formatted.Content),
 		}
 	}
 	return result, nil
@@ -324,6 +327,37 @@ func (c *Client) waitTask(ctx context.Context, taskUID int64) error {
 type searchResponse struct {
 	Hits               []searchHit `json:"hits"`
 	EstimatedTotalHits int64       `json:"estimatedTotalHits"`
+}
+
+// escapeHighlight 对 Meilisearch 高亮片段做 HTML 转义：仅保留 <mark>/</mark> 标签，
+// 标签之外的原文 <>&"' 用 html.EscapeString 转义，避免前端渲染时存储型 XSS。
+func escapeHighlight(s string) string {
+	if !strings.Contains(s, "<mark>") {
+		return html.EscapeString(s)
+	}
+	var b strings.Builder
+	b.Grow(len(s))
+	rest := s
+	for {
+		open := strings.Index(rest, "<mark>")
+		if open < 0 {
+			b.WriteString(html.EscapeString(rest))
+			break
+		}
+		b.WriteString(html.EscapeString(rest[:open]))
+		b.WriteString("<mark>")
+		rest = rest[open+len("<mark>"):]
+		closeIdx := strings.Index(rest, "</mark>")
+		if closeIdx < 0 {
+			// 缺失闭合标签，转义剩余部分并结束。
+			b.WriteString(html.EscapeString(rest))
+			break
+		}
+		b.WriteString(html.EscapeString(rest[:closeIdx]))
+		b.WriteString("</mark>")
+		rest = rest[closeIdx+len("</mark>"):]
+	}
+	return b.String()
 }
 
 type searchHit struct {
