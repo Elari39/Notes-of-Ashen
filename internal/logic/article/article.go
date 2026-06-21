@@ -217,7 +217,7 @@ func Like(ctx context.Context, svcCtx *svc.ServiceContext, id uint64, meta types
 	if !model.IsArticlePubliclyVisible(*item, time.Now()) {
 		return nil, apperrors.NotFound("article not found")
 	}
-	visitorHash := articleLikeVisitorHash(meta.IP, meta.UserAgent, meta.VisitorID)
+	visitorHash := articleLikeVisitorHash(meta.IP, meta.UserAgent)
 	// 每篇文章每小时唯一点赞者去重：用 Redis SET 统计不同 visitor_hash 数量，
 	// 超阈值视为刷赞并拒绝。Redis 异常时 fail-open，仅记日志不阻断正常点赞。
 	if svcCtx.Redis != nil {
@@ -732,8 +732,8 @@ func publishEvent(ctx context.Context, svcCtx *svc.ServiceContext, event mq.Even
 	}
 }
 
-func articleLikeVisitorHash(ip, userAgent, visitorID string) string {
-	sum := sha256.Sum256([]byte("article-like|" + strings.TrimSpace(visitorID) + "|" + strings.TrimSpace(ip) + "|" + strings.TrimSpace(userAgent)))
+func articleLikeVisitorHash(ip, userAgent string) string {
+	sum := sha256.Sum256([]byte("article-like|" + strings.TrimSpace(ip) + "|" + strings.TrimSpace(userAgent)))
 	return hex.EncodeToString(sum[:])
 }
 
@@ -747,7 +747,7 @@ func recordArticleViewDedup(ctx context.Context, svcCtx *svc.ServiceContext, art
 	if svcCtx.Redis == nil {
 		return true
 	}
-	visitorHash := articleViewVisitorHash(meta.IP, meta.UserAgent, meta.VisitorID)
+	visitorHash := articleViewVisitorHash(meta.IP, meta.UserAgent)
 	key := "article:view:" + strconv.FormatUint(articleID, 10) + ":" + visitorHash
 	ok, err := svcCtx.Redis.SetNX(ctx, key, 1, articleViewDedupTTL).Result()
 	if err != nil {
@@ -757,7 +757,7 @@ func recordArticleViewDedup(ctx context.Context, svcCtx *svc.ServiceContext, art
 	return ok
 }
 
-func articleViewVisitorHash(ip, userAgent, visitorID string) string {
-	sum := sha256.Sum256([]byte("article-view|" + strings.TrimSpace(visitorID) + "|" + strings.TrimSpace(ip) + "|" + strings.TrimSpace(userAgent)))
+func articleViewVisitorHash(ip, userAgent string) string {
+	sum := sha256.Sum256([]byte("article-view|" + strings.TrimSpace(ip) + "|" + strings.TrimSpace(userAgent)))
 	return hex.EncodeToString(sum[:])
 }

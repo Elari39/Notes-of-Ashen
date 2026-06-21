@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import { getArticleVersion, getArticleVersions, restoreArticleVersion } from '../../api/article';
@@ -22,6 +22,14 @@ const ArticleVersions: React.FC = () => {
   const [error, setError] = useState('');
   const [busyVersion, setBusyVersion] = useState<number | null>(null);
   const size = 10;
+  const mountedRef = useRef(true);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   const fetchVersions = useCallback(async () => {
     if (!id) {
@@ -32,12 +40,20 @@ const ArticleVersions: React.FC = () => {
     setError('');
     try {
       const res = await getArticleVersions(id, { page, size });
+      if (!mountedRef.current) {
+        return;
+      }
       setVersions(res.data.items || []);
       setTotal(res.data.total || 0);
     } catch (e) {
+      if (!mountedRef.current) {
+        return;
+      }
       setError(getErrorMessage(e, labels.historyLoadError));
     } finally {
-      setLoading(false);
+      if (mountedRef.current) {
+        setLoading(false);
+      }
     }
   }, [id, labels.historyLoadError, page]);
 
@@ -53,11 +69,19 @@ const ArticleVersions: React.FC = () => {
     setError('');
     try {
       const res = await getArticleVersion(id, versionNo);
+      if (!mountedRef.current) {
+        return;
+      }
       setSelectedVersion(res.data);
     } catch (e) {
+      if (!mountedRef.current) {
+        return;
+      }
       setError(getErrorMessage(e, labels.detailLoadError));
     } finally {
-      setDetailLoading(false);
+      if (mountedRef.current) {
+        setDetailLoading(false);
+      }
     }
   };
 
@@ -69,12 +93,23 @@ const ArticleVersions: React.FC = () => {
     setError('');
     try {
       await restoreArticleVersion(id, versionNo);
+      if (!mountedRef.current) {
+        return;
+      }
       await fetchVersions();
+      if (!mountedRef.current) {
+        return;
+      }
       await handleInspect(versionNo);
     } catch (e) {
+      if (!mountedRef.current) {
+        return;
+      }
       setError(getErrorMessage(e, labels.restoreError));
     } finally {
-      setBusyVersion(null);
+      if (mountedRef.current) {
+        setBusyVersion(null);
+      }
     }
   };
 

@@ -22,6 +22,13 @@ self.addEventListener('activate', (event) => {
   );
 });
 
+// 文章删除/状态变更后，前端通过 postMessage 通知清空详情缓存，避免 offline 命中陈旧内容。
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'CLEAR_ARTICLE_CACHE') {
+    event.waitUntil(caches.delete(ARTICLE_CACHE));
+  }
+});
+
 self.addEventListener('fetch', (event) => {
   const request = event.request;
   if (request.method !== 'GET') {

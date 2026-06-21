@@ -8,6 +8,7 @@ import Pagination from '../../components/Pagination';
 import InlineNotice from '../../components/InlineNotice';
 import PagePendingState from '../../components/RoutePending';
 import { getErrorMessage } from '../../utils/error';
+import { notifyArticleCacheInvalid } from '../../utils/pwa';
 import { getArticleStatusLabel, getDateLocale, translate } from '../../i18n';
 import { usePreferenceStore } from '../../store/preferences';
 
@@ -130,6 +131,7 @@ const AdminArticles: React.FC = () => {
     setBusyId(id);
     try {
       await updateArticleStatus(id, status);
+      notifyArticleCacheInvalid();
       await fetchList();
     } catch (e) {
       setError(getErrorMessage(e, t('adminArticles.statusError')));
@@ -144,6 +146,7 @@ const AdminArticles: React.FC = () => {
       setBusyId(id);
       try {
         await deleteArticle(id);
+        notifyArticleCacheInvalid();
         await fetchList();
       } catch (e) {
         setError(getErrorMessage(e, t('adminArticles.deleteError')));

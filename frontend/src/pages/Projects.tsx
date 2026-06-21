@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import InlineNotice from '../components/InlineNotice';
 import PagePendingState from '../components/RoutePending';
+import ProjectPreviewModal from '../components/ProjectPreviewModal';
 import { getProjectsPage } from '../api/siteSettings';
 import { usePreferenceStore } from '../store/preferences';
 import type { ProjectItem, ProjectsPage } from '../types';
@@ -14,6 +15,7 @@ const Projects: React.FC = () => {
   const [page, setPage] = useState<ProjectsPage | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
+  const [selected, setSelected] = useState<ProjectItem | null>(null);
 
   useSEO(page?.title || (isZh ? '项目' : 'Projects'));
 
@@ -73,10 +75,12 @@ const Projects: React.FC = () => {
       {!isLoading && !error && page?.items && page.items.length > 0 && (
         <section className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
           {page.items.map((project) => (
-            <ProjectCard key={project.id} project={project} labels={text} />
+            <ProjectCard key={project.id} project={project} labels={text} onSelect={setSelected} />
           ))}
         </section>
       )}
+
+      <ProjectPreviewModal project={selected} onClose={() => setSelected(null)} />
     </div>
   );
 };
@@ -86,67 +90,88 @@ export default Projects;
 type ProjectCardProps = {
   project: ProjectItem;
   labels: ReturnType<typeof getProjectsLabels>;
+  onSelect: (project: ProjectItem) => void;
 };
 
-const ProjectCard: React.FC<ProjectCardProps> = ({ project, labels }) => (
-  <article className="group flex min-h-full flex-col overflow-hidden border border-mountain-grey bg-[var(--paper-soft)] transition-colors hover:border-ochre">
-    <div className="relative aspect-[4/3] overflow-hidden border-b border-mountain-grey bg-[var(--paper)]">
-      {project.coverUrl ? (
-        <img
-          src={project.coverUrl}
-          alt={project.title}
-          className="h-full w-full object-cover grayscale transition-all duration-500 group-hover:scale-[1.03] group-hover:grayscale-0"
-          loading="lazy"
-        />
-      ) : (
-        <div className="flex h-full items-center justify-center text-xs tracking-[0.24em] text-ink-light opacity-70">
-          {labels.noCover}
-        </div>
-      )}
-      {project.featured && (
-        <span className="absolute left-3 top-3 border border-ochre bg-paper px-2 py-0.5 text-[11px] uppercase tracking-[0.18em] text-ochre">
-          {labels.featured}
-        </span>
-      )}
-    </div>
-    <div className="flex flex-1 flex-col gap-5 p-5 md:p-6">
-      <div className="flex flex-1 flex-col gap-3">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div className="flex flex-wrap items-center gap-2">
-            <h2 className="text-xl font-bold tracking-widest text-ink">{project.title}</h2>
+const ProjectCard: React.FC<ProjectCardProps> = ({ project, labels, onSelect }) => {
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLElement>) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      onSelect(project);
+    }
+  };
+
+  return (
+    <article
+      role="button"
+      tabIndex={0}
+      aria-label={labels.openDetail(project.title)}
+      onClick={() => onSelect(project)}
+      onKeyDown={handleKeyDown}
+      className="group flex min-h-full cursor-pointer flex-col overflow-hidden border border-mountain-grey bg-[var(--paper-soft)] outline-none transition-colors hover:border-ochre focus-visible:border-ochre focus-visible:ring-2 focus-visible:ring-ochre"
+    >
+      <div className="relative aspect-[4/3] overflow-hidden border-b border-mountain-grey bg-[var(--paper)]">
+        {project.coverUrl ? (
+          <img
+            src={project.coverUrl}
+            alt={project.title}
+            className="h-full w-full object-cover grayscale transition-all duration-500 group-hover:scale-[1.03] group-hover:grayscale-0"
+            loading="lazy"
+          />
+        ) : (
+          <div className="flex h-full items-center justify-center text-xs tracking-[0.24em] text-ink-light opacity-70">
+            {labels.noCover}
           </div>
-          {(project.demoUrl || project.repoUrl) && (
-            <div className="flex shrink-0 flex-wrap gap-3 text-sm tracking-widest">
-              {project.demoUrl && (
-                <a href={project.demoUrl} target="_blank" rel="noreferrer" className="text-ochre hover:text-ink">
-                  {labels.demo}
-                </a>
-              )}
-              {project.repoUrl && (
-                <a href={project.repoUrl} target="_blank" rel="noreferrer" className="text-ochre hover:text-ink">
-                  {labels.repo}
-                </a>
-              )}
-            </div>
-          )}
-        </div>
-        {project.summary && (
-          <p className="line-clamp-5 text-sm leading-7 tracking-wide text-ink-light">{project.summary}</p>
+        )}
+        {project.featured && (
+          <span className="absolute left-3 top-3 border border-ochre bg-paper px-2 py-0.5 text-[11px] uppercase tracking-[0.18em] text-ochre">
+            {labels.featured}
+          </span>
         )}
       </div>
-
-      {(project.role || project.period || project.tags.length > 0) && (
-        <div className="flex flex-wrap gap-2 text-xs tracking-[0.16em] text-ink-light">
-          {project.role && <span className="border border-mountain-grey px-2 py-1">{project.role}</span>}
-          {project.period && <span className="border border-mountain-grey px-2 py-1">{project.period}</span>}
-          {project.tags.map((tag) => (
-            <span key={tag} className="border border-mountain-grey px-2 py-1">{tag}</span>
-          ))}
+      <div className="flex flex-1 flex-col gap-5 p-5 md:p-6">
+        <div className="flex flex-1 flex-col gap-3">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="text-xl font-bold tracking-widest text-ink">{project.title}</h2>
+            </div>
+            {(project.demoUrl || project.repoUrl) && (
+              <div className="flex shrink-0 flex-wrap gap-3 text-sm tracking-widest" onClick={(event) => event.stopPropagation()}>
+                {project.demoUrl && (
+                  <a href={project.demoUrl} target="_blank" rel="noreferrer" className="text-ochre hover:text-ink">
+                    {labels.demo}
+                  </a>
+                )}
+                {project.repoUrl && (
+                  <a href={project.repoUrl} target="_blank" rel="noreferrer" className="text-ochre hover:text-ink">
+                    {labels.repo}
+                  </a>
+                )}
+              </div>
+            )}
+          </div>
+          {project.summary && (
+            <p className="line-clamp-5 text-sm leading-7 tracking-wide text-ink-light">{project.summary}</p>
+          )}
         </div>
-      )}
-    </div>
-  </article>
-);
+
+        {(project.role || project.period || project.tags.length > 0) && (
+          <div className="flex flex-wrap gap-2 text-xs tracking-[0.16em] text-ink-light">
+            {project.role && <span className="border border-mountain-grey px-2 py-1">{project.role}</span>}
+            {project.period && <span className="border border-mountain-grey px-2 py-1">{project.period}</span>}
+            {project.tags.map((tag) => (
+              <span key={tag} className="border border-mountain-grey px-2 py-1">{tag}</span>
+            ))}
+          </div>
+        )}
+
+        <div className="mt-auto border-t border-mountain-grey pt-4 text-xs tracking-[0.2em] text-ochre transition-colors group-hover:text-ink">
+          {labels.viewDetail}
+        </div>
+      </div>
+    </article>
+  );
+};
 
 const getProjectsLabels = (language: string) => language === 'zh'
   ? {
@@ -157,6 +182,8 @@ const getProjectsLabels = (language: string) => language === 'zh'
       repo: '代码',
       featured: '精选',
       noCover: '暂无封面',
+      viewDetail: '查看详情 →',
+      openDetail: (title: string) => `查看项目详情：${title}`,
     }
   : {
       loading: 'Loading projects...',
@@ -166,4 +193,6 @@ const getProjectsLabels = (language: string) => language === 'zh'
       repo: 'Repo',
       featured: 'Featured',
       noCover: 'No Cover',
+      viewDetail: 'View details →',
+      openDetail: (title: string) => `View project details: ${title}`,
     };

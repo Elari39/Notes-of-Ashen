@@ -60,6 +60,10 @@ AI:
   FirstByteTimeoutSeconds: 60
   StreamTimeoutSeconds: 300
   NonStreamTimeoutSeconds: 600
+  # Temperature 覆盖 AI 请求温度；<=0 时回退默认 0.3。
+  Temperature: 0
+  # MaxTokens 覆盖 AI 请求最大 token 数；<=0 时按 action 回退默认值。
+  MaxTokens: 0
 
 Proxy:
   TrustedCIDRs: ""

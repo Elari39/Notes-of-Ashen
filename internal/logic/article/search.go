@@ -2,6 +2,7 @@ package article
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	searchclient "notes-of-ashen/internal/search"
@@ -26,6 +27,11 @@ func searchPublicArticles(ctx context.Context, svcCtx *svc.ServiceContext, req t
 	})
 	if err != nil {
 		logx.Errorf("meilisearch query failed, fallback to mysql: %v", err)
+		return nil, false
+	}
+	// query 非空却 0 命中：可能是索引重建中或索引为空，回退 MySQL 避免误报“搜不到”（P4-6）。
+	if strings.TrimSpace(req.Query) != "" && result.Total == 0 && len(result.IDs) == 0 {
+		logx.Infof("meilisearch returned 0 hits for non-empty query, fallback to mysql")
 		return nil, false
 	}
 	items, err := svcCtx.Store.FindArticlesByIDs(ctx, result.IDs)

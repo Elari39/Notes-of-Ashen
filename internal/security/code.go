@@ -42,12 +42,21 @@ func NewCaptcha(ctx context.Context, redisClient *redis.Client, purpose string) 
 	if err != nil {
 		return nil, err
 	}
+	// 先绘制图片成功再写 Redis（P4-10）：字体加载失败时 DrawCaptcha 报错，
+	// 此处直接返回 error（不写 Redis、handler 返回 500 让用户重试），
+	// 避免用户拿到空图却已占用 Redis 验证码 key 无法重试。
+	// captchaImageData 返回的是完整 data URL（库 EncodeB64string 自带 data:image/png;base64, 前缀），
+	// 不要再手动拼接前缀，否则会产生 data:image/png;base64,data:image/png;base64,... 双重前缀。
+	imageData, err := captchaImageData(code)
+	if err != nil {
+		return nil, err
+	}
 	if err := redisClient.Set(ctx, CaptchaKey(purpose, id), code, CaptchaTTL).Err(); err != nil {
 		return nil, err
 	}
 	return &CaptchaChallenge{
 		ID:        id,
-		ImageData: "data:image/png;base64," + captchaPNGBase64(code),
+		ImageData: imageData,
 		ExpiresIn: int64(CaptchaTTL / time.Second),
 	}, nil
 }
@@ -220,13 +229,14 @@ var captchaDriver = (&base64Captcha.DriverString{
 	Fonts:           []string{"wqy-microhei.ttc"},
 }).ConvertFonts()
 
-// captchaPNGBase64 用配置好的 DriverString 绘制给定 code，返回 base64 编码的 PNG。
-// code 由调用方（NewCaptcha）生成并写入 Redis，校验流程不变。
-func captchaPNGBase64(code string) string {
+// captchaImageData 用配置好的 DriverString 绘制给定 code，返回 data:image/png;base64,...
+// 形式的完整 data URL。库 EncodeB64string 自带前缀，调用方不要再拼接前缀。
+// DrawCaptcha 仅在字体加载失败等极端情况报错，此时向上返回 error，由调用方决定
+// 是否写 Redis（NewCaptcha 在画图失败时不写 Redis 并返回 500 让用户重试）。
+func captchaImageData(code string) (string, error) {
 	item, err := captchaDriver.DrawCaptcha(code)
 	if err != nil {
-		// DrawCaptcha 仅在字体加载失败等极端情况报错；退化为纯文字 base64，保证非空。
-		return ""
+		return "", fmt.Errorf("draw captcha failed: %w", err)
 	}
-	return item.EncodeB64string()
+	return item.EncodeB64string(), nil
 }

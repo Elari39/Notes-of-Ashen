@@ -142,6 +142,7 @@ const Layout: React.FC = () => {
   const renderPreferencePanel = (variant: 'desktop' | 'mobile') => (
     <motion.div
       role="dialog"
+      aria-modal="true"
       aria-label={t('preferences.title')}
       initial={{ opacity: 0, y: -6 }}
       animate={{ opacity: 1, y: 0 }}

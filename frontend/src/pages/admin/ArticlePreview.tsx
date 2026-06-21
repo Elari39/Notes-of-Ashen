@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { getArticlePreview } from '../../api/article';
 import InlineNotice from '../../components/InlineNotice';
@@ -12,6 +12,8 @@ const ArticlePreview: React.FC = () => {
   const { id } = useParams();
   const language = usePreferenceStore((state) => state.language);
   const labels = articlePreviewLabels(language);
+  const languageRef = useRef(language);
+  languageRef.current = language;
   const [article, setArticle] = useState<Article | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -19,6 +21,7 @@ const ArticlePreview: React.FC = () => {
   useSEO(article?.seoTitle || article?.title, article?.seoDescription || article?.summary, article?.seoKeywords);
 
   useEffect(() => {
+    let active = true;
     const fetchPreview = async () => {
       if (!id) {
         return;
@@ -27,15 +30,26 @@ const ArticlePreview: React.FC = () => {
       setError('');
       try {
         const res = await getArticlePreview(id);
+        if (!active) {
+          return;
+        }
         setArticle(res.data);
       } catch (e) {
-        setError(getErrorMessage(e, labels.loadError));
+        if (!active) {
+          return;
+        }
+        setError(getErrorMessage(e, articlePreviewLabels(languageRef.current).loadError));
       } finally {
-        setLoading(false);
+        if (active) {
+          setLoading(false);
+        }
       }
     };
     fetchPreview();
-  }, [id, labels.loadError]);
+    return () => {
+      active = false;
+    };
+  }, [id]);
 
   if (loading) {
     return <div className="py-20 text-center tracking-widest text-ink-light">{labels.loading}</div>;

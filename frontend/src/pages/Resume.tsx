@@ -367,6 +367,8 @@ const SkillGraph: React.FC<{
 }> = ({ data, activeNodeId, themeKey, onSelect }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<ECharts | null>(null);
+  const onSelectRef = useRef(onSelect);
+  onSelectRef.current = onSelect;
 
   useEffect(() => {
     if (!containerRef.current) {
@@ -381,7 +383,7 @@ const SkillGraph: React.FC<{
         ? String((params.data as { id: string }).id)
         : '';
       if (nodeId) {
-        onSelect(nodeId);
+        onSelectRef.current(nodeId);
       }
     });
     chart.setOption(skillGraphOption(data, activeNodeId, readGraphColors()));
@@ -391,7 +393,10 @@ const SkillGraph: React.FC<{
       chartRef.current?.dispose();
       chartRef.current = null;
     };
-  }, [activeNodeId, data, onSelect, themeKey]);
+    // init effect 仅在挂载时执行一次；data/activeNodeId/themeKey 变化由下方 setOption effect 处理，
+    // onSelect 通过 ref 读取避免闭包过期。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     chartRef.current?.setOption(skillGraphOption(data, activeNodeId, readGraphColors()), true);

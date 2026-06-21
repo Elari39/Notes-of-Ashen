@@ -47,8 +47,11 @@ func evictArticleCaches(ctx context.Context, svcCtx *svc.ServiceContext) {
 	if err := svcCtx.Cache.DeletePrefix(ctx, articleListCachePrefix); err != nil {
 		logx.Errorf("article list cache eviction failed: %v", err)
 	}
-	if err := svcCtx.Cache.Delete(ctx, "article:popular:5", "article:recent:5"); err != nil {
-		logx.Errorf("article dashboard cache eviction failed: %v", err)
+	if err := svcCtx.Cache.DeletePrefix(ctx, "article:popular:"); err != nil {
+		logx.Errorf("article popular cache eviction failed: %v", err)
+	}
+	if err := svcCtx.Cache.DeletePrefix(ctx, "article:recent:"); err != nil {
+		logx.Errorf("article recent cache eviction failed: %v", err)
 	}
 }
 

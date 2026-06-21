@@ -346,6 +346,18 @@ func Logout(ctx context.Context, svcCtx *svc.ServiceContext, req types.RefreshRe
 		return err
 	}
 	if err := validateLogoutRefreshToken(token, userID, time.Now()); err != nil {
+		// 归属不一致属可疑行为（可能 token 被窃取），无条件按 hash 撤销该 token，
+		// 并记录安全事件，避免侧信道枚举有效 refresh token（P4-13）。
+		_ = svcCtx.Store.RevokeRefreshToken(ctx, hash)
+		_ = svcCtx.Redis.Del(ctx, refreshKey(hash)).Err()
+		publishEvent(ctx, svcCtx, mq.Event{
+			UserID:       userID,
+			EventType:    "token.mismatch_logout",
+			ResourceType: "user",
+			ResourceID:   token.UserID,
+			IP:           meta.IP,
+			UserAgent:    meta.UserAgent,
+		})
 		return err
 	}
 	if err := svcCtx.Store.RevokeRefreshTokenForUser(ctx, hash, userID); err != nil {
@@ -425,7 +437,8 @@ func revokeRefreshTokenBestEffort(svcCtx *svc.ServiceContext, refreshHash string
 
 func validateLogoutRefreshToken(token *model.RefreshToken, userID uint64, now time.Time) error {
 	if token.UserID != userID {
-		// 归属不一致属非法调用（token 不属于当前用户），不幂等，仍返回 401。
+		// 归属不一致属可疑调用（token 不属于当前用户），返回 401；
+		// 调用方 Logout 会按 hash 无条件撤销该 token 并记录安全事件（P4-13）。
 		return apperrors.Unauthorized("refresh token is invalid")
 	}
 	// 过期/已撤销的 token 登出应幂等成功（200），避免前端在 Cookie 过期后登出反复重试。

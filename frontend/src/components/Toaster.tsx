@@ -31,7 +31,7 @@ const ToastEntry: React.FC<{ toast: ToastItem }> = ({ toast }) => {
     <motion.div
       layout
       role={toast.type === 'error' ? 'alert' : 'status'}
-      aria-live="polite"
+      aria-live={toast.type === 'error' ? 'assertive' : 'polite'}
       transition={{ duration: 0.22, ease: 'easeOut' }}
       className={`flex max-w-sm items-start gap-3 border-l-2 bg-[var(--notice-bg)] px-4 py-3 text-sm leading-relaxed text-ink shadow-[0_12px_40px_rgba(0,0,0,0.12)] ${toneBorder[toast.type]}`}
       {...motionProps}

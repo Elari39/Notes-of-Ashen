@@ -31,6 +31,8 @@ func RegisterHandlers(server *rest.Server, svcCtx *svc.ServiceContext) {
 	verifyCodeRateLimit := middleware.NewFailClosedRateLimitMiddleware(svcCtx.Redis, "verify_code_send", 5, time.Minute, forwardedOptions)
 	resetPasswordRateLimit := middleware.NewFailClosedRateLimitMiddleware(svcCtx.Redis, "password_reset", 5, time.Minute, forwardedOptions)
 	changePasswordRateLimit := middleware.NewFailClosedRateLimitMiddleware(svcCtx.Redis, "password_change", 5, time.Minute, forwardedOptions)
+	captchaRateLimit := middleware.NewRateLimitMiddleware(svcCtx.Redis, "auth_captcha", 30, time.Minute, forwardedOptions)
+	registerRateLimit := middleware.NewFailClosedRateLimitMiddleware(svcCtx.Redis, "auth_register", 5, time.Minute, forwardedOptions)
 	trafficRateLimit := middleware.NewRateLimitMiddleware(svcCtx.Redis, "traffic_visit", 120, time.Minute, forwardedOptions)
 	articleLikeRateLimit := middleware.NewRateLimitMiddleware(svcCtx.Redis, "article_like", 60, time.Minute, forwardedOptions)
 	aiRateLimit := middleware.NewRateLimitMiddleware(svcCtx.Redis, "ai_assist", 20, time.Minute, forwardedOptions)
@@ -42,9 +44,9 @@ func RegisterHandlers(server *rest.Server, svcCtx *svc.ServiceContext) {
 		{Method: http.MethodGet, Path: "/healthz", Handler: sitehandler.HealthzHandler(svcCtx)},
 		{Method: http.MethodGet, Path: "/rss.xml", Handler: sitehandler.RSSHandler(svcCtx)},
 		{Method: http.MethodGet, Path: "/sitemap.xml", Handler: sitehandler.SitemapHandler(svcCtx)},
-		{Method: http.MethodPost, Path: "/api/v1/auth/captcha", Handler: authhandler.CaptchaHandler(svcCtx)},
+		{Method: http.MethodPost, Path: "/api/v1/auth/captcha", Handler: captchaRateLimit.Handle(authhandler.CaptchaHandler(svcCtx))},
 		{Method: http.MethodPost, Path: "/api/v1/auth/verify-code/send", Handler: verifyCodeRateLimit.Handle(authhandler.SendVerifyCodeHandler(svcCtx))},
-		{Method: http.MethodPost, Path: "/api/v1/auth/register", Handler: authhandler.RegisterHandler(svcCtx)},
+		{Method: http.MethodPost, Path: "/api/v1/auth/register", Handler: registerRateLimit.Handle(authhandler.RegisterHandler(svcCtx))},
 		{Method: http.MethodPost, Path: "/api/v1/auth/login", Handler: loginRateLimit.Handle(authhandler.LoginHandler(svcCtx))},
 		{Method: http.MethodPost, Path: "/api/v1/auth/password/reset", Handler: resetPasswordRateLimit.Handle(authhandler.ResetPasswordHandler(svcCtx))},
 		{Method: http.MethodPost, Path: "/api/v1/auth/refresh", Handler: authhandler.RefreshHandler(svcCtx)},

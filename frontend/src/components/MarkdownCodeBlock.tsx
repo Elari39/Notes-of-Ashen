@@ -47,7 +47,7 @@ const MarkdownCodeBlock: React.FC<MarkdownCodeBlockProps> = ({ code, language, s
           type="button"
           className="article-code-copy"
           onClick={copyCode}
-          aria-live="polite"
+          aria-label={copied ? '已复制' : '复制代码'}
         >
           {copied ? '已复制' : '复制'}
         </button>

@@ -98,6 +98,11 @@ func (c *Config) ApplyEnv() error {
 		if !ok {
 			return nil
 		}
+		// compose 用 ${VAR:-} 在未设置时注入空串，空串视为未设置跳过，
+		// 避免 strconv 解析空串报错导致 ApplyEnv panic（P4-1 回归）。
+		if strings.TrimSpace(value) == "" {
+			return nil
+		}
 		parsed, err := strconv.Atoi(value)
 		if err != nil {
 			return fmt.Errorf("invalid integer env %s: %w", key, err)
@@ -109,6 +114,9 @@ func (c *Config) ApplyEnv() error {
 	setInt64 := func(key string, target *int64) error {
 		value, ok := os.LookupEnv(key)
 		if !ok {
+			return nil
+		}
+		if strings.TrimSpace(value) == "" {
 			return nil
 		}
 		parsed, err := strconv.ParseInt(value, 10, 64)
@@ -124,6 +132,9 @@ func (c *Config) ApplyEnv() error {
 		if !ok {
 			return nil
 		}
+		if strings.TrimSpace(value) == "" {
+			return nil
+		}
 		parsed, err := strconv.ParseBool(value)
 		if err != nil {
 			return fmt.Errorf("invalid boolean env %s: %w", key, err)
@@ -135,6 +146,9 @@ func (c *Config) ApplyEnv() error {
 	setFloat64 := func(key string, target *float64) error {
 		value, ok := os.LookupEnv(key)
 		if !ok {
+			return nil
+		}
+		if strings.TrimSpace(value) == "" {
 			return nil
 		}
 		parsed, err := strconv.ParseFloat(value, 64)
@@ -273,11 +287,46 @@ func (c Config) ValidateConfig() error {
 	if c.Redis.Password != "" && containsInsecureMarker(c.Redis.Password) {
 		return fmt.Errorf("APP_REDIS_PASSWORD contains an insecure placeholder value")
 	}
+	if strings.TrimSpace(c.Redis.Addr) == "" {
+		return fmt.Errorf("APP_REDIS_ADDR is required")
+	}
+	if containsInsecureMarker(c.Redis.Addr) {
+		return fmt.Errorf("APP_REDIS_ADDR contains an insecure placeholder value")
+	}
 	if c.Email.Enabled {
 		switch strings.ToLower(strings.TrimSpace(c.Email.TLSMode)) {
 		case "", "implicit", "starttls", "none":
 		default:
 			return fmt.Errorf("APP_EMAIL_TLS_MODE must be one of implicit|starttls|none, got %q", c.Email.TLSMode)
+		}
+		if err := validateRequiredSecret("APP_EMAIL_SMTP_HOST", c.Email.SMTPHost, 1); err != nil {
+			return err
+		}
+		if c.Email.SMTPPort <= 0 {
+			return fmt.Errorf("APP_EMAIL_SMTP_PORT must be a positive integer when Email is enabled")
+		}
+		if err := validateRequiredSecret("APP_EMAIL_SMTP_USERNAME", c.Email.SMTPUsername, 1); err != nil {
+			return err
+		}
+		if err := validateRequiredSecret("APP_EMAIL_SMTP_PASSWORD", c.Email.SMTPPassword, 1); err != nil {
+			return err
+		}
+		if err := validateRequiredSecret("APP_EMAIL_FROM", c.Email.From, 1); err != nil {
+			return err
+		}
+	}
+	if c.AI.Enabled {
+		if err := validateRequiredSecret("APP_AI_BASE_URL", c.AI.BaseURL, 1); err != nil {
+			return err
+		}
+		if err := validateRequiredSecret("APP_AI_API_KEY", c.AI.APIKey, 1); err != nil {
+			return err
+		}
+		if err := validateRequiredSecret("APP_AI_MODEL", c.AI.Model, 1); err != nil {
+			return err
+		}
+		if err := validateRequiredSecret("APP_AI_KEY_ENCRYPTION_SECRET", c.AI.KeyEncryptionSecret, minAccessSecretLength); err != nil {
+			return err
 		}
 	}
 	return nil

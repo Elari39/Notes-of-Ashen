@@ -24,10 +24,13 @@ interface SiteSettingsState {
   setHomeArticleLayout: (layout: HomeArticleLayout) => Promise<void>;
 }
 
-// 未加载完成时拦截写操作，避免用 store 默认值覆盖后端真实值。
-const ensureLoaded = (hasLoaded: boolean): void => {
+// 未加载完成或加载失败时拦截写操作，避免用 store 默认值覆盖后端真实值（P4-15）。
+const ensureLoaded = (hasLoaded: boolean, error: string): void => {
   if (!hasLoaded) {
     throw new Error('site settings are not loaded yet');
+  }
+  if (error) {
+    throw new Error('site settings failed to load, refusing to overwrite backend values');
   }
 };
 
@@ -65,13 +68,15 @@ export const useSiteSettingsStore = create<SiteSettingsState>((set, get) => ({
         hasLoaded: true,
       });
     } catch (error) {
-      set({ error: error instanceof Error ? error.message : 'Failed to load site settings', hasLoaded: true });
+      // 加载失败不设 hasLoaded=true：保留默认值但禁用写操作，避免 Settings 页
+      // 把默认值（如 registrationEnabled=true）当真实值保存覆盖后端（P4-15）。
+      set({ error: error instanceof Error ? error.message : 'Failed to load site settings' });
     } finally {
       set({ isLoading: false });
     }
   },
   updateSettings: async (settings) => {
-    ensureLoaded(get().hasLoaded);
+    ensureLoaded(get().hasLoaded, get().error);
     set({ isLoading: true, error: '' });
     try {
       const res = await updateSiteSettings(settings);

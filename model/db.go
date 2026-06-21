@@ -35,6 +35,11 @@ func Open(dataSource string, maxOpenConns, maxIdleConns int) (*sql.DB, error) {
 		db.SetMaxIdleConns(maxIdleConns)
 	}
 	db.SetConnMaxLifetime(time.Hour)
+	// ConnMaxIdleTime 主动回收空闲连接，避免远程防火墙/NAT 静默关闭空闲 TCP
+	// 连接后，连接池仍持有死连接导致下次请求拿到 bad connection / EOF / i/o timeout。
+	// 默认值 0 表示永不回收，对远程 MySQL 场景不安全；设 10 分钟（比常见云安全组
+	// 空闲超时 5-10 分钟短，又不至于频繁重建连接增加延迟）。
+	db.SetConnMaxIdleTime(10 * time.Minute)
 	if err := db.Ping(); err != nil {
 		_ = db.Close()
 		return nil, err

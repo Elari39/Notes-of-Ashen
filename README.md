@@ -134,7 +134,7 @@ Copy-Item .env.example .env
 
 至少需要检查并替换这些值。模板中的 `<REPLACE_...>` 只用于提示，不是可用默认值；后端启动时会拒绝空值、示例占位值和过短的 JWT 密钥，请把真实密码/密钥只写入 `.env` 或部署平台环境变量。
 
-- `APP_DISPLAY_NAME`：站点对外展示名称，默认 `Notes of Ashen`。
+- `APP_DISPLAY_NAME`：站点对外展示名称，默认 `Notes of Ashen`（当前版本后端未读取，预留）。
 - `APP_AUTH_ACCESS_SECRET`：JWT 签名密钥，生产环境必须替换为足够长的随机字符串，建议至少 32 位。
 - `APP_DATABASE_DSN`：远程 MySQL 连接串，例如 `notes_user:password@tcp(mysql.example.com:3306)/notes_of_ashen?charset=utf8mb4&parseTime=true&loc=Local`。如需固定 MySQL 会话时区，可追加 `&time_zone='%2B08:00'`（URL 转义后为 `%27%2B08%3A00%27`）。
 - `APP_DATABASE_MAX_OPEN_CONNS`：MySQL 最大打开连接数。
@@ -158,12 +158,12 @@ Copy-Item .env.example .env
 - `APP_AI_API_KEY`：AI 服务 API Key，只能写入真实 `.env` 或受控环境变量。
 - `APP_AI_MODEL`：AI 辅助使用的模型名称。
 - `APP_AI_KEY_ENCRYPTION_SECRET`：后台保存 AI API Key 时使用的加密密钥，生产环境应设置为不同于 `APP_AUTH_ACCESS_SECRET` 的长随机值。
-- `APP_AI_TIMEOUT_SECONDS`：AI 非流式请求兼容超时时间，默认 `600` 秒。
+- `APP_AI_TIMEOUT_SECONDS`：AI 请求兼容超时时间，默认 `600` 秒（已由 `APP_AI_FIRST_BYTE_TIMEOUT_SECONDS`/`APP_AI_STREAM_TIMEOUT_SECONDS`/`APP_AI_NON_STREAM_TIMEOUT_SECONDS` 三段细化覆盖，本项保留作兜底）。
 - `APP_TRUSTED_PROXY_CIDRS`：可信反向代理 CIDR，默认留空表示不信任客户端传入的 `X-Forwarded-*` / `X-Real-IP`。
 - `PRERENDER_ENABLED`：是否启用 Prerender.io crawler 预渲染，`0` 关闭，`1` 启用。
 - `PRERENDER_SERVICE_URL`：Prerender.io 服务地址，默认 `https://service.prerender.io`。
 - `PRERENDER_TOKEN`：Prerender.io Token，只能写入真实 `.env` 或受控环境变量。
-- `APP_GITHUB_TOKEN`：可选 GitHub Token；留空时使用公开匿名额度，不要提交真实 Token。
+- `APP_GITHUB_TOKEN`：可选 GitHub Token；留空时使用公开匿名额度，不要提交真实 Token（当前版本后端未读取，预留）。
 - `WEB_PORT`：本机 Web 访问端口，默认 `1270`。
 
 不要把真实 `.env` 内容写入 README、Issue、提交记录或截图中。
@@ -186,7 +186,7 @@ Copy-Item .env.example .env
   7. `add_ai_settings.sql` — AI 设置表
   8. `add_public_page_content_settings.sql`、`add_public_page_visibility_settings.sql` — 公开页内容/可见性设置
   9. `add_article_fulltext_index.sql` — 文章全文索引
-  10. `drop_traffic_geo.sql` — 移除流量地理字段
+  10. `drop_traffic_geo.sql` — 移除流量地理表（`traffic_geo_*`）
   11. `cleanup_invalid_avatar_url.sql` — 清理无效头像 URL
   12. `add_article_tags_tag_index.sql` — 文章标签索引
 
@@ -584,16 +584,6 @@ docker compose up -d --build
   - `GET/PUT /api/v1/admin/users`、`PATCH /api/v1/admin/users/:id/status`、`PATCH /api/v1/admin/users/:id/role`
   - `GET/PUT /api/v1/admin/site/settings`、`GET/PUT /api/v1/admin/site/resume`、`GET/PUT /api/v1/admin/site/projects`
   - `GET/PUT /api/v1/admin/ai/settings`、`POST /api/v1/admin/search/reindex`
-- `GET /api/v1/site/resume`
-- `GET /api/v1/site/projects`
-- `GET /api/v1/users/me`
-- `GET /api/v1/admin/articles`
-- `GET /api/v1/admin/stats`
-- `GET /api/v1/admin/users`
-- `GET /api/v1/admin/logs`
-- `POST /api/v1/admin/search/reindex`
-- `GET /api/v1/admin/site/resume`
-- `GET /api/v1/admin/site/projects`
 
 完整说明见 [docs/API.md](docs/API.md)。
 

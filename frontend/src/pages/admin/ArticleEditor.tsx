@@ -11,6 +11,7 @@ import { getErrorMessage } from '../../utils/error';
 import { generateSlug } from '../../utils/slug';
 import { isValidCoverUrl } from '../../utils/cover';
 import { notifyFromError } from '../../utils/notify';
+import { notifyArticleCacheInvalid } from '../../utils/pwa';
 import { formatText, getArticleStatusLabel, translate } from '../../i18n';
 import { usePreferenceStore } from '../../store/preferences';
 import { useSubmit } from '../../hooks/useSubmit';
@@ -611,6 +612,7 @@ const ArticleEditor: React.FC = () => {
     successMessage: t('toast.saveSuccess'),
     errorFallback: t('articleEditor.saveError'),
     onSuccess: () => {
+      notifyArticleCacheInvalid();
       navigate('/admin/articles');
     },
     onError: (err) => {

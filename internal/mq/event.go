@@ -98,26 +98,48 @@ func (p *Publisher) Publish(ctx context.Context, event Event) {
 		logx.Errorf("marshal event failed: %v", err)
 		return
 	}
+	// 锁内仅做 channel 读取 / 串行化 reconnect，拷贝 channel 引用后立即释放锁，
+	// 避免 broker 慢或抖动时阻塞所有并发写请求（P4-5）。
 	p.mu.Lock()
-	defer p.mu.Unlock()
 	if p.ch == nil {
 		if err := p.connect(); err != nil {
+			p.mu.Unlock()
 			logx.Errorf("rabbitmq reconnect failed: %v", err)
+			p.fallbackWrite(event)
 			return
 		}
 	}
-	if err := p.publish(ctx, body); err != nil {
-		logx.Errorf("publish event failed: %v", err)
-		p.resetConnection()
-	}
-}
+	ch := p.ch
+	p.mu.Unlock()
 
-func (p *Publisher) publish(ctx context.Context, body []byte) error {
-	return p.ch.PublishWithContext(ctx, p.conf.Exchange, p.conf.RoutingKey, false, false, amqp.Publishing{
+	// 发布用独立短超时 ctx，不复用请求 ctx（最长 610s），避免请求 ctx 取消丢事件。
+	publishCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	if err := ch.PublishWithContext(publishCtx, p.conf.Exchange, p.conf.RoutingKey, false, false, amqp.Publishing{
 		ContentType:  "application/json",
 		DeliveryMode: amqp.Persistent,
 		Body:         body,
-	})
+	}); err != nil {
+		logx.Errorf("publish event failed: %v", err)
+		p.mu.Lock()
+		// 仅当 channel 未被并发重连替换时才重置，避免误清他人重建的连接。
+		if p.ch == ch {
+			p.resetConnection()
+		}
+		p.mu.Unlock()
+		p.fallbackWrite(event)
+	}
+}
+
+// fallbackWrite 在 MQ 发布失败时降级同步落库，保证审计日志不丢失（与 !Enabled 分支一致）。
+func (p *Publisher) fallbackWrite(event Event) {
+	if p.db == nil {
+		logx.Errorf("operation log dropped: rabbitmq publish failed and db writer unavailable")
+		return
+	}
+	if err := writeOperationLogEvent(p.db, event); err != nil {
+		logx.Errorf("write operation log directly failed: %v", err)
+	}
 }
 
 func (p *Publisher) Close() {

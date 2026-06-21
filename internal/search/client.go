@@ -137,19 +137,36 @@ func (c *Client) Reindex(ctx context.Context, docs []Document) error {
 	if err := c.ensureIndex(ctx); err != nil {
 		return err
 	}
-	if err := c.deleteAllDocuments(ctx); err != nil {
+	// 先 deleteAll 再 add 会让索引在重建期间为空，公开搜索出现“搜不到”空窗（P4-6）。
+	// 改为：先 add（Meilisearch 按 primaryKey id upsert），再删除不在新文档集合中的旧文档。
+	// 这样重建期间索引始终包含新旧数据，仅在删除阶段移除已不存在的文章，无空窗。
+	if err := c.configureIndex(ctx); err != nil {
 		return err
+	}
+	if len(docs) > 0 {
+		if err := c.addDocuments(ctx, docs); err != nil {
+			return err
+		}
 	}
 	if err := c.configureIndex(ctx); err != nil {
 		return err
 	}
-	if len(docs) == 0 {
+	// 删除不在新集合中的旧文档：构建新 id 集合，遍历现有 id 逐个删除缺失项。
+	newIDs := make(map[uint64]struct{}, len(docs))
+	for _, d := range docs {
+		newIDs[d.ID] = struct{}{}
+	}
+	stale, err := c.listStaleDocumentIDs(ctx, newIDs)
+	if err != nil {
+		// 列举失败不影响新文档已入库，仅记日志跳过清理，下次 Reindex 会再清。
 		return nil
 	}
-	if err := c.addDocuments(ctx, docs); err != nil {
-		return err
+	for _, id := range stale {
+		if err := c.Delete(ctx, id); err != nil {
+			return err
+		}
 	}
-	return c.configureIndex(ctx)
+	return nil
 }
 
 func (c *Client) Upsert(ctx context.Context, doc Document) error {
@@ -200,13 +217,39 @@ func (c *Client) addDocuments(ctx context.Context, docs []Document) error {
 	return c.submitTask(ctx, http.MethodPost, path, query, docs)
 }
 
-func (c *Client) deleteAllDocuments(ctx context.Context) error {
-	path := "/indexes/" + url.PathEscape(c.index) + "/documents"
-	err := c.submitTask(ctx, http.MethodDelete, path, nil, nil)
-	if isMeiliNotFound(err) {
-		return nil
+// listStaleDocumentIDs 列出索引中存在但不在 newIDs 集合内的文档 id，
+// 用于 Reindex 时清理已删除文章，避免 deleteAll+add 造成搜索空窗（P4-6）。
+func (c *Client) listStaleDocumentIDs(ctx context.Context, newIDs map[uint64]struct{}) ([]uint64, error) {
+	var stale []uint64
+	const pageSize = 1000
+	offset := 0
+	for {
+		query := url.Values{
+			"fields": []string{"id"},
+			"limit":  []string{strconv.Itoa(pageSize)},
+			"offset": []string{strconv.Itoa(offset)},
+		}
+		var batch []struct {
+			ID uint64 `json:"id"`
+		}
+		path := "/indexes/" + url.PathEscape(c.index) + "/documents"
+		if err := c.do(ctx, http.MethodGet, path, query, nil, &batch); err != nil {
+			if isMeiliNotFound(err) {
+				return nil, nil
+			}
+			return nil, err
+		}
+		for _, d := range batch {
+			if _, ok := newIDs[d.ID]; !ok {
+				stale = append(stale, d.ID)
+			}
+		}
+		if len(batch) < pageSize {
+			break
+		}
+		offset += pageSize
 	}
-	return err
+	return stale, nil
 }
 
 func (c *Client) configureIndex(ctx context.Context) error {

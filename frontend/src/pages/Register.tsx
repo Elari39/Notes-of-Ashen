@@ -44,7 +44,7 @@ const Register: React.FC = () => {
   const [submitting, setSubmitting] = useState(false);
   const [sendingCode, setSendingCode] = useState(false);
   const navigate = useNavigate();
-  const { setAuth, fetchUser } = useAuthStore();
+  const { setAuth, fetchUser } = useAuthStore(useShallow((s) => ({ setAuth: s.setAuth, fetchUser: s.fetchUser })));
   const t = (key: Parameters<typeof translate>[1]) => translate(language, key);
   const requiresEmailCode = !hasLoaded || registrationEmailCodeRequired;
   const { remaining: resendRemaining, isCounting: isResending, start: startResendCountdown } = useCountdown(60);

@@ -9,10 +9,37 @@ import (
 	"net"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"notes-of-ashen/internal/config"
 )
+
+// httpConnPool 复用 TCP/TLS 连接池（P4-11）：避免每次 Assist 调用都新建
+// http.Client/Transport 重新握手、旧 Transport 空闲连接未关闭导致的 fd 泄漏。
+// ResponseHeaderTimeout 设为首字节超时默认值，单次请求总超时由 ctx 控制。
+var (
+	httpConnPoolOnce sync.Once
+	httpConnPool     *http.Client
+)
+
+func sharedHTTPClient(headerTimeout time.Duration) *http.Client {
+	httpConnPoolOnce.Do(func() {
+		httpConnPool = &http.Client{
+			Transport: &http.Transport{
+				Proxy: http.ProxyFromEnvironment,
+				DialContext: (&net.Dialer{
+					Timeout:   30 * time.Second,
+					KeepAlive: 30 * time.Second,
+				}).DialContext,
+				TLSHandshakeTimeout:   30 * time.Second,
+				ResponseHeaderTimeout: headerTimeout,
+				ExpectContinueTimeout: 1 * time.Second,
+			},
+		}
+	})
+	return httpConnPool
+}
 
 type Request struct {
 	Action  string
@@ -82,19 +109,7 @@ func Assist(ctx context.Context, conf config.AIConf, req Request) (*Response, er
 	httpReq.Header.Set("Content-Type", "application/json")
 	httpReq.Header.Set("Authorization", "Bearer "+strings.TrimSpace(conf.APIKey))
 
-	client := &http.Client{
-		Transport: &http.Transport{
-			Proxy: http.ProxyFromEnvironment,
-			DialContext: (&net.Dialer{
-				Timeout:   30 * time.Second,
-				KeepAlive: 30 * time.Second,
-			}).DialContext,
-			TLSHandshakeTimeout:   30 * time.Second,
-			ResponseHeaderTimeout: headerTimeout,
-			ExpectContinueTimeout: 1 * time.Second,
-		},
-	}
-	httpResp, err := client.Do(httpReq)
+	httpResp, err := sharedHTTPClient(headerTimeout).Do(httpReq)
 	if err != nil {
 		return nil, err
 	}

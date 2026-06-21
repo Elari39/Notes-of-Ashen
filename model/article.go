@@ -225,10 +225,10 @@ func (s *Store) RestoreArticleVersion(ctx context.Context, articleID uint64, ver
 		}
 		res, err := tx.ExecContext(ctx, `
 UPDATE articles
-SET category_id = ?, title = ?, slug = ?, summary = ?, content = ?, cover_url = ?, status = ?, view_count = ?, like_count = ?, scheduled_at = ?, published_at = ?, is_pinned = ?, display_priority = ?, seo_title = ?, seo_description = ?, seo_keywords = ?
+SET category_id = ?, title = ?, slug = ?, summary = ?, content = ?, cover_url = ?, status = ?, scheduled_at = ?, published_at = ?, is_pinned = ?, display_priority = ?, seo_title = ?, seo_description = ?, seo_keywords = ?
 WHERE id = ?`,
-			nullableUint64(version.CategoryID), version.Title, version.Slug, version.Summary, version.Content, version.CoverURL, version.Status, version.ViewCount,
-			version.LikeCount, nullableTime(version.ScheduledAt), nullableTime(version.PublishedAt), version.IsPinned, version.DisplayPriority, version.SEOTitle, version.SEODescription, version.SEOKeywords, articleID)
+			nullableUint64(version.CategoryID), version.Title, version.Slug, version.Summary, version.Content, version.CoverURL, version.Status,
+			nullableTime(version.ScheduledAt), nullableTime(version.PublishedAt), version.IsPinned, version.DisplayPriority, version.SEOTitle, version.SEODescription, version.SEOKeywords, articleID)
 		if err != nil {
 			return err
 		}
@@ -812,7 +812,9 @@ func publishedAtForCreate(status string, scheduledAt *time.Time) *time.Time {
 
 func publishedAtForUpdate(currentStatus string, currentPublished *time.Time, nextStatus string, scheduledAt *time.Time) *time.Time {
 	if nextStatus != ArticleStatusPublished {
-		return nil
+		// 非 published（draft/archived/scheduled）保留原 published_at，
+		// 避免暂存/取消发布后重新发布丢失原始首发时间（P4-4）。
+		return currentPublished
 	}
 	if scheduledAt != nil {
 		return scheduledAt

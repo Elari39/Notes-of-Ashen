@@ -1,5 +1,6 @@
 USE notes_of_ashen;
 
+-- 前置依赖：add_site_settings.sql（建表）。
 -- 注意：site_settings.setting_value 的 MEDIUMTEXT 变更由 alter_site_settings_value_text.sql 负责，
 -- 本脚本仅插入公开页面内容相关默认设置，避免与该脚本重复 ALTER。
 

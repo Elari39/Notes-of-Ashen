@@ -3,7 +3,8 @@ import { Link } from 'react-router-dom';
 import { resetPassword, sendVerifyCode } from '../api/auth';
 import CaptchaField from '../components/CaptchaField';
 import InlineNotice from '../components/InlineNotice';
-import { translate } from '../i18n';
+import { useCountdown } from '../hooks/useCountdown';
+import { formatText, translate } from '../i18n';
 import { usePreferenceStore } from '../store/preferences';
 import { getErrorMessage } from '../utils/error';
 
@@ -21,6 +22,7 @@ const ForgotPassword: React.FC = () => {
   const [sendingCode, setSendingCode] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const t = (key: Parameters<typeof translate>[1]) => translate(language, key);
+  const { remaining: resendRemaining, isCounting: isResending, start: startResendCountdown } = useCountdown(60);
 
   const handleSendEmailCode = async () => {
     setError('');
@@ -34,6 +36,7 @@ const ForgotPassword: React.FC = () => {
         captchaCode,
       });
       setMessage(t('auth.emailCodeSent'));
+      startResendCountdown(60);
     } catch (err: unknown) {
       setError(getErrorMessage(err, t('auth.sendEmailCodeError')));
       setCaptchaReloadKey((value) => value + 1);
@@ -104,10 +107,14 @@ const ForgotPassword: React.FC = () => {
             <button
               type="button"
               onClick={handleSendEmailCode}
-              disabled={sendingCode || !email.trim() || !captchaId || !captchaCode.trim()}
+              disabled={sendingCode || isResending || !email.trim() || !captchaId || !captchaCode.trim()}
               className="h-10 shrink-0 border border-ink px-4 text-xs tracking-widest text-ink hover:bg-ink hover:text-paper transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {sendingCode ? t('auth.sendingEmailCode') : t('auth.sendEmailCode')}
+              {sendingCode
+                ? t('auth.sendingEmailCode')
+                : isResending
+                  ? formatText(t('auth.resendIn'), { n: resendRemaining })
+                  : t('auth.sendEmailCode')}
             </button>
           </div>
           <div>

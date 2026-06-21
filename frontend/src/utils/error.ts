@@ -54,6 +54,24 @@ const fieldNames: Record<string, LocalizedText> = {
   nonStreamTimeoutSeconds: localized('非流式输出超时', 'Non-streaming timeout'),
   status: localized('状态', 'Status'),
   q: localized('搜索关键词', 'Search keyword'),
+  repoUrl: localized('仓库 URL', 'Repo URL'),
+  demoUrl: localized('演示 URL', 'Demo URL'),
+  referrer: localized('来源', 'Referrer'),
+  versionNo: localized('版本号', 'Version number'),
+  code: localized('验证码', 'Code'),
+  role: localized('角色', 'Role'),
+  action: localized('操作', 'Action'),
+  displayPriority: localized('显示优先级', 'Display priority'),
+  homeArticleLayout: localized('首页布局', 'Home article layout'),
+  path: localized('路径', 'Path'),
+  routeType: localized('路由类型', 'Route type'),
+  markdownFile: localized('Markdown 文件', 'Markdown file'),
+  items: localized('项目', 'Items'),
+  experiences: localized('工作经历', 'Experiences'),
+  educations: localized('教育经历', 'Educations'),
+  skills: localized('技能', 'Skills'),
+  highlights: localized('亮点', 'Highlights'),
+  tags: localized('标签', 'Tags'),
 };
 
 const exactMessages: Record<string, LocalizedText> = {
@@ -103,6 +121,34 @@ const exactMessages: Record<string, LocalizedText> = {
   'at least one active admin is required': localized('至少需要保留一个可用管理员', 'At least one active administrator is required'),
   'email is unchanged': localized('新邮箱不能与当前邮箱相同', 'The new email cannot be the same as the current email'),
   'internal server error': localized('服务暂时不可用，请稍后重试', 'The service is temporarily unavailable. Please try again later.'),
+  'invalid id': localized('ID 不合法', 'The ID is invalid'),
+  'invalid request body or parameters': localized('请求参数不合法', 'The request body or parameters are invalid'),
+  'invalid user': localized('用户信息无效，请重新登录', 'The user info is invalid. Please sign in again.'),
+  'missing user': localized('用户信息缺失，请重新登录', 'User info is missing. Please sign in again.'),
+  'article not found': localized('文章不存在或已被删除', 'The article does not exist or has been removed'),
+  'refresh token is required': localized('登录状态异常，请重新登录', 'Your session is invalid. Please sign in again.'),
+  'markdown file is invalid': localized('Markdown 文件不合法', 'The Markdown file is invalid'),
+  'markdown file is required': localized('请选择 Markdown 文件', 'A Markdown file is required'),
+  'markdown file must be .md': localized('文件必须是 .md 后缀', 'The file must have a .md extension'),
+  'markdown file is too large': localized('Markdown 文件过大', 'The Markdown file is too large'),
+  'markdown content is empty after title extraction': localized('正文为空（标题提取后无内容）', 'The Markdown content is empty after title extraction'),
+  'markdown content is empty': localized('正文内容为空', 'The Markdown content is empty'),
+  'front matter is invalid': localized('Front Matter 格式不正确', 'The front matter is invalid'),
+  'feature disabled': localized('该功能未开启', 'This feature is disabled'),
+  'email service is disabled': localized('邮件服务未开启', 'The email service is disabled'),
+  'email service is not configured': localized('邮件服务未配置', 'The email service is not configured'),
+  'rate limiter unavailable': localized('限流服务暂时不可用，请稍后重试', 'The rate limiter is unavailable. Please try again later.'),
+  'too many likes for this article': localized('点赞过于频繁，请稍后再试', 'Too many likes for this article. Please try again later.'),
+  'items id is duplicated': localized('项目 ID 不能重复', 'Item IDs must not be duplicated'),
+  'ai key encryption secret is not configured': localized('AI 密钥加密配置缺失，请联系管理员', 'The AI key encryption secret is not configured. Please contact the administrator.'),
+  'role is invalid': localized('角色不合法', 'The role is invalid'),
+  'action is invalid': localized('操作类型不合法', 'The action is invalid'),
+  'displayPriority is invalid': localized('显示优先级不合法', 'The display priority is invalid'),
+  'homeArticleLayout is invalid': localized('首页布局不合法', 'The home article layout is invalid'),
+  'versionNo is invalid': localized('版本号不合法', 'The version number is invalid'),
+  'referrer length is invalid': localized('来源长度不符合要求', 'The referrer length is invalid'),
+  'code length is invalid': localized('验证码长度不符合要求', 'The code length is invalid'),
+  'success': localized('操作成功', 'Success'),
   [ERROR_KEYS.sessionExpired]: localized('登录已过期，请重新登录', 'Your session has expired. Please sign in again.'),
   [ERROR_KEYS.operationFailed]: localized('操作失败，请稍后重试', 'Operation failed. Please try again later.'),
   [ERROR_KEYS.timeout]: localized('请求超时，请稍后重试', 'The request timed out. Please try again later.'),
@@ -150,13 +196,29 @@ const translateMessage = (message?: string, fallback?: string) => {
     return language === 'zh' ? `${field}长度不符合要求` : `${field} length is invalid`;
   }
 
+  // 必须在 "is invalid" 之前匹配，避免被泛化吃掉
+  const localAddressMatch = raw.match(/^(.+) must not point to a local address$/);
+  if (localAddressMatch) {
+    const field = textFor(fieldNames[localAddressMatch[1]], language, localAddressMatch[1]);
+    return language === 'zh' ? `${field}不能指向本地地址` : `${field} must not point to a local address`;
+  }
+
+  // 必须在 "is invalid" 之前匹配，产出更通顺的字段数量提示
+  const countMatch = raw.match(/^(.+) count is invalid$/);
+  if (countMatch) {
+    const field = textFor(fieldNames[countMatch[1]], language, countMatch[1]);
+    return language === 'zh' ? `${field}数量不合法` : `${field} count is invalid`;
+  }
+
   const invalidMatch = raw.match(/^(.+) is invalid$/);
   if (invalidMatch) {
     const field = textFor(fieldNames[invalidMatch[1]], language, invalidMatch[1]);
     return language === 'zh' ? `${field}不合法` : `${field} is invalid`;
   }
 
-  return raw;
+  // 安全网：未命中任何翻译时，中文页面回退到已本地化的 fallbackText（调用方 i18n 文案或默认兜底），
+  // 绝不把英文原文展示在中文页面；英文页面保留原文。
+  return language === 'zh' ? fallbackText : raw;
 };
 
 // 鸭子类型判断类 axios 错误，避免运行时硬耦合 axios 实例（降低与 HTTP 客户端的耦合）。

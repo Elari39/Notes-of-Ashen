@@ -17,6 +17,11 @@ import (
 	"github.com/zeromicro/go-zero/core/logx"
 )
 
+// startupRedisTimeout 控制启动期 Redis 拨号与 PING 的超时。
+// 远程/VPN 场景下 3s 偏紧，放宽到 10s；仅影响启动探测与重连拨号，
+// 不影响稳态的 Read/Write/Pool 超时。
+const startupRedisTimeout = 10 * time.Second
+
 type ServiceContext struct {
 	Config        config.Config
 	Store         *model.Store
@@ -38,7 +43,7 @@ func NewServiceContext(c config.Config) *ServiceContext {
 		Addr:            c.Redis.Addr,
 		Password:        c.Redis.Password,
 		DB:              c.Redis.DB,
-		DialTimeout:     3 * time.Second,
+		DialTimeout:     startupRedisTimeout,
 		ReadTimeout:     1 * time.Second,
 		WriteTimeout:    1 * time.Second,
 		PoolTimeout:     2 * time.Second,
@@ -47,7 +52,9 @@ func NewServiceContext(c config.Config) *ServiceContext {
 		MaxRetryBackoff: 300 * time.Millisecond,
 	})
 	// Redis 是限流、缓存、refresh token 的关键依赖，启动时 PING 校验，失败 fail-fast。
-	pingCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	// 打印实际使用的 Addr（host:port，不含密码），便于确认 APP_REDIS_ADDR 是否注入正确。
+	logx.Infof("[startup] pinging redis at %s (db=%d)", c.Redis.Addr, c.Redis.DB)
+	pingCtx, cancel := context.WithTimeout(context.Background(), startupRedisTimeout)
 	if err := redisClient.Ping(pingCtx).Err(); err != nil {
 		cancel()
 		logx.Must(err)
