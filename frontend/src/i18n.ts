@@ -90,6 +90,8 @@ const zh = {
   'pagination.prev': '上一页',
   'pagination.next': '下一页',
   'pagination.page': '第 {current} / {total} 页',
+  'pagination.jumpLabel': '跳至',
+  'pagination.jumpGo': '前往',
 
   'home.loadError': '文章列表加载失败',
   'home.searchPlaceholder': '搜索标题、摘要或正文',
@@ -182,6 +184,8 @@ const zh = {
   'admin.settings': '站点设置',
   'admin.resume': '简历管理',
   'admin.projects': '项目管理',
+  'admin.aiSettings': 'AI 配置',
+  'admin.breadcrumb.home': '管理',
 
   'dashboard.title': '墨案总览',
   'dashboard.loading': '墨案清点中...',
@@ -393,6 +397,8 @@ const en: Record<TranslationKey, string> = {
   'pagination.prev': 'Previous',
   'pagination.next': 'Next',
   'pagination.page': 'Page {current} / {total}',
+  'pagination.jumpLabel': 'Go to',
+  'pagination.jumpGo': 'Go',
 
   'home.loadError': 'Failed to load articles',
   'home.searchPlaceholder': 'Search title, summary, or body',
@@ -485,6 +491,8 @@ const en: Record<TranslationKey, string> = {
   'admin.settings': 'Settings',
   'admin.resume': 'Resume',
   'admin.projects': 'Projects',
+  'admin.aiSettings': 'AI Settings',
+  'admin.breadcrumb.home': 'Admin',
 
   'dashboard.title': 'Dashboard',
   'dashboard.loading': 'Loading stats...',
