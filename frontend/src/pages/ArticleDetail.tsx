@@ -240,7 +240,7 @@ const ArticleDetail: React.FC = () => {
                         decoding="async"
                         onError={() => setCoverError(true)}
                         onLoad={() => setCoverError(false)}
-                        className="w-full h-full object-cover grayscale hover:grayscale-0 transition-all duration-700"
+                        className="w-full h-full object-cover grayscale hover:grayscale-0 transition-[filter] duration-slow"
                       />
                     </button>
                     <div className="absolute inset-0 bg-[var(--cover-wash)] pointer-events-none" />

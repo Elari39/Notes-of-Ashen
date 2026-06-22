@@ -4,6 +4,9 @@ import Pagination from '../components/Pagination';
 import InlineNotice from '../components/InlineNotice';
 import PagePendingState from '../components/RoutePending';
 import ArticleCardSkeleton from '../components/ArticleCardSkeleton';
+import EmptyState from '../components/ui/EmptyState';
+import Button from '../components/ui/Button';
+import Tag from '../components/ui/Tag';
 import { PreloadLink } from '../components/PreloadLink';
 import { getErrorMessage } from '../utils/error';
 import { getDateLocale, translate } from '../i18n';
@@ -105,13 +108,14 @@ const Home: React.FC = () => {
           <p className="tracking-widest opacity-75">
             {t('home.activeFilters')}
           </p>
-          <button
-            type="button"
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={handleClear}
-            className="self-start border border-mountain-grey px-4 py-2 tracking-widest transition-colors hover:border-ochre hover:text-ochre md:self-auto"
+            className="self-start md:self-auto"
           >
             {t('home.clearFiltersPoetic')}
-          </button>
+          </Button>
         </div>
       )}
       <InlineNotice message={error} />
@@ -129,7 +133,12 @@ const Home: React.FC = () => {
         />
       )}
       {!loading && articles.length === 0 ? (
-        <div className="text-center text-ink-light italic">{t('common.emptyArticles')}</div>
+        <EmptyState
+          illustration="ink-drop"
+          title={t('common.emptyArticles')}
+          description={hasActiveFilters ? t('home.activeFilters') : undefined}
+          action={hasActiveFilters ? { label: t('home.clearFiltersPoetic'), onClick: handleClear } : undefined}
+        />
       ) : articles.length > 0 ? (
         <>
           {articles.map((article, index) => {
@@ -156,7 +165,7 @@ const Home: React.FC = () => {
                         decoding="async"
                         onError={() => handleCoverError(article.id)}
                         onLoad={() => handleCoverLoad(article.id)}
-                        className="w-full h-full object-cover grayscale opacity-80 group-hover:grayscale-0 group-hover:opacity-100 transition-all duration-700"
+                        className="w-full h-full object-cover grayscale opacity-80 group-hover:grayscale-0 group-hover:opacity-100 transition-[filter,opacity] duration-slow"
                       />
                     </PreloadLink>
                     <div className="absolute inset-0 bg-[var(--cover-wash-subtle)] pointer-events-none"></div>
@@ -173,7 +182,7 @@ const Home: React.FC = () => {
                   </PreloadLink>
                   <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-ink-light opacity-70 tracking-wider">
                     {article.isPinned && (
-                      <span className="border border-ochre px-2 py-0.5 text-ochre opacity-90">{pinnedLabel}</span>
+                      <Tag tone="ochre" size="sm">{pinnedLabel}</Tag>
                     )}
                     <span>{new Date(article.createdAt).toLocaleDateString(getDateLocale(language), { year: 'numeric', month: 'long', day: 'numeric' })}</span>
                     <span>{t('common.views')} {article.viewCount}</span>
@@ -193,7 +202,7 @@ const Home: React.FC = () => {
                     )}
                   </div>
                 </div>
-                <div className="absolute -bottom-10 left-0 w-24 h-px bg-mountain-grey opacity-50 group-hover:w-full group-hover:bg-ochre transition-all duration-700 ease-in-out"></div>
+                <div className="absolute -bottom-10 left-0 w-24 h-px bg-mountain-grey opacity-50 group-hover:w-full group-hover:bg-ochre transition-[width,background-color] duration-slow ease-paper"></div>
               </article>
             );
           })}
