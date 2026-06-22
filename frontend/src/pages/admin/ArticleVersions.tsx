@@ -4,6 +4,7 @@ import ReactMarkdown from 'react-markdown';
 import { getArticleVersion, getArticleVersions, restoreArticleVersion } from '../../api/article';
 import InlineNotice from '../../components/InlineNotice';
 import Pagination from '../../components/Pagination';
+import TableSkeleton from '../../components/ui/TableSkeleton';
 import { getArticleStatusLabel, getDateLocale } from '../../i18n';
 import { usePreferenceStore } from '../../store/preferences';
 import { getErrorMessage } from '../../utils/error';
@@ -134,7 +135,7 @@ const ArticleVersions: React.FC = () => {
       <InlineNotice message={error} className="mb-6" />
 
       {loading ? (
-        <div className="py-16 text-center tracking-widest text-ink-light">{labels.loading}</div>
+        <TableSkeleton rows={5} cols={5} />
       ) : (
         <>
           <table className="admin-responsive-table w-full border-collapse text-left text-sm">

@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import { getArticlePreview } from '../../api/article';
 import InlineNotice from '../../components/InlineNotice';
 import MarkdownRenderer from '../../components/MarkdownRenderer';
+import PagePendingState from '../../components/RoutePending';
 import { getErrorMessage } from '../../utils/error';
 import { usePreferenceStore } from '../../store/preferences';
 import { useSEO } from '../../utils/seo';
@@ -52,7 +53,7 @@ const ArticlePreview: React.FC = () => {
   }, [id]);
 
   if (loading) {
-    return <div className="py-20 text-center tracking-widest text-ink-light">{labels.loading}</div>;
+    return <PagePendingState variant="admin" label={labels.loading} />;
   }
 
   if (!article) {
