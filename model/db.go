@@ -4,9 +4,12 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
+	"io"
+	"net"
 	"time"
 
-	_ "github.com/go-sql-driver/mysql"
+	"github.com/go-sql-driver/mysql"
 )
 
 var ErrNotFound = errors.New("record not found")
@@ -26,7 +29,7 @@ func NewStore(db *sql.DB) *Store {
 func Open(dataSource string, maxOpenConns, maxIdleConns int) (*sql.DB, error) {
 	db, err := sql.Open("mysql", dataSource)
 	if err != nil {
-		return nil, err
+		return nil, mysqlConnectError(dataSource, err)
 	}
 	if maxOpenConns > 0 {
 		db.SetMaxOpenConns(maxOpenConns)
@@ -42,9 +45,106 @@ func Open(dataSource string, maxOpenConns, maxIdleConns int) (*sql.DB, error) {
 	db.SetConnMaxIdleTime(10 * time.Minute)
 	if err := db.Ping(); err != nil {
 		_ = db.Close()
-		return nil, err
+		return nil, mysqlConnectErrorWithProbe(dataSource, err, probeMySQLHandshake)
 	}
 	return db, nil
+}
+
+const mysqlStartupHint = "check APP_DATABASE_DSN points to a reachable MySQL server, remote MySQL allows this machine IP, the database is initialized, the account has permissions, and DSN includes charset=utf8mb4&parseTime=true&loc=Local"
+
+func mysqlConnectError(dataSource string, cause error) error {
+	return mysqlConnectErrorWithProbe(dataSource, cause, nil)
+}
+
+type mysqlProbeFunc func(mysqlTarget) string
+
+func mysqlConnectErrorWithProbe(dataSource string, cause error, probe mysqlProbeFunc) error {
+	target, err := safeMySQLTarget(dataSource)
+	if err != nil {
+		return fmt.Errorf("connect mysql failed (invalid APP_DATABASE_DSN format): %w; %s", cause, mysqlStartupHint)
+	}
+	diagnosis := ""
+	if probe != nil {
+		diagnosis = probe(target)
+	}
+	if diagnosis != "" {
+		return fmt.Errorf("connect mysql endpoint %s database %s failed: %w; %s; %s", target.endpoint, target.database, cause, diagnosis, mysqlStartupHint)
+	}
+	return fmt.Errorf("connect mysql endpoint %s database %s failed: %w; %s", target.endpoint, target.database, cause, mysqlStartupHint)
+}
+
+type mysqlTarget struct {
+	network  string
+	address  string
+	endpoint string
+	database string
+}
+
+func safeMySQLTarget(dataSource string) (mysqlTarget, error) {
+	cfg, err := mysql.ParseDSN(dataSource)
+	if err != nil {
+		return mysqlTarget{}, err
+	}
+
+	network := cfg.Net
+	if network == "" {
+		network = "tcp"
+	}
+
+	address := cfg.Addr
+	endpoint := address
+	if network != "tcp" {
+		endpoint = fmt.Sprintf("%s(%s)", network, address)
+	}
+	if endpoint == "" {
+		endpoint = "unknown"
+	}
+
+	database := cfg.DBName
+	if database == "" {
+		database = "unknown"
+	}
+
+	return mysqlTarget{network: network, address: address, endpoint: endpoint, database: database}, nil
+}
+
+const mysqlHandshakeProbeTimeout = 5 * time.Second
+
+func probeMySQLHandshake(target mysqlTarget) string {
+	switch target.network {
+	case "tcp", "tcp4", "tcp6":
+	default:
+		return ""
+	}
+	if target.address == "" {
+		return ""
+	}
+
+	conn, err := net.DialTimeout(target.network, target.address, mysqlHandshakeProbeTimeout)
+	if err != nil {
+		return fmt.Sprintf("diagnosis: TCP probe failed before MySQL handshake: %v", err)
+	}
+	defer conn.Close()
+
+	if err := conn.SetReadDeadline(time.Now().Add(mysqlHandshakeProbeTimeout)); err != nil {
+		return fmt.Sprintf("diagnosis: TCP probe could not set read deadline: %v", err)
+	}
+
+	header := make([]byte, 4)
+	if _, err := io.ReadFull(conn, header); err != nil {
+		if errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) {
+			return "diagnosis: TCP connection is accepted, but the server closes before sending a MySQL handshake; check whether APP_DATABASE_DSN uses the real MySQL port, and whether remote firewall/security group/IP whitelist/proxy policy allows MySQL protocol traffic"
+		}
+		if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
+			return "diagnosis: TCP connection is accepted, but no MySQL handshake is received before timeout; check whether APP_DATABASE_DSN points to a MySQL protocol endpoint"
+		}
+		return fmt.Sprintf("diagnosis: MySQL handshake probe failed after TCP connect: %v", err)
+	}
+
+	if header[3] != 0 {
+		return fmt.Sprintf("diagnosis: endpoint returned data, but it does not look like an initial MySQL handshake (sequence=%d); check whether APP_DATABASE_DSN points to the MySQL port", header[3])
+	}
+	return "diagnosis: endpoint returns a MySQL handshake; check credentials, user host permissions, TLS requirements, database existence, and account privileges"
 }
 
 func (s *Store) DB() *sql.DB {
