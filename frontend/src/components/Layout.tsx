@@ -371,7 +371,13 @@ const Layout: React.FC = () => {
         )}
       </header>
 
-      <main className="flex-grow flex flex-col w-full px-4 py-8 md:px-12 md:py-12">
+      <a
+        href="#main-content"
+        className="sr-only focus-visible:not-sr-only focus-visible:fixed focus-visible:top-3 focus-visible:left-1/2 focus-visible:-translate-x-1/2 focus-visible:z-[200] focus-visible:border focus-visible:border-ochre focus-visible:bg-paper focus-visible:px-4 focus-visible:py-2 focus-visible:text-sm focus-visible:tracking-widest focus-visible:text-ink focus-visible:shadow-md"
+      >
+        {t('a11y.skipToContent')}
+      </a>
+      <main id="main-content" tabIndex={-1} className="flex-grow flex flex-col w-full px-4 py-8 md:px-12 md:py-12">
         <AnimatePresence mode="wait" initial={false}>
           <motion.div
             key={pageTransitionKey}

@@ -92,6 +92,9 @@ const zh = {
   'pagination.page': '第 {current} / {total} 页',
   'pagination.jumpLabel': '跳至',
   'pagination.jumpGo': '前往',
+  'markdownCode.copy': '复制',
+  'markdownCode.copied': '已复制',
+  'a11y.skipToContent': '跳至主内容',
 
   'home.loadError': '文章列表加载失败',
   'home.searchPlaceholder': '搜索标题、摘要或正文',
@@ -399,6 +402,9 @@ const en: Record<TranslationKey, string> = {
   'pagination.page': 'Page {current} / {total}',
   'pagination.jumpLabel': 'Go to',
   'pagination.jumpGo': 'Go',
+  'markdownCode.copy': 'Copy',
+  'markdownCode.copied': 'Copied',
+  'a11y.skipToContent': 'Skip to main content',
 
   'home.loadError': 'Failed to load articles',
   'home.searchPlaceholder': 'Search title, summary, or body',
