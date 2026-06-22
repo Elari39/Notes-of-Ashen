@@ -8,6 +8,8 @@ import { usePreferenceStore } from './store/preferences';
 import { useSiteSettingsStore } from './store/siteSettings';
 import { useAuthStore } from './store/auth';
 import { useShallow } from 'zustand/react/shallow';
+import { TooltipProvider } from './components/ui/Tooltip';
+import ConfirmDialogHost from './components/ui/ConfirmDialogHost';
 import { reportVisit } from './api/traffic';
 import {
   AdminAISettings,
@@ -91,7 +93,7 @@ function App() {
   }, [initializeAuth]);
 
   return (
-    <>
+    <TooltipProvider delayDuration={300}>
       <TrafficReporter />
       <Routes>
         <Route path="/" element={<Layout />}>
@@ -146,7 +148,8 @@ function App() {
           <Route path="*" element={withRouteSuspense(<NotFound />)} />
         </Route>
       </Routes>
-    </>
+      <ConfirmDialogHost />
+    </TooltipProvider>
   )
 }
 

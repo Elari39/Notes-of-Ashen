@@ -7,9 +7,11 @@ import PagePendingState from '../../components/RoutePending';
 import { getErrorMessage } from '../../utils/error';
 import { formatText, getUserRoleLabel, getUserStatusLabel, translate } from '../../i18n';
 import { usePreferenceStore } from '../../store/preferences';
+import { useConfirm } from '../../hooks/useConfirm';
 
 const AdminUsers: React.FC = () => {
   const language = usePreferenceStore((state) => state.language);
+  const confirm = useConfirm();
   const [users, setUsers] = useState<User[]>([]);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
@@ -50,17 +52,22 @@ const AdminUsers: React.FC = () => {
   const handleStatus = async (id: number, currentStatus: string) => {
     const newStatus = currentStatus === 'active' ? 'disabled' : 'active';
     const action = newStatus === 'active' ? t('users.activate') : t('users.disable');
-    if (confirm(formatText(t('users.confirmStatus'), { action }))) {
-      setError('');
-      setBusyId(id);
-      try {
-        await updateUserStatus(id, newStatus);
-        await fetchList();
-      } catch (e: unknown) {
-        setError(getErrorMessage(e, t('users.actionError')));
-      } finally {
-        setBusyId(null);
-      }
+    const ok = await confirm({
+      title: formatText(t('users.confirmStatus'), { action }),
+      confirmLabel: t('common.confirm'),
+      cancelLabel: t('common.cancel'),
+      tone: 'danger',
+    });
+    if (!ok) return;
+    setError('');
+    setBusyId(id);
+    try {
+      await updateUserStatus(id, newStatus);
+      await fetchList();
+    } catch (e: unknown) {
+      setError(getErrorMessage(e, t('users.actionError')));
+    } finally {
+      setBusyId(null);
     }
   };
 

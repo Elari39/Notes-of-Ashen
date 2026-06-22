@@ -7,9 +7,11 @@ import PagePendingState from '../../components/RoutePending';
 import { getErrorMessage } from '../../utils/error';
 import { translate } from '../../i18n';
 import { usePreferenceStore } from '../../store/preferences';
+import { useConfirm } from '../../hooks/useConfirm';
 
 const AdminTags: React.FC = () => {
   const language = usePreferenceStore((state) => state.language);
+  const confirm = useConfirm();
   const [tags, setTags] = useState<Tag[]>([]);
   const [name, setName] = useState('');
   const [slug, setSlug] = useState('');
@@ -87,17 +89,22 @@ const AdminTags: React.FC = () => {
   };
 
   const handleDelete = async (id: number) => {
-    if (confirm(t('taxonomy.confirmDelete'))) {
-      setError('');
-      setBusyId(id);
-      try {
-        await deleteTag(id);
-        await fetchList();
-      } catch (e: unknown) {
-        setError(getErrorMessage(e, t('taxonomy.deleteTagError')));
-      } finally {
-        setBusyId(null);
-      }
+    const ok = await confirm({
+      title: t('taxonomy.confirmDelete'),
+      confirmLabel: t('common.delete'),
+      cancelLabel: t('common.cancel'),
+      tone: 'danger',
+    });
+    if (!ok) return;
+    setError('');
+    setBusyId(id);
+    try {
+      await deleteTag(id);
+      await fetchList();
+    } catch (e: unknown) {
+      setError(getErrorMessage(e, t('taxonomy.deleteTagError')));
+    } finally {
+      setBusyId(null);
     }
   };
 

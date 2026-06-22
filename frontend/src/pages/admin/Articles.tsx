@@ -11,9 +11,11 @@ import { getErrorMessage } from '../../utils/error';
 import { notifyArticleCacheInvalid } from '../../utils/pwa';
 import { getArticleStatusLabel, getDateLocale, translate } from '../../i18n';
 import { usePreferenceStore } from '../../store/preferences';
+import { useConfirm } from '../../hooks/useConfirm';
 
 const AdminArticles: React.FC = () => {
   const language = usePreferenceStore((state) => state.language);
+  const confirm = useConfirm();
   const [articles, setArticles] = useState<Article[]>([]);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
@@ -141,18 +143,23 @@ const AdminArticles: React.FC = () => {
   };
 
   const handleDelete = async (id: number) => {
-    if (confirm(t('adminArticles.confirmDelete'))) {
-      setError('');
-      setBusyId(id);
-      try {
-        await deleteArticle(id);
-        notifyArticleCacheInvalid();
-        await fetchList();
-      } catch (e) {
-        setError(getErrorMessage(e, t('adminArticles.deleteError')));
-      } finally {
-        setBusyId(null);
-      }
+    const ok = await confirm({
+      title: t('adminArticles.confirmDelete'),
+      confirmLabel: t('common.delete'),
+      cancelLabel: t('common.cancel'),
+      tone: 'danger',
+    });
+    if (!ok) return;
+    setError('');
+    setBusyId(id);
+    try {
+      await deleteArticle(id);
+      notifyArticleCacheInvalid();
+      await fetchList();
+    } catch (e) {
+      setError(getErrorMessage(e, t('adminArticles.deleteError')));
+    } finally {
+      setBusyId(null);
     }
   };
 

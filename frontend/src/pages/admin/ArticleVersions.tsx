@@ -7,12 +7,14 @@ import Pagination from '../../components/Pagination';
 import { getArticleStatusLabel, getDateLocale } from '../../i18n';
 import { usePreferenceStore } from '../../store/preferences';
 import { getErrorMessage } from '../../utils/error';
+import { useConfirm } from '../../hooks/useConfirm';
 import type { ArticleVersion } from '../../types';
 
 const ArticleVersions: React.FC = () => {
   const { id } = useParams();
   const language = usePreferenceStore((state) => state.language);
   const labels = articleVersionLabels(language);
+  const confirm = useConfirm();
   const [versions, setVersions] = useState<ArticleVersion[]>([]);
   const [selectedVersion, setSelectedVersion] = useState<ArticleVersion | null>(null);
   const [page, setPage] = useState(1);
@@ -86,7 +88,16 @@ const ArticleVersions: React.FC = () => {
   };
 
   const handleRestore = async (versionNo: number) => {
-    if (!id || !confirm(labels.confirmRestore(versionNo))) {
+    if (!id) {
+      return;
+    }
+    const ok = await confirm({
+      title: labels.confirmRestore(versionNo),
+      confirmLabel: labels.restoreConfirm,
+      cancelLabel: labels.cancel,
+      tone: 'danger',
+    });
+    if (!ok) {
       return;
     }
     setBusyVersion(versionNo);
@@ -228,6 +239,8 @@ const articleVersionLabels = (language: string) => language === 'zh'
       detailLoadError: '版本详情加载失败',
       restoreError: '版本恢复失败',
       confirmRestore: (versionNo: number) => `确认恢复到版本 #${versionNo}？当前内容会先保存为新的历史版本。`,
+      restoreConfirm: '恢复',
+      cancel: '取消',
     }
   : {
       title: 'Version History',
@@ -246,6 +259,8 @@ const articleVersionLabels = (language: string) => language === 'zh'
       detailLoadError: 'Failed to load version detail',
       restoreError: 'Failed to restore version',
       confirmRestore: (versionNo: number) => `Restore version #${versionNo}? The current content will be saved as a new history version first.`,
+      restoreConfirm: 'Restore',
+      cancel: 'Cancel',
     };
 
 export default ArticleVersions;
