@@ -5,6 +5,10 @@ import Pagination from '../components/Pagination';
 import SearchHighlight from '../components/SearchHighlight';
 import PagePendingState from '../components/RoutePending';
 import ArticleCardSkeleton from '../components/ArticleCardSkeleton';
+import EmptyState from '../components/ui/EmptyState';
+import Button from '../components/ui/Button';
+import Tag from '../components/ui/Tag';
+import TextField from '../components/ui/TextField';
 import { PreloadLink } from '../components/PreloadLink';
 import { getArticles } from '../api/article';
 import { getErrorMessage } from '../utils/error';
@@ -142,29 +146,23 @@ const Search: React.FC = () => {
           </p>
 
           <form onSubmit={handleSubmit} className="mx-auto mt-10 flex max-w-2xl flex-col gap-3 border border-mountain-grey bg-[var(--paper-muted)] p-3 md:flex-row md:items-center">
-            <input
+            <TextField
               value={keyword}
               onChange={(event) => setKeyword(event.target.value)}
               aria-label={t('search.inputLabel')}
               placeholder={t('search.placeholder')}
-              className="min-w-0 flex-1 bg-transparent px-3 py-3 text-lg text-ink outline-none placeholder:text-ink-light placeholder:opacity-50"
+              fieldClassName="flex-1 border-b-0 px-1"
+              className="text-lg min-h-[3rem]"
             />
             <div className="flex gap-3">
               {hasSearchScope && (
-                <button
-                  type="button"
-                  onClick={handleClear}
-                  className="border border-mountain-grey px-4 py-3 text-sm tracking-widest text-ink-light transition-colors hover:border-ochre hover:text-ochre"
-                >
+                <Button type="button" variant="ghost" size="md" onClick={handleClear}>
                   {t('search.clear')}
-                </button>
+                </Button>
               )}
-              <button
-                type="submit"
-                className="border border-ink bg-ink px-5 py-3 text-sm tracking-widest text-paper transition-colors hover:border-ochre hover:bg-ochre"
-              >
+              <Button type="submit" variant="primary" size="md">
                 {t('search.submit')}
-              </button>
+              </Button>
             </div>
           </form>
         </div>
@@ -172,10 +170,11 @@ const Search: React.FC = () => {
 
       <section className="mt-12">
         {!hasSearchScope ? (
-          <div className="mx-auto max-w-xl text-center text-ink-light">
-            <p className="text-lg italic">{t('search.idleTitle')}</p>
-            <p className="mt-3 text-sm leading-loose opacity-80">{t('search.idleText')}</p>
-          </div>
+          <EmptyState
+            illustration="leaf"
+            title={t('search.idleTitle')}
+            description={t('search.idleText')}
+          />
         ) : (
           <div className="space-y-12">
             <div className="flex flex-col gap-3 border-b border-mountain-grey border-opacity-50 pb-5 text-sm text-ink-light md:flex-row md:items-end md:justify-between">
@@ -187,13 +186,9 @@ const Search: React.FC = () => {
                     : formatText(t('search.resultsFiltered'), { total })}
                 </p>
               </div>
-              <button
-                type="button"
-                onClick={handleClear}
-                className="self-start border border-mountain-grey px-4 py-2 tracking-widest transition-colors hover:border-ochre hover:text-ochre md:self-auto"
-              >
+              <Button variant="ghost" size="sm" onClick={handleClear} className="self-start md:self-auto">
                 {t('search.clear')}
-              </button>
+              </Button>
             </div>
 
             <InlineNotice message={error} />
@@ -212,10 +207,11 @@ const Search: React.FC = () => {
               />
             )}
             {!loading && articles.length === 0 ? (
-              <div className="mx-auto max-w-xl py-10 text-center text-ink-light">
-                <p className="text-lg italic">{t('search.emptyTitle')}</p>
-                <p className="mt-3 text-sm leading-loose opacity-80">{t('search.emptyText')}</p>
-              </div>
+              <EmptyState
+                illustration="cloud"
+                title={t('search.emptyTitle')}
+                description={t('search.emptyText')}
+              />
             ) : articles.length > 0 ? (
               <>
                 <div className="space-y-12">
@@ -239,7 +235,7 @@ const Search: React.FC = () => {
                                 decoding="async"
                                 onError={() => handleCoverError(article.id)}
                                 onLoad={() => handleCoverLoad(article.id)}
-                                className="h-full w-full object-cover grayscale opacity-80 transition-all duration-700 group-hover:grayscale-0 group-hover:opacity-100"
+                                className="h-full w-full object-cover grayscale opacity-80 transition-[filter,opacity] duration-slow group-hover:grayscale-0 group-hover:opacity-100"
                               />
                             )}
                           </PreloadLink>
@@ -262,7 +258,7 @@ const Search: React.FC = () => {
 
                           <div className="mt-5 flex flex-wrap items-center gap-4 text-xs tracking-wider text-ink-light opacity-75">
                             {article.isPinned && (
-                              <span className="border border-ochre px-2 py-0.5 text-ochre opacity-90">{pinnedLabel}</span>
+                              <Tag tone="ochre" size="sm">{pinnedLabel}</Tag>
                             )}
                             <span>{new Date(article.createdAt).toLocaleDateString(getDateLocale(language), { year: 'numeric', month: 'long', day: 'numeric' })}</span>
                             <span>{t('common.views')} {article.viewCount}</span>

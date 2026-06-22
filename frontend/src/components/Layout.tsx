@@ -285,7 +285,7 @@ const Layout: React.FC = () => {
               setIsMobileMenuOpen((open) => !open);
               setIsPreferenceOpen(false);
             }}
-            className="flex h-10 w-10 shrink-0 flex-col items-center justify-center gap-1.5 border border-mountain-grey text-ink transition-colors hover:border-ochre hover:text-ochre md:hidden"
+            className="flex h-11 w-11 shrink-0 flex-col items-center justify-center gap-1.5 border border-mountain-grey text-ink transition-colors hover:border-ochre hover:text-ochre md:hidden"
           >
             <span className={`h-px w-5 bg-current transition-transform ${isMobileMenuOpen ? 'translate-y-2 rotate-45' : ''}`}></span>
             <span className={`h-px w-5 bg-current transition-opacity ${isMobileMenuOpen ? 'opacity-0' : 'opacity-100'}`}></span>
@@ -297,10 +297,10 @@ const Layout: React.FC = () => {
             <PreloadLink to="/archive" preload={routeLoaders.archive} className={desktopLinkClass}>{t('nav.archive')}</PreloadLink>
             <PreloadLink to="/search" preload={routeLoaders.search} className={desktopLinkClass}>{t('nav.search')}</PreloadLink>
             {projectsPageEnabled && !projectsNavHidden && (
-              <PreloadLink to="/projects" preload={routeLoaders.projects} className={desktopLinkClass}>{language === 'zh' ? '项目' : 'Projects'}</PreloadLink>
+              <PreloadLink to="/projects" preload={routeLoaders.projects} className={desktopLinkClass}>{t('nav.projects')}</PreloadLink>
             )}
             {resumePageEnabled && !resumeNavHidden && (
-              <PreloadLink to="/resume" preload={routeLoaders.resume} className={desktopLinkClass}>{language === 'zh' ? '简介' : 'About'}</PreloadLink>
+              <PreloadLink to="/resume" preload={routeLoaders.resume} className={desktopLinkClass}>{t('nav.resume')}</PreloadLink>
             )}
             {user ? (
               <>
@@ -338,10 +338,10 @@ const Layout: React.FC = () => {
             <PreloadLink to="/archive" preload={routeLoaders.archive} onClick={closeMobileMenu} className={mobileLinkClass}>{t('nav.archive')}</PreloadLink>
             <PreloadLink to="/search" preload={routeLoaders.search} onClick={closeMobileMenu} className={mobileLinkClass}>{t('nav.search')}</PreloadLink>
             {projectsPageEnabled && !projectsNavHidden && (
-              <PreloadLink to="/projects" preload={routeLoaders.projects} onClick={closeMobileMenu} className={mobileLinkClass}>{language === 'zh' ? '项目' : 'Projects'}</PreloadLink>
+              <PreloadLink to="/projects" preload={routeLoaders.projects} onClick={closeMobileMenu} className={mobileLinkClass}>{t('nav.projects')}</PreloadLink>
             )}
             {resumePageEnabled && !resumeNavHidden && (
-              <PreloadLink to="/resume" preload={routeLoaders.resume} onClick={closeMobileMenu} className={mobileLinkClass}>{language === 'zh' ? '简介' : 'About'}</PreloadLink>
+              <PreloadLink to="/resume" preload={routeLoaders.resume} onClick={closeMobileMenu} className={mobileLinkClass}>{t('nav.resume')}</PreloadLink>
             )}
             {user ? (
               <>
@@ -371,7 +371,13 @@ const Layout: React.FC = () => {
         )}
       </header>
 
-      <main className="flex-grow flex flex-col w-full px-4 py-8 md:px-12 md:py-12">
+      <a
+        href="#main-content"
+        className="sr-only focus-visible:not-sr-only focus-visible:fixed focus-visible:top-3 focus-visible:left-1/2 focus-visible:-translate-x-1/2 focus-visible:z-[200] focus-visible:border focus-visible:border-ochre focus-visible:bg-paper focus-visible:px-4 focus-visible:py-2 focus-visible:text-sm focus-visible:tracking-widest focus-visible:text-ink focus-visible:shadow-md"
+      >
+        {t('a11y.skipToContent')}
+      </a>
+      <main id="main-content" tabIndex={-1} className="flex-grow flex flex-col w-full px-4 py-8 md:px-12 md:py-12">
         <AnimatePresence mode="wait" initial={false}>
           <motion.div
             key={pageTransitionKey}

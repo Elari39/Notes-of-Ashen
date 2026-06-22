@@ -1,6 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import InlineNotice from '../components/InlineNotice';
 import PagePendingState from '../components/RoutePending';
+import Skeleton from '../components/Skeleton';
+import EmptyState from '../components/ui/EmptyState';
+import Tag from '../components/ui/Tag';
 import ProjectPreviewModal from '../components/ProjectPreviewModal';
 import { getProjectsPage } from '../api/siteSettings';
 import { usePreferenceStore } from '../store/preferences';
@@ -60,17 +63,26 @@ const Projects: React.FC = () => {
         )}
       </section>
 
-      {isLoading && (
-        <PagePendingState
-          variant={page ? 'inline' : 'page'}
-          label={text.loading}
-        />
+      {isLoading && !page && (
+        <section className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3" aria-hidden="true">
+          {Array.from({ length: 6 }).map((_, idx) => (
+            <div key={idx} className="flex min-h-full flex-col overflow-hidden border border-mountain-grey bg-[var(--paper-soft)]">
+              <Skeleton className="aspect-[4/3] w-full border-0 border-b border-mountain-grey" />
+              <div className="flex flex-1 flex-col gap-4 p-5">
+                <Skeleton className="h-6 w-3/4" />
+                <Skeleton className="h-3 w-full" />
+                <Skeleton className="h-3 w-5/6" />
+              </div>
+            </div>
+          ))}
+        </section>
+      )}
+      {isLoading && page && (
+        <PagePendingState variant="inline" label={text.loading} />
       )}
       <InlineNotice message={error} />
       {!isLoading && !error && (!page?.items || page.items.length === 0) && (
-        <section className="border border-mountain-grey bg-[var(--paper-soft)] p-6 text-ink-light">
-          <p className="text-base leading-8 tracking-wide">{text.empty}</p>
-        </section>
+        <EmptyState illustration="leaf" title={text.empty} />
       )}
       {!isLoading && !error && page?.items && page.items.length > 0 && (
         <section className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
@@ -115,7 +127,7 @@ const ProjectCard: React.FC<ProjectCardProps> = ({ project, labels, onSelect }) 
           <img
             src={project.coverUrl}
             alt={project.title}
-            className="h-full w-full object-cover grayscale transition-all duration-500 group-hover:scale-[1.03] group-hover:grayscale-0"
+            className="h-full w-full object-cover grayscale transition-[transform,filter] duration-slow ease-paper group-hover:scale-[1.03] group-hover:grayscale-0"
             loading="lazy"
           />
         ) : (
@@ -124,8 +136,8 @@ const ProjectCard: React.FC<ProjectCardProps> = ({ project, labels, onSelect }) 
           </div>
         )}
         {project.featured && (
-          <span className="absolute left-3 top-3 border border-ochre bg-paper px-2 py-0.5 text-[11px] uppercase tracking-[0.18em] text-ochre">
-            {labels.featured}
+          <span className="absolute left-3 top-3 z-10">
+            <Tag tone="ochre" size="sm">{labels.featured}</Tag>
           </span>
         )}
       </div>
@@ -157,10 +169,10 @@ const ProjectCard: React.FC<ProjectCardProps> = ({ project, labels, onSelect }) 
 
         {(project.role || project.period || project.tags.length > 0) && (
           <div className="flex flex-wrap gap-2 text-xs tracking-[0.16em] text-ink-light">
-            {project.role && <span className="border border-mountain-grey px-2 py-1">{project.role}</span>}
-            {project.period && <span className="border border-mountain-grey px-2 py-1">{project.period}</span>}
+            {project.role && <Tag tone="neutral" size="sm">{project.role}</Tag>}
+            {project.period && <Tag tone="neutral" size="sm">{project.period}</Tag>}
             {project.tags.map((tag) => (
-              <span key={tag} className="border border-mountain-grey px-2 py-1">{tag}</span>
+              <Tag key={tag} tone="neutral" size="sm">{tag}</Tag>
             ))}
           </div>
         )}

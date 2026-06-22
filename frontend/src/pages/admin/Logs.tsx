@@ -4,6 +4,8 @@ import { Log } from '../../types';
 import Pagination from '../../components/Pagination';
 import InlineNotice from '../../components/InlineNotice';
 import PagePendingState from '../../components/RoutePending';
+import TableSkeleton from '../../components/ui/TableSkeleton';
+import EmptyState from '../../components/ui/EmptyState';
 import { getErrorMessage } from '../../utils/error';
 import { getDateLocale, translate } from '../../i18n';
 import { usePreferenceStore } from '../../store/preferences';
@@ -54,14 +56,14 @@ const AdminLogs: React.FC = () => {
 
       <InlineNotice message={error} className="mb-6" />
 
-      {loading && (
-        <PagePendingState
-          variant={logs.length > 0 ? 'inline' : 'admin'}
-          label={t('common.loading')}
-        />
+      {loading && logs.length === 0 && (
+        <TableSkeleton rows={5} cols={4} />
+      )}
+      {loading && logs.length > 0 && (
+        <PagePendingState variant="inline" label={t('common.loading')} />
       )}
       {!loading && logs.length === 0 ? (
-        <div className="py-16 text-center tracking-widest text-ink-light">{t('common.empty')}</div>
+        <EmptyState illustration="cloud" title={t('common.empty')} />
       ) : logs.length > 0 ? (
         <>
           <table className="admin-responsive-table w-full text-left border-collapse text-sm">

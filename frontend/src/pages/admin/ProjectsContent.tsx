@@ -7,6 +7,7 @@ import { getTags } from '../../api/tag';
 import { usePreferenceStore } from '../../store/preferences';
 import type { ProjectItem, ProjectsPage, Tag } from '../../types';
 import { getErrorMessage } from '../../utils/error';
+import { useConfirm } from '../../hooks/useConfirm';
 
 const emptyProjects: ProjectsPage = {
   title: '项目',
@@ -17,6 +18,7 @@ const emptyProjects: ProjectsPage = {
 const AdminProjectsContent: React.FC = () => {
   const language = usePreferenceStore((state) => state.language);
   const text = getProjectsAdminLabels(language);
+  const confirm = useConfirm();
   const [saved, setSaved] = useState<ProjectsPage | null>(null);
   const [draft, setDraft] = useState<ProjectsPage>(emptyProjects);
   const [isLoading, setIsLoading] = useState(true);
@@ -90,8 +92,14 @@ const AdminProjectsContent: React.FC = () => {
     });
   };
 
-  const removeProject = (index: number) => {
-    if (!window.confirm(text.confirmDelete)) {
+  const removeProject = async (index: number) => {
+    const ok = await confirm({
+      title: text.confirmDelete,
+      confirmLabel: text.delete,
+      cancelLabel: text.cancel,
+      tone: 'danger',
+    });
+    if (!ok) {
       return;
     }
     const projectId = draft.items[index]?.id;
@@ -536,6 +544,7 @@ const getProjectsAdminLabels = (language: string) => language === 'zh'
       saving: '保存中...',
       reset: '重置',
       confirmDelete: '确认删除这个项目？',
+      cancel: '取消',
       projectNo: (value: number) => `项目 ${value}`,
       untitled: '未命名项目',
       up: '上移',
@@ -571,6 +580,7 @@ const getProjectsAdminLabels = (language: string) => language === 'zh'
       saving: 'Saving...',
       reset: 'Reset',
       confirmDelete: 'Delete this project?',
+      cancel: 'Cancel',
       projectNo: (value: number) => `Project ${value}`,
       untitled: 'Untitled Project',
       up: 'Up',

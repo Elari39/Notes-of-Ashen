@@ -4,12 +4,18 @@ import { User } from '../../types';
 import Pagination from '../../components/Pagination';
 import InlineNotice from '../../components/InlineNotice';
 import PagePendingState from '../../components/RoutePending';
+import TableSkeleton from '../../components/ui/TableSkeleton';
+import EmptyState from '../../components/ui/EmptyState';
+import Tag from '../../components/ui/Tag';
+import Button from '../../components/ui/Button';
 import { getErrorMessage } from '../../utils/error';
 import { formatText, getUserRoleLabel, getUserStatusLabel, translate } from '../../i18n';
 import { usePreferenceStore } from '../../store/preferences';
+import { useConfirm } from '../../hooks/useConfirm';
 
 const AdminUsers: React.FC = () => {
   const language = usePreferenceStore((state) => state.language);
+  const confirm = useConfirm();
   const [users, setUsers] = useState<User[]>([]);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
@@ -50,17 +56,22 @@ const AdminUsers: React.FC = () => {
   const handleStatus = async (id: number, currentStatus: string) => {
     const newStatus = currentStatus === 'active' ? 'disabled' : 'active';
     const action = newStatus === 'active' ? t('users.activate') : t('users.disable');
-    if (confirm(formatText(t('users.confirmStatus'), { action }))) {
-      setError('');
-      setBusyId(id);
-      try {
-        await updateUserStatus(id, newStatus);
-        await fetchList();
-      } catch (e: unknown) {
-        setError(getErrorMessage(e, t('users.actionError')));
-      } finally {
-        setBusyId(null);
-      }
+    const ok = await confirm({
+      title: formatText(t('users.confirmStatus'), { action }),
+      confirmLabel: t('common.confirm'),
+      cancelLabel: t('common.cancel'),
+      tone: 'danger',
+    });
+    if (!ok) return;
+    setError('');
+    setBusyId(id);
+    try {
+      await updateUserStatus(id, newStatus);
+      await fetchList();
+    } catch (e: unknown) {
+      setError(getErrorMessage(e, t('users.actionError')));
+    } finally {
+      setBusyId(null);
     }
   };
 
@@ -85,14 +96,14 @@ const AdminUsers: React.FC = () => {
 
       <InlineNotice message={error} className="mb-6" />
 
-      {loading && (
-        <PagePendingState
-          variant={users.length > 0 ? 'inline' : 'admin'}
-          label={t('common.loading')}
-        />
+      {loading && users.length === 0 && (
+        <TableSkeleton rows={5} cols={5} />
+      )}
+      {loading && users.length > 0 && (
+        <PagePendingState variant="inline" label={t('common.loading')} />
       )}
       {!loading && users.length === 0 ? (
-        <div className="py-16 text-center tracking-widest text-ink-light">{t('common.empty')}</div>
+        <EmptyState illustration="cloud" title={t('common.empty')} />
       ) : users.length > 0 ? (
         <>
           <table className="admin-responsive-table w-full text-left border-collapse text-sm">
@@ -123,15 +134,20 @@ const AdminUsers: React.FC = () => {
                     </select>
                   </td>
                   <td data-label={t('common.status')} className="py-4">
-                    <span className={`px-2 py-1 text-xs border ${user.status === 'active' ? 'border-ochre text-ochre' : 'border-ink-light text-ink-light'}`}>
+                    <Tag tone={user.status === 'active' ? 'success' : 'neutral'} size="sm">
                       {getUserStatusLabel(language, user.status)}
-                    </span>
+                    </Tag>
                   </td>
                   <td data-label={t('common.action')} className="admin-card-actions py-4 text-right">
                     <div className="admin-action-list">
-                      <button onClick={() => handleStatus(user.id, user.status)} disabled={busyId === user.id} className="text-ochre opacity-80 hover:opacity-100 tracking-wider disabled:opacity-50 disabled:cursor-not-allowed">
+                      <Button
+                        variant={user.status === 'active' ? 'danger' : 'ghost'}
+                        size="sm"
+                        onClick={() => handleStatus(user.id, user.status)}
+                        disabled={busyId === user.id}
+                      >
                         {user.status === 'active' ? t('users.disable') : t('users.activate')}
-                      </button>
+                      </Button>
                     </div>
                   </td>
                 </tr>

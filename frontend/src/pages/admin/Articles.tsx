@@ -2,18 +2,23 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { deleteArticle, exportArticleMarkdown, getAdminArticles, importMarkdownArticle, updateArticleStatus } from '../../api/article';
 import { getCategories } from '../../api/category';
 import { getTags } from '../../api/tag';
-import { Article, Category, Tag } from '../../types';
+import { Article, Category, Tag as TagModel } from '../../types';
 import { Link, useNavigate } from 'react-router-dom';
 import Pagination from '../../components/Pagination';
 import InlineNotice from '../../components/InlineNotice';
 import PagePendingState from '../../components/RoutePending';
+import TableSkeleton from '../../components/ui/TableSkeleton';
+import EmptyState from '../../components/ui/EmptyState';
+import Tag from '../../components/ui/Tag';
 import { getErrorMessage } from '../../utils/error';
 import { notifyArticleCacheInvalid } from '../../utils/pwa';
 import { getArticleStatusLabel, getDateLocale, translate } from '../../i18n';
 import { usePreferenceStore } from '../../store/preferences';
+import { useConfirm } from '../../hooks/useConfirm';
 
 const AdminArticles: React.FC = () => {
   const language = usePreferenceStore((state) => state.language);
+  const confirm = useConfirm();
   const [articles, setArticles] = useState<Article[]>([]);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
@@ -26,7 +31,7 @@ const AdminArticles: React.FC = () => {
   const [categoryId, setCategoryId] = useState(0);
   const [tagId, setTagId] = useState(0);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [tags, setTags] = useState<Tag[]>([]);
+  const [tags, setTags] = useState<TagModel[]>([]);
   const [importing, setImporting] = useState(false);
   const listRequestRef = useRef(0);
   const size = 10;
@@ -141,18 +146,23 @@ const AdminArticles: React.FC = () => {
   };
 
   const handleDelete = async (id: number) => {
-    if (confirm(t('adminArticles.confirmDelete'))) {
-      setError('');
-      setBusyId(id);
-      try {
-        await deleteArticle(id);
-        notifyArticleCacheInvalid();
-        await fetchList();
-      } catch (e) {
-        setError(getErrorMessage(e, t('adminArticles.deleteError')));
-      } finally {
-        setBusyId(null);
-      }
+    const ok = await confirm({
+      title: t('adminArticles.confirmDelete'),
+      confirmLabel: t('common.delete'),
+      cancelLabel: t('common.cancel'),
+      tone: 'danger',
+    });
+    if (!ok) return;
+    setError('');
+    setBusyId(id);
+    try {
+      await deleteArticle(id);
+      notifyArticleCacheInvalid();
+      await fetchList();
+    } catch (e) {
+      setError(getErrorMessage(e, t('adminArticles.deleteError')));
+    } finally {
+      setBusyId(null);
     }
   };
 
@@ -272,14 +282,18 @@ const AdminArticles: React.FC = () => {
         </div>
       </form>
 
-      {loading && (
-        <PagePendingState
-          variant={articles.length > 0 ? 'inline' : 'admin'}
-          label={t('common.loading')}
-        />
+      {loading && articles.length === 0 && (
+        <TableSkeleton rows={5} cols={5} />
+      )}
+      {loading && articles.length > 0 && (
+        <PagePendingState variant="inline" label={t('common.loading')} />
       )}
       {!loading && articles.length === 0 ? (
-        <div className="py-16 text-center tracking-widest text-ink-light">{t('common.empty')}</div>
+        <EmptyState
+          illustration="cloud"
+          title={t('common.empty')}
+          action={{ label: t('adminArticles.new'), onClick: () => navigate('/admin/editor/new') }}
+        />
       ) : articles.length > 0 ? (
         <>
           <table className="admin-responsive-table w-full text-left border-collapse text-sm">
@@ -323,9 +337,21 @@ const AdminArticles: React.FC = () => {
                     </div>
                   </td>
                   <td data-label={t('common.status')} className="py-4 md:w-[5.5rem] md:min-w-[5.5rem]">
-                    <span className={`inline-flex min-w-[3.75rem] items-center justify-center whitespace-nowrap px-2 py-1 text-xs border ${getDisplayStatus(a) === 'published' ? 'border-ochre text-ochre' : 'border-ink-light text-ink-light'}`}>
+                    <Tag
+                      tone={
+                        getDisplayStatus(a) === 'published'
+                          ? 'ochre'
+                          : getDisplayStatus(a) === 'archived'
+                          ? 'neutral'
+                          : getDisplayStatus(a) === 'scheduled'
+                          ? 'info'
+                          : 'warning'
+                      }
+                      size="sm"
+                      className="min-w-[3.75rem] justify-center"
+                    >
                       {getDisplayStatusLabel(a)}
-                    </span>
+                    </Tag>
                     {a.scheduledAt && (
                       <div className="mt-2 text-xs text-ink-light opacity-70">
                         {new Date(a.scheduledAt).toLocaleString(getDateLocale(language))}
@@ -359,6 +385,8 @@ const AdminArticles: React.FC = () => {
             total={total}
             pageSize={size}
             onPageChange={setPage}
+            showPageNumbers
+            withJump
           />
         </>
       ) : null}

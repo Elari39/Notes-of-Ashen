@@ -4,12 +4,17 @@ import { Tag } from '../../types';
 import Pagination from '../../components/Pagination';
 import InlineNotice from '../../components/InlineNotice';
 import PagePendingState from '../../components/RoutePending';
+import TableSkeleton from '../../components/ui/TableSkeleton';
+import EmptyState from '../../components/ui/EmptyState';
+import Button from '../../components/ui/Button';
 import { getErrorMessage } from '../../utils/error';
 import { translate } from '../../i18n';
 import { usePreferenceStore } from '../../store/preferences';
+import { useConfirm } from '../../hooks/useConfirm';
 
 const AdminTags: React.FC = () => {
   const language = usePreferenceStore((state) => state.language);
+  const confirm = useConfirm();
   const [tags, setTags] = useState<Tag[]>([]);
   const [name, setName] = useState('');
   const [slug, setSlug] = useState('');
@@ -87,17 +92,22 @@ const AdminTags: React.FC = () => {
   };
 
   const handleDelete = async (id: number) => {
-    if (confirm(t('taxonomy.confirmDelete'))) {
-      setError('');
-      setBusyId(id);
-      try {
-        await deleteTag(id);
-        await fetchList();
-      } catch (e: unknown) {
-        setError(getErrorMessage(e, t('taxonomy.deleteTagError')));
-      } finally {
-        setBusyId(null);
-      }
+    const ok = await confirm({
+      title: t('taxonomy.confirmDelete'),
+      confirmLabel: t('common.delete'),
+      cancelLabel: t('common.cancel'),
+      tone: 'danger',
+    });
+    if (!ok) return;
+    setError('');
+    setBusyId(id);
+    try {
+      await deleteTag(id);
+      await fetchList();
+    } catch (e: unknown) {
+      setError(getErrorMessage(e, t('taxonomy.deleteTagError')));
+    } finally {
+      setBusyId(null);
     }
   };
 
@@ -120,25 +130,25 @@ const AdminTags: React.FC = () => {
           <input type="text" placeholder={t('common.description')} value={description} onChange={e => setDescription(e.target.value)} className="w-full bg-transparent border-b border-mountain-grey py-2 focus:outline-none focus:border-ochre text-ink" />
         </div>
         <div className="flex flex-wrap gap-2">
-          <button type="submit" disabled={submitting} className="px-4 py-2 bg-ink text-paper tracking-widest text-sm hover:bg-opacity-80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+          <Button type="submit" variant="primary" size="sm" loading={submitting}>
             {submitting ? t('common.processing') : editingId ? t('common.save') : t('taxonomy.add')}
-          </button>
+          </Button>
           {editingId && (
-            <button type="button" onClick={handleCancel} className="px-4 py-2 border border-mountain-grey text-ink tracking-widest text-sm hover:border-ink transition-colors">
+            <Button type="button" variant="ghost" size="sm" onClick={handleCancel}>
               {t('common.cancel')}
-            </button>
+            </Button>
           )}
         </div>
       </form>
 
-      {loading && (
-        <PagePendingState
-          variant={tags.length > 0 ? 'inline' : 'admin'}
-          label={t('common.loading')}
-        />
+      {loading && tags.length === 0 && (
+        <TableSkeleton rows={5} cols={3} />
+      )}
+      {loading && tags.length > 0 && (
+        <PagePendingState variant="inline" label={t('common.loading')} />
       )}
       {!loading && tags.length === 0 ? (
-        <div className="py-16 text-center tracking-widest text-ink-light">{t('common.empty')}</div>
+        <EmptyState illustration="leaf" title={t('common.empty')} />
       ) : tags.length > 0 ? (
         <>
           <table className="admin-responsive-table w-full text-left border-collapse text-sm">
@@ -157,7 +167,7 @@ const AdminTags: React.FC = () => {
                   <td data-label={t('common.action')} className="admin-card-actions py-4 text-right">
                     <div className="admin-action-list">
                       <button onClick={() => handleEdit(tag)} className="text-ink opacity-80 hover:text-ochre hover:opacity-100 tracking-wider">{t('common.edit')}</button>
-                      <button onClick={() => handleDelete(tag.id)} disabled={busyId === tag.id} className="text-ochre opacity-80 hover:opacity-100 tracking-wider disabled:opacity-50 disabled:cursor-not-allowed">{t('common.delete')}</button>
+                      <button onClick={() => handleDelete(tag.id)} disabled={busyId === tag.id} className="text-danger opacity-80 hover:opacity-100 tracking-wider disabled:opacity-50 disabled:cursor-not-allowed transition-opacity duration-fast">{t('common.delete')}</button>
                     </div>
                   </td>
                 </tr>

@@ -5,6 +5,7 @@ import { sendCurrentUserVerifyCode, updateCurrentUser, updatePassword } from '..
 import { isHttpAvatarUrl, normalizeAvatarUrl } from '../utils/avatar';
 import CaptchaField from '../components/CaptchaField';
 import InlineNotice from '../components/InlineNotice';
+import Button from '../components/ui/Button';
 import { getErrorMessage } from '../utils/error';
 import { translate } from '../i18n';
 import { useFormValidation, type FieldRules } from '../hooks/useFormValidation';
@@ -195,14 +196,17 @@ const Profile: React.FC = () => {
                   className="min-w-0 flex-1 bg-transparent border-b border-mountain-grey py-2 px-1 text-ink focus:outline-none focus:border-ochre transition-colors placeholder-ink-light placeholder-opacity-50"
                   required
                 />
-                <button
+                <Button
                   type="button"
+                  variant="ghost"
+                  size="sm"
                   onClick={handleSendProfileCode}
                   disabled={profileCodeSending || !email.trim() || !profileCaptchaId || !profileCaptchaCode.trim()}
-                  className="h-10 shrink-0 border border-ink px-4 text-xs tracking-widest text-ink hover:bg-ink hover:text-paper transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  loading={profileCodeSending}
+                  className="h-10 shrink-0"
                 >
                   {profileCodeSending ? t('auth.sendingEmailCode') : t('auth.sendEmailCode')}
-                </button>
+                </Button>
               </div>
             </>
           )}
@@ -224,9 +228,9 @@ const Profile: React.FC = () => {
           </div>
           <InlineNotice message={msg} tone={profileUpdated ? 'success' : 'error'} />
           <div className="pt-4 text-center">
-            <button type="submit" disabled={profileSubmitting} className="px-8 py-2 border border-ink text-ink hover:bg-ink hover:text-paper transition-colors tracking-widest disabled:opacity-50 disabled:cursor-not-allowed">
+            <Button type="submit" variant="primary" size="md" loading={profileSubmitting}>
               {profileSubmitting ? t('profile.updatingProfile') : t('profile.updateProfile')}
-            </button>
+            </Button>
           </div>
         </form>
       </section>
@@ -246,7 +250,7 @@ const Profile: React.FC = () => {
               className="w-full bg-transparent border-b border-mountain-grey py-2 px-1 text-ink focus:outline-none focus:border-ochre transition-colors placeholder-ink-light placeholder-opacity-50"
             />
             {pwdFieldErrors.oldPassword && (
-              <p className="mt-1 text-xs text-red-500">{pwdFieldErrors.oldPassword}</p>
+              <p className="mt-1 text-xs text-danger">{pwdFieldErrors.oldPassword}</p>
             )}
           </div>
           <div>
@@ -259,7 +263,7 @@ const Profile: React.FC = () => {
               className="w-full bg-transparent border-b border-mountain-grey py-2 px-1 text-ink focus:outline-none focus:border-ochre transition-colors placeholder-ink-light placeholder-opacity-50"
             />
             {pwdFieldErrors.newPassword && (
-              <p className="mt-1 text-xs text-red-500">{pwdFieldErrors.newPassword}</p>
+              <p className="mt-1 text-xs text-danger">{pwdFieldErrors.newPassword}</p>
             )}
           </div>
           <CaptchaField
@@ -280,21 +284,24 @@ const Profile: React.FC = () => {
               className="min-w-0 flex-1 bg-transparent border-b border-mountain-grey py-2 px-1 text-ink focus:outline-none focus:border-ochre transition-colors placeholder-ink-light placeholder-opacity-50"
               required
             />
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="sm"
               onClick={handleSendPasswordCode}
               disabled={passwordCodeSending || !passwordCaptchaId || !passwordCaptchaCode.trim()}
-              className="h-10 shrink-0 border border-ink px-4 text-xs tracking-widest text-ink hover:bg-ink hover:text-paper transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              loading={passwordCodeSending}
+              className="h-10 shrink-0"
             >
               {passwordCodeSending ? t('auth.sendingEmailCode') : t('auth.sendEmailCode')}
-            </button>
+            </Button>
           </div>
           <InlineNotice message={pwdError} />
           <InlineNotice message={pwdMsg} tone="success" />
           <div className="pt-4 text-center">
-            <button type="submit" disabled={passwordSubmitting} className="px-8 py-2 border border-ink text-ink hover:bg-ink hover:text-paper transition-colors tracking-widest disabled:opacity-50 disabled:cursor-not-allowed">
+            <Button type="submit" variant="primary" size="md" loading={passwordSubmitting}>
               {passwordSubmitting ? t('profile.updatingPassword') : t('profile.updatePassword')}
-            </button>
+            </Button>
           </div>
         </form>
       </section>

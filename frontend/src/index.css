@@ -29,6 +29,34 @@
     --inline-code-bg: rgba(138, 60, 58, 0.08);
     --table-row: rgba(255, 255, 255, 0.36);
     --table-head: rgba(138, 60, 58, 0.08);
+
+    /* 状态色 token（阶段 1） */
+    --success: #486f57;
+    --success-soft: rgba(72, 111, 87, 0.08);
+    --warning: #9b5a2d;
+    --warning-soft: rgba(155, 90, 45, 0.10);
+    --danger: #8a3c3a;
+    --danger-soft: rgba(138, 60, 58, 0.10);
+    --info: #416a8f;
+    --info-soft: rgba(65, 106, 143, 0.10);
+
+    /* 阴影 token：浅色基于 ink 黑 */
+    --shadow-xs: 0 1px 2px rgba(26, 26, 26, 0.06);
+    --shadow-sm: 0 4px 12px rgba(26, 26, 26, 0.08);
+    --shadow-md: 0 12px 30px rgba(26, 26, 26, 0.12);
+    --shadow-lg: 0 24px 70px rgba(26, 26, 26, 0.18);
+
+    /* 圆角 token：站点零圆角风格，最大 6px */
+    --radius-xs: 2px;
+    --radius-sm: 4px;
+    --radius-md: 6px;
+
+    /* 动效 token：4 档 + 单一缓动曲线 */
+    --dur-fast: 120ms;
+    --dur-base: 180ms;
+    --dur-slow: 280ms;
+    --dur-page: 240ms;
+    --ease-paper: cubic-bezier(0.22, 1, 0.36, 1);
   }
 
   :root[data-theme='dark'] {
@@ -57,6 +85,22 @@
     --inline-code-bg: rgba(200, 137, 112, 0.14);
     --table-row: rgba(238, 232, 218, 0.04);
     --table-head: rgba(200, 137, 112, 0.12);
+
+    /* 暗色状态色：低饱和、稍亮，保证 ≥ 4.5:1 对比 */
+    --success: #a0c49a;
+    --success-soft: rgba(160, 196, 154, 0.14);
+    --warning: #dfb56f;
+    --warning-soft: rgba(223, 181, 111, 0.16);
+    --danger: #d59075;
+    --danger-soft: rgba(213, 144, 117, 0.16);
+    --info: #93b7db;
+    --info-soft: rgba(147, 183, 219, 0.16);
+
+    /* 暗色阴影：基于纯黑，弱化到 ~0.32 ~0.58 之间 */
+    --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.32);
+    --shadow-sm: 0 4px 12px rgba(0, 0, 0, 0.42);
+    --shadow-md: 0 12px 30px rgba(0, 0, 0, 0.48);
+    --shadow-lg: 0 24px 70px rgba(0, 0, 0, 0.58);
   }
 
   html {
@@ -70,7 +114,7 @@
     background-color: var(--paper);
     background-image: radial-gradient(var(--texture-dot) 1px, transparent 1px);
     background-size: 40px 40px;
-    transition: background-color 240ms ease, color 240ms ease;
+    transition: background-color var(--dur-page) ease, color var(--dur-page) ease;
   }
 
   input,
@@ -98,6 +142,12 @@
 
   .writing-vertical {
     writing-mode: vertical-rl;
+  }
+
+  /* 全局 focus-visible 兜底：所有交互元素未显式声明时仍可见 */
+  :where(a, button, [role='button'], input, select, textarea, summary):focus-visible {
+    outline: 2px solid var(--ochre);
+    outline-offset: 2px;
   }
 }
 

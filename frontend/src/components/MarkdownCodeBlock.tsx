@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
 import SyntaxHighlighter from 'react-syntax-highlighter/dist/esm/prism-light';
+import { translate } from '../i18n';
+import { usePreferenceStore } from '../store/preferences';
 
 const codeFontFamily = '"SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace';
 
@@ -12,7 +14,9 @@ type MarkdownCodeBlockProps = {
 
 const MarkdownCodeBlock: React.FC<MarkdownCodeBlockProps> = ({ code, language, syntaxTheme }) => {
   const [copied, setCopied] = useState(false);
-  const timerRef = useRef<number>();
+  const timerRef = useRef<number | undefined>(undefined);
+  const uiLanguage = usePreferenceStore((state) => state.language);
+  const t = (key: Parameters<typeof translate>[1]) => translate(uiLanguage, key);
   const displayLanguage = language === 'text' ? 'plain text' : language;
 
   useEffect(() => () => {
@@ -47,9 +51,9 @@ const MarkdownCodeBlock: React.FC<MarkdownCodeBlockProps> = ({ code, language, s
           type="button"
           className="article-code-copy"
           onClick={copyCode}
-          aria-label={copied ? '已复制' : '复制代码'}
+          aria-label={copied ? t('markdownCode.copied') : t('markdownCode.copy')}
         >
-          {copied ? '已复制' : '复制'}
+          {copied ? t('markdownCode.copied') : t('markdownCode.copy')}
         </button>
       </div>
       <SyntaxHighlighter

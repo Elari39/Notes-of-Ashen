@@ -8,6 +8,8 @@ import type { ECharts, EChartsCoreOption } from 'echarts/core';
 import InlineNotice from '../components/InlineNotice';
 import MarkdownRenderer from '../components/MarkdownRenderer';
 import PagePendingState from '../components/RoutePending';
+import EmptyState from '../components/ui/EmptyState';
+import Button from '../components/ui/Button';
 import { getProjectsPage, getResumePage } from '../api/siteSettings';
 import { getTags } from '../api/tag';
 import { usePreferenceStore } from '../store/preferences';
@@ -148,15 +150,17 @@ const Resume: React.FC = () => {
               )}
             </div>
             {!isLoading && !error && hasContent && (
-              <button
+              <Button
                 type="button"
                 onClick={handleExportPDF}
-                disabled={isExporting}
+                loading={isExporting}
+                variant="ghost"
+                size="md"
                 data-html2canvas-ignore="true"
-                className="shrink-0 border border-ochre px-4 py-2 text-sm tracking-widest text-ochre transition-colors hover:bg-ochre hover:text-paper disabled:cursor-not-allowed disabled:opacity-60"
+                className="shrink-0"
               >
                 {isExporting ? text.exporting : text.exportPDF}
-              </button>
+              </Button>
             )}
           </div>
         </section>
@@ -170,9 +174,7 @@ const Resume: React.FC = () => {
         <InlineNotice message={error} />
         <InlineNotice message={exportError} className="resume-export-notice" />
         {!isLoading && !error && !hasContent && (
-          <section className="border border-mountain-grey bg-[var(--paper-soft)] p-6 text-ink-light">
-            <p className="text-base leading-8 tracking-wide">{text.empty}</p>
-          </section>
+          <EmptyState illustration="ink-drop" title={text.empty} />
         )}
         {!isLoading && !error && page && hasContent && (
           <>

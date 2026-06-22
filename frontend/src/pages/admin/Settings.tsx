@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import InlineNotice from '../../components/InlineNotice';
 import PagePendingState from '../../components/RoutePending';
+import Switch from '../../components/ui/Switch';
+import Button from '../../components/ui/Button';
 import { getErrorMessage } from '../../utils/error';
 import { translate } from '../../i18n';
 import { usePreferenceStore } from '../../store/preferences';
@@ -142,20 +144,17 @@ const AdminSettings: React.FC = () => {
                 {t('settings.registrationDesc')}
               </p>
             </div>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={draftRegistrationEnabled}
-              disabled={isLoading}
-              onClick={() => setDraftRegistrationEnabled((enabled) => !enabled)}
-              className={`min-w-32 border px-4 py-2 text-sm tracking-widest transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
-                draftRegistrationEnabled
-                  ? 'border-ochre text-ochre hover:bg-ochre hover:text-paper'
-                  : 'border-ink-light text-ink-light hover:border-ink hover:text-ink'
-              }`}
-            >
-              {draftRegistrationEnabled ? t('settings.registrationEnabled') : t('settings.registrationDisabled')}
-            </button>
+            <div className="flex items-center gap-3">
+              <Switch
+                checked={draftRegistrationEnabled}
+                onCheckedChange={setDraftRegistrationEnabled}
+                disabled={isLoading}
+                label={t('settings.registrationTitle')}
+              />
+              <span className="text-xs tracking-widest text-ink-light">
+                {draftRegistrationEnabled ? t('settings.registrationEnabled') : t('settings.registrationDisabled')}
+              </span>
+            </div>
           </div>
         </section>
 
@@ -172,35 +171,29 @@ const AdminSettings: React.FC = () => {
                 <p className="text-sm font-bold tracking-widest text-ink">{labels.resumePage}</p>
                 <p className="mt-2 text-xs leading-relaxed text-ink-light opacity-80">{labels.resumePageDesc}</p>
               </div>
-              <div className="flex flex-wrap gap-3">
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={draftResumePageEnabled}
-                  disabled={isLoading}
-                  onClick={() => setDraftResumePageEnabled((enabled) => !enabled)}
-                  className={`min-w-28 border px-4 py-2 text-sm tracking-widest transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
-                    draftResumePageEnabled
-                      ? 'border-ochre text-ochre hover:bg-ochre hover:text-paper'
-                      : 'border-ink-light text-ink-light hover:border-ink hover:text-ink'
-                  }`}
-                >
-                  {draftResumePageEnabled ? labels.enabled : labels.disabled}
-                </button>
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={!draftResumeNavHidden}
-                  disabled={isLoading}
-                  onClick={() => setDraftResumeNavHidden((hidden) => !hidden)}
-                  className={`min-w-28 border px-4 py-2 text-sm tracking-widest transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
-                    !draftResumeNavHidden
-                      ? 'border-ochre text-ochre hover:bg-ochre hover:text-paper'
-                      : 'border-ink-light text-ink-light hover:border-ink hover:text-ink'
-                  }`}
-                >
-                  {draftResumeNavHidden ? labels.navHidden : labels.navVisible}
-                </button>
+              <div className="flex flex-col gap-3">
+                <div className="flex items-center gap-3">
+                  <Switch
+                    checked={draftResumePageEnabled}
+                    onCheckedChange={setDraftResumePageEnabled}
+                    disabled={isLoading}
+                    label={labels.resumePage}
+                  />
+                  <span className="text-xs tracking-widest text-ink-light">
+                    {draftResumePageEnabled ? labels.enabled : labels.disabled}
+                  </span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <Switch
+                    checked={!draftResumeNavHidden}
+                    onCheckedChange={(next) => setDraftResumeNavHidden(!next)}
+                    disabled={isLoading}
+                    label={labels.navVisible}
+                  />
+                  <span className="text-xs tracking-widest text-ink-light">
+                    {draftResumeNavHidden ? labels.navHidden : labels.navVisible}
+                  </span>
+                </div>
               </div>
             </div>
 
@@ -209,35 +202,29 @@ const AdminSettings: React.FC = () => {
                 <p className="text-sm font-bold tracking-widest text-ink">{labels.projectsPage}</p>
                 <p className="mt-2 text-xs leading-relaxed text-ink-light opacity-80">{labels.projectsPageDesc}</p>
               </div>
-              <div className="flex flex-wrap gap-3">
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={draftProjectsPageEnabled}
-                  disabled={isLoading}
-                  onClick={() => setDraftProjectsPageEnabled((enabled) => !enabled)}
-                  className={`min-w-28 border px-4 py-2 text-sm tracking-widest transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
-                    draftProjectsPageEnabled
-                      ? 'border-ochre text-ochre hover:bg-ochre hover:text-paper'
-                      : 'border-ink-light text-ink-light hover:border-ink hover:text-ink'
-                  }`}
-                >
-                  {draftProjectsPageEnabled ? labels.enabled : labels.disabled}
-                </button>
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={!draftProjectsNavHidden}
-                  disabled={isLoading}
-                  onClick={() => setDraftProjectsNavHidden((hidden) => !hidden)}
-                  className={`min-w-28 border px-4 py-2 text-sm tracking-widest transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
-                    !draftProjectsNavHidden
-                      ? 'border-ochre text-ochre hover:bg-ochre hover:text-paper'
-                      : 'border-ink-light text-ink-light hover:border-ink hover:text-ink'
-                  }`}
-                >
-                  {draftProjectsNavHidden ? labels.navHidden : labels.navVisible}
-                </button>
+              <div className="flex flex-col gap-3">
+                <div className="flex items-center gap-3">
+                  <Switch
+                    checked={draftProjectsPageEnabled}
+                    onCheckedChange={setDraftProjectsPageEnabled}
+                    disabled={isLoading}
+                    label={labels.projectsPage}
+                  />
+                  <span className="text-xs tracking-widest text-ink-light">
+                    {draftProjectsPageEnabled ? labels.enabled : labels.disabled}
+                  </span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <Switch
+                    checked={!draftProjectsNavHidden}
+                    onCheckedChange={(next) => setDraftProjectsNavHidden(!next)}
+                    disabled={isLoading}
+                    label={labels.navVisible}
+                  />
+                  <span className="text-xs tracking-widest text-ink-light">
+                    {draftProjectsNavHidden ? labels.navHidden : labels.navVisible}
+                  </span>
+                </div>
               </div>
             </div>
           </div>
@@ -331,21 +318,24 @@ const AdminSettings: React.FC = () => {
         </section>
 
         <div className="flex flex-wrap gap-3">
-          <button
+          <Button
             type="submit"
-            disabled={isLoading || !hasChanges}
-            className="px-4 py-2 border border-ink text-ink hover:bg-ink hover:text-paper tracking-widest text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+            variant="primary"
+            size="md"
+            disabled={!hasChanges}
+            loading={isLoading}
           >
             {isLoading ? t('common.saving') : t('common.save')}
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
+            variant="ghost"
+            size="md"
             disabled={isLoading || !hasChanges}
             onClick={handleReset}
-            className="px-4 py-2 border border-mountain-grey text-ink-light hover:border-ochre hover:text-ochre tracking-widest text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-50"
           >
             {t('common.cancel')}
-          </button>
+          </Button>
         </div>
       </form>
     </div>

@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import InlineNotice from '../../components/InlineNotice';
 import PagePendingState from '../../components/RoutePending';
+import Switch from '../../components/ui/Switch';
+import Button from '../../components/ui/Button';
 import { getAISettings, updateAISettings } from '../../api/aiSettings';
 import { getErrorMessage } from '../../utils/error';
 import { usePreferenceStore } from '../../store/preferences';
@@ -102,20 +104,17 @@ const AdminAISettings: React.FC = () => {
                 <h4 className="text-base font-bold tracking-widest text-ink">{text.enableTitle}</h4>
                 <p className="mt-2 text-sm leading-relaxed text-ink-light opacity-80">{text.enableDesc}</p>
               </div>
-              <button
-                type="button"
-                role="switch"
-                aria-checked={enabled}
-                disabled={saving}
-                onClick={() => setEnabled((value) => !value)}
-                className={`min-w-32 border px-4 py-2 text-sm tracking-widest transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
-                  enabled
-                    ? 'border-ochre text-ochre hover:bg-ochre hover:text-paper'
-                    : 'border-ink-light text-ink-light hover:border-ink hover:text-ink'
-                }`}
-              >
-                {enabled ? text.enabled : text.disabled}
-              </button>
+              <div className="flex items-center gap-3">
+                <Switch
+                  checked={enabled}
+                  onCheckedChange={setEnabled}
+                  disabled={saving}
+                  label={text.enableTitle}
+                />
+                <span className="text-xs tracking-widest text-ink-light">
+                  {enabled ? text.enabled : text.disabled}
+                </span>
+              </div>
             </div>
           </section>
 
@@ -195,13 +194,15 @@ const AdminAISettings: React.FC = () => {
           </section>
 
           <div className="flex flex-wrap gap-3">
-            <button
+            <Button
               type="submit"
-              disabled={saving || timeoutInvalid}
-              className="border border-ink px-4 py-2 text-sm tracking-widest text-ink transition-colors hover:bg-ink hover:text-paper disabled:cursor-not-allowed disabled:opacity-50"
+              variant="primary"
+              size="md"
+              disabled={timeoutInvalid}
+              loading={saving}
             >
               {saving ? text.saving : text.save}
-            </button>
+            </Button>
           </div>
         </form>
       )}

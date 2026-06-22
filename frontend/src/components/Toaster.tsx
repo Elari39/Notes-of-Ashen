@@ -41,7 +41,7 @@ const ToastEntry: React.FC<{ toast: ToastItem }> = ({ toast }) => {
         type="button"
         onClick={() => dismissToast(toast.id)}
         aria-label={dismissLabel}
-        className="shrink-0 text-ink-light opacity-70 transition-opacity hover:opacity-100"
+        className="-m-2 inline-flex h-11 w-11 shrink-0 items-center justify-center text-ink-light opacity-70 transition-opacity hover:opacity-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ochre"
       >
         ✕
       </button>
