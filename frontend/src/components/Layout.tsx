@@ -285,7 +285,7 @@ const Layout: React.FC = () => {
               setIsMobileMenuOpen((open) => !open);
               setIsPreferenceOpen(false);
             }}
-            className="flex h-10 w-10 shrink-0 flex-col items-center justify-center gap-1.5 border border-mountain-grey text-ink transition-colors hover:border-ochre hover:text-ochre md:hidden"
+            className="flex h-11 w-11 shrink-0 flex-col items-center justify-center gap-1.5 border border-mountain-grey text-ink transition-colors hover:border-ochre hover:text-ochre md:hidden"
           >
             <span className={`h-px w-5 bg-current transition-transform ${isMobileMenuOpen ? 'translate-y-2 rotate-45' : ''}`}></span>
             <span className={`h-px w-5 bg-current transition-opacity ${isMobileMenuOpen ? 'opacity-0' : 'opacity-100'}`}></span>
@@ -297,10 +297,10 @@ const Layout: React.FC = () => {
             <PreloadLink to="/archive" preload={routeLoaders.archive} className={desktopLinkClass}>{t('nav.archive')}</PreloadLink>
             <PreloadLink to="/search" preload={routeLoaders.search} className={desktopLinkClass}>{t('nav.search')}</PreloadLink>
             {projectsPageEnabled && !projectsNavHidden && (
-              <PreloadLink to="/projects" preload={routeLoaders.projects} className={desktopLinkClass}>{language === 'zh' ? '项目' : 'Projects'}</PreloadLink>
+              <PreloadLink to="/projects" preload={routeLoaders.projects} className={desktopLinkClass}>{t('nav.projects')}</PreloadLink>
             )}
             {resumePageEnabled && !resumeNavHidden && (
-              <PreloadLink to="/resume" preload={routeLoaders.resume} className={desktopLinkClass}>{language === 'zh' ? '简介' : 'About'}</PreloadLink>
+              <PreloadLink to="/resume" preload={routeLoaders.resume} className={desktopLinkClass}>{t('nav.resume')}</PreloadLink>
             )}
             {user ? (
               <>
@@ -338,10 +338,10 @@ const Layout: React.FC = () => {
             <PreloadLink to="/archive" preload={routeLoaders.archive} onClick={closeMobileMenu} className={mobileLinkClass}>{t('nav.archive')}</PreloadLink>
             <PreloadLink to="/search" preload={routeLoaders.search} onClick={closeMobileMenu} className={mobileLinkClass}>{t('nav.search')}</PreloadLink>
             {projectsPageEnabled && !projectsNavHidden && (
-              <PreloadLink to="/projects" preload={routeLoaders.projects} onClick={closeMobileMenu} className={mobileLinkClass}>{language === 'zh' ? '项目' : 'Projects'}</PreloadLink>
+              <PreloadLink to="/projects" preload={routeLoaders.projects} onClick={closeMobileMenu} className={mobileLinkClass}>{t('nav.projects')}</PreloadLink>
             )}
             {resumePageEnabled && !resumeNavHidden && (
-              <PreloadLink to="/resume" preload={routeLoaders.resume} onClick={closeMobileMenu} className={mobileLinkClass}>{language === 'zh' ? '简介' : 'About'}</PreloadLink>
+              <PreloadLink to="/resume" preload={routeLoaders.resume} onClick={closeMobileMenu} className={mobileLinkClass}>{t('nav.resume')}</PreloadLink>
             )}
             {user ? (
               <>

@@ -34,6 +34,8 @@ const zh = {
   'nav.profile': '个人资料',
   'nav.menuOpen': '打开菜单',
   'nav.menuClose': '关闭菜单',
+  'nav.projects': '项目',
+  'nav.resume': '简介',
 
   'preferences.trigger': '偏好',
   'preferences.openLabel': '打开语言和主题设置',
@@ -335,6 +337,8 @@ const en: Record<TranslationKey, string> = {
   'nav.profile': 'Profile',
   'nav.menuOpen': 'Open menu',
   'nav.menuClose': 'Close menu',
+  'nav.projects': 'Projects',
+  'nav.resume': 'About',
 
   'preferences.trigger': 'Prefs',
   'preferences.openLabel': 'Open language and theme settings',

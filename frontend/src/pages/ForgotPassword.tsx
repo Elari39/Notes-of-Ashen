@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { resetPassword, sendVerifyCode } from '../api/auth';
 import CaptchaField from '../components/CaptchaField';
 import InlineNotice from '../components/InlineNotice';
+import Button from '../components/ui/Button';
 import { useCountdown } from '../hooks/useCountdown';
 import { formatText, translate } from '../i18n';
 import { usePreferenceStore } from '../store/preferences';
@@ -104,18 +105,21 @@ const ForgotPassword: React.FC = () => {
               className="min-w-0 flex-1 bg-transparent border-b border-mountain-grey py-2 px-1 text-ink focus:outline-none focus:border-ochre transition-colors placeholder-ink-light placeholder-opacity-50"
               required
             />
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="sm"
               onClick={handleSendEmailCode}
               disabled={sendingCode || isResending || !email.trim() || !captchaId || !captchaCode.trim()}
-              className="h-10 shrink-0 border border-ink px-4 text-xs tracking-widest text-ink hover:bg-ink hover:text-paper transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              loading={sendingCode}
+              className="h-10 shrink-0"
             >
               {sendingCode
                 ? t('auth.sendingEmailCode')
                 : isResending
                   ? formatText(t('auth.resendIn'), { n: resendRemaining })
                   : t('auth.sendEmailCode')}
-            </button>
+            </Button>
           </div>
           <div>
             <input
@@ -140,13 +144,15 @@ const ForgotPassword: React.FC = () => {
           <InlineNotice message={error} />
           <InlineNotice message={message} tone="success" />
           <div className="pt-4">
-            <button
+            <Button
               type="submit"
-              disabled={submitting}
-              className="w-full border border-ink text-ink py-3 hover:bg-ink hover:text-paper transition-colors duration-300 tracking-widest disabled:opacity-50 disabled:cursor-not-allowed"
+              variant="primary"
+              size="lg"
+              loading={submitting}
+              fullWidth
             >
               {submitting ? t('auth.resetPasswordSubmitting') : t('auth.resetPasswordSubmit')}
-            </button>
+            </Button>
           </div>
           <div className="text-center text-sm text-ink-light opacity-70 mt-4">
             <Link to="/login" className="hover:text-ochre transition-colors">{t('auth.goLogin')}</Link>

@@ -7,6 +7,7 @@ import { useSiteSettingsStore } from '../store/siteSettings';
 import CaptchaField from '../components/CaptchaField';
 import FormField from '../components/FormField';
 import InlineNotice from '../components/InlineNotice';
+import Button from '../components/ui/Button';
 import { translate } from '../i18n';
 import { useFormValidation, type FieldRules } from '../hooks/useFormValidation';
 import { useSubmit } from '../hooks/useSubmit';
@@ -130,7 +131,7 @@ const Login: React.FC = () => {
               </button>
             </div>
             {errors.password && (
-              <p id="login-password-error" role="alert" className="mt-2 border-l-2 border-ochre bg-[var(--notice-bg)] px-3 py-2 text-xs text-ochre">
+              <p id="login-password-error" role="alert" className="mt-2 border-l-2 border-danger bg-[var(--notice-bg)] px-3 py-2 text-xs text-danger">
                 {errors.password}
               </p>
             )}
@@ -145,13 +146,15 @@ const Login: React.FC = () => {
           />
           <InlineNotice message={error} />
           <div className="pt-4">
-            <button
+            <Button
               type="submit"
-              disabled={submitting}
-              className="w-full border border-ink text-ink py-3 hover:bg-ink hover:text-paper transition-colors duration-300 tracking-widest disabled:opacity-50 disabled:cursor-not-allowed"
+              variant="primary"
+              size="lg"
+              loading={submitting}
+              fullWidth
             >
               {submitting ? t('auth.loginSubmitting') : t('auth.loginSubmit')}
-            </button>
+            </Button>
           </div>
           {registrationEnabled && (
             <div className="text-center text-sm text-ink-light opacity-70 mt-4">
