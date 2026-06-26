@@ -47,14 +47,6 @@ var aiActions = map[string]struct{}{
 	"translate": {},
 }
 
-func List(ctx context.Context, svcCtx *svc.ServiceContext, page, size int, status string) (*types.ArticleListResp, error) {
-	return list(ctx, svcCtx, types.ArticleListReq{
-		Page:   page,
-		Size:   size,
-		Status: status,
-	})
-}
-
 func ListByFilter(ctx context.Context, svcCtx *svc.ServiceContext, req types.ArticleListReq) (*types.ArticleListResp, error) {
 	return list(ctx, svcCtx, req)
 }
@@ -225,7 +217,9 @@ func Like(ctx context.Context, svcCtx *svc.ServiceContext, id uint64, meta types
 		if err := svcCtx.Redis.SAdd(ctx, hourKey, visitorHash).Err(); err != nil {
 			logx.Errorf("record article like hour set failed: %v", err)
 		} else {
-			_ = svcCtx.Redis.Expire(ctx, hourKey, time.Hour).Err()
+			if err := svcCtx.Redis.Expire(ctx, hourKey, time.Hour).Err(); err != nil {
+				logx.Errorf("set article like hour key expire failed: %v", err)
+			}
 			if cnt, err := svcCtx.Redis.SCard(ctx, hourKey).Result(); err != nil {
 				logx.Errorf("count article like hour set failed: %v", err)
 			} else if cnt > articleLikePerHourLimit {

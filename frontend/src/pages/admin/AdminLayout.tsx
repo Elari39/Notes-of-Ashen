@@ -125,7 +125,7 @@ const AdminLayout: React.FC = () => {
 
       <div className="flex-grow min-w-0">
         {breadcrumbSegments.length > 0 && (
-          <nav aria-label="breadcrumb" className="mb-6 hidden flex-wrap items-center gap-1.5 text-xs tracking-widest text-ink-light md:flex">
+          <nav aria-label={t('common.breadcrumb')} className="mb-6 hidden flex-wrap items-center gap-1.5 text-xs tracking-widest text-ink-light md:flex">
             {breadcrumbSegments.map((seg, idx) => {
               const isLast = idx === breadcrumbSegments.length - 1;
               return (

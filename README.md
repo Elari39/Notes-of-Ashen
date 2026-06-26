@@ -136,6 +136,7 @@ Copy-Item .env.example .env
 
 - `APP_DISPLAY_NAME`：站点对外展示名称，默认 `Notes of Ashen`（当前版本后端未读取，预留）。
 - `APP_AUTH_ACCESS_SECRET`：JWT 签名密钥，生产环境必须替换为足够长的随机字符串，建议至少 32 位。
+- `APP_AUTH_COOKIE_SECURE`：refreshToken Cookie 的 Secure 标志，生产 HTTPS 保持 `true`；本机 HTTP 开发需设为 `false`，否则浏览器不会保存 Cookie，刷新页面无法恢复会话。
 - `APP_DATABASE_DSN`：远程 MySQL 连接串，例如 `notes_user:password@tcp(mysql.example.com:3306)/notes_of_ashen?charset=utf8mb4&parseTime=true&loc=Local`。如需固定 MySQL 会话时区，可追加 `&time_zone='%2B08:00'`（URL 转义后为 `%27%2B08%3A00%27`）。
 - `APP_DATABASE_MAX_OPEN_CONNS`：MySQL 最大打开连接数。
 - `APP_DATABASE_MAX_IDLE_CONNS`：MySQL 最大空闲连接数。
@@ -144,11 +145,17 @@ Copy-Item .env.example .env
 - `APP_REDIS_DB`：Redis DB 编号，默认 `0`。
 - `APP_RABBITMQ_ENABLED`：是否启用 RabbitMQ 异步日志，默认 `true`。
 - `APP_RABBITMQ_URL`：远程 RabbitMQ AMQP 地址，例如 `amqp://rabbit_user:password@rabbitmq.example.com:5672/`。
+- `APP_RABBITMQ_EXCHANGE`：RabbitMQ 交换器名，默认 `notes-of-ashen.events`，通常无需修改。
+- `APP_RABBITMQ_QUEUE`：RabbitMQ 队列名，默认 `notes-of-ashen.operation_logs`，通常无需修改。
+- `APP_RABBITMQ_ROUTING_KEY`：RabbitMQ 路由键，默认 `operation.log`，通常无需修改。
 - `APP_SEARCH_ENABLED`：是否启用 Meilisearch 全文搜索，默认 `false`，关闭时自动回退 MySQL 查询。
 - `APP_MEILISEARCH_HOST`：API 访问 Meilisearch 的地址，Docker 部署默认 `http://meilisearch:7700`。
 - `APP_MEILISEARCH_API_KEY`：Meilisearch API Key；Docker 部署时也作为 Meilisearch Master Key。即使搜索默认关闭，Compose 中的 Meilisearch 容器也需要该值，请在 `.env` 中填写强随机字符串。
 - `APP_MEILISEARCH_INDEX`：文章索引名，默认 `articles`。
 - `APP_EMAIL_ENABLED`：是否启用邮箱验证码，使用 QQ 邮箱时设置为 `true`。
+- `APP_EMAIL_SMTP_HOST`：SMTP 服务器地址，默认 `smtp.qq.com`。
+- `APP_EMAIL_SMTP_PORT`：SMTP 端口，默认 `465`（隐式 TLS）；使用 587 时需配合 `APP_EMAIL_TLS_MODE=starttls`。
+- `APP_EMAIL_TLS_MODE`：TLS 模式，`implicit`（465 隐式 TLS，默认）、`starttls`（587 STARTTLS）、`none`（明文，仅内网测试）。
 - `APP_EMAIL_SMTP_USERNAME`：QQ 邮箱账号，例如 `yourname@qq.com`。
 - `APP_EMAIL_SMTP_PASSWORD`：QQ 邮箱 SMTP 授权码，不是 QQ 登录密码。
 - `APP_EMAIL_FROM`：发件邮箱，通常和 `APP_EMAIL_SMTP_USERNAME` 一致；留空时后端会回退使用 SMTP 用户名。
@@ -189,6 +196,7 @@ Copy-Item .env.example .env
   10. `drop_traffic_geo.sql` — 移除流量地理表（`traffic_geo_*`）
   11. `cleanup_invalid_avatar_url.sql` — 清理无效头像 URL
   12. `add_article_tags_tag_index.sql` — 文章标签索引
+  13. `add_article_category_author_index.sql` — 文章分类/作者索引
 
   > 注意：`article_versions` 表的 `like_count` / `is_pinned` / `display_priority` 三列分别由第 3、4 步脚本补齐，必须在 `add_content_growth_features.sql`（第 2 步）之后执行，否则 `model/article.go` 的 `articleVersionSelectFields` 查询会因缺列报 `Unknown column`。
 - 确认远程 Redis、RabbitMQ 防火墙和安全组允许 1Panel 服务器访问，避免对公网裸露。
@@ -202,6 +210,8 @@ Copy-Item .env.example .env
 APP_EMAIL_ENABLED=true
 APP_EMAIL_SMTP_HOST=smtp.qq.com
 APP_EMAIL_SMTP_PORT=465
+# TLS 模式：implicit(465 隐式 TLS) | starttls(587 STARTTLS) | none(明文,仅内网测试)
+APP_EMAIL_TLS_MODE=implicit
 APP_EMAIL_SMTP_USERNAME=yourname@qq.com
 APP_EMAIL_SMTP_PASSWORD=your-qq-mail-auth-code
 APP_EMAIL_FROM=yourname@qq.com
@@ -225,9 +235,17 @@ APP_AI_API_KEY=your-ai-api-key
 APP_AI_MODEL=your-model-name
 APP_AI_KEY_ENCRYPTION_SECRET=replace-with-a-different-long-random-secret
 APP_AI_TIMEOUT_SECONDS=600
+APP_AI_FIRST_BYTE_TIMEOUT_SECONDS=60
+APP_AI_STREAM_TIMEOUT_SECONDS=300
+APP_AI_NON_STREAM_TIMEOUT_SECONDS=600
+# 可选覆盖（留空时使用默认值）：
+# APP_AI_TEMPERATURE=0.3
+# APP_AI_MAX_TOKENS=4000
 ```
 
 `APP_AI_BASE_URL` 可以填写兼容 OpenAI Chat Completions 的基础地址，例如 `https://api.example.com/v1`；如果服务商只提供完整端点，也可以填写到 `/chat/completions`。不要把真实 API Key 写入 README、Issue、提交记录或截图中。
+
+`APP_AI_TIMEOUT_SECONDS` 是兜底超时，已被 `APP_AI_FIRST_BYTE_TIMEOUT_SECONDS`（首字等待）、`APP_AI_STREAM_TIMEOUT_SECONDS`（流式总超时）、`APP_AI_NON_STREAM_TIMEOUT_SECONDS`（非流式总超时）三段细化覆盖。`APP_AI_TEMPERATURE`（留空回退默认 `0.3`）和 `APP_AI_MAX_TOKENS`（留空按 action 回退默认值）为可选覆盖项。
 
 `APP_AI_KEY_ENCRYPTION_SECRET` 只用于加密后台保存的 AI API Key。旧版本已保存的密文仍可读取；管理员再次保存 AI 设置时会写入新格式密文。
 

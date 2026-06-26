@@ -1,4 +1,6 @@
 import React from 'react';
+import { usePreferenceStore } from '../../store/preferences';
+import { translate } from '../../i18n';
 
 type TagTone = 'neutral' | 'ochre' | 'success' | 'warning' | 'danger' | 'info';
 type Size = 'sm' | 'md';
@@ -42,6 +44,7 @@ const Tag: React.FC<TagProps> = ({
   children,
   className = '',
 }) => {
+  const language = usePreferenceStore((state) => state.language);
   return (
     <span
       className={[
@@ -62,8 +65,8 @@ const Tag: React.FC<TagProps> = ({
             e.stopPropagation();
             onRemove();
           }}
-          aria-label="remove"
-          className="inline-flex items-center justify-center p-0.5 opacity-60 hover:opacity-100 transition-opacity"
+          aria-label={translate(language, 'common.remove')}
+          className="inline-flex items-center justify-center min-w-[44px] min-h-[44px] -my-2 p-0.5 opacity-60 hover:opacity-100 transition-opacity"
         >
           ✕
         </button>

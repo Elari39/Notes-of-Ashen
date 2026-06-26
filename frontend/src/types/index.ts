@@ -1,11 +1,17 @@
+export type UserRole = 'user' | 'editor' | 'admin';
+
+export type UserStatus = 'active' | 'disabled';
+
+export type ArticleStatus = 'draft' | 'published' | 'archived';
+
 export interface User {
   id: number;
   account: string;
   email: string;
   avatarUrl: string;
   nickname: string;
-  role: string;
-  status: string;
+  role: UserRole;
+  status: UserStatus;
   createdAt: string;
   updatedAt: string;
 }
@@ -127,7 +133,7 @@ export interface Article {
   summary: string;
   content?: string;
   coverUrl: string;
-  status: string;
+  status: ArticleStatus;
   viewCount: number;
   likeCount: number;
   scheduledAt?: string;
@@ -168,7 +174,7 @@ export interface ArticleVersion {
   summary: string;
   content?: string;
   coverUrl: string;
-  status: string;
+  status: ArticleStatus;
   viewCount: number;
   likeCount: number;
   scheduledAt?: string;
@@ -238,5 +244,8 @@ export interface PaginatedResp<T> {
 export interface BaseResp<T = unknown> {
   code: number;
   message: string;
+  // 后端 NoData 响应和错误响应因 omitempty 会省略 data 字段，
+  // 但前端仅在成功响应中读取 data（NoData 用于 mutation，调用方不读 data），
+  // 因此保持必填以避免全项目散布 null 检查。
   data: T;
 }

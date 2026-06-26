@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pnpm type-check *)",
+      "Bash(npx tsc *)",
+      "Bash(pnpm install *)",
+      "Bash(docker compose *)",
+      "Bash(docker run *)"
+    ]
+  }
+}

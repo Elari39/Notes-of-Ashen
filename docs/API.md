@@ -53,12 +53,13 @@ Authorization: Bearer <accessToken>
 | code | HTTP 状态码 | 含义 |
 | --- | --- | --- |
 | 40000 | 400 | 请求参数错误 |
-| 40100 | 401 | 未登录、Token 缺失、Token 无效或过期 |
+| 40100 | 401 | 未登录、Token 缺失、Token 无效或过期，或登录凭据不正确 |
 | 40300 | 403 | 权限不足、注册关闭、用户被禁用或功能未启用 |
 | 40400 | 404 | 资源不存在 |
 | 40900 | 409 | 资源冲突，例如账号、邮箱、slug 重复 |
 | 42900 | 429 | 请求过于频繁 |
 | 50000 | 500 | 服务内部错误 |
+| 50300 | 503 | 限流器等依赖故障导致服务暂时不可用 |
 
 列表接口统一支持分页：
 
@@ -98,7 +99,7 @@ Authorization: Bearer <accessToken>
 GET /healthz
 ```
 
-无需鉴权。返回 `200 OK`（纯文本 `ok`）表示进程存活、依赖初始化完成。用于容器 healthcheck / 负载均衡探活。注意 `/healthz` 为手写 handler，未在 `api/notes-of-ashen.api` 中声明（详见该文件头注释）。
+无需鉴权。返回 JSON 格式的健康报告，`Content-Type: application/json`。全部依赖正常时返回 `200 OK`，响应体 `{"status":"ok","checks":{"db":{"status":"up"},"redis":{"status":"up"},...}}`；存在依赖不可用时返回 `503 Service Unavailable`，`status` 为 `"degraded"`，对应 `checks` 条目中 `status` 为 `"down"` 并附带 `error` 字段。用于容器 healthcheck / 负载均衡探活。注意 `/healthz` 为手写 handler，不使用统一 `{ code, message, data }` 响应封装，也未在 `api/notes-of-ashen.api` 中声明（详见该文件头注释）。
 
 ## 认证接口
 

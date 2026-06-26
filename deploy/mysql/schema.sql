@@ -235,6 +235,8 @@ CREATE TABLE IF NOT EXISTS articles (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     INDEX idx_articles_status_schedule (status, scheduled_at),
     INDEX idx_articles_display_order (status, scheduled_at, is_pinned, display_priority, published_at, id),
+    INDEX idx_articles_category (category_id, status, scheduled_at),
+    INDEX idx_articles_author (author_id, status),
     FULLTEXT KEY ft_articles_title_content (title, content)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE utf8mb4_0900_ai_ci;
 

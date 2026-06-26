@@ -1,5 +1,5 @@
 import http from '../utils/http';
-import { BaseResp, User, Log, PaginatedResp } from '../types';
+import { BaseResp, User, Log, UserRole, UserStatus, PaginatedResp } from '../types';
 import {
   PageParams,
   UpdatePasswordReq,
@@ -25,10 +25,10 @@ export const updatePassword = (data: UpdatePasswordReq) =>
 export const getUsers = (params?: PageParams) => 
   http.get<unknown, BaseResp<PaginatedResp<User>>>('/admin/users', { params });
 
-export const updateUserStatus = (id: number, status: string) => 
+export const updateUserStatus = (id: number, status: UserStatus) =>
   http.patch<unknown, BaseResp>(`/admin/users/${id}/status`, { status } as UpdateUserStatusReq);
 
-export const updateUserRole = (id: number, role: string) =>
+export const updateUserRole = (id: number, role: UserRole) =>
   http.patch<unknown, BaseResp>(`/admin/users/${id}/role`, { role } as UpdateUserRoleReq);
 
 export const getLogs = (params?: PageParams) => 

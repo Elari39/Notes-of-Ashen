@@ -3,10 +3,10 @@ USE notes_of_ashen;
 -- Site settings for system-level switches such as account registration.
 CREATE TABLE IF NOT EXISTS site_settings (
     setting_key VARCHAR(64) NOT NULL PRIMARY KEY,
-    setting_value VARCHAR(255) NOT NULL,
+    setting_value MEDIUMTEXT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE utf8mb4_0900_ai_ci;
 
 INSERT INTO site_settings (setting_key, setting_value)
 VALUES ('registration_enabled', 'true')

@@ -169,7 +169,7 @@ func ChangePassword(ctx context.Context, svcCtx *svc.ServiceContext, req types.C
 		return logicutil.MapError(err)
 	}
 	if err := bcrypt.CompareHashAndPassword([]byte(u.PasswordHash), []byte(req.OldPassword)); err != nil {
-		return apperrors.Unauthorized("old password is incorrect")
+		return apperrors.BadRequest("old password is incorrect")
 	}
 	if err := security.ConsumeEmailCode(ctx, svcCtx.Redis, "change_password", u.Email, req.EmailCode); err != nil {
 		return err

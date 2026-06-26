@@ -102,7 +102,7 @@ type SiteSettingsResp {
 
 type UpdateSiteSettingsReq {
 	RegistrationEnabled *bool  `json:"registrationEnabled,optional"`
-	HomeArticleLayout   string `json:"homeArticleLayout"`
+	HomeArticleLayout   string `json:"homeArticleLayout,optional"`
 	SiteTitle           string `json:"siteTitle,optional"`
 	SiteDescription     string `json:"siteDescription,optional"`
 	SiteKeywords        string `json:"siteKeywords,optional"`

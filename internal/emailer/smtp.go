@@ -145,7 +145,7 @@ func (s *Sender) validate() error {
 		s.conf.SMTPPort <= 0 ||
 		strings.TrimSpace(s.conf.SMTPUsername) == "" ||
 		strings.TrimSpace(s.conf.SMTPPassword) == "" {
-		return apperrors.Internal("email service is not configured")
+		return apperrors.ServiceUnavailable("email service is not configured")
 	}
 	return nil
 }

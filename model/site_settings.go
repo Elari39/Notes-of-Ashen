@@ -268,14 +268,6 @@ ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)`,
 	return err
 }
 
-func (s *Store) UpdateRegistrationEnabled(ctx context.Context, enabled bool) error {
-	value := "false"
-	if enabled {
-		value = "true"
-	}
-	return s.UpsertSetting(ctx, RegistrationEnabledKey, value)
-}
-
 func (s *Store) UpdateSiteSettings(ctx context.Context, settings SiteSettings) error {
 	value := "false"
 	if settings.RegistrationEnabled {
@@ -409,10 +401,6 @@ ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)`,
 		}
 		return replaceProjectItemsTx(ctx, tx, items)
 	})
-}
-
-func (s *Store) UpdateHomeArticleLayout(ctx context.Context, layout string) error {
-	return s.UpsertSetting(ctx, HomeArticleLayoutKey, NormalizeHomeArticleLayout(layout))
 }
 
 func (s *Store) UpsertSetting(ctx context.Context, key, value string) error {

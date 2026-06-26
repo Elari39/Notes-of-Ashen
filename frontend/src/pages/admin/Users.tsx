@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { getUsers, updateUserRole, updateUserStatus } from '../../api/user';
-import { User } from '../../types';
+import { User, UserRole, UserStatus } from '../../types';
 import Pagination from '../../components/Pagination';
 import InlineNotice from '../../components/InlineNotice';
 import PagePendingState from '../../components/RoutePending';
@@ -53,8 +53,8 @@ const AdminUsers: React.FC = () => {
     fetchList();
   }, [fetchList]);
 
-  const handleStatus = async (id: number, currentStatus: string) => {
-    const newStatus = currentStatus === 'active' ? 'disabled' : 'active';
+  const handleStatus = async (id: number, currentStatus: UserStatus) => {
+    const newStatus: UserStatus = currentStatus === 'active' ? 'disabled' : 'active';
     const action = newStatus === 'active' ? t('users.activate') : t('users.disable');
     const ok = await confirm({
       title: formatText(t('users.confirmStatus'), { action }),
@@ -75,7 +75,7 @@ const AdminUsers: React.FC = () => {
     }
   };
 
-  const handleRole = async (id: number, role: string) => {
+  const handleRole = async (id: number, role: UserRole) => {
     setError('');
     setBusyId(id);
     try {
@@ -125,7 +125,7 @@ const AdminUsers: React.FC = () => {
                     <select
                       value={user.role}
                       disabled={busyId === user.id}
-                      onChange={(event) => handleRole(user.id, event.target.value)}
+                      onChange={(event) => handleRole(user.id, event.target.value as UserRole)}
                       className="bg-paper border border-mountain-grey px-2 py-1 text-sm text-ink outline-none focus:border-ochre disabled:opacity-50"
                     >
                       <option value="user">{getUserRoleLabel(language, 'user')}</option>

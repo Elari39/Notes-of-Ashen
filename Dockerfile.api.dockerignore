@@ -1,0 +1,40 @@
+# 仅在 Dockerfile.api 构建上下文生效（Docker 原生按 Dockerfile 名匹配 *.dockerignore）。
+# 后端镜像不需要前端源码，排除以减小构建上下文体积、加速构建。
+frontend/
+**/node_modules
+**/.pnpm-store
+**/dist
+**/dist-ssr
+**/.vite
+**/.cache
+**/.eslintcache
+playwright-report
+**/playwright-report
+test-results
+**/test-results
+
+# 前端本地配置
+frontend/.env
+frontend/.env.*
+frontend/.env.local
+
+# 前端文档
+frontend/README.md
+
+# 通用构建/测试产物与无关文件同样排除
+.git
+.github/
+docs/
+*.log
+**/logs
+*.exe
+*.test
+*.out
+coverage.out
+__debug_bin*
+.air
+tmp
+temp
+bin
+data
+**/data

@@ -15,7 +15,6 @@ const HEADING_ID_PREFIX = 'project-preview-';
 
 const ProjectPreviewModal: React.FC<ProjectPreviewModalProps> = ({ project, onClose }) => {
   const language = usePreferenceStore((state) => state.language);
-  const isZh = language === 'zh';
   const labels = getModalLabels(language);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [tocCollapsed, setTocCollapsed] = useState(false);
@@ -79,7 +78,7 @@ const ProjectPreviewModal: React.FC<ProjectPreviewModalProps> = ({ project, onCl
       className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/60 p-4 md:items-center md:p-8"
       role="dialog"
       aria-modal="true"
-      aria-label={isZh ? `项目详情：${project.title}` : `Project details: ${project.title}`}
+      aria-label={`${labels.detailsTitle}：${project.title}`}
       onClick={onClose}
     >
       <div
@@ -214,6 +213,7 @@ const ProjectPreviewModal: React.FC<ProjectPreviewModalProps> = ({ project, onCl
 const getModalLabels = (language: string) => language === 'zh'
   ? {
       close: '关闭项目详情',
+      detailsTitle: '项目详情',
       featured: '精选',
       demo: '演示',
       repo: '代码',
@@ -224,6 +224,7 @@ const getModalLabels = (language: string) => language === 'zh'
     }
   : {
       close: 'Close project details',
+      detailsTitle: 'Project details',
       featured: 'Featured',
       demo: 'Demo',
       repo: 'Repo',

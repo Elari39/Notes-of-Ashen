@@ -1,6 +1,6 @@
 import http from '../utils/http';
 import type { AxiosResponse } from 'axios';
-import { BaseResp, Article, ArticleContext, ArticleVersion, PaginatedResp } from '../types';
+import { BaseResp, Article, ArticleContext, ArticleVersion, ArticleStatus, PaginatedResp } from '../types';
 import {
   AIAssistReq,
   AIAssistResp,
@@ -8,6 +8,8 @@ import {
   CreateArticleReq,
   UpdateArticleReq,
   UpdateArticleStatusReq,
+  ArticleLikeResp,
+  SearchReindexResp,
 } from '../types/api';
 
 export const getArticles = (params?: ArticleListParams, signal?: AbortSignal) =>
@@ -26,7 +28,7 @@ export const getArticleContext = (id: number | string, signal?: AbortSignal) =>
   http.get<unknown, BaseResp<ArticleContext>>(`/articles/${id}/context`, { signal });
 
 export const likeArticle = (id: number | string) =>
-  http.post<unknown, BaseResp<{ liked: boolean; likeCount: number }>>(`/articles/${id}/like`);
+  http.post<unknown, BaseResp<ArticleLikeResp>>(`/articles/${id}/like`);
 
 export const createArticle = (data: CreateArticleReq) => 
   http.post<unknown, BaseResp<Article>>('/articles', data);
@@ -37,7 +39,7 @@ export const updateArticle = (id: number | string, data: UpdateArticleReq) =>
 export const deleteArticle = (id: number | string) => 
   http.delete<unknown, BaseResp>(`/articles/${id}`);
 
-export const updateArticleStatus = (id: number | string, status: string) => 
+export const updateArticleStatus = (id: number | string, status: ArticleStatus) =>
   http.patch<unknown, BaseResp<Article>>(`/articles/${id}/status`, { status } as UpdateArticleStatusReq);
 
 export const assistArticle = (data: AIAssistReq) =>
@@ -69,7 +71,7 @@ export const restoreArticleVersion = (id: number | string, versionNo: number | s
   http.post<unknown, BaseResp<Article>>(`/articles/${id}/versions/${versionNo}/restore`);
 
 export const reindexArticleSearch = () =>
-  http.post<unknown, BaseResp<{ indexed: number; enabled: boolean }>>('/admin/search/reindex');
+  http.post<unknown, BaseResp<SearchReindexResp>>('/admin/search/reindex');
 
 const filenameFromDisposition = (value?: string) => {
   if (!value) {

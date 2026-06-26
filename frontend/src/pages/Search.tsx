@@ -29,7 +29,7 @@ const Search: React.FC = () => {
   const [coverErrors, setCoverErrors] = useState<Record<number, boolean>>({});
   const size = 10;
   const t = (key: Parameters<typeof translate>[1]) => translate(language, key);
-  const pinnedLabel = language === 'zh' ? '\u7f6e\u9876' : 'Pinned';
+  const pinnedLabel = language === 'zh' ? '置顶' : 'Pinned';
   const query = (searchParams.get('q') || '').trim();
   const page = parsePositiveInt(searchParams.get('page'), 1);
   const categoryId = parsePositiveInt(searchParams.get('categoryId'), 0);

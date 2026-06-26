@@ -14,6 +14,7 @@ import (
 	"notes-of-ashen/internal/security"
 	"notes-of-ashen/internal/svc"
 	"notes-of-ashen/internal/types"
+
 	"notes-of-ashen/internal/validator"
 	"notes-of-ashen/model"
 
@@ -432,7 +433,9 @@ func validateRegister(req types.RegisterReq) error {
 func revokeRefreshTokenBestEffort(svcCtx *svc.ServiceContext, refreshHash string) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
-	_ = svcCtx.Store.RevokeRefreshToken(ctx, refreshHash)
+	if err := svcCtx.Store.RevokeRefreshToken(ctx, refreshHash); err != nil {
+		logx.Errorf("revoke refresh token failed during logout: %v", err)
+	}
 }
 
 func validateLogoutRefreshToken(token *model.RefreshToken, userID uint64, now time.Time) error {

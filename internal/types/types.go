@@ -13,7 +13,7 @@ type RegisterReq struct {
 	Account   string `json:"account"`
 	Password  string `json:"password"`
 	Email     string `json:"email"`
-	EmailCode string `json:"emailCode"`
+	EmailCode string `json:"emailCode,optional"`
 	Nickname  string `json:"nickname,optional"`
 	AvatarURL string `json:"avatarUrl,optional"`
 }
@@ -68,7 +68,7 @@ type SiteSettingsResp struct {
 
 type UpdateSiteSettingsReq struct {
 	RegistrationEnabled *bool  `json:"registrationEnabled,optional"`
-	HomeArticleLayout   string `json:"homeArticleLayout"`
+	HomeArticleLayout   string `json:"homeArticleLayout,optional"`
 	SiteTitle           string `json:"siteTitle,optional"`
 	SiteDescription     string `json:"siteDescription,optional"`
 	SiteKeywords        string `json:"siteKeywords,optional"`
@@ -393,7 +393,7 @@ type ArticleVersionResp struct {
 	SEOTitle          string     `json:"seoTitle"`
 	SEODescription    string     `json:"seoDescription"`
 	SEOKeywords       string     `json:"seoKeywords"`
-	TagIDs            []uint64   `json:"tagIds"`
+	TagIDs            []uint64   `json:"tagIds,omitempty"`
 	OriginalCreatedAt *time.Time `json:"originalCreatedAt,omitempty"`
 	OriginalUpdatedAt *time.Time `json:"originalUpdatedAt,omitempty"`
 	CreatedAt         time.Time  `json:"createdAt"`

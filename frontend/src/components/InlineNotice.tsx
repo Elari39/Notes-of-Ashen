@@ -1,4 +1,6 @@
 import React from 'react';
+import { usePreferenceStore } from '../store/preferences';
+import { translate } from '../i18n';
 
 export type InlineNoticeTone = 'error' | 'success' | 'warning' | 'info';
 
@@ -70,6 +72,7 @@ const InlineNotice: React.FC<InlineNoticeProps> = ({
   action,
   className = '',
 }) => {
+  const language = usePreferenceStore((state) => state.language);
   if (!message) return null;
 
   const role = tone === 'error' || tone === 'warning' ? 'alert' : 'status';
@@ -105,8 +108,8 @@ const InlineNotice: React.FC<InlineNoticeProps> = ({
         <button
           type="button"
           onClick={onDismiss}
-          aria-label="dismiss"
-          className="shrink-0 inline-flex items-center justify-center opacity-60 hover:opacity-100 transition-opacity"
+          aria-label={translate(language, 'common.dismiss')}
+          className="shrink-0 inline-flex items-center justify-center min-w-[44px] min-h-[44px] -my-2 opacity-60 hover:opacity-100 transition-opacity"
         >
           ✕
         </button>

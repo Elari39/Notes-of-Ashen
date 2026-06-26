@@ -2,6 +2,8 @@
  * API Request Payloads
  */
 
+import type { ArticleStatus, UserRole, UserStatus } from './index';
+
 export interface PageParams {
   page?: number;
   size?: number;
@@ -35,7 +37,7 @@ export type CaptchaPurpose = 'login' | 'register' | 'reset_password' | 'change_p
 export type VerifyCodePurpose = Exclude<CaptchaPurpose, 'login'>;
 
 export interface CaptchaReq {
-  purpose: CaptchaPurpose;
+  purpose?: CaptchaPurpose;
 }
 
 export interface CaptchaResp {
@@ -80,6 +82,7 @@ export interface UpdateResumePageReq {
 }
 
 export interface ResumeExperienceReq {
+  id?: number;
   role: string;
   organization: string;
   location: string;
@@ -91,6 +94,7 @@ export interface ResumeExperienceReq {
 }
 
 export interface ResumeEducationReq {
+  id?: number;
   school: string;
   degree: string;
   major: string;
@@ -103,11 +107,22 @@ export interface ResumeEducationReq {
 }
 
 export interface ResumeSkillReq {
+  id?: number;
   category: string;
   name: string;
   level: number;
   description: string;
   displayOrder: number;
+}
+
+export interface ArticleLikeResp {
+  liked: boolean;
+  likeCount: number;
+}
+
+export interface SearchReindexResp {
+  indexed: number;
+  enabled: boolean;
 }
 
 export interface ProjectItemReq {
@@ -154,18 +169,19 @@ export interface UserVerifyCodeReq {
 
 // Admin
 export interface UpdateUserStatusReq {
-  status: string; // 'active' | 'disabled'
+  status: UserStatus;
 }
 
 export interface UpdateUserRoleReq {
-  role: string; // 'user' | 'editor' | 'admin'
+  role: UserRole;
 }
 
 export interface ArticleListParams extends PageParams {
   q?: string;
   categoryId?: number;
   tagId?: number;
-  status?: string;
+  // 'scheduled' 为前端派生筛选值（后端识别为 published 且 scheduled_at 在未来）。
+  status?: ArticleStatus | 'scheduled';
 }
 
 // Article
@@ -176,7 +192,7 @@ export interface CreateArticleReq {
   summary?: string;
   content: string;
   coverUrl?: string;
-  status?: string; // 'draft' | 'published' | 'archived'
+  status?: ArticleStatus;
   scheduledAt?: string;
   isPinned?: boolean;
   displayPriority?: number;
@@ -186,10 +202,27 @@ export interface CreateArticleReq {
   tagIds?: number[];
 }
 
-export interface UpdateArticleReq extends Partial<CreateArticleReq> {}
+// 后端创建与更新共用同一类型；更新接口要求完整字段，但为兼容前端局部更新场景，
+// 这里显式展开为全部可选字段，与后端 logic 的「空值回退当前值」语义对齐。
+export interface UpdateArticleReq {
+  categoryId?: number;
+  title?: string;
+  slug?: string;
+  summary?: string;
+  content?: string;
+  coverUrl?: string;
+  status?: ArticleStatus;
+  scheduledAt?: string;
+  isPinned?: boolean;
+  displayPriority?: number;
+  seoTitle?: string;
+  seoDescription?: string;
+  seoKeywords?: string;
+  tagIds?: number[];
+}
 
 export interface UpdateArticleStatusReq {
-  status: string;
+  status: ArticleStatus;
 }
 
 export type AIAssistAction = 'metadata' | 'proofread' | 'polish' | 'expand' | 'shorten' | 'translate';
@@ -243,7 +276,11 @@ export interface CreateCategoryReq {
   description?: string;
 }
 
-export interface UpdateCategoryReq extends Partial<CreateCategoryReq> {}
+export interface UpdateCategoryReq {
+  name?: string;
+  slug?: string;
+  description?: string;
+}
 
 // Tag
 export interface CreateTagReq {
@@ -252,4 +289,8 @@ export interface CreateTagReq {
   description?: string;
 }
 
-export interface UpdateTagReq extends Partial<CreateTagReq> {}
+export interface UpdateTagReq {
+  name?: string;
+  slug?: string;
+  description?: string;
+}

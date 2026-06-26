@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { deleteArticle, exportArticleMarkdown, getAdminArticles, importMarkdownArticle, updateArticleStatus } from '../../api/article';
 import { getCategories } from '../../api/category';
 import { getTags } from '../../api/tag';
-import { Article, Category, Tag as TagModel } from '../../types';
+import { Article, ArticleStatus, Category, Tag as TagModel } from '../../types';
 import { Link, useNavigate } from 'react-router-dom';
 import Pagination from '../../components/Pagination';
 import InlineNotice from '../../components/InlineNotice';
@@ -27,7 +27,7 @@ const AdminArticles: React.FC = () => {
   const [busyId, setBusyId] = useState<number | null>(null);
   const [keyword, setKeyword] = useState('');
   const [appliedKeyword, setAppliedKeyword] = useState('');
-  const [status, setStatus] = useState('');
+  const [status, setStatus] = useState<ArticleStatus | 'scheduled' | ''>('');
   const [categoryId, setCategoryId] = useState(0);
   const [tagId, setTagId] = useState(0);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -131,7 +131,7 @@ const AdminArticles: React.FC = () => {
     setPage(1);
   };
 
-  const handleStatus = async (id: number, status: string) => {
+  const handleStatus = async (id: number, status: ArticleStatus) => {
     setError('');
     setBusyId(id);
     try {
@@ -235,7 +235,7 @@ const AdminArticles: React.FC = () => {
         <select
           value={status}
           onChange={(event) => {
-            setStatus(event.target.value);
+            setStatus(event.target.value as ArticleStatus | 'scheduled' | '');
             resetPage();
           }}
           className="bg-paper border border-mountain-grey px-3 py-2 text-sm text-ink outline-none focus:border-ochre"

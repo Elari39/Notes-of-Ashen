@@ -12,13 +12,15 @@ RUN pnpm install --frozen-lockfile
 COPY frontend/ ./
 RUN pnpm build
 
-FROM nginx:1.27-alpine
+# 使用非 root 的 nginx 镜像，worker 进程以 uid 101 运行，监听非特权端口 8080。
+FROM nginxinc/nginx-unprivileged:1.27-alpine
 
 ENV PRERENDER_ENABLED=0
 ENV PRERENDER_SERVICE_URL=https://service.prerender.io
 ENV PRERENDER_TOKEN=
 
 COPY deploy/nginx/default.conf /etc/nginx/templates/default.conf.template
+COPY deploy/nginx/10-limits.conf /etc/nginx/conf.d/10-limits.conf
 COPY --from=builder /app/dist /usr/share/nginx/html
 
-EXPOSE 80
+EXPOSE 8080

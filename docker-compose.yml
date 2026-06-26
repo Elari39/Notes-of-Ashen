@@ -2,7 +2,7 @@ name: notes-of-ashen
 
 services:
   web:
-    image: notes-of-ashen-web:latest
+    image: notes-of-ashen-web:${IMAGE_TAG:-latest}
     build:
       context: .
       dockerfile: Dockerfile.web
@@ -12,10 +12,16 @@ services:
       PRERENDER_SERVICE_URL: "${PRERENDER_SERVICE_URL:-https://service.prerender.io}"
       PRERENDER_TOKEN: "${PRERENDER_TOKEN:-}"
     ports:
-      - "127.0.0.1:${WEB_PORT:-1270}:80"
+      - "127.0.0.1:${WEB_PORT:-1270}:8080"
     depends_on:
       api:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/ || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 5s
     deploy:
       resources:
         limits:
@@ -29,7 +35,7 @@ services:
       org.opencontainers.image.title: "Notes of Ashen"
 
   api:
-    image: notes-of-ashen-api:latest
+    image: notes-of-ashen-api:${IMAGE_TAG:-latest}
     build:
       context: .
       dockerfile: Dockerfile.api
@@ -38,6 +44,8 @@ services:
       - "${APP_ENV_FILE:-.env}"
     environment:
       TZ: Asia/Shanghai
+      APP_HOST: "${APP_HOST:-0.0.0.0}"
+      APP_PORT: "${APP_PORT:-19000}"
       APP_TIMEOUT: "${APP_TIMEOUT:-610000}"
       APP_DATABASE_DSN: "${APP_DATABASE_DSN:?set APP_DATABASE_DSN in .env}"
       APP_DATABASE_MAX_OPEN_CONNS: "${APP_DATABASE_MAX_OPEN_CONNS:-20}"
@@ -46,7 +54,7 @@ services:
       APP_AUTH_ACCESS_EXPIRE: "${APP_AUTH_ACCESS_EXPIRE:-7200}"
       APP_AUTH_REFRESH_EXPIRE: "${APP_AUTH_REFRESH_EXPIRE:-604800}"
       APP_AUTH_COOKIE_SECURE: "${APP_AUTH_COOKIE_SECURE:-true}"
-      APP_REDIS_ADDR: "${APP_REDIS_ADDR}"
+      APP_REDIS_ADDR: "${APP_REDIS_ADDR:?set APP_REDIS_ADDR in .env}"
       APP_REDIS_PASSWORD: "${APP_REDIS_PASSWORD:-}"
       APP_REDIS_DB: "${APP_REDIS_DB:-0}"
       APP_SEARCH_ENABLED: "${APP_SEARCH_ENABLED:-false}"
@@ -54,7 +62,7 @@ services:
       APP_MEILISEARCH_API_KEY: "${APP_MEILISEARCH_API_KEY:?set APP_MEILISEARCH_API_KEY in .env}"
       APP_MEILISEARCH_INDEX: "${APP_MEILISEARCH_INDEX:-articles}"
       APP_RABBITMQ_ENABLED: "${APP_RABBITMQ_ENABLED:-true}"
-      APP_RABBITMQ_URL: "${APP_RABBITMQ_URL:?set APP_RABBITMQ_URL in .env}"
+      APP_RABBITMQ_URL: "${APP_RABBITMQ_URL:-}"
       APP_RABBITMQ_EXCHANGE: "${APP_RABBITMQ_EXCHANGE:-notes-of-ashen.events}"
       APP_RABBITMQ_QUEUE: "${APP_RABBITMQ_QUEUE:-notes-of-ashen.operation_logs}"
       APP_RABBITMQ_ROUTING_KEY: "${APP_RABBITMQ_ROUTING_KEY:-operation.log}"
@@ -100,6 +108,7 @@ services:
 
   meilisearch:
     image: getmeili/meilisearch:v1.13
+    profiles: ["search"]
     restart: unless-stopped
     environment:
       MEILI_ENV: "${MEILI_ENV:-production}"
@@ -110,7 +119,7 @@ services:
     expose:
       - "7700"
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:7700/health | grep -q available"]
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:7700/health | grep -q available"]
       interval: 10s
       timeout: 5s
       retries: 12

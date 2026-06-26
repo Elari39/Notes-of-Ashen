@@ -14,6 +14,8 @@ import (
 	"notes-of-ashen/internal/svc"
 	"notes-of-ashen/internal/types"
 	"notes-of-ashen/internal/validator"
+
+	"github.com/zeromicro/go-zero/core/logx"
 	"notes-of-ashen/model"
 
 	"github.com/redis/go-redis/v9"
@@ -89,7 +91,9 @@ func recordRedisTraffic(ctx context.Context, redisClient *redis.Client, date, vi
 	pipe.Expire(ctx, pvKey, trafficRetention)
 	pipe.Expire(ctx, uvKey, trafficRetention)
 	pipe.Expire(ctx, refererKey, trafficRetention)
-	_, _ = pipe.Exec(ctx)
+	if _, err := pipe.Exec(ctx); err != nil {
+		logx.Errorf("traffic redis pipeline exec failed: %v", err)
+	}
 }
 
 func isPublicTrafficPath(path string) bool {

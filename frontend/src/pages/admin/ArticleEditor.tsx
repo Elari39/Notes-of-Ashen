@@ -3,7 +3,7 @@ import { useLocation, useParams, useNavigate } from 'react-router-dom';
 import { assistArticle, getArticlePreview, createArticle, updateArticle } from '../../api/article';
 import { createCategory, getCategories } from '../../api/category';
 import { createTag, getTags } from '../../api/tag';
-import type { Article, Category, Tag } from '../../types';
+import type { Article, ArticleStatus, Category, Tag } from '../../types';
 import type { AIAssistAction } from '../../types/api';
 import InlineNotice from '../../components/InlineNotice';
 import MarkdownRenderer from '../../components/MarkdownRenderer';
@@ -324,7 +324,7 @@ const ArticleEditor: React.FC = () => {
   const [generateSummaryOnSave, setGenerateSummaryOnSave] = useState(true);
   const [content, setContent] = useState('');
   const [coverUrl, setCoverUrl] = useState('');
-  const [status, setStatus] = useState('draft');
+  const [status, setStatus] = useState<ArticleStatus>('draft');
   const [scheduledAt, setScheduledAt] = useState('');
   const [isPinned, setIsPinned] = useState(false);
   const [displayPriority, setDisplayPriority] = useState(0);
@@ -843,7 +843,7 @@ const ArticleEditor: React.FC = () => {
           className="w-full bg-transparent border-b border-mountain-grey py-2 text-ink focus:outline-none focus:border-ochre"
         />
         <select
-          value={status} onChange={e => setStatus(e.target.value)}
+          value={status} onChange={e => setStatus(e.target.value as ArticleStatus)}
           className="w-full bg-transparent border-b border-mountain-grey py-2 text-ink focus:outline-none focus:border-ochre"
         >
           <option value="draft">{getArticleStatusLabel(language, 'draft')}</option>
@@ -1124,7 +1124,7 @@ type EditorDraft = {
   generateSummaryOnSave: boolean;
   content: string;
   coverUrl: string;
-  status: string;
+  status: ArticleStatus;
   scheduledAt: string;
   isPinned: boolean;
   displayPriority: number;
@@ -1143,7 +1143,7 @@ type DraftSetters = {
   setGenerateSummaryOnSave: (value: boolean) => void;
   setContent: (value: string) => void;
   setCoverUrl: (value: string) => void;
-  setStatus: (value: string) => void;
+  setStatus: (value: ArticleStatus) => void;
   setScheduledAt: (value: string) => void;
   setIsPinned: (value: boolean) => void;
   setDisplayPriority: (value: number) => void;
