@@ -38,7 +38,7 @@ const variantClass: Record<Variant, string> = {
     'bg-transparent text-ink-light border border-transparent hover:bg-[var(--paper-soft)] hover:text-ink active:bg-[var(--paper-muted)] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent',
   // 危险操作：ghost 形态 + danger 文字 / hover 反白
   danger:
-    'bg-transparent text-danger border border-[var(--danger-soft)] hover:bg-danger hover:text-paper hover:border-danger active:brightness-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-danger',
+    'bg-transparent text-ember border border-[var(--ember-soft)] hover:bg-ember hover:text-paper hover:border-ember active:brightness-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-ember',
   // 纯文字按钮，配合 article a 链接样式
   link:
     'bg-transparent text-ochre border-0 underline decoration-[var(--code-border)] underline-offset-4 hover:decoration-ochre disabled:opacity-50 disabled:cursor-not-allowed',

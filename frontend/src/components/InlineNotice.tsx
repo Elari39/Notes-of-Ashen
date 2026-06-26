@@ -14,10 +14,10 @@ type InlineNoticeProps = {
 };
 
 const toneClass: Record<InlineNoticeTone, string> = {
-  error: 'border-danger text-danger',
-  success: 'border-success text-success',
-  warning: 'border-warning text-warning',
-  info: 'border-info text-info',
+  error: 'border-ember text-ember',
+  success: 'border-moss text-moss',
+  warning: 'border-amber text-amber',
+  info: 'border-dusk text-dusk',
 };
 
 const DefaultIcon: React.FC<{ tone: InlineNoticeTone }> = ({ tone }) => {

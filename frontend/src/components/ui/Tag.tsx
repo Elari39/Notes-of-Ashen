@@ -15,10 +15,10 @@ export type TagProps = {
 const toneClass: Record<TagTone, string> = {
   neutral: 'border-mountain-grey text-ink-light',
   ochre: 'border-[var(--code-border)] text-ochre bg-[var(--inline-code-bg)]',
-  success: 'border-[var(--success-soft)] text-success bg-[var(--success-soft)]',
-  warning: 'border-[var(--warning-soft)] text-warning bg-[var(--warning-soft)]',
-  danger: 'border-[var(--danger-soft)] text-danger bg-[var(--danger-soft)]',
-  info: 'border-[var(--info-soft)] text-info bg-[var(--info-soft)]',
+  success: 'border-[var(--moss-soft)] text-moss bg-[var(--moss-soft)]',
+  warning: 'border-[var(--amber-soft)] text-amber bg-[var(--amber-soft)]',
+  danger: 'border-[var(--ember-soft)] text-ember bg-[var(--ember-soft)]',
+  info: 'border-[var(--dusk-soft)] text-dusk bg-[var(--dusk-soft)]',
 };
 
 const sizeClass: Record<Size, string> = {

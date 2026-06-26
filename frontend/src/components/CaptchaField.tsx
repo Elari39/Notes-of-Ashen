@@ -100,7 +100,7 @@ const CaptchaField: React.FC<CaptchaFieldProps> = ({
           )}
         </button>
       </div>
-      {error && <p id={errorId} role="alert" className="text-xs leading-5 text-danger">{error}</p>}
+      {error && <p id={errorId} role="alert" className="text-xs leading-5 text-ember">{error}</p>}
     </div>
   );
 };

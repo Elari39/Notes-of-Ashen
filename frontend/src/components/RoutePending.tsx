@@ -23,7 +23,7 @@ const pendingLabels = {
 } as const;
 
 export const RoutePendingIndicator: React.FC<{ className?: string }> = ({ className = '' }) => (
-  <div className={`route-pending-indicator ${className}`.trim()} aria-hidden="true">
+  <div className={`route-ember-indicator ${className}`.trim()} aria-hidden="true">
     <span />
   </div>
 );
@@ -46,7 +46,7 @@ const PagePendingState: React.FC<PagePendingStateProps> = ({
       aria-live="polite"
       className={`${containerClass} ${className}`.trim()}
     >
-      <span className="pending-dot-row" aria-hidden="true">
+      <span className="ember-dot-row" aria-hidden="true">
         <span />
         <span />
         <span />

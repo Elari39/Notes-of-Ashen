@@ -56,7 +56,7 @@ const DropdownMenu: React.FC<DropdownMenuProps> = ({
                   'data-[highlighted]:bg-[var(--paper-soft)] data-[highlighted]:outline-none',
                   'data-[disabled]:opacity-50 data-[disabled]:cursor-not-allowed',
                   item.tone === 'danger'
-                    ? 'text-danger data-[highlighted]:bg-[var(--danger-soft)] data-[highlighted]:text-danger'
+                    ? 'text-ember data-[highlighted]:bg-[var(--ember-soft)] data-[highlighted]:text-ember'
                     : 'text-ink data-[highlighted]:text-ochre',
                 ].join(' ')}
               >

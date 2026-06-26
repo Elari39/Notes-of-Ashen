@@ -250,7 +250,7 @@ const Profile: React.FC = () => {
               className="w-full bg-transparent border-b border-mountain-grey py-2 px-1 text-ink focus:outline-none focus:border-ochre transition-colors placeholder-ink-light placeholder-opacity-50"
             />
             {pwdFieldErrors.oldPassword && (
-              <p className="mt-1 text-xs text-danger">{pwdFieldErrors.oldPassword}</p>
+              <p className="mt-1 text-xs text-ember">{pwdFieldErrors.oldPassword}</p>
             )}
           </div>
           <div>
@@ -263,7 +263,7 @@ const Profile: React.FC = () => {
               className="w-full bg-transparent border-b border-mountain-grey py-2 px-1 text-ink focus:outline-none focus:border-ochre transition-colors placeholder-ink-light placeholder-opacity-50"
             />
             {pwdFieldErrors.newPassword && (
-              <p className="mt-1 text-xs text-danger">{pwdFieldErrors.newPassword}</p>
+              <p className="mt-1 text-xs text-ember">{pwdFieldErrors.newPassword}</p>
             )}
           </div>
           <CaptchaField

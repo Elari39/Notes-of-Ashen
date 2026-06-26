@@ -51,7 +51,7 @@ const TextField = React.forwardRef<HTMLInputElement | HTMLTextAreaElement, TextF
     } = props;
 
     const toneClass = invalid
-      ? 'border-danger text-danger placeholder:text-danger/60'
+      ? 'border-ember text-ember placeholder:text-ember/60'
       : 'border-mountain-grey text-ink hover:border-ink-light focus-within:border-ochre';
 
     if (props.asTextarea) {
@@ -66,7 +66,7 @@ const TextField = React.forwardRef<HTMLInputElement | HTMLTextAreaElement, TextF
             'block w-full resize-y border bg-transparent px-3 py-2 text-sm leading-relaxed transition-colors duration-fast ease-paper',
             'focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ochre',
             invalid
-              ? 'border-danger text-danger placeholder:text-danger/60'
+              ? 'border-ember text-ember placeholder:text-ember/60'
               : 'border-mountain-grey text-ink placeholder:text-ink-light placeholder:opacity-50 hover:border-ink-light focus:border-ochre',
             fieldClassName,
             className,
@@ -91,7 +91,7 @@ const TextField = React.forwardRef<HTMLInputElement | HTMLTextAreaElement, TextF
           className={[
             'block w-full bg-transparent placeholder:text-ink-light placeholder:opacity-50 focus:outline-none',
             sizeInputClass[size],
-            invalid ? 'placeholder:text-danger/60' : '',
+            invalid ? 'placeholder:text-ember/60' : '',
             className,
           ]
             .filter(Boolean)

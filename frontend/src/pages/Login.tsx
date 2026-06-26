@@ -131,7 +131,7 @@ const Login: React.FC = () => {
               </button>
             </div>
             {errors.password && (
-              <p id="login-password-error" role="alert" className="mt-2 border-l-2 border-danger bg-[var(--notice-bg)] px-3 py-2 text-xs text-danger">
+              <p id="login-password-error" role="alert" className="mt-2 border-l-2 border-ember bg-[var(--notice-bg)] px-3 py-2 text-xs text-ember">
                 {errors.password}
               </p>
             )}

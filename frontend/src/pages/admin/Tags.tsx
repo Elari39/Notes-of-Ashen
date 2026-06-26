@@ -167,7 +167,7 @@ const AdminTags: React.FC = () => {
                   <td data-label={t('common.action')} className="admin-card-actions py-4 text-right">
                     <div className="admin-action-list">
                       <button onClick={() => handleEdit(tag)} className="text-ink opacity-80 hover:text-ochre hover:opacity-100 tracking-wider">{t('common.edit')}</button>
-                      <button onClick={() => handleDelete(tag.id)} disabled={busyId === tag.id} className="text-danger opacity-80 hover:opacity-100 tracking-wider disabled:opacity-50 disabled:cursor-not-allowed transition-opacity duration-fast">{t('common.delete')}</button>
+                      <button onClick={() => handleDelete(tag.id)} disabled={busyId === tag.id} className="text-ember opacity-80 hover:opacity-100 tracking-wider disabled:opacity-50 disabled:cursor-not-allowed transition-opacity duration-fast">{t('common.delete')}</button>
                     </div>
                   </td>
                 </tr>
