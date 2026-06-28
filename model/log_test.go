@@ -13,13 +13,14 @@ type fakeOperationLogScanner struct {
 func (f fakeOperationLogScanner) Scan(dest ...interface{}) error {
 	*dest[0].(*uint64) = 7
 	*dest[1].(*sql.NullInt64) = sql.NullInt64{}
-	*dest[2].(*string) = "article.created"
-	*dest[3].(*string) = "article"
-	*dest[4].(*sql.NullInt64) = sql.NullInt64{Int64: 12, Valid: true}
-	*dest[5].(*string) = "{}"
-	*dest[6].(*sql.NullString) = sql.NullString{}
+	*dest[2].(*string) = "alice"
+	*dest[3].(*string) = "article.created"
+	*dest[4].(*string) = "article"
+	*dest[5].(*sql.NullInt64) = sql.NullInt64{Int64: 12, Valid: true}
+	*dest[6].(*string) = "{}"
 	*dest[7].(*sql.NullString) = sql.NullString{}
-	*dest[8].(*time.Time) = f.createdAt
+	*dest[8].(*sql.NullString) = sql.NullString{}
+	*dest[9].(*time.Time) = f.createdAt
 	return nil
 }
 

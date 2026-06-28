@@ -8,6 +8,7 @@ import (
 	"notes-of-ashen/internal/authutil"
 	apperrors "notes-of-ashen/internal/errors"
 	"notes-of-ashen/internal/logicutil"
+	"notes-of-ashen/internal/middleware"
 	"notes-of-ashen/internal/mq"
 	"notes-of-ashen/internal/security"
 	"notes-of-ashen/internal/svc"
@@ -184,5 +185,7 @@ func ChangePassword(ctx context.Context, svcCtx *svc.ServiceContext, req types.C
 	if err := svcCtx.Store.RevokeUserRefreshTokens(ctx, userID); err != nil && !errors.Is(err, model.ErrNotFound) {
 		return err
 	}
+	// 防御性驱逐 auth 用户缓存，与 admin 改状态/角色保持一致。
+	middleware.EvictAuthUserCache(ctx, svcCtx.AuthUserCache, userID)
 	return nil
 }

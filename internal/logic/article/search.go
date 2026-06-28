@@ -85,6 +85,32 @@ func ReindexSearch(ctx context.Context, svcCtx *svc.ServiceContext) (int, error)
 	return len(searchDocs), nil
 }
 
+// syncArticleSearchAsync 在后台 goroutine 中同步单篇文章的搜索索引，不阻塞用户请求。
+// 使用独立 context：请求 ctx 在响应后会被取消，索引推送不应因此中断。
+// 索引变为最终一致（秒级延迟），错误仅记录日志。
+func syncArticleSearchAsync(svcCtx *svc.ServiceContext, articleID uint64) {
+	if svcCtx.Search == nil || !svcCtx.Search.Enabled() {
+		return
+	}
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		syncArticleSearch(ctx, svcCtx, articleID)
+	}()
+}
+
+// deleteArticleSearchAsync 同上，用于文章删除后异步清理索引。
+func deleteArticleSearchAsync(svcCtx *svc.ServiceContext, articleID uint64) {
+	if svcCtx.Search == nil || !svcCtx.Search.Enabled() {
+		return
+	}
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		deleteArticleSearch(ctx, svcCtx, articleID)
+	}()
+}
+
 func syncArticleSearch(ctx context.Context, svcCtx *svc.ServiceContext, articleID uint64) {
 	if svcCtx.Search == nil || !svcCtx.Search.Enabled() {
 		return

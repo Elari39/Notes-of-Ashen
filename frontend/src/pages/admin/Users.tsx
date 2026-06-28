@@ -21,7 +21,7 @@ const AdminUsers: React.FC = () => {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [busyId, setBusyId] = useState<number | null>(null);
+  const [busy, setBusy] = useState<{ id: number; action: 'status' | 'role' } | null>(null);
   const listRequestRef = useRef(0);
   const size = 10;
   const t = (key: Parameters<typeof translate>[1]) => translate(language, key);
@@ -64,27 +64,34 @@ const AdminUsers: React.FC = () => {
     });
     if (!ok) return;
     setError('');
-    setBusyId(id);
+    setBusy({ id, action: 'status' });
     try {
       await updateUserStatus(id, newStatus);
       await fetchList();
     } catch (e: unknown) {
       setError(getErrorMessage(e, t('users.actionError')));
     } finally {
-      setBusyId(null);
+      setBusy(null);
     }
   };
 
   const handleRole = async (id: number, role: UserRole) => {
+    const ok = await confirm({
+      title: formatText(t('users.confirmRole'), { role: getUserRoleLabel(language, role) }),
+      confirmLabel: t('common.confirm'),
+      cancelLabel: t('common.cancel'),
+      tone: 'danger',
+    });
+    if (!ok) return;
     setError('');
-    setBusyId(id);
+    setBusy({ id, action: 'role' });
     try {
       await updateUserRole(id, role);
       await fetchList();
     } catch (e: unknown) {
       setError(getErrorMessage(e, t('users.actionError')));
     } finally {
-      setBusyId(null);
+      setBusy(null);
     }
   };
 
@@ -124,12 +131,12 @@ const AdminUsers: React.FC = () => {
                   <td data-label={t('users.role')} className="py-4 text-ink-light opacity-80">
                     <select
                       value={user.role}
-                      disabled={busyId === user.id}
+                      disabled={busy?.id === user.id}
                       onChange={(event) => handleRole(user.id, event.target.value as UserRole)}
                       className="bg-paper border border-mountain-grey px-2 py-1 text-sm text-ink outline-none focus:border-ochre disabled:opacity-50"
                     >
                       <option value="user">{getUserRoleLabel(language, 'user')}</option>
-                      <option value="editor">{language === 'zh' ? '编辑' : 'Editor'}</option>
+                      <option value="editor">{getUserRoleLabel(language, 'editor')}</option>
                       <option value="admin">{getUserRoleLabel(language, 'admin')}</option>
                     </select>
                   </td>
@@ -143,8 +150,9 @@ const AdminUsers: React.FC = () => {
                       <Button
                         variant={user.status === 'active' ? 'danger' : 'ghost'}
                         size="sm"
+                        loading={busy?.id === user.id && busy.action === 'status'}
                         onClick={() => handleStatus(user.id, user.status)}
-                        disabled={busyId === user.id}
+                        disabled={busy?.id === user.id}
                       >
                         {user.status === 'active' ? t('users.disable') : t('users.activate')}
                       </Button>

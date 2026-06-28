@@ -143,7 +143,7 @@ Copy-Item .env.example .env
 - `APP_REDIS_ADDR`：远程 Redis 地址，例如 `redis.example.com:6379`。
 - `APP_REDIS_PASSWORD`：Redis 密码；无密码时留空。
 - `APP_REDIS_DB`：Redis DB 编号，默认 `0`。
-- `APP_RABBITMQ_ENABLED`：是否启用 RabbitMQ 异步日志，默认 `true`。
+- `APP_RABBITMQ_ENABLED`：是否启用 RabbitMQ 异步日志，默认 `false`。
 - `APP_RABBITMQ_URL`：远程 RabbitMQ AMQP 地址，例如 `amqp://rabbit_user:password@rabbitmq.example.com:5672/`。
 - `APP_RABBITMQ_EXCHANGE`：RabbitMQ 交换器名，默认 `notes-of-ashen.events`，通常无需修改。
 - `APP_RABBITMQ_QUEUE`：RabbitMQ 队列名，默认 `notes-of-ashen.operation_logs`，通常无需修改。
@@ -188,7 +188,7 @@ Copy-Item .env.example .env
   2. `add_content_growth_features.sql` — 文章排程字段、文章版本表 `article_versions`（仅基础列）
   3. `add_article_pin_priority.sql` — 补 `article_versions.is_pinned` / `display_priority`
   4. `add_resume_portfolio_interaction_geo.sql` — 补 `article_versions.like_count`，简历/作品集/点赞表
-  5. `alter_site_settings_value_text.sql` — 站点设置 value 列改 TEXT
+  5. `alter_site_settings_value_text.sql` — 站点设置 value 列改 MEDIUMTEXT
   6. `add_traffic_ai_import_features.sql` — 流量/AI/导入相关字段
   7. `add_ai_settings.sql` — AI 设置表
   8. `add_public_page_content_settings.sql`、`add_public_page_visibility_settings.sql` — 公开页内容/可见性设置
@@ -197,6 +197,7 @@ Copy-Item .env.example .env
   11. `cleanup_invalid_avatar_url.sql` — 清理无效头像 URL
   12. `add_article_tags_tag_index.sql` — 文章标签索引
   13. `add_article_category_author_index.sql` — 文章分类/作者索引
+  14. `add_operation_logs_index.sql` — operation_logs 表 created_at / user_id 索引（幂等）
 
   > 注意：`article_versions` 表的 `like_count` / `is_pinned` / `display_priority` 三列分别由第 3、4 步脚本补齐，必须在 `add_content_growth_features.sql`（第 2 步）之后执行，否则 `model/article.go` 的 `articleVersionSelectFields` 查询会因缺列报 `Unknown column`。
 - 确认远程 Redis、RabbitMQ 防火墙和安全组允许 1Panel 服务器访问，避免对公网裸露。
@@ -314,7 +315,7 @@ docker compose logs -f web
 
 ### 端口说明
 
-- Web：`127.0.0.1:1270 -> 80`（唯一暴露到宿主机的端口）
+- Web：`127.0.0.1:1270 -> 8080`（唯一暴露到宿主机的端口）
 - API：容器内部 `api:19000`（仅 Docker 内部网络可达）
 - Meilisearch：容器内部 `meilisearch:7700`（仅 Docker 内部网络可达）
 

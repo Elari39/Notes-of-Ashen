@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import MarkdownRenderer from './MarkdownRenderer';
 import { usePreferenceStore } from '../store/preferences';
+import { translate } from '../i18n';
 import { trapFocus } from '../utils/focusTrap';
 import { extractMarkdownHeadings } from '../utils/markdownHeadings';
 import type { ProjectItem } from '../types';
@@ -15,7 +16,7 @@ const HEADING_ID_PREFIX = 'project-preview-';
 
 const ProjectPreviewModal: React.FC<ProjectPreviewModalProps> = ({ project, onClose }) => {
   const language = usePreferenceStore((state) => state.language);
-  const labels = getModalLabels(language);
+  const t = (key: Parameters<typeof translate>[1]) => translate(language, key);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [tocCollapsed, setTocCollapsed] = useState(false);
 
@@ -78,7 +79,7 @@ const ProjectPreviewModal: React.FC<ProjectPreviewModalProps> = ({ project, onCl
       className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/60 p-4 md:items-center md:p-8"
       role="dialog"
       aria-modal="true"
-      aria-label={`${labels.detailsTitle}：${project.title}`}
+      aria-label={`${t('projectModal.detailsTitle')}：${project.title}`}
       onClick={onClose}
     >
       <div
@@ -89,7 +90,7 @@ const ProjectPreviewModal: React.FC<ProjectPreviewModalProps> = ({ project, onCl
           type="button"
           data-lightbox-focus
           onClick={onClose}
-          aria-label={labels.close}
+          aria-label={t('projectModal.close')}
           className="absolute right-3 top-3 z-10 inline-flex h-9 w-9 items-center justify-center rounded-full border border-mountain-grey bg-[var(--paper)] text-ink transition-colors hover:border-ochre hover:text-ochre focus:outline-none focus:ring-2 focus:ring-ochre"
         >
           <span aria-hidden="true" className="text-xl leading-none">&times;</span>
@@ -112,7 +113,7 @@ const ProjectPreviewModal: React.FC<ProjectPreviewModalProps> = ({ project, onCl
               <h2 className="text-2xl font-bold tracking-widest text-ink md:text-3xl">{project.title}</h2>
               {project.featured && (
                 <span className="border border-ochre px-2 py-0.5 text-[11px] uppercase tracking-[0.18em] text-ochre">
-                  {labels.featured}
+                  {t('projects.featured')}
                 </span>
               )}
             </div>
@@ -134,7 +135,7 @@ const ProjectPreviewModal: React.FC<ProjectPreviewModalProps> = ({ project, onCl
                     rel="noreferrer"
                     className="text-ochre hover:text-ink"
                   >
-                    {labels.demo}
+                    {t('projects.demo')}
                   </a>
                 )}
                 {project.repoUrl && (
@@ -144,7 +145,7 @@ const ProjectPreviewModal: React.FC<ProjectPreviewModalProps> = ({ project, onCl
                     rel="noreferrer"
                     className="text-ochre hover:text-ink"
                   >
-                    {labels.repo}
+                    {t('projects.repo')}
                   </a>
                 )}
               </div>
@@ -160,17 +161,17 @@ const ProjectPreviewModal: React.FC<ProjectPreviewModalProps> = ({ project, onCl
           {showToc && (
             <aside
               className="border border-mountain-grey bg-[var(--paper-soft)] p-4"
-              aria-label={labels.tocTitle}
+              aria-label={t('articleToc.title')}
             >
               <div className="mb-3 flex items-center justify-between gap-3">
-                <h3 className="text-xs font-bold tracking-[0.2em] text-ink">{labels.tocTitle}</h3>
+                <h3 className="text-xs font-bold tracking-[0.2em] text-ink">{t('articleToc.title')}</h3>
                 <button
                   type="button"
                   onClick={() => setTocCollapsed((prev) => !prev)}
                   className="border border-mountain-grey px-2 py-1 text-xs text-ink-light transition-colors hover:border-ochre hover:text-ochre"
                   aria-expanded={!tocCollapsed}
                 >
-                  {tocCollapsed ? labels.expand : labels.collapse}
+                  {tocCollapsed ? t('articleToc.expand') : t('articleToc.collapse')}
                 </button>
               </div>
               {!tocCollapsed && (
@@ -200,7 +201,7 @@ const ProjectPreviewModal: React.FC<ProjectPreviewModalProps> = ({ project, onCl
             />
           ) : (
             <p className="py-10 text-center text-sm tracking-[0.2em] text-ink-light">
-              {labels.empty}
+              {t('projectModal.empty')}
             </p>
           )}
         </div>
@@ -209,29 +210,5 @@ const ProjectPreviewModal: React.FC<ProjectPreviewModalProps> = ({ project, onCl
     document.body,
   );
 };
-
-const getModalLabels = (language: string) => language === 'zh'
-  ? {
-      close: '关闭项目详情',
-      detailsTitle: '项目详情',
-      featured: '精选',
-      demo: '演示',
-      repo: '代码',
-      tocTitle: '目录',
-      collapse: '收起目录',
-      expand: '展开目录',
-      empty: '该项目暂无详情内容',
-    }
-  : {
-      close: 'Close project details',
-      detailsTitle: 'Project details',
-      featured: 'Featured',
-      demo: 'Demo',
-      repo: 'Repo',
-      tocTitle: 'Contents',
-      collapse: 'Collapse',
-      expand: 'Expand',
-      empty: 'No details for this project yet',
-    };
 
 export default ProjectPreviewModal;

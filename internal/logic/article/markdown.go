@@ -463,6 +463,12 @@ func uniqueArticleSlug(ctx context.Context, svcCtx *svc.ServiceContext, slug str
 	if base == "" {
 		base = fmt.Sprintf("article-%d", time.Now().Unix())
 	}
+	// 一次性查询 base 本身与 base-{n} 前缀族已占用的 slug，避免逐次 DB 往返。
+	// 并发场景下仍由 articles.slug 唯一约束兜底（CreateArticle 返回冲突错误）。
+	taken, err := svcCtx.Store.ArticleSlugsTakenByPrefix(ctx, base)
+	if err != nil {
+		return "", err
+	}
 	for i := 0; i < 100; i++ {
 		candidate := base
 		if i > 0 {
@@ -473,11 +479,7 @@ func uniqueArticleSlug(ctx context.Context, svcCtx *svc.ServiceContext, slug str
 			}
 			candidate += suffix
 		}
-		exists, err := svcCtx.Store.ArticleSlugExists(ctx, candidate)
-		if err != nil {
-			return "", err
-		}
-		if !exists {
+		if _, exists := taken[candidate]; !exists {
 			return candidate, nil
 		}
 	}

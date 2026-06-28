@@ -7,11 +7,10 @@ import { translate } from '../i18n';
 import PagePendingState from './RoutePending';
 
 interface ProtectedRouteProps {
-  requireAdmin?: boolean;
   allowedRoles?: string[];
 }
 
-const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ requireAdmin = false, allowedRoles }) => {
+const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ allowedRoles }) => {
   const { user, accessToken, isFetching, isInitialized } = useAuthStore(
     useShallow((state) => ({
       user: state.user,
@@ -32,9 +31,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ requireAdmin = false, a
     return <Navigate to="/login" replace state={{ from: location }} />;
   }
 
-  const roles = allowedRoles || (requireAdmin ? ['admin'] : undefined);
-
-  if (roles && !roles.includes(user.role)) {
+  if (allowedRoles && !allowedRoles.includes(user.role)) {
     return <div className="text-center mt-20 text-ochre tracking-widest">{t('protected.forbidden')}</div>;
   }
 

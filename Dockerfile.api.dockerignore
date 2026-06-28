@@ -38,3 +38,15 @@ temp
 bin
 data
 **/data
+
+# 敏感凭证与本地环境配置，绝不进入镜像构建上下文
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+*.keystore
+secrets/

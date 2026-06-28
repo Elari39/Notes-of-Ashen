@@ -59,9 +59,9 @@ services:
       APP_REDIS_DB: "${APP_REDIS_DB:-0}"
       APP_SEARCH_ENABLED: "${APP_SEARCH_ENABLED:-false}"
       APP_MEILISEARCH_HOST: "${APP_MEILISEARCH_HOST:-http://meilisearch:7700}"
-      APP_MEILISEARCH_API_KEY: "${APP_MEILISEARCH_API_KEY:?set APP_MEILISEARCH_API_KEY in .env}"
+      APP_MEILISEARCH_API_KEY: "${APP_MEILISEARCH_API_KEY:-}"
       APP_MEILISEARCH_INDEX: "${APP_MEILISEARCH_INDEX:-articles}"
-      APP_RABBITMQ_ENABLED: "${APP_RABBITMQ_ENABLED:-true}"
+      APP_RABBITMQ_ENABLED: "${APP_RABBITMQ_ENABLED:-false}"
       APP_RABBITMQ_URL: "${APP_RABBITMQ_URL:-}"
       APP_RABBITMQ_EXCHANGE: "${APP_RABBITMQ_EXCHANGE:-notes-of-ashen.events}"
       APP_RABBITMQ_QUEUE: "${APP_RABBITMQ_QUEUE:-notes-of-ashen.operation_logs}"
@@ -88,6 +88,7 @@ services:
       APP_TRUSTED_PROXY_CIDRS: "${APP_TRUSTED_PROXY_CIDRS:-}"
     expose:
       - "19000"
+      - "9101"
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:19000/healthz || exit 1"]
       interval: 10s
@@ -112,7 +113,7 @@ services:
     restart: unless-stopped
     environment:
       MEILI_ENV: "${MEILI_ENV:-production}"
-      MEILI_MASTER_KEY: "${APP_MEILISEARCH_API_KEY:?set APP_MEILISEARCH_API_KEY in .env}"
+      MEILI_MASTER_KEY: "${APP_MEILISEARCH_API_KEY:-}"
       TZ: Asia/Shanghai
     volumes:
       - goblog_meili_data:/meili_data

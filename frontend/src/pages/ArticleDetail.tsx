@@ -9,8 +9,8 @@ import { PreloadLink } from '../components/PreloadLink';
 import { getArticleById, getArticleContext, likeArticle } from '../api/article';
 import { useSEO } from '../utils/seo';
 import { getErrorMessage } from '../utils/error';
-import { getDateLocale, translate } from '../i18n';
-import { usePreferenceStore } from '../store/preferences';
+import { formatText, getDateLocale, translate } from '../i18n';
+import { usePreferenceStore, type Language } from '../store/preferences';
 import { useReadingProgress } from '../hooks/useReadingProgress';
 import { normalizeCoverUrl } from '../utils/cover';
 import { extractMarkdownHeadings, type MarkdownHeading } from '../utils/markdownHeadings';
@@ -38,7 +38,6 @@ const ArticleDetail: React.FC = () => {
   const [lightboxImage, setLightboxImage] = useState<LightboxImage | null>(null);
   const closeLightbox = useCallback(() => setLightboxImage(null), []);
   const t = (key: Parameters<typeof translate>[1]) => translate(language, key);
-  const labels = articleDetailLabels(language);
   // 用 ref 持有最新 language，避免切换语言时重新拉取文章正文（正文与语言无关，
   // language 仅用于错误兜底文案）。
   const languageRef = useRef(language);
@@ -178,10 +177,14 @@ const ArticleDetail: React.FC = () => {
     try {
       const res = await likeArticle(article.id);
       setLikeCount(res.data.likeCount);
-      setHasLiked(true);
-      localStorage.setItem(articleLikeStorageKey(article.id), '1');
+      // 以后端返回的 liked 为准，localStorage 仅作跨会话辅助记忆。
+      const liked = res.data.liked ?? true;
+      setHasLiked(liked);
+      if (liked) {
+        localStorage.setItem(articleLikeStorageKey(article.id), '1');
+      }
     } catch (err) {
-      setLikeError(getErrorMessage(err, labels.likeError));
+      setLikeError(getErrorMessage(err, t('articleDetail.likeError')));
     } finally {
       setIsLiking(false);
     }
@@ -230,7 +233,7 @@ const ArticleDetail: React.FC = () => {
                     <button
                       type="button"
                       className="block h-full w-full cursor-zoom-in bg-transparent p-0"
-                      aria-label={labels.viewImage(article.title)}
+                      aria-label={formatText(t('articleDetail.viewImage'), { title: article.title })}
                       onClick={() => setLightboxImage({ src: coverUrl, alt: article.title })}
                     >
                       <img
@@ -257,7 +260,7 @@ const ArticleDetail: React.FC = () => {
               <div className="flex flex-wrap justify-center gap-x-6 gap-y-2">
                 <span>{new Date(article.createdAt).toLocaleDateString(getDateLocale(language), { year: 'numeric', month: 'long', day: 'numeric' })}</span>
                 <span>{t('common.views')} {article.viewCount}</span>
-                <span>{labels.likes} {likeCount}</span>
+                <span>{t('articleDetail.likes')} {likeCount}</span>
               </div>
 
               <div className="flex flex-wrap items-center justify-center gap-4 text-xs">
@@ -305,7 +308,7 @@ const ArticleDetail: React.FC = () => {
               aria-pressed={hasLiked}
             >
               <span className={`h-2.5 w-2.5 rounded-full ${hasLiked ? 'bg-paper' : 'bg-ochre group-hover:scale-125'} transition-transform`} />
-              <span>{hasLiked ? labels.liked : (isLiking ? labels.liking : labels.like)}</span>
+              <span>{hasLiked ? t('articleDetail.liked') : (isLiking ? t('articleDetail.liking') : t('articleDetail.like'))}</span>
               <span>{likeCount}</span>
             </button>
             <InlineNotice message={likeError} className="mt-4" />
@@ -341,28 +344,26 @@ const ArticleTOC: React.FC<{
   activeHeadingId: string;
   collapsed: boolean;
   onToggle: () => void;
-  language: string;
+  language: Language;
   className?: string;
 }> = ({ headings, activeHeadingId, collapsed, onToggle, language, className = '' }) => {
   if (headings.length === 0) {
     return null;
   }
 
-  const labels = language === 'zh'
-    ? { title: '目录', collapse: '收起目录', expand: '展开目录' }
-    : { title: 'Contents', collapse: 'Collapse', expand: 'Expand' };
+  const t = (key: Parameters<typeof translate>[1]) => translate(language, key);
 
   return (
-    <aside className={`border border-mountain-grey bg-[var(--paper-soft)] p-4 ${className}`.trim()} aria-label={labels.title}>
+    <aside className={`border border-mountain-grey bg-[var(--paper-soft)] p-4 ${className}`.trim()} aria-label={t('articleToc.title')}>
       <div className="mb-3 flex items-center justify-between gap-3">
-        <h2 className="text-xs font-bold tracking-[0.2em] text-ink">{labels.title}</h2>
+        <h2 className="text-xs font-bold tracking-[0.2em] text-ink">{t('articleToc.title')}</h2>
         <button
           type="button"
           onClick={onToggle}
           className="border border-mountain-grey px-2 py-1 text-xs text-ink-light transition-colors hover:border-ochre hover:text-ochre"
           aria-expanded={!collapsed}
         >
-          {collapsed ? labels.expand : labels.collapse}
+          {collapsed ? t('articleToc.expand') : t('articleToc.collapse')}
         </button>
       </div>
 
@@ -390,10 +391,10 @@ const ArticleTOC: React.FC<{
   );
 };
 
-const ArticleContextBlock: React.FC<{ context: ArticleContext | null; error: string; language: string }> = ({ context, error, language }) => {
+const ArticleContextBlock: React.FC<{ context: ArticleContext | null; error: string; language: Language }> = ({ context, error, language }) => {
   const hasNavigation = Boolean(context?.previous || context?.next);
   const hasRelated = Boolean(context?.related?.length);
-  const labels = articleDetailLabels(language);
+  const t = (key: Parameters<typeof translate>[1]) => translate(language, key);
 
   if (error) {
     return <InlineNotice message={error} className="mt-10" />;
@@ -407,14 +408,14 @@ const ArticleContextBlock: React.FC<{ context: ArticleContext | null; error: str
     <section className="mt-14 border-t border-mountain-grey border-opacity-50 pt-10">
       {hasNavigation && (
         <div className="grid gap-4 md:grid-cols-2">
-          <ArticleNavLink label={labels.previous} article={context.previous} align="left" />
-          <ArticleNavLink label={labels.next} article={context.next} align="right" />
+          <ArticleNavLink label={t('articleDetail.previous')} article={context.previous} align="left" />
+          <ArticleNavLink label={t('articleDetail.next')} article={context.next} align="right" />
         </div>
       )}
 
       {hasRelated && (
         <div className="mt-12">
-          <h2 className="mb-5 text-sm font-bold tracking-widest text-ink">{labels.related}</h2>
+          <h2 className="mb-5 text-sm font-bold tracking-widest text-ink">{t('articleDetail.related')}</h2>
           <div className="grid gap-4 md:grid-cols-3">
             {context.related.map((item) => (
               <PreloadLink
@@ -456,29 +457,5 @@ const ArticleNavLink: React.FC<{
 };
 
 const articleLikeStorageKey = (articleID: number) => `article-like:${articleID}`;
-
-const articleDetailLabels = (language: string) => language === 'zh'
-  ? {
-      likeError: '点赞失败',
-      likes: '点赞',
-      liked: '已点赞',
-      liking: '提交中',
-      like: '点赞',
-      previous: '上一篇',
-      next: '下一篇',
-      related: '相关文章',
-      viewImage: (title: string) => `查看大图：${title}`,
-    }
-  : {
-      likeError: 'Failed to like article',
-      likes: 'Likes',
-      liked: 'Liked',
-      liking: 'Liking',
-      like: 'Like',
-      previous: 'Previous',
-      next: 'Next',
-      related: 'Related Articles',
-      viewImage: (title: string) => `View full-size image: ${title}`,
-    };
 
 export default ArticleDetail;

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import InlineNotice from '../../components/InlineNotice';
 import MarkdownRenderer from '../../components/MarkdownRenderer';
 import PagePendingState from '../../components/RoutePending';
@@ -8,16 +8,20 @@ import { usePreferenceStore } from '../../store/preferences';
 import type { ProjectItem, ProjectsPage, Tag } from '../../types';
 import { getErrorMessage } from '../../utils/error';
 import { useConfirm } from '../../hooks/useConfirm';
+import { formatText, translate } from '../../i18n';
 
 const emptyProjects: ProjectsPage = {
-  title: '项目',
+  title: '',
   subtitle: '',
   items: [],
 };
 
 const AdminProjectsContent: React.FC = () => {
   const language = usePreferenceStore((state) => state.language);
-  const text = getProjectsAdminLabels(language);
+  const t = (key: Parameters<typeof translate>[1]) => translate(language, key);
+  // 用 ref 持有最新 language，避免切换语言时重新拉取项目内容（数据与语言无关）。
+  const languageRef = useRef(language);
+  languageRef.current = language;
   const confirm = useConfirm();
   const [saved, setSaved] = useState<ProjectsPage | null>(null);
   const [draft, setDraft] = useState<ProjectsPage>(emptyProjects);
@@ -37,7 +41,7 @@ const AdminProjectsContent: React.FC = () => {
         if (!active) {
           return;
         }
-        const next = normalizeProjectsPage(res.data);
+        const next = normalizeProjectsPage(res.data, translate(languageRef.current, 'projectAdmin.defaultTitle'));
         setSaved(next);
         setDraft(next);
         setAllTags(tagsRes.data.items);
@@ -45,7 +49,7 @@ const AdminProjectsContent: React.FC = () => {
       })
       .catch((e: unknown) => {
         if (active) {
-          setError(getErrorMessage(e, text.loadError));
+          setError(getErrorMessage(e, translate(languageRef.current, 'projectAdmin.loadError')));
         }
       })
       .finally(() => {
@@ -56,7 +60,7 @@ const AdminProjectsContent: React.FC = () => {
     return () => {
       active = false;
     };
-  }, [text.loadError]);
+  }, []);
 
   const hasChanges = useMemo(
     () => Boolean(saved) && JSON.stringify(saved) !== JSON.stringify(draft),
@@ -94,9 +98,9 @@ const AdminProjectsContent: React.FC = () => {
 
   const removeProject = async (index: number) => {
     const ok = await confirm({
-      title: text.confirmDelete,
-      confirmLabel: text.delete,
-      cancelLabel: text.cancel,
+      title: t('projectAdmin.confirmDelete'),
+      confirmLabel: t('common.delete'),
+      cancelLabel: t('common.cancel'),
       tone: 'danger',
     });
     if (!ok) {
@@ -150,13 +154,13 @@ const AdminProjectsContent: React.FC = () => {
           repoUrl: item.repoUrl.trim(),
         })),
       });
-      const next = normalizeProjectsPage(res.data);
+      const next = normalizeProjectsPage(res.data, t('projectAdmin.defaultTitle'));
       setSaved(next);
       setDraft(next);
       setCollapsedProjectIds(new Set());
-      setNotice(text.saved);
+      setNotice(t('projectAdmin.saved'));
     } catch (e: unknown) {
-      setError(getErrorMessage(e, text.saveError));
+      setError(getErrorMessage(e, t('projectAdmin.saveError')));
     } finally {
       setIsSaving(false);
     }
@@ -174,7 +178,7 @@ const AdminProjectsContent: React.FC = () => {
   return (
     <div>
       <div className="mb-8 flex flex-col gap-4 border-b border-mountain-grey pb-4 md:flex-row md:items-center md:justify-between">
-        <h3 className="text-2xl font-bold tracking-widest text-ink">{text.title}</h3>
+        <h3 className="text-2xl font-bold tracking-widest text-ink">{t('projectAdmin.title')}</h3>
         {!isLoading && (
           <button
             type="button"
@@ -182,7 +186,7 @@ const AdminProjectsContent: React.FC = () => {
             disabled={isSaving}
             className="border border-ochre px-4 py-2 text-sm tracking-widest text-ochre transition-colors hover:bg-ochre hover:text-paper disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {text.add}
+            {t('projectAdmin.add')}
           </button>
         )}
       </div>
@@ -193,14 +197,14 @@ const AdminProjectsContent: React.FC = () => {
       {isLoading && (
         <PagePendingState
           variant={saved ? 'inline' : 'admin'}
-          label={text.loading}
+          label={t('projectAdmin.loading')}
         />
       )}
       {(!isLoading || saved) && (
         <div className="space-y-6">
           <section className="grid grid-cols-1 gap-5 md:grid-cols-2">
             <label className="block text-sm text-ink-light">
-              <span className="mb-2 block tracking-widest">{text.pageTitle}</span>
+              <span className="mb-2 block tracking-widest">{t('projectAdmin.pageTitle')}</span>
               <input
                 value={draft.title}
                 onChange={(event) => setDraft((prev) => ({ ...prev, title: event.target.value }))}
@@ -209,7 +213,7 @@ const AdminProjectsContent: React.FC = () => {
               />
             </label>
             <label className="block text-sm text-ink-light">
-              <span className="mb-2 block tracking-widest">{text.subtitle}</span>
+              <span className="mb-2 block tracking-widest">{t('projectAdmin.subtitle')}</span>
               <input
                 value={draft.subtitle}
                 onChange={(event) => setDraft((prev) => ({ ...prev, subtitle: event.target.value }))}
@@ -221,14 +225,14 @@ const AdminProjectsContent: React.FC = () => {
 
           {draft.items.length === 0 ? (
             <section className="border border-mountain-grey bg-[var(--paper-soft)] p-6 text-center">
-              <p className="text-sm tracking-[0.2em] text-ink-light">{text.empty}</p>
+              <p className="text-sm tracking-[0.2em] text-ink-light">{t('projectAdmin.empty')}</p>
               <button
                 type="button"
                 onClick={addProject}
                 disabled={isSaving}
                 className="mt-5 border border-ink px-4 py-2 text-sm tracking-widest text-ink transition-colors hover:bg-ink hover:text-paper disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {text.add}
+                {t('projectAdmin.add')}
               </button>
             </section>
           ) : (
@@ -239,7 +243,6 @@ const AdminProjectsContent: React.FC = () => {
                   project={project}
                   index={index}
                   total={draft.items.length}
-                  labels={text}
                   allTags={allTags}
                   disabled={isSaving}
                   collapsed={collapsedProjectIds.has(project.id)}
@@ -259,7 +262,7 @@ const AdminProjectsContent: React.FC = () => {
               disabled={isSaving || !hasChanges}
               className="border border-ink px-4 py-2 text-sm tracking-widest text-ink transition-colors hover:bg-ink hover:text-paper disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {isSaving ? text.saving : text.save}
+              {isSaving ? t('projectAdmin.saving') : t('projectAdmin.save')}
             </button>
             <button
               type="button"
@@ -267,7 +270,7 @@ const AdminProjectsContent: React.FC = () => {
               disabled={isSaving || !hasChanges}
               className="border border-mountain-grey px-4 py-2 text-sm tracking-widest text-ink-light transition-colors hover:border-ochre hover:text-ochre disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {text.reset}
+              {t('projectAdmin.reset')}
             </button>
           </div>
         </div>
@@ -282,7 +285,6 @@ type ProjectEditorProps = {
   project: ProjectItem;
   index: number;
   total: number;
-  labels: ReturnType<typeof getProjectsAdminLabels>;
   allTags: Tag[];
   disabled: boolean;
   collapsed: boolean;
@@ -296,7 +298,6 @@ const ProjectEditor: React.FC<ProjectEditorProps> = ({
   project,
   index,
   total,
-  labels,
   allTags,
   disabled,
   collapsed,
@@ -304,13 +305,16 @@ const ProjectEditor: React.FC<ProjectEditorProps> = ({
   onMove,
   onRemove,
   onToggleCollapsed,
-}) => (
+}) => {
+  const language = usePreferenceStore((state) => state.language);
+  const t = (key: Parameters<typeof translate>[1]) => translate(language, key);
+  return (
   <article className="border border-mountain-grey bg-[var(--paper-soft)] p-4 md:p-5">
     <div className={`${collapsed ? '' : 'mb-5'} flex flex-col gap-3 md:flex-row md:items-center md:justify-between`}>
       <div>
-        <p className="text-xs tracking-[0.2em] text-ochre">{labels.projectNo(index + 1)}</p>
+        <p className="text-xs tracking-[0.2em] text-ochre">{formatText(t('projectAdmin.projectNo'), { value: index + 1 })}</p>
         <h4 className="mt-1 text-base font-bold tracking-widest text-ink">
-          {project.title.trim() || labels.untitled}
+          {project.title.trim() || t('projectAdmin.untitled')}
         </h4>
       </div>
       <div className="flex flex-wrap gap-2">
@@ -320,7 +324,7 @@ const ProjectEditor: React.FC<ProjectEditorProps> = ({
           aria-expanded={!collapsed}
           className="border border-mountain-grey px-3 py-1.5 text-sm text-ink-light transition-colors hover:border-ochre hover:text-ochre"
         >
-          {collapsed ? labels.expand : labels.collapse}
+          {collapsed ? t('projectAdmin.expand') : t('projectAdmin.collapse')}
         </button>
         <button
           type="button"
@@ -328,7 +332,7 @@ const ProjectEditor: React.FC<ProjectEditorProps> = ({
           disabled={disabled || index === 0}
           className="border border-mountain-grey px-3 py-1.5 text-sm text-ink-light transition-colors hover:border-ochre hover:text-ochre disabled:cursor-not-allowed disabled:opacity-40"
         >
-          {labels.up}
+          {t('projectAdmin.up')}
         </button>
         <button
           type="button"
@@ -336,7 +340,7 @@ const ProjectEditor: React.FC<ProjectEditorProps> = ({
           disabled={disabled || index === total - 1}
           className="border border-mountain-grey px-3 py-1.5 text-sm text-ink-light transition-colors hover:border-ochre hover:text-ochre disabled:cursor-not-allowed disabled:opacity-40"
         >
-          {labels.down}
+          {t('projectAdmin.down')}
         </button>
         <button
           type="button"
@@ -344,7 +348,7 @@ const ProjectEditor: React.FC<ProjectEditorProps> = ({
           disabled={disabled}
           className="border border-ochre px-3 py-1.5 text-sm text-ochre transition-colors hover:bg-ochre hover:text-paper disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {labels.delete}
+          {t('common.delete')}
         </button>
       </div>
     </div>
@@ -352,12 +356,12 @@ const ProjectEditor: React.FC<ProjectEditorProps> = ({
     {!collapsed && (
       <>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <TextInput label={labels.projectTitle} value={project.title} disabled={disabled} onChange={(value) => onChange({ title: value })} />
-          <TextInput label={labels.role} value={project.role} disabled={disabled} onChange={(value) => onChange({ role: value })} />
-          <TextInput label={labels.period} value={project.period} disabled={disabled} onChange={(value) => onChange({ period: value })} />
-          <TextInput label={labels.coverUrl} value={project.coverUrl} disabled={disabled} onChange={(value) => onChange({ coverUrl: value })} />
-          <TextInput label={labels.demoUrl} value={project.demoUrl} disabled={disabled} onChange={(value) => onChange({ demoUrl: value })} />
-          <TextInput label={labels.repoUrl} value={project.repoUrl} disabled={disabled} onChange={(value) => onChange({ repoUrl: value })} />
+          <TextInput label={t('projectAdmin.projectTitle')} value={project.title} disabled={disabled} onChange={(value) => onChange({ title: value })} />
+          <TextInput label={t('projectAdmin.role')} value={project.role} disabled={disabled} onChange={(value) => onChange({ role: value })} />
+          <TextInput label={t('projectAdmin.period')} value={project.period} disabled={disabled} onChange={(value) => onChange({ period: value })} />
+          <TextInput label={t('projectAdmin.coverUrl')} value={project.coverUrl} disabled={disabled} onChange={(value) => onChange({ coverUrl: value })} />
+          <TextInput label={t('projectAdmin.demoUrl')} value={project.demoUrl} disabled={disabled} onChange={(value) => onChange({ demoUrl: value })} />
+          <TextInput label={t('projectAdmin.repoUrl')} value={project.repoUrl} disabled={disabled} onChange={(value) => onChange({ repoUrl: value })} />
           <label className="flex items-center gap-3 border border-mountain-grey px-3 py-2 text-sm text-ink-light">
             <input
               type="checkbox"
@@ -366,18 +370,19 @@ const ProjectEditor: React.FC<ProjectEditorProps> = ({
               disabled={disabled}
               className="h-4 w-4 accent-ochre disabled:cursor-not-allowed"
             />
-            <span className="tracking-widest">{labels.featured}</span>
+            <span className="tracking-widest">{t('projectAdmin.featured')}</span>
           </label>
           <TagSelector
-            label={labels.tags}
+            label={t('projectAdmin.tags')}
             tags={allTags}
             selectedIds={project.tagIds || []}
             fallbackNames={project.tags}
+            noTagsLabel={t('projectAdmin.noTags')}
             disabled={disabled}
             onChange={(tagIds) => onChange({ tagIds })}
           />
           <label className="block text-sm text-ink-light md:col-span-2">
-            <span className="mb-2 block tracking-widest">{labels.summary}</span>
+            <span className="mb-2 block tracking-widest">{t('projectAdmin.summary')}</span>
             <textarea
               value={project.summary}
               onChange={(event) => onChange({ summary: event.target.value })}
@@ -399,28 +404,29 @@ const ProjectEditor: React.FC<ProjectEditorProps> = ({
 
         <div className="mt-5 grid min-h-[24rem] grid-cols-1 gap-5 lg:grid-cols-2">
           <section className="flex min-h-[20rem] flex-col border border-mountain-grey p-4">
-            <div className="mb-3 text-sm font-bold tracking-widest text-ink">{labels.detailEditor}</div>
+            <div className="mb-3 text-sm font-bold tracking-widest text-ink">{t('projectAdmin.detailEditor')}</div>
             <textarea
               value={project.contentMarkdown}
               onChange={(event) => onChange({ contentMarkdown: event.target.value })}
               disabled={disabled}
-              placeholder={labels.detailPlaceholder}
+              placeholder={t('projectAdmin.detailPlaceholder')}
               className="min-h-0 flex-1 resize-none bg-transparent text-ink-light outline-none disabled:cursor-not-allowed disabled:opacity-50"
             />
           </section>
           <section className="min-h-[20rem] overflow-y-auto border border-mountain-grey bg-paper p-4">
-            <div className="mb-3 text-sm font-bold tracking-widest text-ink">{labels.preview}</div>
+            <div className="mb-3 text-sm font-bold tracking-widest text-ink">{t('projectAdmin.preview')}</div>
             {project.contentMarkdown.trim() ? (
               <MarkdownRenderer content={project.contentMarkdown} />
             ) : (
-              <p className="py-12 text-center text-sm tracking-[0.2em] text-ink-light">{labels.emptyPreview}</p>
+              <p className="py-12 text-center text-sm tracking-[0.2em] text-ink-light">{t('projectAdmin.emptyPreview')}</p>
             )}
           </section>
         </div>
       </>
     )}
   </article>
-);
+  );
+};
 
 type TextInputProps = {
   label: string;
@@ -446,14 +452,15 @@ const TagSelector: React.FC<{
   tags: Tag[];
   selectedIds: number[];
   fallbackNames: string[];
+  noTagsLabel: string;
   disabled: boolean;
   onChange: (tagIds: number[]) => void;
-}> = ({ label, tags, selectedIds, fallbackNames, disabled, onChange }) => (
+}> = ({ label, tags, selectedIds, fallbackNames, noTagsLabel, disabled, onChange }) => (
   <div className="block text-sm text-ink-light md:col-span-2">
     <span className="mb-2 block tracking-widest">{label}</span>
     {tags.length === 0 ? (
       <p className="border border-mountain-grey px-3 py-2 text-xs tracking-[0.16em] text-ink-light opacity-80">
-        {fallbackNames.length > 0 ? fallbackNames.join(', ') : 'No tags'}
+        {fallbackNames.length > 0 ? fallbackNames.join(', ') : noTagsLabel}
       </p>
     ) : (
       <div className="flex flex-wrap gap-2">
@@ -522,83 +529,9 @@ const normalizeTags = (tags: string[]) => {
 
 const normalizeTagIds = (tagIds: number[]) => Array.from(new Set(tagIds.filter((id) => id > 0)));
 
-const normalizeProjectsPage = (page: ProjectsPage): ProjectsPage => ({
+const normalizeProjectsPage = (page: ProjectsPage, defaultTitle: string): ProjectsPage => ({
   ...page,
-  title: page.title || emptyProjects.title,
+  title: page.title || defaultTitle,
   subtitle: page.subtitle || '',
   items: page.items || [],
 });
-
-const getProjectsAdminLabels = (language: string) => language === 'zh'
-  ? {
-      title: '项目管理',
-      loading: '项目内容加载中...',
-      loadError: '项目内容加载失败',
-      saveError: '项目内容保存失败',
-      saved: '项目内容已保存',
-      pageTitle: '页面标题',
-      subtitle: '副标题',
-      empty: '还没有项目。',
-      add: '新增项目',
-      save: '保存项目',
-      saving: '保存中...',
-      reset: '重置',
-      confirmDelete: '确认删除这个项目？',
-      cancel: '取消',
-      projectNo: (value: number) => `项目 ${value}`,
-      untitled: '未命名项目',
-      up: '上移',
-      down: '下移',
-      collapse: '收起',
-      expand: '展开',
-      delete: '删除',
-      projectTitle: '项目标题',
-      role: '角色',
-      period: '周期',
-      tags: '技术标签',
-      coverUrl: '封面 URL',
-      demoUrl: '演示 URL',
-      repoUrl: '代码仓库 URL',
-      featured: '精选项目',
-      summary: '摘要',
-      detailEditor: '详情 Markdown',
-      detailPlaceholder: '填写项目详情 Markdown...',
-      preview: '详情预览',
-      emptyPreview: '暂无预览内容',
-    }
-  : {
-      title: 'Project Management',
-      loading: 'Loading project content...',
-      loadError: 'Failed to load project content',
-      saveError: 'Failed to save project content',
-      saved: 'Project content saved',
-      pageTitle: 'Page Title',
-      subtitle: 'Subtitle',
-      empty: 'No projects yet.',
-      add: 'Add Project',
-      save: 'Save Projects',
-      saving: 'Saving...',
-      reset: 'Reset',
-      confirmDelete: 'Delete this project?',
-      cancel: 'Cancel',
-      projectNo: (value: number) => `Project ${value}`,
-      untitled: 'Untitled Project',
-      up: 'Up',
-      down: 'Down',
-      collapse: 'Collapse',
-      expand: 'Expand',
-      delete: 'Delete',
-      projectTitle: 'Project Title',
-      role: 'Role',
-      period: 'Period',
-      tags: 'Tags',
-      coverUrl: 'Cover URL',
-      demoUrl: 'Demo URL',
-      repoUrl: 'Repository URL',
-      featured: 'Featured Project',
-      summary: 'Summary',
-      detailEditor: 'Detail Markdown',
-      detailPlaceholder: 'Write project detail Markdown...',
-      preview: 'Detail Preview',
-      emptyPreview: 'Nothing to preview yet',
-    };

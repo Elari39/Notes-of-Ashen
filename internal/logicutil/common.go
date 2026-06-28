@@ -48,6 +48,15 @@ func IsDuplicate(err error) bool {
 	return errors.As(err, &mysqlErr) && mysqlErr.Number == 1062
 }
 
+// nonNilUint64Slice 保证 nil 切片返回空切片，避免 JSON omitempty 省略字段
+// 导致前端非可选数组类型收到 undefined。
+func nonNilUint64Slice(v []uint64) []uint64 {
+	if v == nil {
+		return []uint64{}
+	}
+	return v
+}
+
 func UserResp(u model.User) types.UserResp {
 	return types.UserResp{
 		ID:        u.ID,
@@ -115,6 +124,7 @@ func ArticleResp(a model.Article, tags []model.Tag, category *model.Category, in
 		categoryResp := CategoryResp(*category)
 		resp.Category = &categoryResp
 	}
+	resp.Tags = make([]types.TagResp, 0, len(tags))
 	for _, tag := range tags {
 		resp.Tags = append(resp.Tags, TagResp(tag))
 	}
@@ -143,7 +153,7 @@ func ArticleVersionResp(v model.ArticleVersion, includeContent bool) types.Artic
 		SEOTitle:          v.SEOTitle,
 		SEODescription:    v.SEODescription,
 		SEOKeywords:       v.SEOKeywords,
-		TagIDs:            v.TagIDs,
+		TagIDs:            nonNilUint64Slice(v.TagIDs),
 		OriginalCreatedAt: utcTimePtr(v.OriginalCreatedAt),
 		OriginalUpdatedAt: utcTimePtr(v.OriginalUpdatedAt),
 		CreatedAt:         utcTime(v.CreatedAt),
@@ -158,6 +168,7 @@ func OperationLogResp(l model.OperationLog) types.OperationLogResp {
 	return types.OperationLogResp{
 		ID:           l.ID,
 		UserID:       l.UserID,
+		UserAccount:  l.UserAccount,
 		EventType:    l.EventType,
 		ResourceType: l.ResourceType,
 		ResourceID:   l.ResourceID,

@@ -3,9 +3,9 @@ import react from '@vitejs/plugin-react'
 
 const chunkGroups: Array<[string, string[]]> = [
   ['react', ['react', 'react-dom', 'scheduler']],
+  ['motion', ['framer-motion']],
   ['markdown', ['react-markdown', 'remark-gfm', 'remark-math', 'rehype-katex', 'rehype-slug', 'rehype-autolink-headings', 'katex']],
   ['syntax-highlighter', ['react-syntax-highlighter']],
-  ['charts', ['recharts']],
   ['echarts', ['echarts']],
   ['pdf', ['html2pdf.js', 'jspdf', 'html2canvas']],
 ]

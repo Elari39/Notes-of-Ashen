@@ -169,20 +169,24 @@ func (c *Client) Reindex(ctx context.Context, docs []Document) error {
 	return nil
 }
 
-func (c *Client) Upsert(ctx context.Context, doc Document) error {
+// EnsureIndex 在启动阶段一次性创建并配置索引，避免每次 Upsert/Delete 都重复
+// ensureIndex + configureIndex 的冗余 HTTP 往返。搜索禁用时为 no-op。
+func (c *Client) EnsureIndex(ctx context.Context) error {
 	if !c.Enabled() {
 		return nil
 	}
 	if err := c.ensureIndex(ctx); err != nil {
 		return err
 	}
-	if err := c.configureIndex(ctx); err != nil {
-		return err
-	}
-	if err := c.addDocuments(ctx, []Document{doc}); err != nil {
-		return err
-	}
 	return c.configureIndex(ctx)
+}
+
+func (c *Client) Upsert(ctx context.Context, doc Document) error {
+	if !c.Enabled() {
+		return nil
+	}
+	// 索引创建与配置由 EnsureIndex 在启动阶段完成，这里仅推送文档。
+	return c.addDocuments(ctx, []Document{doc})
 }
 
 func (c *Client) Delete(ctx context.Context, id uint64) error {

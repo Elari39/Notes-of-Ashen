@@ -360,9 +360,17 @@ const ArticleEditor: React.FC = () => {
     rangeEnd: number;
     sourceContent: string;
   } | null>(null);
-  const aiText = getAIEditorLabels(language);
-  const pinText = getPinPriorityLabels(language);
-  const scheduledPublishHint = getScheduledPublishHint(language, status, scheduledAt);
+  const aiActionLabelKey = (action: AIAssistAction) => translate(language, `aiAction.${action}`);
+  const scheduledPublishHint = (() => {
+    if (!scheduledAt || status !== 'published') {
+      return '';
+    }
+    const scheduledTime = new Date(scheduledAt).getTime();
+    if (Number.isNaN(scheduledTime) || scheduledTime <= Date.now()) {
+      return '';
+    }
+    return t('articleEditor.scheduledPublishHint');
+  })();
   // 预览防抖：每次按键只更新 content，预览用延迟值，避免全文重解析。
   const debouncedPreviewContent = useDebouncedValue(content, 250);
 
@@ -549,7 +557,7 @@ const ArticleEditor: React.FC = () => {
       setTagIds,
     });
     setDraftRecovery(null);
-    setAiNotice(aiText.draftRestored);
+    setAiNotice(t('articleEditor.draftRestored'));
   };
 
   const discardLocalDraft = () => {
@@ -557,7 +565,7 @@ const ArticleEditor: React.FC = () => {
     setDraftRecovery(null);
     // 丢弃后表单字段未变，effect 重跑会基于当前字段再次写入草稿；置位跳过下一次自动保存。
     skipAutosaveOnceRef.current = true;
-    setAiNotice(aiText.draftDiscarded);
+    setAiNotice(t('articleEditor.draftDiscarded'));
   };
 
   const { submit: submitSave, submitting } = useSubmit({
@@ -622,6 +630,14 @@ const ArticleEditor: React.FC = () => {
   });
 
   const handleSave = () => {
+    if (!title.trim()) {
+      setError(t('articleEditor.titleRequired'));
+      return;
+    }
+    if (!slug.trim()) {
+      setError(t('articleEditor.slugRequired'));
+      return;
+    }
     const trimmedCoverUrl = coverUrl.trim();
     if (!isValidCoverUrl(trimmedCoverUrl)) {
       setError(t('articleEditor.coverUrlError'));
@@ -637,7 +653,7 @@ const ArticleEditor: React.FC = () => {
       ? { text: content, start: 0, end: content.length }
       : getActiveMarkdownRange(textareaRef.current, content);
     if (!target.text.trim()) {
-      setError(aiText.contentRequired);
+      setError(t('articleEditor.aiContentRequired'));
       setAiMenuOpen(false);
       return;
     }
@@ -653,7 +669,7 @@ const ArticleEditor: React.FC = () => {
         if (data.summary) setSummary(data.summary);
         if (data.seoDescription) setSeoDescription(data.seoDescription);
         if (data.seoKeywords) setSeoKeywords(data.seoKeywords);
-        setAiNotice(aiText.metadataApplied);
+        setAiNotice(t('articleEditor.aiMetadataApplied'));
         return;
       }
       setAiDraft({
@@ -664,9 +680,9 @@ const ArticleEditor: React.FC = () => {
         rangeEnd: target.end,
         sourceContent: content,
       });
-      setAiNotice(aiText.resultReady(action));
+      setAiNotice(formatText(t('articleEditor.aiResultReady'), { action: aiActionLabelKey(action) }));
     } catch (e: unknown) {
-      setError(getErrorMessage(e, aiText.aiError));
+      setError(getErrorMessage(e, t('articleEditor.aiError')));
     } finally {
       setAiAction(null);
     }
@@ -678,13 +694,13 @@ const ArticleEditor: React.FC = () => {
       return;
     }
     if (draft.sourceContent !== content) {
-      setError(aiText.contentChanged);
+      setError(t('articleEditor.aiContentChanged'));
       setAiDraft(null);
       return;
     }
     setContent((current) => `${current.slice(0, draft.rangeStart)}${draft.revisedContent}${current.slice(draft.rangeEnd)}`);
     setAiDraft(null);
-    setAiNotice(aiText.contentApplied);
+    setAiNotice(t('articleEditor.aiContentApplied'));
     window.setTimeout(() => {
       textareaRef.current?.focus();
       const cursor = draft.rangeStart + draft.revisedContent.length;
@@ -746,27 +762,27 @@ const ArticleEditor: React.FC = () => {
               disabled={Boolean(aiAction)}
               className="border border-ochre px-4 py-2 text-sm tracking-widest text-ochre transition-colors hover:bg-ochre hover:text-paper disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {aiAction ? aiText.processing : aiText.magic}
+              {aiAction ? t('articleEditor.aiProcessing') : t('articleEditor.aiMagic')}
             </button>
             {aiMenuOpen && (
               <div className="absolute right-0 top-full z-30 mt-2 w-52 border border-mountain-grey bg-paper shadow-sm">
                 <button type="button" onClick={() => handleAIAssist('metadata')} className="block w-full px-3 py-2 text-left text-sm text-ink hover:bg-mountain-grey hover:bg-opacity-20">
-                  {aiText.metadata}
+                  {t('articleEditor.aiMetadata')}
                 </button>
                 <button type="button" onClick={() => handleAIAssist('proofread')} className="block w-full px-3 py-2 text-left text-sm text-ink hover:bg-mountain-grey hover:bg-opacity-20">
-                  {aiText.proofread}
+                  {t('articleEditor.aiProofread')}
                 </button>
                 <button type="button" onClick={() => handleAIAssist('polish')} className="block w-full px-3 py-2 text-left text-sm text-ink hover:bg-mountain-grey hover:bg-opacity-20">
-                  {aiText.polish}
+                  {t('articleEditor.aiPolish')}
                 </button>
                 <button type="button" onClick={() => handleAIAssist('expand')} className="block w-full px-3 py-2 text-left text-sm text-ink hover:bg-mountain-grey hover:bg-opacity-20">
-                  {aiText.expand}
+                  {t('articleEditor.aiExpand')}
                 </button>
                 <button type="button" onClick={() => handleAIAssist('shorten')} className="block w-full px-3 py-2 text-left text-sm text-ink hover:bg-mountain-grey hover:bg-opacity-20">
-                  {aiText.shorten}
+                  {t('articleEditor.aiShorten')}
                 </button>
                 <button type="button" onClick={() => handleAIAssist('translate')} className="block w-full px-3 py-2 text-left text-sm text-ink hover:bg-mountain-grey hover:bg-opacity-20">
-                  {aiText.translate}
+                  {t('articleEditor.aiTranslate')}
                 </button>
               </div>
             )}
@@ -784,17 +800,17 @@ const ArticleEditor: React.FC = () => {
         <section className="mb-6 border border-ochre bg-[var(--paper-soft)] p-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h4 className="text-sm font-bold tracking-widest text-ink">{aiText.localDraftTitle}</h4>
+              <h4 className="text-sm font-bold tracking-widest text-ink">{t('articleEditor.localDraftTitle')}</h4>
               <p className="mt-1 text-xs text-ink-light">
-                {formatText(aiText.localDraftDesc, { time: new Date(draftRecovery.savedAt).toLocaleString() })}
+                {formatText(t('articleEditor.localDraftDesc'), { time: new Date(draftRecovery.savedAt).toLocaleString() })}
               </p>
             </div>
             <div className="flex gap-3">
               <button type="button" onClick={restoreLocalDraft} className="border border-ink px-3 py-1.5 text-sm text-ink transition-colors hover:bg-ink hover:text-paper">
-                {aiText.restoreDraft}
+                {t('articleEditor.restoreDraft')}
               </button>
               <button type="button" onClick={discardLocalDraft} className="border border-mountain-grey px-3 py-1.5 text-sm text-ink-light transition-colors hover:border-ochre hover:text-ochre">
-                {aiText.discardDraft}
+                {t('articleEditor.discardDraft')}
               </button>
             </div>
           </div>
@@ -805,11 +821,11 @@ const ArticleEditor: React.FC = () => {
         <section className="mb-6 border border-mountain-grey bg-[var(--paper-soft)] p-4">
           <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <h4 className="text-sm font-bold tracking-widest text-ink">
-              {aiText.resultTitle(aiDraft.action)}
+              {formatText(t('articleEditor.aiResultTitle'), { action: aiActionLabelKey(aiDraft.action) })}
             </h4>
             <div className="flex gap-3">
               <button type="button" onClick={applyAIContent} className="border border-ink px-3 py-1.5 text-sm text-ink transition-colors hover:bg-ink hover:text-paper">
-                {aiText.apply}
+                {t('articleEditor.aiApply')}
               </button>
               <button type="button" onClick={() => setAiDraft(null)} className="border border-mountain-grey px-3 py-1.5 text-sm text-ink-light transition-colors hover:border-ochre hover:text-ochre">
                 {t('common.cancel')}
@@ -871,7 +887,7 @@ const ArticleEditor: React.FC = () => {
             onChange={e => setIsPinned(e.target.checked)}
             className="h-4 w-4 accent-ochre"
           />
-          <span>{pinText.pinned}</span>
+          <span>{t('common.pinned')}</span>
         </label>
         <input
           type="number"
@@ -879,28 +895,28 @@ const ArticleEditor: React.FC = () => {
           max={9999}
           step={1}
           value={displayPriority}
-          aria-label={pinText.priority}
-          placeholder={pinText.priority}
+          aria-label={t('articleEditor.priority')}
+          placeholder={t('articleEditor.priority')}
           onChange={e => setDisplayPriority(clampPriority(e.target.value))}
           className="w-full bg-transparent border-b border-mountain-grey py-2 text-ink focus:outline-none focus:border-ochre"
         />
         <input
           type="text"
-          placeholder="SEO Title"
+          placeholder={t('articleEditor.aiSeoTitle')}
           value={seoTitle}
           onChange={e => setSeoTitle(e.target.value)}
           className="w-full bg-transparent border-b border-mountain-grey py-2 text-ink focus:outline-none focus:border-ochre"
         />
         <input
           type="text"
-          placeholder="SEO Description"
+          placeholder={t('articleEditor.aiSeoDescription')}
           value={seoDescription}
           onChange={e => setSeoDescription(e.target.value)}
           className="w-full bg-transparent border-b border-mountain-grey py-2 text-ink focus:outline-none focus:border-ochre"
         />
         <input
           type="text"
-          placeholder="SEO Keywords"
+          placeholder={t('articleEditor.aiSeoKeywords')}
           value={seoKeywords}
           onChange={e => setSeoKeywords(e.target.value)}
           className="w-full bg-transparent border-b border-mountain-grey py-2 text-ink focus:outline-none focus:border-ochre"
@@ -966,8 +982,8 @@ const ArticleEditor: React.FC = () => {
           onChange={e => setGenerateSummaryOnSave(e.target.checked)}
           className="h-4 w-4 accent-ochre"
         />
-        <span className="font-bold text-ink">{aiText.generateSummaryOnSave}</span>
-        <span className="text-xs">{aiText.generateSummaryHint}</span>
+        <span className="font-bold text-ink">{t('articleEditor.generateSummaryOnSave')}</span>
+        <span className="text-xs">{t('articleEditor.generateSummaryHint')}</span>
       </label>
 
       <div className="flex-grow flex flex-col md:flex-row gap-6 overflow-hidden">
@@ -1008,113 +1024,6 @@ const clampPriority = (value: string) => {
     return 0;
   }
   return Math.min(9999, Math.max(0, next));
-};
-
-const getPinPriorityLabels = (language: string) => language === 'zh'
-  ? {
-      pinned: '\u7f6e\u9876',
-      priority: '\u663e\u793a\u4f18\u5148\u7ea7',
-    }
-  : {
-      pinned: 'Pinned',
-      priority: 'Display Priority',
-    };
-
-const getScheduledPublishHint = (language: string, status: string, scheduledAt: string) => {
-  if (!scheduledAt || status !== 'published') {
-    return '';
-  }
-  const time = new Date(scheduledAt).getTime();
-  if (!Number.isFinite(time) || time <= Date.now()) {
-    return '';
-  }
-  return language === 'zh'
-    ? '当前文章会先进入定时发布状态，到达设定时间后在前台可见。'
-    : 'This article will be scheduled and become public at the selected time.';
-};
-
-const getAIEditorLabels = (language: string) => language === 'zh'
-  ? {
-      magic: '✨ AI',
-      metadata: '生成摘要与 SEO',
-      proofread: '语法纠错',
-      polish: '语气润色',
-      expand: '扩写当前段落',
-      shorten: '缩写当前段落',
-      translate: '翻译当前段落',
-      processing: 'AI 处理中',
-      contentRequired: '请先填写正文内容。',
-      contentChanged: '正文已修改，请重新生成 AI 结果后再应用。',
-      metadataApplied: 'AI 已填入摘要与 SEO 字段，请检查后再保存。',
-      proofreadReady: 'AI 纠错结果已生成，请确认后应用。',
-      polishReady: 'AI 润色结果已生成，请确认后应用。',
-      proofreadResult: 'AI 纠错结果',
-      polishResult: 'AI 润色结果',
-      resultReady: (action: AIAssistAction) => `${aiActionLabel('zh', action)}结果已生成，请确认后应用。`,
-      resultTitle: (action: AIAssistAction) => `AI ${aiActionLabel('zh', action)}结果`,
-      apply: '应用到正文',
-      contentApplied: 'AI 结果已应用到正文，请检查后再保存。',
-      aiError: 'AI 辅助失败',
-      generateSummaryOnSave: '保存时生成核心摘要',
-      generateSummaryHint: '默认仅在摘要为空时开启；AI 会尽量补齐摘要、SEO 描述和关键词，失败也会继续保存文章。',
-      saveSummaryFailed: '文章已保存但摘要或 SEO 生成失败。',
-      localDraftTitle: '发现本地自动保存草稿',
-      localDraftDesc: '保存时间：{time}',
-      restoreDraft: '恢复草稿',
-      discardDraft: '丢弃草稿',
-      draftRestored: '已恢复本地草稿。',
-      draftDiscarded: '已丢弃本地草稿。',
-    }
-  : {
-      magic: '✨ AI',
-      metadata: 'Generate Summary / SEO',
-      proofread: 'Proofread',
-      polish: 'Polish Tone',
-      expand: 'Expand Paragraph',
-      shorten: 'Shorten Paragraph',
-      translate: 'Translate Paragraph',
-      processing: 'AI Working',
-      contentRequired: 'Please write the article body first.',
-      contentChanged: 'The article body has changed. Please regenerate the AI result before applying it.',
-      metadataApplied: 'AI filled summary and SEO fields. Please review before saving.',
-      proofreadReady: 'Proofread result is ready. Review before applying.',
-      polishReady: 'Polished result is ready. Review before applying.',
-      proofreadResult: 'AI Proofread Result',
-      polishResult: 'AI Polish Result',
-      resultReady: (action: AIAssistAction) => `${aiActionLabel('en', action)} result is ready. Review before applying.`,
-      resultTitle: (action: AIAssistAction) => `AI ${aiActionLabel('en', action)} Result`,
-      apply: 'Apply to Body',
-      contentApplied: 'AI result was applied to the body. Please review before saving.',
-      aiError: 'AI assist failed',
-      generateSummaryOnSave: 'Generate summary on save',
-      generateSummaryHint: 'Enabled by default only when summary is empty. AI also fills SEO fields when possible.',
-      saveSummaryFailed: 'Article saved, but summary or SEO generation failed.',
-      localDraftTitle: 'Local autosave draft found',
-      localDraftDesc: 'Saved at {time}',
-      restoreDraft: 'Restore Draft',
-      discardDraft: 'Discard Draft',
-      draftRestored: 'Local draft restored.',
-      draftDiscarded: 'Local draft discarded.',
-    };
-
-const aiActionLabel = (language: string, action: AIAssistAction) => {
-  const zh: Record<AIAssistAction, string> = {
-    metadata: '摘要与 SEO',
-    proofread: '纠错',
-    polish: '润色',
-    expand: '扩写',
-    shorten: '缩写',
-    translate: '翻译',
-  };
-  const en: Record<AIAssistAction, string> = {
-    metadata: 'Metadata',
-    proofread: 'Proofread',
-    polish: 'Polish',
-    expand: 'Expand',
-    shorten: 'Shorten',
-    translate: 'Translate',
-  };
-  return language === 'zh' ? zh[action] : en[action];
 };
 
 type EditorDraft = {

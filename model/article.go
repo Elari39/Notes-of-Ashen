@@ -200,10 +200,13 @@ func (s *Store) UpdateArticleStatus(ctx context.Context, id uint64, status strin
 		if err := tx.QueryRowContext(ctx, "SELECT status, published_at, scheduled_at FROM articles WHERE id = ?", id).Scan(&currentStatus, &currentPublished, &scheduledAt); err != nil {
 			return scanErr(err)
 		}
-		publishedAt := publishedAtForUpdate(currentStatus, timeFromNull(currentPublished), status, timeFromNull(scheduledAt))
+		// 状态接口语义为「立即切换状态」，不沿用 scheduled_at：转 published 表示立即发布，
+		// published_at 取原首发时间（若有）否则 now；清空 scheduled_at 避免未来时间导致
+		// IsArticlePubliclyVisible 判定不可见。需要定时发布应走 UpdateArticle（PUT）。
+		publishedAt := publishedAtForUpdate(currentStatus, timeFromNull(currentPublished), status, nil)
 		res, err := tx.ExecContext(ctx, `
 UPDATE articles
-SET status = ?, published_at = ?
+SET status = ?, published_at = ?, scheduled_at = NULL
 WHERE id = ?`, status, nullableTime(publishedAt), id)
 		if err != nil {
 			return err
@@ -255,6 +258,30 @@ func (s *Store) ArticleSlugExists(ctx context.Context, slug string) (bool, error
 		return false, err
 	}
 	return true, nil
+}
+
+// ArticleSlugsTakenByPrefix 一次性返回与 base 同名或 base-{n} 形式冲突的已占用 slug 集合，
+// 供 uniqueArticleSlug 在内存中找出首个可用候选，避免逐次查询。
+// 同时匹配 base 本身（slug = ?）与 base- 前缀族（slug LIKE base-% ESCAPE '!'），
+// base 中的 LIKE 通配符经 escapeLike 转义防止语义偏移。
+func (s *Store) ArticleSlugsTakenByPrefix(ctx context.Context, base string) (map[string]struct{}, error) {
+	rows, err := s.db.QueryContext(ctx,
+		"SELECT slug FROM articles WHERE slug = ? OR slug LIKE ? ESCAPE '!'",
+		base, escapeLike(base)+"-%")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	taken := make(map[string]struct{})
+	for rows.Next() {
+		var slug string
+		if err := rows.Scan(&slug); err != nil {
+			return nil, err
+		}
+		taken[slug] = struct{}{}
+	}
+	return taken, rows.Err()
 }
 
 func (s *Store) IncreaseArticleView(ctx context.Context, id uint64) error {
@@ -610,12 +637,22 @@ func replaceArticleTags(ctx context.Context, tx *sql.Tx, articleID uint64, tagID
 	if _, err := tx.ExecContext(ctx, "DELETE FROM article_tags WHERE article_id = ?", articleID); err != nil {
 		return err
 	}
-	for _, tagID := range uniqueUint64(tagIDs) {
-		if _, err := tx.ExecContext(ctx, "INSERT INTO article_tags (article_id, tag_id) VALUES (?, ?)", articleID, tagID); err != nil {
-			return err
-		}
+	tagIDs = uniqueUint64(tagIDs)
+	if len(tagIDs) == 0 {
+		return nil
 	}
-	return nil
+	var b strings.Builder
+	b.WriteString("INSERT INTO article_tags (article_id, tag_id) VALUES ")
+	args := make([]any, 0, len(tagIDs)*2)
+	for i, tagID := range tagIDs {
+		if i > 0 {
+			b.WriteByte(',')
+		}
+		b.WriteString("(?, ?)")
+		args = append(args, articleID, tagID)
+	}
+	_, err := tx.ExecContext(ctx, b.String(), args...)
+	return err
 }
 
 func scanArticle(row rowScanner) (*Article, error) {

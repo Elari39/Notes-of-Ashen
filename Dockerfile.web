@@ -21,6 +21,7 @@ ENV PRERENDER_TOKEN=
 
 COPY deploy/nginx/default.conf /etc/nginx/templates/default.conf.template
 COPY deploy/nginx/10-limits.conf /etc/nginx/conf.d/10-limits.conf
+COPY deploy/nginx/security-headers.conf /etc/nginx/snippets/security-headers.conf
 COPY --from=builder /app/dist /usr/share/nginx/html
 
 EXPOSE 8080

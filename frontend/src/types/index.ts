@@ -184,7 +184,7 @@ export interface ArticleVersion {
   seoTitle: string;
   seoDescription: string;
   seoKeywords: string;
-  tagIds: number[];
+  tagIds?: number[];
   originalCreatedAt?: string;
   originalUpdatedAt?: string;
   createdAt: string;
@@ -225,6 +225,7 @@ export interface AdminStats {
 export interface Log {
   id: number;
   userId?: number;
+  userAccount?: string;
   eventType: string;
   resourceType: string;
   resourceId?: number;

@@ -1,15 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import {
-  CartesianGrid,
-  Legend,
-  Line,
-  LineChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from 'recharts';
+import { LineChart } from 'echarts/charts';
+import { GridComponent, LegendComponent, TooltipComponent } from 'echarts/components';
+import { init, use } from 'echarts/core';
+import { CanvasRenderer } from 'echarts/renderers';
+import type { ECharts } from 'echarts/core';
 import { getAdminStats } from '../../api/admin';
 import InlineNotice from '../../components/InlineNotice';
 import PagePendingState from '../../components/RoutePending';
@@ -17,6 +12,8 @@ import { getArticleStatusLabel, getDateLocale, translate } from '../../i18n';
 import { usePreferenceStore, type Language } from '../../store/preferences';
 import { getErrorMessage } from '../../utils/error';
 import type { AdminStats, Article, Log, RefererStat, TrafficTrendPoint } from '../../types';
+
+use([LineChart, GridComponent, TooltipComponent, LegendComponent, CanvasRenderer]);
 
 const statItems = [
   'articleTotal',
@@ -136,55 +133,127 @@ const TrafficOverview: React.FC<{
   todayUv: number;
   language: Language;
 }> = ({ trend, referers, todayPv, todayUv, language }) => {
-  const labels = dashboardTrafficLabels(language);
+  const t = (key: Parameters<typeof translate>[1]) => translate(language, key);
   const sourceTotal = referers.reduce((sum, item) => sum + item.pv, 0);
+  const chartRef = useRef<HTMLDivElement>(null);
+  const chartInstance = useRef<ECharts | null>(null);
+  const resizeHandler = useRef<(() => void) | null>(null);
+
+  // 数据 effect：确保实例存在并应用 option。每次 trend/language 变化或挂载后都重跑，
+  // 避免原「init effect 依赖 [] + setOption effect 依赖 [trend,language]」在 StrictMode
+  // 重挂载后新实例拿不到 option 导致图表空白。实例为空时懒初始化并注册 resize 监听。
+  useEffect(() => {
+    if (!chartRef.current) {
+      return;
+    }
+    let chart = chartInstance.current;
+    if (!chart) {
+      chart = init(chartRef.current, undefined, { renderer: 'canvas' });
+      chartInstance.current = chart;
+      const resize = () => chart?.resize();
+      resizeHandler.current = resize;
+      window.addEventListener('resize', resize);
+    }
+    chart.setOption({
+      tooltip: {
+        trigger: 'axis',
+        backgroundColor: 'var(--paper)',
+        borderColor: 'var(--mountain-grey)',
+        borderWidth: 1,
+        textStyle: { color: 'var(--ink)' },
+        formatter: (params: { axisValue: string; marker: string; seriesName: string; value: number }[]) => {
+          const title = fullDate(String(params[0]?.axisValue ?? ''), language);
+          const lines = params
+            .map((p) => `${p.marker} ${p.seriesName}: ${p.value}`)
+            .join('<br/>');
+          return `${title}<br/>${lines}`;
+        },
+      },
+      legend: {
+        data: ['PV', 'UV'],
+        textStyle: { color: 'var(--ink-light)', fontSize: 11 },
+        top: 0,
+      },
+      grid: { top: 32, right: 16, bottom: 8, left: 36, containLabel: true },
+      xAxis: {
+        type: 'category',
+        boundaryGap: false,
+        data: trend.map((p) => p.date),
+        axisLabel: {
+          color: 'var(--ink-light)',
+          fontSize: 11,
+          formatter: (value: string) => shortDate(value, language),
+        },
+        axisLine: { lineStyle: { color: 'var(--mountain-grey)' } },
+      },
+      yAxis: {
+        type: 'value',
+        minInterval: 1,
+        axisLabel: { color: 'var(--ink-light)', fontSize: 11 },
+        splitLine: { lineStyle: { color: 'var(--mountain-grey)', type: 'dashed' } },
+      },
+      series: [
+        {
+          name: 'PV',
+          type: 'line',
+          smooth: true,
+          showSymbol: false,
+          data: trend.map((p) => p.pv),
+          lineStyle: { width: 2, color: 'var(--ochre)' },
+          itemStyle: { color: 'var(--ochre)' },
+        },
+        {
+          name: 'UV',
+          type: 'line',
+          smooth: true,
+          showSymbol: false,
+          data: trend.map((p) => p.uv),
+          lineStyle: { width: 2, color: 'var(--code-blue)' },
+          itemStyle: { color: 'var(--code-blue)' },
+        },
+      ],
+    }, true);
+  }, [trend, language]);
+
+  // 卸载清理：dispose 实例并移除 resize 监听。实例在数据 effect 中懒创建，
+  // 故通过 ref 在卸载时取最新 handler，仅依赖 [] 保证组件卸载时执行一次。
+  useEffect(() => {
+    return () => {
+      if (resizeHandler.current) {
+        window.removeEventListener('resize', resizeHandler.current);
+        resizeHandler.current = null;
+      }
+      chartInstance.current?.dispose();
+      chartInstance.current = null;
+    };
+  }, []);
 
   return (
     <section>
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h4 className="text-sm font-bold tracking-widest text-ink">{labels.title}</h4>
-          <p className="mt-2 text-xs text-ink-light">{labels.subtitle}</p>
+          <h4 className="text-sm font-bold tracking-widest text-ink">{t('dashboard.trafficTitle')}</h4>
+          <p className="mt-2 text-xs text-ink-light">{t('dashboard.trafficSubtitle')}</p>
         </div>
         <div className="grid grid-cols-2 gap-2 text-sm">
           <div className="border border-mountain-grey px-3 py-2">
-            <span className="block text-xs text-ink-light">{labels.todayPv}</span>
+            <span className="block text-xs text-ink-light">{t('dashboard.todayPv')}</span>
             <strong className="mt-1 block text-xl text-ink">{todayPv}</strong>
           </div>
           <div className="border border-mountain-grey px-3 py-2">
-            <span className="block text-xs text-ink-light">{labels.todayUv}</span>
+            <span className="block text-xs text-ink-light">{t('dashboard.todayUv')}</span>
             <strong className="mt-1 block text-xl text-ink">{todayUv}</strong>
           </div>
         </div>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(16rem,1fr)]">
-        <div className="h-72 border border-mountain-grey bg-[var(--paper-soft)] p-3">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={trend} margin={{ top: 12, right: 12, bottom: 0, left: -18 }}>
-              <CartesianGrid stroke="var(--mountain-grey)" strokeDasharray="3 3" />
-              <XAxis dataKey="date" tickFormatter={(value) => shortDate(value, language)} tick={{ fill: 'var(--ink-light)', fontSize: 11 }} />
-              <YAxis tick={{ fill: 'var(--ink-light)', fontSize: 11 }} allowDecimals={false} />
-              <Tooltip
-                labelFormatter={(value) => fullDate(String(value), language)}
-                contentStyle={{
-                  background: 'var(--paper)',
-                  border: '1px solid var(--mountain-grey)',
-                  borderRadius: 4,
-                  color: 'var(--ink)',
-                }}
-              />
-              <Legend />
-              <Line type="monotone" dataKey="pv" name="PV" stroke="var(--ochre)" strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
-              <Line type="monotone" dataKey="uv" name="UV" stroke="var(--code-blue)" strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
+        <div ref={chartRef} className="h-72 border border-mountain-grey bg-[var(--paper-soft)] p-3" />
 
         <div className="border border-mountain-grey bg-[var(--paper-soft)] p-4">
-          <h5 className="mb-4 text-xs font-bold tracking-widest text-ink">{labels.referers}</h5>
+          <h5 className="mb-4 text-xs font-bold tracking-widest text-ink">{t('dashboard.referers')}</h5>
           {referers.length === 0 ? (
-            <p className="text-sm text-ink-light">{labels.empty}</p>
+            <p className="text-sm text-ink-light">{t('dashboard.empty')}</p>
           ) : (
             <div className="space-y-3">
               {referers.map((item) => (
@@ -238,39 +307,13 @@ const LogRow: React.FC<{ log: Log; language: Language }> = ({ log, language }) =
     <div>
       <p className="font-bold text-ink">{log.eventType}</p>
       <p className="mt-1 text-xs text-ink-light">
-        {log.resourceType}
+        {log.userAccount || log.userId || '-'} · {log.resourceType}
         {log.resourceId ? ` #${log.resourceId}` : ''}{log.ip ? ` · ${log.ip}` : ''}
       </p>
     </div>
     <time className="text-xs text-ink-light">{new Date(log.createdAt).toLocaleString(getDateLocale(language))}</time>
   </div>
 );
-
-const dashboardTrafficLabels = (language: Language) => language === 'zh'
-  ? {
-      title: '访问趋势',
-      subtitle: '过去 30 天公开页面 PV / UV',
-      todayPv: '今日 PV',
-      todayUv: '今日 UV',
-      referers: '访问来源',
-      empty: '暂无访问数据',
-      direct: '直接访问',
-      internal: '站内跳转',
-      search: '搜索引擎',
-      external: '外部网站',
-    }
-  : {
-      title: 'Traffic Trend',
-      subtitle: 'Public page PV / UV over the last 30 days',
-      todayPv: 'Today PV',
-      todayUv: 'Today UV',
-      referers: 'Referers',
-      empty: 'No traffic data yet',
-      direct: 'Direct',
-      internal: 'Internal',
-      search: 'Search',
-      external: 'External',
-    };
 
 const shortDate = (value: string, language: Language) => {
   const date = new Date(`${value}T00:00:00`);
@@ -289,11 +332,10 @@ const fullDate = (value: string, language: Language) => {
 };
 
 const sourceLabel = (item: RefererStat, language: Language) => {
-  const labels = dashboardTrafficLabels(language);
-  if (item.sourceType === 'direct') return labels.direct;
-  if (item.sourceType === 'internal') return labels.internal;
-  if (item.sourceType === 'search') return `${labels.search}: ${item.sourceName}`;
-  if (item.sourceType === 'external') return `${labels.external}: ${item.sourceName}`;
+  if (item.sourceType === 'direct') return translate(language, 'dashboard.refererDirect');
+  if (item.sourceType === 'internal') return translate(language, 'dashboard.refererInternal');
+  if (item.sourceType === 'search') return `${translate(language, 'dashboard.refererSearch')}: ${item.sourceName}`;
+  if (item.sourceType === 'external') return `${translate(language, 'dashboard.refererExternal')}: ${item.sourceName}`;
   return item.sourceName;
 };
 

@@ -17,27 +17,37 @@ import (
 
 // httpConnPool 复用 TCP/TLS 连接池（P4-11）：避免每次 Assist 调用都新建
 // http.Client/Transport 重新握手、旧 Transport 空闲连接未关闭导致的 fd 泄漏。
-// ResponseHeaderTimeout 设为首字节超时默认值，单次请求总超时由 ctx 控制。
+// ResponseHeaderTimeout 设为首字节超时，单次请求总超时由 ctx 控制。
+// 首字节超时配置可热更：超时变化时在锁内重建 Client（在途请求仍持有旧指针，
+// GC 在其完成后回收旧 Transport，无竞态、无 fd 泄漏）；未变则复用同一连接池。
 var (
-	httpConnPoolOnce sync.Once
-	httpConnPool     *http.Client
+	httpConnPoolMu sync.Mutex
+	httpConnPool   *http.Client
+	httpConnPoolTo time.Duration
 )
 
 func sharedHTTPClient(headerTimeout time.Duration) *http.Client {
-	httpConnPoolOnce.Do(func() {
-		httpConnPool = &http.Client{
-			Transport: &http.Transport{
-				Proxy: http.ProxyFromEnvironment,
-				DialContext: (&net.Dialer{
-					Timeout:   30 * time.Second,
-					KeepAlive: 30 * time.Second,
-				}).DialContext,
-				TLSHandshakeTimeout:   30 * time.Second,
-				ResponseHeaderTimeout: headerTimeout,
-				ExpectContinueTimeout: 1 * time.Second,
-			},
-		}
-	})
+	httpConnPoolMu.Lock()
+	defer httpConnPoolMu.Unlock()
+	if httpConnPool != nil && httpConnPoolTo == headerTimeout {
+		return httpConnPool
+	}
+	httpConnPool = &http.Client{
+		Transport: &http.Transport{
+			Proxy: http.ProxyFromEnvironment,
+			DialContext: (&net.Dialer{
+				Timeout:   30 * time.Second,
+				KeepAlive: 30 * time.Second,
+			}).DialContext,
+			MaxIdleConns:          20,
+			MaxIdleConnsPerHost:   10,
+			IdleConnTimeout:       90 * time.Second,
+			TLSHandshakeTimeout:   30 * time.Second,
+			ResponseHeaderTimeout: headerTimeout,
+			ExpectContinueTimeout: 1 * time.Second,
+		},
+	}
+	httpConnPoolTo = headerTimeout
 	return httpConnPool
 }
 

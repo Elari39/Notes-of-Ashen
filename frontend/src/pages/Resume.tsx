@@ -13,6 +13,7 @@ import Button from '../components/ui/Button';
 import { getProjectsPage, getResumePage } from '../api/siteSettings';
 import { getTags } from '../api/tag';
 import { usePreferenceStore } from '../store/preferences';
+import { translate } from '../i18n';
 import type { ProjectItem, ResumeEducation, ResumeExperience, ResumePage, ResumeSkill, Tag } from '../types';
 import { getErrorMessage } from '../utils/error';
 import { useSEO } from '../utils/seo';
@@ -23,8 +24,10 @@ const Resume: React.FC = () => {
   const language = usePreferenceStore((state) => state.language);
   const effectiveTheme = usePreferenceStore((state) => state.effectiveTheme);
   const accentColor = usePreferenceStore((state) => state.accentColor);
-  const isZh = language === 'zh';
-  const text = getResumeLabels(language);
+  const t = (key: Parameters<typeof translate>[1]) => translate(language, key);
+  // 用 ref 持有最新 language，避免切换语言时重新拉取简历正文（正文与语言无关）。
+  const languageRef = useRef(language);
+  languageRef.current = language;
   const navigate = useNavigate();
   const [page, setPage] = useState<ResumePage | null>(null);
   const [projects, setProjects] = useState<ProjectItem[]>([]);
@@ -35,7 +38,7 @@ const Resume: React.FC = () => {
   const [exportError, setExportError] = useState('');
   const resumeRef = useRef<HTMLDivElement>(null);
 
-  useSEO(page?.title || (isZh ? '简介' : 'About'));
+  useSEO(page?.title || t('resume.pageTitleFallback'));
 
   useEffect(() => {
     let active = true;
@@ -49,7 +52,7 @@ const Resume: React.FC = () => {
       })
       .catch((e: unknown) => {
         if (active) {
-          setError(getErrorMessage(e, text.loadError));
+          setError(getErrorMessage(e, translate(languageRef.current, 'resume.loadError')));
         }
       })
       .finally(() => {
@@ -60,7 +63,7 @@ const Resume: React.FC = () => {
     return () => {
       active = false;
     };
-  }, [text.loadError]);
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -124,7 +127,7 @@ const Resume: React.FC = () => {
         .from(resumeRef.current)
         .save();
     } catch (e: unknown) {
-      setExportError(getErrorMessage(e, text.exportError));
+      setExportError(getErrorMessage(e, t('resume.exportError')));
     } finally {
       resumeRef.current?.classList.remove('resume-pdf-exporting');
       setIsExporting(false);
@@ -138,10 +141,10 @@ const Resume: React.FC = () => {
           <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
             <div>
               <p className="mb-3 text-xs uppercase tracking-[0.28em] text-ochre">
-                {isZh ? 'ABOUT' : 'PROFILE'}
+                {t('resume.kicker')}
               </p>
               <h1 className="text-3xl font-bold tracking-widest text-ink md:text-4xl">
-                {page?.title || (isZh ? '简介' : 'About')}
+                {page?.title || t('resume.pageTitleFallback')}
               </h1>
               {page?.subtitle && (
                 <p className="mt-4 max-w-2xl text-sm leading-7 tracking-wide text-ink-light opacity-80">
@@ -159,7 +162,7 @@ const Resume: React.FC = () => {
                 data-html2canvas-ignore="true"
                 className="shrink-0"
               >
-                {isExporting ? text.exporting : text.exportPDF}
+                {isExporting ? t('resume.exporting') : t('resume.exportPDF')}
               </Button>
             )}
           </div>
@@ -168,13 +171,13 @@ const Resume: React.FC = () => {
         {isLoading && (
           <PagePendingState
             variant={page ? 'inline' : 'page'}
-            label={text.loading}
+            label={t('resume.loading')}
           />
         )}
         <InlineNotice message={error} />
         <InlineNotice message={exportError} className="resume-export-notice" />
         {!isLoading && !error && !hasContent && (
-          <EmptyState illustration="ink-drop" title={text.empty} />
+          <EmptyState illustration="ink-drop" title={t('resume.empty')} />
         )}
         {!isLoading && !error && page && hasContent && (
           <>
@@ -185,16 +188,16 @@ const Resume: React.FC = () => {
             )}
 
             {page.experiences.length > 0 && (
-              <TimelineSection title={text.experiences} items={page.experiences} type="experience" />
+              <TimelineSection title={t('resume.experiences')} items={page.experiences} type="experience" />
             )}
 
             {page.educations.length > 0 && (
-              <TimelineSection title={text.educations} items={page.educations} type="education" />
+              <TimelineSection title={t('resume.educations')} items={page.educations} type="education" />
             )}
 
             {Object.keys(skillsByCategory).length > 0 && (
               <section>
-                <h2 className="mb-5 text-sm font-bold tracking-[0.24em] text-ink">{text.skills}</h2>
+                <h2 className="mb-5 text-sm font-bold tracking-[0.24em] text-ink">{t('resume.skills')}</h2>
                 <div className="grid gap-5 md:grid-cols-2">
                   {Object.entries(skillsByCategory).map(([category, skills]) => (
                     <div key={category} className="resume-pdf-avoid-break border border-mountain-grey bg-[var(--paper-soft)] p-5">
@@ -213,7 +216,6 @@ const Resume: React.FC = () => {
             {skillGraph.nodes.length > 1 && (
               <SkillGraphSection
                 data={skillGraph}
-                labels={text}
                 projects={projects}
                 themeKey={`${effectiveTheme}:${accentColor}`}
                 onOpenTag={(tagId) => navigate(`/search?tagId=${tagId}`)}
@@ -303,11 +305,12 @@ type SkillGraphNode = {
 
 const SkillGraphSection: React.FC<{
   data: SkillGraphData;
-  labels: ReturnType<typeof getResumeLabels>;
   projects: ProjectItem[];
   themeKey: string;
   onOpenTag: (tagId: number) => void;
-}> = ({ data, labels, projects, themeKey, onOpenTag }) => {
+}> = ({ data, projects, themeKey, onOpenTag }) => {
+  const language = usePreferenceStore((state) => state.language);
+  const t = (key: Parameters<typeof translate>[1]) => translate(language, key);
   const [activeNodeId, setActiveNodeId] = useState(data.nodes[0]?.id || '');
   const activeNode = data.nodes.find((node) => node.id === activeNodeId) || data.nodes[0];
   const relatedProjects = projects.filter((project) => activeNode?.relatedProjectIds.includes(project.id));
@@ -322,8 +325,8 @@ const SkillGraphSection: React.FC<{
     <section data-html2canvas-ignore="true" className="space-y-5">
       <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
         <div>
-          <h2 className="text-sm font-bold tracking-[0.24em] text-ink">{labels.skillGraph}</h2>
-          <p className="mt-2 text-sm leading-7 text-ink-light">{labels.graphHint}</p>
+          <h2 className="text-sm font-bold tracking-[0.24em] text-ink">{t('resume.skillGraph')}</h2>
+          <p className="mt-2 text-sm leading-7 text-ink-light">{t('resume.graphHint')}</p>
         </div>
         {activeNode?.tagId && (
           <button
@@ -331,7 +334,7 @@ const SkillGraphSection: React.FC<{
             onClick={() => onOpenTag(activeNode.tagId as number)}
             className="self-start border border-ochre px-3 py-1.5 text-sm tracking-widest text-ochre transition-colors hover:bg-ochre hover:text-paper md:self-auto"
           >
-            {labels.openTag}
+            {t('resume.openTag')}
           </button>
         )}
       </div>
@@ -339,8 +342,8 @@ const SkillGraphSection: React.FC<{
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_18rem]">
         <SkillGraph data={data} activeNodeId={activeNodeId} themeKey={themeKey} onSelect={setActiveNodeId} />
         <aside className="border border-mountain-grey bg-[var(--paper-soft)] p-5">
-          <p className="text-xs tracking-[0.2em] text-ochre">{activeNode?.name || labels.skillGraph}</p>
-          <h3 className="mt-2 text-base font-bold tracking-widest text-ink">{labels.relatedProjects}</h3>
+          <p className="text-xs tracking-[0.2em] text-ochre">{activeNode?.name || t('resume.skillGraph')}</p>
+          <h3 className="mt-2 text-base font-bold tracking-widest text-ink">{t('resume.relatedProjects')}</h3>
           {relatedProjects.length > 0 ? (
             <div className="mt-4 space-y-3">
               {relatedProjects.map((project) => (
@@ -353,7 +356,7 @@ const SkillGraphSection: React.FC<{
               ))}
             </div>
           ) : (
-            <p className="mt-4 text-sm leading-7 text-ink-light">{labels.noRelatedProjects}</p>
+            <p className="mt-4 text-sm leading-7 text-ink-light">{t('resume.noRelatedProjects')}</p>
           )}
         </aside>
       </div>
@@ -610,37 +613,3 @@ const safeFilename = (value: string) => value
   .replace(/[\\/:*?"<>|]+/g, '-')
   .replace(/\s+/g, '-')
   || 'resume';
-
-const getResumeLabels = (language: string) => language === 'zh'
-  ? {
-      loading: '简介加载中...',
-      loadError: '简介内容加载失败',
-      empty: '简介内容还没有填写。',
-      exportPDF: '导出 PDF',
-      exporting: '导出中...',
-      exportError: 'PDF 导出失败',
-      experiences: '工作与实习经历',
-      educations: '教育背景',
-      skills: '技能树',
-      skillGraph: '知识图谱',
-      graphHint: '点击节点查看技能、项目与标签之间的关联。',
-      relatedProjects: '关联项目',
-      noRelatedProjects: '这个节点暂时没有关联项目。',
-      openTag: '查看相关文章',
-    }
-  : {
-      loading: 'Loading profile...',
-      loadError: 'Failed to load profile content',
-      empty: 'Profile content has not been filled in yet.',
-      exportPDF: 'Export PDF',
-      exporting: 'Exporting...',
-      exportError: 'Failed to export PDF',
-      experiences: 'Experience',
-      educations: 'Education',
-      skills: 'Skills',
-      skillGraph: 'Knowledge Graph',
-      graphHint: 'Click a node to inspect related skills, projects, and tags.',
-      relatedProjects: 'Related Projects',
-      noRelatedProjects: 'No related projects for this node yet.',
-      openTag: 'Open Articles',
-    };

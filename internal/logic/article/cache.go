@@ -57,7 +57,16 @@ func evictArticleCaches(ctx context.Context, svcCtx *svc.ServiceContext) {
 
 func RefreshDerivedPublicState(ctx context.Context, svcCtx *svc.ServiceContext) {
 	evictArticleCaches(ctx, svcCtx)
-	if _, err := ReindexSearch(ctx, svcCtx); err != nil {
-		logx.Errorf("article search reindex after taxonomy change failed: %v", err)
+	// 分类/标签变更只影响关联文章的搜索文档，全量 Reindex 较重，改为异步执行
+	// 不阻塞分类/标签操作响应；索引最终一致（秒级延迟）。
+	if svcCtx.Search == nil || !svcCtx.Search.Enabled() {
+		return
 	}
+	go func() {
+		reindexCtx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+		defer cancel()
+		if _, err := ReindexSearch(reindexCtx, svcCtx); err != nil {
+			logx.Errorf("article search reindex after taxonomy change failed: %v", err)
+		}
+	}()
 }

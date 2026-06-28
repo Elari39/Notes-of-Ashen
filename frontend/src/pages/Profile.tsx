@@ -26,6 +26,7 @@ const Profile: React.FC = () => {
 
   const [oldPassword, setOldPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [passwordEmailCode, setPasswordEmailCode] = useState('');
   const [passwordCaptchaId, setPasswordCaptchaId] = useState('');
   const [passwordCaptchaCode, setPasswordCaptchaCode] = useState('');
@@ -43,15 +44,16 @@ const Profile: React.FC = () => {
   const profileEmailChanged = email.trim().toLowerCase() !== (user?.email || '').trim().toLowerCase();
   const t = (key: Parameters<typeof translate>[1]) => translate(language, key);
 
-  const passwordRules = useMemo<FieldRules<{ oldPassword: string; newPassword: string }>>(
+  const passwordRules = useMemo<FieldRules<{ oldPassword: string; newPassword: string; confirmPassword: string }>>(
     () => ({
       oldPassword: [{ type: 'required' }],
       newPassword: [{ type: 'required' }, { type: 'minLength', value: 8 }],
+      confirmPassword: [{ type: 'required' }, { type: 'match', field: 'newPassword' }],
     }),
     [],
   );
   const { errors: pwdFieldErrors, validate: validatePassword } = useFormValidation(
-    { oldPassword, newPassword },
+    { oldPassword, newPassword, confirmPassword },
     passwordRules,
   );
 
@@ -135,6 +137,7 @@ const Profile: React.FC = () => {
       await updatePassword({ oldPassword, newPassword, emailCode: passwordEmailCode.trim() });
       setOldPassword('');
       setNewPassword('');
+      setConfirmPassword('');
       setPasswordEmailCode('');
       setPwdMsg(t('profile.passwordUpdated'));
     } catch (err: unknown) {
@@ -264,6 +267,19 @@ const Profile: React.FC = () => {
             />
             {pwdFieldErrors.newPassword && (
               <p className="mt-1 text-xs text-ember">{pwdFieldErrors.newPassword}</p>
+            )}
+          </div>
+          <div>
+            <input
+              type="password"
+              placeholder={t('auth.confirmPassword')}
+              value={confirmPassword}
+              onChange={e => setConfirmPassword(e.target.value)}
+              required
+              className="w-full bg-transparent border-b border-mountain-grey py-2 px-1 text-ink focus:outline-none focus:border-ochre transition-colors placeholder-ink-light placeholder-opacity-50"
+            />
+            {pwdFieldErrors.confirmPassword && (
+              <p className="mt-1 text-xs text-ember">{pwdFieldErrors.confirmPassword}</p>
             )}
           </div>
           <CaptchaField

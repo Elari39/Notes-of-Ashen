@@ -24,7 +24,7 @@ const AdminArticles: React.FC = () => {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [busyId, setBusyId] = useState<number | null>(null);
+  const [busy, setBusy] = useState<{ id: number; action: 'export' | 'status' | 'delete' } | null>(null);
   const [keyword, setKeyword] = useState('');
   const [appliedKeyword, setAppliedKeyword] = useState('');
   const [status, setStatus] = useState<ArticleStatus | 'scheduled' | ''>('');
@@ -38,8 +38,6 @@ const AdminArticles: React.FC = () => {
   const navigate = useNavigate();
   const t = (key: Parameters<typeof translate>[1]) => translate(language, key);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const extraLabels = adminArticleExtraLabels(language);
-  const pinLabels = articlePinLabels(language);
   const getDisplayStatus = (article: Article) => {
     if (article.status === 'published' && article.scheduledAt && new Date(article.scheduledAt).getTime() > Date.now()) {
       return 'scheduled';
@@ -49,7 +47,7 @@ const AdminArticles: React.FC = () => {
   const getDisplayStatusLabel = (article: Article) => {
     const displayStatus = getDisplayStatus(article);
     if (displayStatus === 'scheduled') {
-      return extraLabels.scheduled;
+      return t('articleAdmin.scheduled');
     }
     return getArticleStatusLabel(language, displayStatus);
   };
@@ -133,7 +131,7 @@ const AdminArticles: React.FC = () => {
 
   const handleStatus = async (id: number, status: ArticleStatus) => {
     setError('');
-    setBusyId(id);
+    setBusy({ id, action: 'status' });
     try {
       await updateArticleStatus(id, status);
       notifyArticleCacheInvalid();
@@ -141,7 +139,7 @@ const AdminArticles: React.FC = () => {
     } catch (e) {
       setError(getErrorMessage(e, t('adminArticles.statusError')));
     } finally {
-      setBusyId(null);
+      setBusy(null);
     }
   };
 
@@ -154,7 +152,7 @@ const AdminArticles: React.FC = () => {
     });
     if (!ok) return;
     setError('');
-    setBusyId(id);
+    setBusy({ id, action: 'delete' });
     try {
       await deleteArticle(id);
       notifyArticleCacheInvalid();
@@ -162,7 +160,7 @@ const AdminArticles: React.FC = () => {
     } catch (e) {
       setError(getErrorMessage(e, t('adminArticles.deleteError')));
     } finally {
-      setBusyId(null);
+      setBusy(null);
     }
   };
 
@@ -178,7 +176,7 @@ const AdminArticles: React.FC = () => {
       const res = await importMarkdownArticle(file);
       navigate(`/admin/editor/${res.data.id}`);
     } catch (e) {
-      setError(getErrorMessage(e, extraLabels.importError));
+      setError(getErrorMessage(e, t('articleAdmin.importError')));
     } finally {
       setImporting(false);
     }
@@ -186,7 +184,7 @@ const AdminArticles: React.FC = () => {
 
   const handleExport = async (id: number) => {
     setError('');
-    setBusyId(id);
+    setBusy({ id, action: 'export' });
     try {
       const { blob, filename } = await exportArticleMarkdown(id);
       const url = URL.createObjectURL(blob);
@@ -198,9 +196,9 @@ const AdminArticles: React.FC = () => {
       link.remove();
       URL.revokeObjectURL(url);
     } catch (e) {
-      setError(getErrorMessage(e, extraLabels.exportError));
+      setError(getErrorMessage(e, t('articleAdmin.exportError')));
     } finally {
-      setBusyId(null);
+      setBusy(null);
     }
   };
 
@@ -215,7 +213,7 @@ const AdminArticles: React.FC = () => {
             disabled={importing}
             className="px-4 py-2 border border-mountain-grey text-ink hover:border-ochre hover:text-ochre tracking-widest text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {importing ? extraLabels.importing : extraLabels.import}
+            {importing ? t('articleAdmin.importing') : t('articleAdmin.import')}
           </button>
           <button onClick={() => navigate('/admin/editor/new')} className="px-4 py-2 border border-ink text-ink hover:bg-ink hover:text-paper tracking-widest text-sm transition-colors">
             {t('adminArticles.new')}
@@ -243,7 +241,7 @@ const AdminArticles: React.FC = () => {
           <option value="">{t('adminArticles.allStatus')}</option>
           <option value="draft">{getArticleStatusLabel(language, 'draft')}</option>
           <option value="published">{getArticleStatusLabel(language, 'published')}</option>
-          <option value="scheduled">{extraLabels.scheduled}</option>
+          <option value="scheduled">{t('articleAdmin.scheduled')}</option>
           <option value="archived">{getArticleStatusLabel(language, 'archived')}</option>
         </select>
         <select
@@ -314,11 +312,11 @@ const AdminArticles: React.FC = () => {
                     {(a.isPinned || a.displayPriority > 0) && (
                       <div className="mt-2 flex flex-wrap gap-2 text-xs font-normal tracking-wider">
                         {a.isPinned && (
-                          <span className="border border-ochre px-2 py-0.5 text-ochre">{pinLabels.pinned}</span>
+                          <span className="border border-ochre px-2 py-0.5 text-ochre">{t('common.pinned')}</span>
                         )}
                         {a.displayPriority > 0 && (
                           <span className="border border-mountain-grey px-2 py-0.5 text-ink-light">
-                            {pinLabels.priority} {a.displayPriority}
+                            {t('articleAdmin.priority')} {a.displayPriority}
                           </span>
                         )}
                       </div>
@@ -364,16 +362,24 @@ const AdminArticles: React.FC = () => {
                   <td data-label={t('common.action')} className="admin-card-actions py-4 text-right tracking-wider">
                     <div className="admin-action-list">
                       <Link to={`/admin/editor/${a.id}`} className="hover:text-ochre">{t('common.edit')}</Link>
-                      <Link to={`/admin/preview/${a.id}`} className="hover:text-ochre">{extraLabels.preview}</Link>
-                      <Link to={`/admin/articles/${a.id}/versions`} className="hover:text-ochre">{extraLabels.versions}</Link>
-                      <button onClick={() => handleExport(a.id)} disabled={busyId === a.id} className="hover:text-ochre disabled:opacity-50 disabled:cursor-not-allowed">{extraLabels.export}</button>
+                      <Link to={`/admin/preview/${a.id}`} className="hover:text-ochre">{t('articleAdmin.preview')}</Link>
+                      <Link to={`/admin/articles/${a.id}/versions`} className="hover:text-ochre">{t('articleAdmin.versions')}</Link>
+                      <button onClick={() => handleExport(a.id)} disabled={busy?.id === a.id && busy.action === 'export'} className="hover:text-ochre disabled:opacity-50 disabled:cursor-not-allowed">
+                        {busy?.id === a.id && busy.action === 'export' ? t('articleAdmin.export') + '…' : t('articleAdmin.export')}
+                      </button>
                       {a.status !== 'published' && (
-                        <button onClick={() => handleStatus(a.id, 'published')} disabled={busyId === a.id} className="hover:text-ochre disabled:opacity-50 disabled:cursor-not-allowed">{t('adminArticles.publish')}</button>
+                        <button onClick={() => handleStatus(a.id, 'published')} disabled={busy?.id === a.id && busy.action === 'status'} className="hover:text-ochre disabled:opacity-50 disabled:cursor-not-allowed">
+                          {busy?.id === a.id && busy.action === 'status' ? t('adminArticles.publish') + '…' : t('adminArticles.publish')}
+                        </button>
                       )}
                       {a.status === 'published' && (
-                        <button onClick={() => handleStatus(a.id, 'archived')} disabled={busyId === a.id} className="hover:text-ochre disabled:opacity-50 disabled:cursor-not-allowed">{t('adminArticles.archive')}</button>
+                        <button onClick={() => handleStatus(a.id, 'archived')} disabled={busy?.id === a.id && busy.action === 'status'} className="hover:text-ochre disabled:opacity-50 disabled:cursor-not-allowed">
+                          {busy?.id === a.id && busy.action === 'status' ? t('adminArticles.archive') + '…' : t('adminArticles.archive')}
+                        </button>
                       )}
-                      <button onClick={() => handleDelete(a.id)} disabled={busyId === a.id} className="text-ochre opacity-80 hover:opacity-100 disabled:opacity-50 disabled:cursor-not-allowed">{t('common.delete')}</button>
+                      <button onClick={() => handleDelete(a.id)} disabled={busy?.id === a.id && busy.action === 'delete'} className="text-ochre opacity-80 hover:opacity-100 disabled:opacity-50 disabled:cursor-not-allowed">
+                        {busy?.id === a.id && busy.action === 'delete' ? t('common.delete') + '…' : t('common.delete')}
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -393,37 +399,5 @@ const AdminArticles: React.FC = () => {
     </div>
   );
 };
-
-const adminArticleExtraLabels = (language: string) => language === 'zh'
-  ? {
-      import: '导入 Markdown',
-      importing: '导入中...',
-      importError: 'Markdown 导入失败',
-      export: '导出',
-      exportError: 'Markdown 导出失败',
-      preview: '预览',
-      versions: '版本',
-      scheduled: '定时发布',
-    }
-  : {
-      import: 'Import Markdown',
-      importing: 'Importing...',
-      importError: 'Markdown import failed',
-      export: 'Export',
-      exportError: 'Markdown export failed',
-      preview: 'Preview',
-      versions: 'Versions',
-      scheduled: 'Scheduled',
-    };
-
-const articlePinLabels = (language: string) => language === 'zh'
-  ? {
-      pinned: '\u7f6e\u9876',
-      priority: '\u4f18\u5148\u7ea7',
-    }
-  : {
-      pinned: 'Pinned',
-      priority: 'Priority',
-    };
 
 export default AdminArticles;

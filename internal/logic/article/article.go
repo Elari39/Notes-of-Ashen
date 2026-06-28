@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"strconv"
 	"strings"
 	"time"
@@ -209,7 +210,7 @@ func Like(ctx context.Context, svcCtx *svc.ServiceContext, id uint64, meta types
 	if !model.IsArticlePubliclyVisible(*item, time.Now()) {
 		return nil, apperrors.NotFound("article not found")
 	}
-	visitorHash := articleLikeVisitorHash(meta.IP, meta.UserAgent)
+	visitorHash := articleLikeVisitorHash(meta.IP, meta.UserAgent, meta.VisitorID)
 	// 每篇文章每小时唯一点赞者去重：用 Redis SET 统计不同 visitor_hash 数量，
 	// 超阈值视为刷赞并拒绝。Redis 异常时 fail-open，仅记日志不阻断正常点赞。
 	if svcCtx.Redis != nil {
@@ -291,7 +292,7 @@ func Create(ctx context.Context, svcCtx *svc.ServiceContext, req types.ArticleRe
 		IP:           meta.IP,
 		UserAgent:    meta.UserAgent,
 	})
-	syncArticleSearch(ctx, svcCtx, id)
+	syncArticleSearchAsync(svcCtx, id)
 	evictArticleCaches(ctx, svcCtx)
 	resp, err := articleResp(ctx, svcCtx, *item, true)
 	if err != nil {
@@ -360,7 +361,7 @@ func Update(ctx context.Context, svcCtx *svc.ServiceContext, id uint64, req type
 		IP:           meta.IP,
 		UserAgent:    meta.UserAgent,
 	})
-	syncArticleSearch(ctx, svcCtx, id)
+	syncArticleSearchAsync(svcCtx, id)
 	evictArticleCaches(ctx, svcCtx)
 	resp, err := articleResp(ctx, svcCtx, *item, true)
 	if err != nil {
@@ -384,7 +385,7 @@ func Delete(ctx context.Context, svcCtx *svc.ServiceContext, id uint64, meta typ
 	if err := svcCtx.Store.DeleteArticle(ctx, id); err != nil {
 		return logicutil.MapError(err)
 	}
-	deleteArticleSearch(ctx, svcCtx, id)
+	deleteArticleSearchAsync(svcCtx, id)
 	evictArticleCaches(ctx, svcCtx)
 	publishEvent(ctx, svcCtx, mq.Event{
 		UserID:       userID,
@@ -429,7 +430,7 @@ func UpdateStatus(ctx context.Context, svcCtx *svc.ServiceContext, id uint64, re
 		IP:           meta.IP,
 		UserAgent:    meta.UserAgent,
 	})
-	syncArticleSearch(ctx, svcCtx, id)
+	syncArticleSearchAsync(svcCtx, id)
 	evictArticleCaches(ctx, svcCtx)
 	resp, err := articleResp(ctx, svcCtx, *item, true)
 	if err != nil {
@@ -561,7 +562,7 @@ func RestoreVersion(ctx context.Context, svcCtx *svc.ServiceContext, articleID u
 		IP:           meta.IP,
 		UserAgent:    meta.UserAgent,
 	})
-	syncArticleSearch(ctx, svcCtx, articleID)
+	syncArticleSearchAsync(svcCtx, articleID)
 	evictArticleCaches(ctx, svcCtx)
 	resp, err := articleResp(ctx, svcCtx, *item, true)
 	if err != nil {
@@ -676,7 +677,13 @@ func articleResp(ctx context.Context, svcCtx *svc.ServiceContext, item model.Art
 	if item.CategoryID > 0 {
 		category, err = svcCtx.Store.FindCategory(ctx, item.CategoryID)
 		if err != nil {
-			return types.ArticleResp{}, err
+			if errors.Is(err, model.ErrNotFound) {
+				// 分类已被删除但 article.category_id 未清理时降级为无分类，
+				// 与 articlesResp 批量容错一致，避免详情页 500。
+				category = nil
+			} else {
+				return types.ArticleResp{}, err
+			}
 		}
 	}
 	return logicutil.ArticleResp(item, tags, category, includeContent), nil
@@ -726,8 +733,10 @@ func publishEvent(ctx context.Context, svcCtx *svc.ServiceContext, event mq.Even
 	}
 }
 
-func articleLikeVisitorHash(ip, userAgent string) string {
-	sum := sha256.Sum256([]byte("article-like|" + strings.TrimSpace(ip) + "|" + strings.TrimSpace(userAgent)))
+func articleLikeVisitorHash(ip, userAgent, visitorID string) string {
+	// visitorID（前端 localStorage 持久化的 X-Visitor-Id）比 UA 更稳定，
+	// 混入 hash 以提升点赞去重的准确性，削弱仅切换 UA 的刷赞行为。
+	sum := sha256.Sum256([]byte("article-like|" + strings.TrimSpace(ip) + "|" + strings.TrimSpace(userAgent) + "|" + strings.TrimSpace(visitorID)))
 	return hex.EncodeToString(sum[:])
 }
 
@@ -741,7 +750,7 @@ func recordArticleViewDedup(ctx context.Context, svcCtx *svc.ServiceContext, art
 	if svcCtx.Redis == nil {
 		return true
 	}
-	visitorHash := articleViewVisitorHash(meta.IP, meta.UserAgent)
+	visitorHash := articleViewVisitorHash(meta.IP, meta.UserAgent, meta.VisitorID)
 	key := "article:view:" + strconv.FormatUint(articleID, 10) + ":" + visitorHash
 	ok, err := svcCtx.Redis.SetNX(ctx, key, 1, articleViewDedupTTL).Result()
 	if err != nil {
@@ -751,7 +760,7 @@ func recordArticleViewDedup(ctx context.Context, svcCtx *svc.ServiceContext, art
 	return ok
 }
 
-func articleViewVisitorHash(ip, userAgent string) string {
-	sum := sha256.Sum256([]byte("article-view|" + strings.TrimSpace(ip) + "|" + strings.TrimSpace(userAgent)))
+func articleViewVisitorHash(ip, userAgent, visitorID string) string {
+	sum := sha256.Sum256([]byte("article-view|" + strings.TrimSpace(ip) + "|" + strings.TrimSpace(userAgent) + "|" + strings.TrimSpace(visitorID)))
 	return hex.EncodeToString(sum[:])
 }

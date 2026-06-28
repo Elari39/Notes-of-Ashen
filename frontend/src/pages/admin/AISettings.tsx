@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import InlineNotice from '../../components/InlineNotice';
 import PagePendingState from '../../components/RoutePending';
 import Switch from '../../components/ui/Switch';
@@ -6,10 +6,14 @@ import Button from '../../components/ui/Button';
 import { getAISettings, updateAISettings } from '../../api/aiSettings';
 import { getErrorMessage } from '../../utils/error';
 import { usePreferenceStore } from '../../store/preferences';
+import { translate } from '../../i18n';
 
 const AdminAISettings: React.FC = () => {
   const language = usePreferenceStore((state) => state.language);
-  const text = aiSettingsLabels(language);
+  const t = (key: Parameters<typeof translate>[1]) => translate(language, key);
+  // 用 ref 持有最新 language，避免切换语言时重新拉取 AI 设置（数据与语言无关）。
+  const languageRef = useRef(language);
+  languageRef.current = language;
   const [enabled, setEnabled] = useState(false);
   const [baseUrl, setBaseUrl] = useState('');
   const [model, setModel] = useState('');
@@ -48,19 +52,19 @@ const AdminAISettings: React.FC = () => {
         setStreamTimeoutSeconds(data.streamTimeoutSeconds || 300);
         setNonStreamTimeoutSeconds(data.nonStreamTimeoutSeconds || 600);
       })
-      .catch((e) => mounted && setError(getErrorMessage(e, text.loadError)))
+      .catch((e) => mounted && setError(getErrorMessage(e, translate(languageRef.current, 'aiSettings.loadError'))))
       .finally(() => mounted && setLoading(false));
     return () => {
       mounted = false;
     };
-  }, [text.loadError]);
+  }, []);
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError('');
     setNotice('');
     if (timeoutInvalid) {
-      setError(text.timeoutError);
+      setError(t('aiSettings.timeoutError'));
       return;
     }
     setSaving(true);
@@ -78,9 +82,9 @@ const AdminAISettings: React.FC = () => {
       setApiKey('');
       setClearApiKey(false);
       setApiKeyConfigured(Boolean(res.data.apiKeyConfigured));
-      setNotice(text.saved);
+      setNotice(t('aiSettings.saved'));
     } catch (e) {
-      setError(getErrorMessage(e, text.saveError));
+      setError(getErrorMessage(e, t('aiSettings.saveError')));
     } finally {
       setSaving(false);
     }
@@ -89,30 +93,30 @@ const AdminAISettings: React.FC = () => {
   return (
     <div>
       <div className="mb-8 border-b border-mountain-grey pb-4">
-        <h3 className="text-2xl font-bold tracking-widest text-ink">{text.title}</h3>
+        <h3 className="text-2xl font-bold tracking-widest text-ink">{t('aiSettings.title')}</h3>
       </div>
 
       <InlineNotice message={error} className="mb-6" />
       <InlineNotice message={notice} tone="success" className="mb-6" />
 
-      {loading && <PagePendingState variant="admin" label={text.loading} />}
+      {loading && <PagePendingState variant="admin" label={t('aiSettings.loading')} />}
       {!loading && (
         <form onSubmit={handleSubmit} className="space-y-8">
           <section className="border border-mountain-grey bg-[var(--paper-soft)] p-5">
             <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
               <div>
-                <h4 className="text-base font-bold tracking-widest text-ink">{text.enableTitle}</h4>
-                <p className="mt-2 text-sm leading-relaxed text-ink-light opacity-80">{text.enableDesc}</p>
+                <h4 className="text-base font-bold tracking-widest text-ink">{t('aiSettings.enableTitle')}</h4>
+                <p className="mt-2 text-sm leading-relaxed text-ink-light opacity-80">{t('aiSettings.enableDesc')}</p>
               </div>
               <div className="flex items-center gap-3">
                 <Switch
                   checked={enabled}
                   onCheckedChange={setEnabled}
                   disabled={saving}
-                  label={text.enableTitle}
+                  label={t('aiSettings.enableTitle')}
                 />
                 <span className="text-xs tracking-widest text-ink-light">
-                  {enabled ? text.enabled : text.disabled}
+                  {enabled ? t('settings.enabled') : t('settings.disabled')}
                 </span>
               </div>
             </div>
@@ -120,8 +124,8 @@ const AdminAISettings: React.FC = () => {
 
           <section className="border border-mountain-grey bg-[var(--paper-soft)] p-5">
             <div className="mb-5">
-              <h4 className="text-base font-bold tracking-widest text-ink">{text.providerTitle}</h4>
-              <p className="mt-2 text-sm leading-relaxed text-ink-light opacity-80">{text.providerDesc}</p>
+              <h4 className="text-base font-bold tracking-widest text-ink">{t('aiSettings.providerTitle')}</h4>
+              <p className="mt-2 text-sm leading-relaxed text-ink-light opacity-80">{t('aiSettings.providerDesc')}</p>
             </div>
             <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
               <label className="block text-sm text-ink-light">
@@ -145,7 +149,7 @@ const AdminAISettings: React.FC = () => {
                 />
               </label>
               <label className="block text-sm text-ink-light md:col-span-2">
-                <span className="mb-2 block tracking-widest">{text.apiKey}</span>
+                <span className="mb-2 block tracking-widest">{t('aiSettings.apiKey')}</span>
                 <input
                   value={apiKey}
                   onChange={(event) => {
@@ -156,11 +160,11 @@ const AdminAISettings: React.FC = () => {
                   }}
                   disabled={saving || clearApiKey}
                   type="password"
-                  placeholder={apiKeyConfigured ? text.apiKeyConfigured : text.apiKeyPlaceholder}
+                  placeholder={apiKeyConfigured ? t('aiSettings.apiKeyConfigured') : t('aiSettings.apiKeyPlaceholder')}
                   className="w-full border border-mountain-grey bg-transparent px-3 py-2 text-ink outline-none focus:border-ochre disabled:cursor-not-allowed disabled:opacity-50"
                 />
                 <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-ink-light">
-                  <span>{apiKeyConfigured ? text.configured : text.notConfigured}</span>
+                  <span>{apiKeyConfigured ? t('aiSettings.configured') : t('aiSettings.notConfigured')}</span>
                   {apiKeyConfigured && (
                     <label className="inline-flex items-center gap-2">
                       <input
@@ -170,7 +174,7 @@ const AdminAISettings: React.FC = () => {
                         onChange={(event) => setClearApiKey(event.target.checked)}
                         className="h-4 w-4 accent-ochre"
                       />
-                      <span>{text.clearKey}</span>
+                      <span>{t('aiSettings.clearKey')}</span>
                     </label>
                   )}
                 </div>
@@ -180,16 +184,16 @@ const AdminAISettings: React.FC = () => {
 
           <section className="border border-mountain-grey bg-[var(--paper-soft)] p-5">
             <div className="mb-5">
-              <h4 className="text-base font-bold tracking-widest text-ink">{text.timeoutTitle}</h4>
-              <p className="mt-2 text-sm leading-relaxed text-ink-light opacity-80">{text.timeoutDesc}</p>
+              <h4 className="text-base font-bold tracking-widest text-ink">{t('aiSettings.timeoutTitle')}</h4>
+              <p className="mt-2 text-sm leading-relaxed text-ink-light opacity-80">{t('aiSettings.timeoutDesc')}</p>
             </div>
             <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
-              <TimeoutInput label={text.firstByte} value={firstByteTimeoutSeconds} disabled={saving} onChange={setFirstByteTimeoutSeconds} />
-              <TimeoutInput label={text.stream} value={streamTimeoutSeconds} disabled={saving} onChange={setStreamTimeoutSeconds} />
-              <TimeoutInput label={text.nonStream} value={nonStreamTimeoutSeconds} disabled={saving} onChange={setNonStreamTimeoutSeconds} />
+              <TimeoutInput label={t('aiSettings.firstByte')} value={firstByteTimeoutSeconds} disabled={saving} onChange={setFirstByteTimeoutSeconds} />
+              <TimeoutInput label={t('aiSettings.stream')} value={streamTimeoutSeconds} disabled={saving} onChange={setStreamTimeoutSeconds} />
+              <TimeoutInput label={t('aiSettings.nonStream')} value={nonStreamTimeoutSeconds} disabled={saving} onChange={setNonStreamTimeoutSeconds} />
             </div>
             {timeoutInvalid && (
-              <p className="mt-3 text-sm text-ochre">{text.timeoutError}</p>
+              <p className="mt-3 text-sm text-ochre">{t('aiSettings.timeoutError')}</p>
             )}
           </section>
 
@@ -201,7 +205,7 @@ const AdminAISettings: React.FC = () => {
               disabled={timeoutInvalid}
               loading={saving}
             >
-              {saving ? text.saving : text.save}
+              {saving ? t('aiSettings.saving') : t('aiSettings.save')}
             </Button>
           </div>
         </form>
@@ -240,61 +244,5 @@ const clampTimeout = (value: string) => {
   }
   return Math.min(1800, Math.max(1, parsed));
 };
-
-const aiSettingsLabels = (language: string) => language === 'zh'
-  ? {
-      title: 'AI 配置',
-      loading: 'AI 配置加载中...',
-      enableTitle: 'AI 辅助创作',
-      enableDesc: '控制后台编辑器中的摘要、SEO 与伴写能力。',
-      enabled: '已启用',
-      disabled: '已禁用',
-      providerTitle: '模型服务',
-      providerDesc: '兼容 OpenAI Chat Completions 格式的服务地址、模型和密钥。',
-      apiKey: 'API Key',
-      apiKeyPlaceholder: '输入新的 API Key',
-      apiKeyConfigured: '已保存密钥；留空表示不修改',
-      configured: '当前已配置密钥',
-      notConfigured: '当前未配置密钥',
-      clearKey: '清空已保存密钥',
-      timeoutTitle: '超时策略',
-      timeoutDesc: '首字等待用于响应头/首字节，流式和非流式分别控制总等待时间。',
-      firstByte: '首字等待（秒）',
-      stream: '流式输出（秒）',
-      nonStream: '非流式输出（秒）',
-      timeoutError: '流式和非流式超时不能小于首字等待时间。',
-      save: '保存配置',
-      saving: '保存中',
-      saved: 'AI 配置已保存。',
-      loadError: 'AI 配置加载失败',
-      saveError: 'AI 配置保存失败',
-    }
-  : {
-      title: 'AI Settings',
-      loading: 'Loading AI settings...',
-      enableTitle: 'AI Writing',
-      enableDesc: 'Controls summary, SEO, and assisted writing in the admin editor.',
-      enabled: 'Enabled',
-      disabled: 'Disabled',
-      providerTitle: 'Model Provider',
-      providerDesc: 'Service URL, model, and key for OpenAI-compatible Chat Completions.',
-      apiKey: 'API Key',
-      apiKeyPlaceholder: 'Enter a new API key',
-      apiKeyConfigured: 'A key is saved. Leave blank to keep it.',
-      configured: 'API key configured',
-      notConfigured: 'No API key configured',
-      clearKey: 'Clear saved key',
-      timeoutTitle: 'Timeouts',
-      timeoutDesc: 'First byte controls response header wait; stream and non-stream control total wait.',
-      firstByte: 'First byte (s)',
-      stream: 'Streaming (s)',
-      nonStream: 'Non-streaming (s)',
-      timeoutError: 'Stream and non-stream timeouts cannot be lower than first byte timeout.',
-      save: 'Save Settings',
-      saving: 'Saving',
-      saved: 'AI settings saved.',
-      loadError: 'Failed to load AI settings',
-      saveError: 'Failed to save AI settings',
-    };
 
 export default AdminAISettings;

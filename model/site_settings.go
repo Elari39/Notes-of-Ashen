@@ -104,58 +104,76 @@ type ProjectsPageContent struct {
 	Items    []ProjectItem
 }
 
+// GetSettingsBatch 一次性加载多个 setting_key，返回 key->value 映射。
+// 缺失的 key 不在结果中，由调用方按默认值回退。表不存在（1146）时返回空映射，
+// 与单条 Get*Setting 的降级语义保持一致。
+func (s *Store) GetSettingsBatch(ctx context.Context, keys []string) (map[string]string, error) {
+	result := make(map[string]string, len(keys))
+	if len(keys) == 0 {
+		return result, nil
+	}
+	placeholders := make([]string, len(keys))
+	args := make([]any, len(keys))
+	for i, k := range keys {
+		placeholders[i] = "?"
+		args[i] = k
+	}
+	query := "SELECT setting_key, setting_value FROM site_settings WHERE setting_key IN (" + strings.Join(placeholders, ",") + ")"
+	rows, err := s.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		var mysqlErr *mysql.MySQLError
+		if errors.As(err, &mysqlErr) && mysqlErr.Number == 1146 {
+			return result, nil
+		}
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var k, v string
+		if err := rows.Scan(&k, &v); err != nil {
+			return nil, err
+		}
+		result[k] = v
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
 func (s *Store) SiteSettings(ctx context.Context) (*SiteSettings, error) {
-	enabled, err := s.GetBoolSetting(ctx, RegistrationEnabledKey, true)
+	keys := []string{
+		RegistrationEnabledKey, HomeArticleLayoutKey, SiteTitleKey, SiteDescriptionKey,
+		SiteKeywordsKey, SiteBaseURLKey, ResumePageEnabledKey, ResumeNavHiddenKey,
+		ProjectsPageEnabledKey, ProjectsNavHiddenKey,
+	}
+	values, err := s.GetSettingsBatch(ctx, keys)
 	if err != nil {
 		return nil, err
 	}
-	layout, err := s.GetStringSetting(ctx, HomeArticleLayoutKey, HomeArticleLayoutStandard)
-	if err != nil {
-		return nil, err
+	getString := func(key, def string) string {
+		if v, ok := values[key]; ok {
+			return v
+		}
+		return def
 	}
-	title, err := s.GetStringSetting(ctx, SiteTitleKey, DefaultSiteTitle)
-	if err != nil {
-		return nil, err
-	}
-	description, err := s.GetStringSetting(ctx, SiteDescriptionKey, DefaultSiteDescription)
-	if err != nil {
-		return nil, err
-	}
-	keywords, err := s.GetStringSetting(ctx, SiteKeywordsKey, DefaultSiteKeywords)
-	if err != nil {
-		return nil, err
-	}
-	baseURL, err := s.GetStringSetting(ctx, SiteBaseURLKey, "")
-	if err != nil {
-		return nil, err
-	}
-	resumeEnabled, err := s.GetBoolSetting(ctx, ResumePageEnabledKey, false)
-	if err != nil {
-		return nil, err
-	}
-	resumeHidden, err := s.GetBoolSetting(ctx, ResumeNavHiddenKey, true)
-	if err != nil {
-		return nil, err
-	}
-	projectsEnabled, err := s.GetBoolSetting(ctx, ProjectsPageEnabledKey, false)
-	if err != nil {
-		return nil, err
-	}
-	projectsHidden, err := s.GetBoolSetting(ctx, ProjectsNavHiddenKey, true)
-	if err != nil {
-		return nil, err
+	getBool := func(key string, def bool) bool {
+		if v, ok := values[key]; ok {
+			return v == "true" || v == "1"
+		}
+		return def
 	}
 	return &SiteSettings{
-		RegistrationEnabled: enabled,
-		HomeArticleLayout:   NormalizeHomeArticleLayout(layout),
-		SiteTitle:           title,
-		SiteDescription:     description,
-		SiteKeywords:        keywords,
-		SiteBaseURL:         baseURL,
-		ResumePageEnabled:   resumeEnabled,
-		ResumeNavHidden:     resumeHidden,
-		ProjectsPageEnabled: projectsEnabled,
-		ProjectsNavHidden:   projectsHidden,
+		RegistrationEnabled: getBool(RegistrationEnabledKey, true),
+		HomeArticleLayout:   NormalizeHomeArticleLayout(getString(HomeArticleLayoutKey, HomeArticleLayoutStandard)),
+		SiteTitle:           getString(SiteTitleKey, DefaultSiteTitle),
+		SiteDescription:     getString(SiteDescriptionKey, DefaultSiteDescription),
+		SiteKeywords:        getString(SiteKeywordsKey, DefaultSiteKeywords),
+		SiteBaseURL:         getString(SiteBaseURLKey, ""),
+		ResumePageEnabled:   getBool(ResumePageEnabledKey, false),
+		ResumeNavHidden:     getBool(ResumeNavHiddenKey, true),
+		ProjectsPageEnabled: getBool(ProjectsPageEnabledKey, false),
+		ProjectsNavHidden:   getBool(ProjectsNavHiddenKey, true),
 	}, nil
 }
 
@@ -208,47 +226,46 @@ func (s *Store) GetIntSetting(ctx context.Context, key string, defaultValue int)
 }
 
 func (s *Store) AISettings(ctx context.Context) (*AISettings, error) {
-	enabled, err := s.GetBoolSetting(ctx, AIEnabledKey, false)
+	keys := []string{
+		AIEnabledKey, AIBaseURLKey, AIAPIKeyCipherKey, AIModelKey,
+		AIFirstByteTimeoutKey, AIStreamTimeoutKey, AINonStreamTimeoutKey, AISettingsConfiguredKey,
+	}
+	values, err := s.GetSettingsBatch(ctx, keys)
 	if err != nil {
 		return nil, err
 	}
-	baseURL, err := s.GetStringSetting(ctx, AIBaseURLKey, "")
-	if err != nil {
-		return nil, err
+	getString := func(key, def string) string {
+		if v, ok := values[key]; ok {
+			return v
+		}
+		return def
 	}
-	keyCipher, err := s.GetStringSetting(ctx, AIAPIKeyCipherKey, "")
-	if err != nil {
-		return nil, err
+	getBool := func(key string, def bool) bool {
+		if v, ok := values[key]; ok {
+			return v == "true" || v == "1"
+		}
+		return def
 	}
-	model, err := s.GetStringSetting(ctx, AIModelKey, "")
-	if err != nil {
-		return nil, err
-	}
-	firstByteTimeout, err := s.GetIntSetting(ctx, AIFirstByteTimeoutKey, DefaultAIFirstByteWait)
-	if err != nil {
-		return nil, err
-	}
-	streamTimeout, err := s.GetIntSetting(ctx, AIStreamTimeoutKey, DefaultAIStreamWait)
-	if err != nil {
-		return nil, err
-	}
-	nonStreamTimeout, err := s.GetIntSetting(ctx, AINonStreamTimeoutKey, DefaultAINonStreamWait)
-	if err != nil {
-		return nil, err
-	}
-	configured, err := s.GetBoolSetting(ctx, AISettingsConfiguredKey, false)
-	if err != nil {
-		return nil, err
+	getInt := func(key string, def int) int {
+		raw := strings.TrimSpace(getString(key, ""))
+		if raw == "" {
+			return def
+		}
+		var value int
+		if _, err := fmt.Sscanf(raw, "%d", &value); err != nil {
+			return def
+		}
+		return value
 	}
 	return &AISettings{
-		Enabled:                 enabled,
-		BaseURL:                 baseURL,
-		APIKeyCipher:            keyCipher,
-		Model:                   model,
-		FirstByteTimeoutSeconds: firstByteTimeout,
-		StreamTimeoutSeconds:    streamTimeout,
-		NonStreamTimeoutSeconds: nonStreamTimeout,
-		Configured:              configured,
+		Enabled:                 getBool(AIEnabledKey, false),
+		BaseURL:                 getString(AIBaseURLKey, ""),
+		APIKeyCipher:            getString(AIAPIKeyCipherKey, ""),
+		Model:                   getString(AIModelKey, ""),
+		FirstByteTimeoutSeconds: getInt(AIFirstByteTimeoutKey, DefaultAIFirstByteWait),
+		StreamTimeoutSeconds:    getInt(AIStreamTimeoutKey, DefaultAIStreamWait),
+		NonStreamTimeoutSeconds: getInt(AINonStreamTimeoutKey, DefaultAINonStreamWait),
+		Configured:              getBool(AISettingsConfiguredKey, false),
 	}, nil
 }
 
@@ -291,18 +308,16 @@ ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)`,
 }
 
 func (s *Store) ResumePageContent(ctx context.Context) (*ResumePageContent, error) {
-	title, err := s.GetStringSetting(ctx, ResumeTitleKey, DefaultResumeTitle)
+	values, err := s.GetSettingsBatch(ctx, []string{ResumeTitleKey, ResumeSubtitleKey, ResumeContentKey})
 	if err != nil {
 		return nil, err
 	}
-	subtitle, err := s.GetStringSetting(ctx, ResumeSubtitleKey, "")
-	if err != nil {
-		return nil, err
+	title := values[ResumeTitleKey]
+	if title == "" {
+		title = DefaultResumeTitle
 	}
-	content, err := s.GetStringSetting(ctx, ResumeContentKey, "")
-	if err != nil {
-		return nil, err
-	}
+	subtitle := values[ResumeSubtitleKey]
+	content := values[ResumeContentKey]
 	experiences, err := s.ListResumeExperiences(ctx)
 	if err != nil {
 		return nil, err

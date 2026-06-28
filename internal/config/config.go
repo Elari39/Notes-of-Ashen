@@ -328,6 +328,14 @@ func (c Config) ValidateConfig() error {
 		if err := validateRequiredSecret("APP_AI_KEY_ENCRYPTION_SECRET", c.AI.KeyEncryptionSecret, minAccessSecretLength); err != nil {
 			return err
 		}
+		// 全局 HTTP 超时（RestConf.Timeout，毫秒）不得小于 AI 流式超时，否则 go-zero 会在
+		// 流式响应完成前强制中断连接。本地 .env 若误设 APP_TIMEOUT=70000（70s）而流式需 300s
+		// 即会触发，启动期 fail-fast 暴露该配置漂移。
+		streamTimeoutMS := int64(c.AI.StreamTimeoutSeconds) * 1000
+		if c.RestConf.Timeout > 0 && streamTimeoutMS > 0 && c.RestConf.Timeout < streamTimeoutMS {
+			return fmt.Errorf("APP_TIMEOUT (%dms) must be >= AI stream timeout (%dms = APP_AI_STREAM_TIMEOUT_SECONDS %d * 1000), otherwise AI streaming responses will be truncated",
+				c.RestConf.Timeout, streamTimeoutMS, c.AI.StreamTimeoutSeconds)
+		}
 	}
 	return nil
 }

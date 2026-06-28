@@ -135,12 +135,13 @@ func Register(ctx context.Context, svcCtx *svc.ServiceContext, req types.Registe
 				return apperrors.Forbidden("registration is disabled")
 			}
 		}
-		if _, err := svcCtx.Store.FindUserByAccount(ctx, req.Account); err == nil {
+		// 一次查询同时检测 account 和 email 是否被占用（错误信息保持一致，防枚举）。
+		if _, err := svcCtx.Store.FindUserByAccountOrEmail(ctx, req.Account); err == nil {
 			return apperrors.Conflict("account or email already exists")
 		} else if !errors.Is(err, model.ErrNotFound) {
 			return err
 		}
-		if _, err := svcCtx.Store.FindUserByEmail(ctx, req.Email); err == nil {
+		if _, err := svcCtx.Store.FindUserByAccountOrEmail(ctx, req.Email); err == nil {
 			return apperrors.Conflict("account or email already exists")
 		} else if !errors.Is(err, model.ErrNotFound) {
 			return err

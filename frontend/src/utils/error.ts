@@ -1,4 +1,5 @@
 import type { AxiosError } from 'axios';
+import { formatText, translate } from '../i18n';
 
 type ErrorResponse = {
   code?: number;
@@ -181,11 +182,6 @@ const exactMessages: Record<string, LocalizedText> = {
   [ERROR_KEYS.duplicateSubmit]: localized('请勿重复提交，正在处理中…', 'Please do not submit again — your request is still being processed.'),
 };
 
-const defaultFallbacks: Record<Language, string> = {
-  zh: '操作失败，请稍后重试',
-  en: 'Operation failed. Please try again later.',
-};
-
 const readLanguage = (): Language => {
   if (typeof localStorage !== 'undefined' && localStorage.getItem('notesOfAshen.language') === 'en') {
     return 'en';
@@ -200,7 +196,7 @@ const textFor = (value: LocalizedText | undefined, language: Language, fallback:
 
 const translateMessage = (message?: string, fallback?: string) => {
   const language = readLanguage();
-  const fallbackText = (fallback && exactMessages[fallback]?.[language]) || fallback || defaultFallbacks[language];
+  const fallbackText = (fallback && exactMessages[fallback]?.[language]) || fallback || translate(language, 'error.operationFailedFallback');
   const raw = message?.trim();
   if (!raw) return fallbackText;
   if (exactMessages[raw]) return textFor(exactMessages[raw], language, fallbackText);
@@ -208,33 +204,33 @@ const translateMessage = (message?: string, fallback?: string) => {
   const requiredMatch = raw.match(/^(.+) is required$/);
   if (requiredMatch) {
     const field = textFor(fieldNames[requiredMatch[1]], language, requiredMatch[1]);
-    return language === 'zh' ? `${field}不能为空` : `${field} is required`;
+    return formatText(translate(language, 'error.fieldRequired'), { field });
   }
 
   const lengthMatch = raw.match(/^(.+) length is invalid$/);
   if (lengthMatch) {
     const field = textFor(fieldNames[lengthMatch[1]], language, lengthMatch[1]);
-    return language === 'zh' ? `${field}长度不符合要求` : `${field} length is invalid`;
+    return formatText(translate(language, 'error.fieldLengthInvalid'), { field });
   }
 
   // 必须在 "is invalid" 之前匹配，避免被泛化吃掉
   const localAddressMatch = raw.match(/^(.+) must not point to a local address$/);
   if (localAddressMatch) {
     const field = textFor(fieldNames[localAddressMatch[1]], language, localAddressMatch[1]);
-    return language === 'zh' ? `${field}不能指向本地地址` : `${field} must not point to a local address`;
+    return formatText(translate(language, 'error.fieldLocalAddress'), { field });
   }
 
   // 必须在 "is invalid" 之前匹配，产出更通顺的字段数量提示
   const countMatch = raw.match(/^(.+) count is invalid$/);
   if (countMatch) {
     const field = textFor(fieldNames[countMatch[1]], language, countMatch[1]);
-    return language === 'zh' ? `${field}数量不合法` : `${field} count is invalid`;
+    return formatText(translate(language, 'error.fieldCountInvalid'), { field });
   }
 
   const invalidMatch = raw.match(/^(.+) is invalid$/);
   if (invalidMatch) {
     const field = textFor(fieldNames[invalidMatch[1]], language, invalidMatch[1]);
-    return language === 'zh' ? `${field}不合法` : `${field} is invalid`;
+    return formatText(translate(language, 'error.fieldInvalid'), { field });
   }
 
   // 安全网：未命中任何翻译时，中文页面回退到已本地化的 fallbackText（调用方 i18n 文案或默认兜底），

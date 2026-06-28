@@ -78,7 +78,7 @@ const AdminLayout: React.FC = () => {
       <aside className="w-full shrink-0 border-b border-mountain-grey pb-4 md:w-48 md:border-b-0 md:border-r md:min-h-[60vh] md:pb-0 md:pr-6">
         <div className="mb-4 flex items-center gap-3 md:mb-8">
           <h2 className="text-xl font-bold text-ink tracking-widest">{t('admin.title')}</h2>
-          <Tag tone="ochre" size="sm">ADMIN</Tag>
+          <Tag tone="ochre" size="sm">{t('admin.title')}</Tag>
         </div>
         <nav className="flex gap-4 overflow-x-auto whitespace-nowrap pb-1 text-sm tracking-widest md:flex-col md:gap-0 md:space-y-2 md:overflow-visible md:whitespace-normal md:pb-0">
           <PreloadNavLink to="/admin/dashboard" preload={routeLoaders.adminDashboard} className={navLinkClass}>

@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { AppError } from './error';
+import { AppError, ERROR_KEYS } from './error';
 
 type RefreshTokenResp = {
   code: number;
@@ -24,7 +24,9 @@ export const refreshAccessToken = async (): Promise<string> => {
     withCredentials: true,
   });
   if (res.data.code !== 0 || !res.data.data?.accessToken) {
-    throw new AppError(res.data.message || '登录已过期，请重新登录', res.data.code, res.status);
+    // 用 ERROR_KEYS.sessionExpired 作为消息，由 error.ts 的 translateMessage 统一本地化，
+    // 避免硬编码中文在英文环境下展示。
+    throw new AppError(res.data.message || ERROR_KEYS.sessionExpired, res.data.code, res.status);
   }
   return res.data.data.accessToken;
 };

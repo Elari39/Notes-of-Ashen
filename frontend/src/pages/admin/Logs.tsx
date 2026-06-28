@@ -79,7 +79,7 @@ const AdminLogs: React.FC = () => {
               {logs.map(log => (
                 <tr key={log.id} className="border-b border-mountain-grey border-opacity-50 hover:bg-mountain-grey hover:bg-opacity-20 transition-colors text-ink">
                   <td data-label={t('common.time')} className="admin-card-title py-4 text-ink-light whitespace-nowrap">{new Date(log.createdAt).toLocaleString(getDateLocale(language))}</td>
-                  <td data-label={t('logs.user')} className="py-4 font-bold">{log.userId}</td>
+                  <td data-label={t('logs.user')} className="py-4 font-bold">{log.userAccount || log.userId || '-'}</td>
                   <td data-label={t('logs.event')} className="py-4 text-ochre">{log.eventType}</td>
                   <td data-label={t('logs.source')} className="py-4 text-ink-light opacity-80 truncate max-w-[200px]" title={log.ip}>{log.ip}</td>
                 </tr>

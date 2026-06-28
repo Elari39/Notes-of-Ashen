@@ -149,7 +149,7 @@ const Layout: React.FC = () => {
       transition={{ duration: 0.2, ease: 'easeOut' }}
       className={`z-50 border border-mountain-grey bg-paper p-4 text-left shadow-[0_24px_80px_rgba(0,0,0,0.16)] ${
         variant === 'mobile'
-          ? 'fixed left-4 right-4 top-24 max-h-[calc(100vh-7rem)] overflow-y-auto md:hidden'
+          ? 'fixed left-4 right-4 top-24 max-h-[calc(100dvh-7rem-env(safe-area-inset-bottom))] overflow-y-auto pb-[env(safe-area-inset-bottom)] md:hidden'
           : 'absolute right-0 top-full mt-4 hidden w-[min(20rem,calc(100vw-3rem))] md:block'
       }`}
     >

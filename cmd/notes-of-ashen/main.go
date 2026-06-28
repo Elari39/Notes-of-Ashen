@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"os"
 
+	_ "go.uber.org/automaxprocs"
+
 	"notes-of-ashen/internal/config"
 	"notes-of-ashen/internal/handler"
 	"notes-of-ashen/internal/svc"

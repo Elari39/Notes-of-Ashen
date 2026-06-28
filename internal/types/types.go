@@ -133,7 +133,7 @@ type ResumeSkill struct {
 
 type ProjectItem struct {
 	ID              string   `json:"id"`
-	TagIDs          []uint64 `json:"tagIds,omitempty"`
+	TagIDs          []uint64 `json:"tagIds"`
 	Title           string   `json:"title"`
 	Summary         string   `json:"summary"`
 	Role            string   `json:"role"`
@@ -284,7 +284,7 @@ type ArticleResp struct {
 	SEOKeywords      string                   `json:"seoKeywords"`
 	CreatedAt        time.Time                `json:"createdAt"`
 	UpdatedAt        time.Time                `json:"updatedAt"`
-	Tags             []TagResp                `json:"tags,omitempty"`
+	Tags             []TagResp                `json:"tags"`
 	Category         *CategoryResp            `json:"category,omitempty"`
 	SearchHighlights *ArticleSearchHighlights `json:"searchHighlights,omitempty"`
 }
@@ -393,7 +393,7 @@ type ArticleVersionResp struct {
 	SEOTitle          string     `json:"seoTitle"`
 	SEODescription    string     `json:"seoDescription"`
 	SEOKeywords       string     `json:"seoKeywords"`
-	TagIDs            []uint64   `json:"tagIds,omitempty"`
+	TagIDs            []uint64   `json:"tagIds"`
 	OriginalCreatedAt *time.Time `json:"originalCreatedAt,omitempty"`
 	OriginalUpdatedAt *time.Time `json:"originalUpdatedAt,omitempty"`
 	CreatedAt         time.Time  `json:"createdAt"`
@@ -429,6 +429,7 @@ type AdminStatsResp struct {
 type OperationLogResp struct {
 	ID           uint64    `json:"id"`
 	UserID       uint64    `json:"userId,omitempty"`
+	UserAccount  string    `json:"userAccount,omitempty"`
 	EventType    string    `json:"eventType"`
 	ResourceType string    `json:"resourceType"`
 	ResourceID   uint64    `json:"resourceId,omitempty"`

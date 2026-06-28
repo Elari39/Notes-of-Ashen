@@ -3,10 +3,13 @@ package admin
 import (
 	"context"
 
+	"golang.org/x/sync/errgroup"
+
 	"notes-of-ashen/internal/authutil"
 	apperrors "notes-of-ashen/internal/errors"
 	"notes-of-ashen/internal/logicutil"
 	"notes-of-ashen/internal/middleware"
+	"notes-of-ashen/model"
 	"notes-of-ashen/internal/svc"
 	"notes-of-ashen/internal/types"
 	"notes-of-ashen/internal/validator"
@@ -113,32 +116,46 @@ func Stats(ctx context.Context, svcCtx *svc.ServiceContext) (*types.AdminStatsRe
 	if err := authutil.RequireContentManager(ctx); err != nil {
 		return nil, err
 	}
-	stats, err := svcCtx.Store.AdminStats(ctx)
-	if err != nil {
-		return nil, err
-	}
-	popular, err := cachedPopularArticles(ctx, svcCtx, 5)
-	if err != nil {
-		return nil, err
-	}
-	recent, err := cachedRecentArticles(ctx, svcCtx, 5)
-	if err != nil {
-		return nil, err
-	}
-	logs, _, err := svcCtx.Store.ListOperationLogs(ctx, 1, 5)
-	if err != nil {
-		return nil, err
-	}
-	trend, err := svcCtx.Store.TrafficTrend(ctx, 30)
-	if err != nil {
-		return nil, err
-	}
-	topReferers, err := svcCtx.Store.TopReferers(ctx, 30, 8)
-	if err != nil {
-		return nil, err
-	}
-	today, err := svcCtx.Store.TodayTraffic(ctx, logicutil.TodayDate())
-	if err != nil {
+	// 仪表盘各数据源互相无依赖，并行查询以减少串行 DB 往返。
+	var (
+		stats        *model.AdminStats
+		popular      []model.Article
+		recent       []model.Article
+		logs         []model.OperationLog
+		trend        []model.TrafficTrendPoint
+		topReferers  []model.RefererStat
+		today        model.TrafficTrendPoint
+	)
+	var g errgroup.Group
+	g.Go(func() (err error) {
+		stats, err = svcCtx.Store.AdminStats(ctx)
+		return err
+	})
+	g.Go(func() (err error) {
+		popular, err = cachedPopularArticles(ctx, svcCtx, 5)
+		return err
+	})
+	g.Go(func() (err error) {
+		recent, err = cachedRecentArticles(ctx, svcCtx, 5)
+		return err
+	})
+	g.Go(func() (err error) {
+		logs, _, err = svcCtx.Store.ListOperationLogs(ctx, 1, 5)
+		return err
+	})
+	g.Go(func() (err error) {
+		trend, err = svcCtx.Store.TrafficTrend(ctx, 30)
+		return err
+	})
+	g.Go(func() (err error) {
+		topReferers, err = svcCtx.Store.TopReferers(ctx, 30, 8)
+		return err
+	})
+	g.Go(func() (err error) {
+		today, err = svcCtx.Store.TodayTraffic(ctx, logicutil.TodayDate())
+		return err
+	})
+	if err := g.Wait(); err != nil {
 		return nil, err
 	}
 

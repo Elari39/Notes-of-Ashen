@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { usePreferenceStore } from '../store/preferences';
+import { formatText, translate } from '../i18n';
 import { trapFocus } from '../utils/focusTrap';
 
 export type LightboxImage = {
@@ -15,6 +16,7 @@ type ImageLightboxProps = {
 
 const ImageLightbox: React.FC<ImageLightboxProps> = ({ image, onClose }) => {
   const language = usePreferenceStore((state) => state.language);
+  const t = (key: Parameters<typeof translate>[1]) => translate(language, key);
   const containerRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -59,15 +61,13 @@ const ImageLightbox: React.FC<ImageLightboxProps> = ({ image, onClose }) => {
     return null;
   }
 
-  const closeLabel = language === 'zh' ? '关闭图片查看' : 'Close image viewer';
-
   return createPortal(
     <div
       ref={containerRef}
       className="image-lightbox"
       role="dialog"
       aria-modal="true"
-      aria-label={image.alt ? imageLightboxLabel(language, image.alt) : imageLightboxLabel(language)}
+      aria-label={image.alt ? formatText(t('imageLightbox.viewImageWithAlt'), { alt: image.alt }) : t('imageLightbox.viewImage')}
       onClick={onClose}
     >
       <img
@@ -80,7 +80,7 @@ const ImageLightbox: React.FC<ImageLightboxProps> = ({ image, onClose }) => {
         type="button"
         data-lightbox-focus
         onClick={onClose}
-        aria-label={closeLabel}
+        aria-label={t('imageLightbox.close')}
         className="absolute right-4 top-4 inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/60 bg-black/40 text-white hover:bg-black/60 focus:outline-none focus:ring-2 focus:ring-ochre"
       >
         <span aria-hidden="true" className="text-xl leading-none">&times;</span>
@@ -88,13 +88,6 @@ const ImageLightbox: React.FC<ImageLightboxProps> = ({ image, onClose }) => {
     </div>,
     document.body,
   );
-};
-
-const imageLightboxLabel = (language: string, alt = '') => {
-  if (language === 'zh') {
-    return alt ? `查看图片：${alt}` : '查看图片';
-  }
-  return alt ? `View image: ${alt}` : 'View image';
 };
 
 export default ImageLightbox;

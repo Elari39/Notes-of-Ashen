@@ -47,6 +47,8 @@ func NewServiceContext(c config.Config) *ServiceContext {
 		ReadTimeout:     1 * time.Second,
 		WriteTimeout:    1 * time.Second,
 		PoolTimeout:     2 * time.Second,
+		PoolSize:        20,
+		MinIdleConns:    3,
 		MaxRetries:      2,
 		MinRetryBackoff: 50 * time.Millisecond,
 		MaxRetryBackoff: 300 * time.Millisecond,
@@ -63,12 +65,22 @@ func NewServiceContext(c config.Config) *ServiceContext {
 	events := mq.NewPublisher(c.RabbitMQ, db)
 	mq.StartConsumer(c.RabbitMQ, db)
 
+	searchClient := search.NewClient(c.Search)
+	// 启动阶段一次性创建并配置 Meilisearch 索引，避免每次文档写入都重复探测/配置。
+	if searchClient.Enabled() {
+		ensureCtx, ensureCancel := context.WithTimeout(context.Background(), 30*time.Second)
+		if err := searchClient.EnsureIndex(ensureCtx); err != nil {
+			logx.Must(err)
+		}
+		ensureCancel()
+	}
+
 	return &ServiceContext{
 		Config:        c,
 		Store:         store,
 		Redis:         redisClient,
 		Cache:         appcache.NewJSONCache(redisClient),
-		Search:        search.NewClient(c.Search),
+		Search:        searchClient,
 		Tokens:        authutil.NewManager(c.Auth.AccessSecret, c.Auth.AccessExpire, c.Auth.RefreshExpire),
 		Events:        events,
 		Mailer:        emailer.NewSender(c.Email),

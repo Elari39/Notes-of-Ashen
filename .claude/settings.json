@@ -5,7 +5,15 @@
       "Bash(npx tsc *)",
       "Bash(pnpm install *)",
       "Bash(docker compose *)",
-      "Bash(docker run *)"
+      "Bash(docker run *)",
+      "Bash(go get *)",
+      "Bash(go mod *)",
+      "Bash(go vet *)",
+      "PowerShell(Remove-Item -Recurse -Force \\(Join-Path $env:TEMP \"ngnixtest\"\\) -ErrorAction SilentlyContinue; \"cleaned\")",
+      "PowerShell(go build ./...)",
+      "PowerShell(go test ./internal/logicutil/... ./model/...)",
+      "PowerShell(go test ./internal/logicutil/...)",
+      "PowerShell(go test ./... 2>&1)"
     ]
   }
 }

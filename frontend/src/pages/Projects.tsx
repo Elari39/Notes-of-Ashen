@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import InlineNotice from '../components/InlineNotice';
 import PagePendingState from '../components/RoutePending';
 import Skeleton from '../components/Skeleton';
@@ -7,20 +7,24 @@ import Tag from '../components/ui/Tag';
 import ProjectPreviewModal from '../components/ProjectPreviewModal';
 import { getProjectsPage } from '../api/siteSettings';
 import { usePreferenceStore } from '../store/preferences';
+import { formatText, translate } from '../i18n';
 import type { ProjectItem, ProjectsPage } from '../types';
 import { getErrorMessage } from '../utils/error';
 import { useSEO } from '../utils/seo';
 
 const Projects: React.FC = () => {
   const language = usePreferenceStore((state) => state.language);
-  const isZh = language === 'zh';
-  const text = getProjectsLabels(language);
+  const t = (key: Parameters<typeof translate>[1]) => translate(language, key);
+  // 用 ref 持有最新 language，避免切换语言时重新拉取项目数据（数据与 UI 语言无关，
+  // language 仅用于错误兜底文案）。
+  const languageRef = useRef(language);
+  languageRef.current = language;
   const [page, setPage] = useState<ProjectsPage | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [selected, setSelected] = useState<ProjectItem | null>(null);
 
-  useSEO(page?.title || (isZh ? '项目' : 'Projects'));
+  useSEO(page?.title || t('projects.pageTitleFallback'));
 
   useEffect(() => {
     let active = true;
@@ -34,7 +38,7 @@ const Projects: React.FC = () => {
       })
       .catch((e: unknown) => {
         if (active) {
-          setError(getErrorMessage(e, text.loadError));
+          setError(getErrorMessage(e, translate(languageRef.current, 'projects.loadError')));
         }
       })
       .finally(() => {
@@ -45,16 +49,16 @@ const Projects: React.FC = () => {
     return () => {
       active = false;
     };
-  }, [text.loadError]);
+  }, []);
 
   return (
     <div className="mx-auto mt-4 w-full max-w-6xl space-y-8 md:mt-8">
       <section className="border-b border-mountain-grey pb-6">
         <p className="mb-3 text-xs uppercase tracking-[0.28em] text-ochre">
-          {isZh ? 'PROJECTS' : 'WORKS'}
+          {t('projects.kicker')}
         </p>
         <h1 className="text-3xl font-bold tracking-widest text-ink md:text-4xl">
-          {page?.title || (isZh ? '项目' : 'Projects')}
+          {page?.title || t('projects.pageTitleFallback')}
         </h1>
         {page?.subtitle && (
           <p className="mt-4 max-w-2xl text-sm leading-7 tracking-wide text-ink-light opacity-80">
@@ -78,16 +82,16 @@ const Projects: React.FC = () => {
         </section>
       )}
       {isLoading && page && (
-        <PagePendingState variant="inline" label={text.loading} />
+        <PagePendingState variant="inline" label={t('projects.loading')} />
       )}
       <InlineNotice message={error} />
       {!isLoading && !error && (!page?.items || page.items.length === 0) && (
-        <EmptyState illustration="leaf" title={text.empty} />
+        <EmptyState illustration="leaf" title={t('projects.empty')} />
       )}
       {!isLoading && !error && page?.items && page.items.length > 0 && (
         <section className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
           {page.items.map((project) => (
-            <ProjectCard key={project.id} project={project} labels={text} onSelect={setSelected} />
+            <ProjectCard key={project.id} project={project} onSelect={setSelected} />
           ))}
         </section>
       )}
@@ -101,11 +105,12 @@ export default Projects;
 
 type ProjectCardProps = {
   project: ProjectItem;
-  labels: ReturnType<typeof getProjectsLabels>;
   onSelect: (project: ProjectItem) => void;
 };
 
-const ProjectCard: React.FC<ProjectCardProps> = ({ project, labels, onSelect }) => {
+const ProjectCard: React.FC<ProjectCardProps> = React.memo(({ project, onSelect }) => {
+  const language = usePreferenceStore((state) => state.language);
+  const t = (key: Parameters<typeof translate>[1]) => translate(language, key);
   const handleKeyDown = (event: React.KeyboardEvent<HTMLElement>) => {
     if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault();
@@ -117,7 +122,7 @@ const ProjectCard: React.FC<ProjectCardProps> = ({ project, labels, onSelect }) 
     <article
       role="button"
       tabIndex={0}
-      aria-label={labels.openDetail(project.title)}
+      aria-label={formatText(t('projects.openDetail'), { title: project.title })}
       onClick={() => onSelect(project)}
       onKeyDown={handleKeyDown}
       className="group flex min-h-full cursor-pointer flex-col overflow-hidden border border-mountain-grey bg-[var(--paper-soft)] outline-none transition-colors hover:border-ochre focus-visible:border-ochre focus-visible:ring-2 focus-visible:ring-ochre"
@@ -132,12 +137,12 @@ const ProjectCard: React.FC<ProjectCardProps> = ({ project, labels, onSelect }) 
           />
         ) : (
           <div className="flex h-full items-center justify-center text-xs tracking-[0.24em] text-ink-light opacity-70">
-            {labels.noCover}
+            {t('projects.noCover')}
           </div>
         )}
         {project.featured && (
           <span className="absolute left-3 top-3 z-10">
-            <Tag tone="ochre" size="sm">{labels.featured}</Tag>
+            <Tag tone="ochre" size="sm">{t('projects.featured')}</Tag>
           </span>
         )}
       </div>
@@ -151,12 +156,12 @@ const ProjectCard: React.FC<ProjectCardProps> = ({ project, labels, onSelect }) 
               <div className="flex shrink-0 flex-wrap gap-3 text-sm tracking-widest" onClick={(event) => event.stopPropagation()}>
                 {project.demoUrl && (
                   <a href={project.demoUrl} target="_blank" rel="noreferrer" className="text-ochre hover:text-ink">
-                    {labels.demo}
+                    {t('projects.demo')}
                   </a>
                 )}
                 {project.repoUrl && (
                   <a href={project.repoUrl} target="_blank" rel="noreferrer" className="text-ochre hover:text-ink">
-                    {labels.repo}
+                    {t('projects.repo')}
                   </a>
                 )}
               </div>
@@ -178,33 +183,10 @@ const ProjectCard: React.FC<ProjectCardProps> = ({ project, labels, onSelect }) 
         )}
 
         <div className="mt-auto border-t border-mountain-grey pt-4 text-xs tracking-[0.2em] text-ochre transition-colors group-hover:text-ink">
-          {labels.viewDetail}
+          {t('projects.viewDetail')}
         </div>
       </div>
     </article>
   );
-};
-
-const getProjectsLabels = (language: string) => language === 'zh'
-  ? {
-      loading: '项目加载中...',
-      loadError: '项目内容加载失败',
-      empty: '项目内容还没有填写。',
-      demo: '演示',
-      repo: '代码',
-      featured: '精选',
-      noCover: '暂无封面',
-      viewDetail: '查看详情 →',
-      openDetail: (title: string) => `查看项目详情：${title}`,
-    }
-  : {
-      loading: 'Loading projects...',
-      loadError: 'Failed to load projects',
-      empty: 'No projects have been added yet.',
-      demo: 'Demo',
-      repo: 'Repo',
-      featured: 'Featured',
-      noCover: 'No Cover',
-      viewDetail: 'View details →',
-      openDetail: (title: string) => `View project details: ${title}`,
-    };
+});
+ProjectCard.displayName = 'ProjectCard';

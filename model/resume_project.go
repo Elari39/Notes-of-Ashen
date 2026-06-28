@@ -143,62 +143,84 @@ func replaceResumeExperiencesTx(ctx context.Context, tx *sql.Tx, items []ResumeE
 	if _, err := tx.ExecContext(ctx, "DELETE FROM resume_experiences"); err != nil {
 		return err
 	}
+	if len(items) == 0 {
+		return nil
+	}
+	highlights := make([]string, len(items))
+	args := make([]any, 0, len(items)*8)
+	var b strings.Builder
+	b.WriteString(`INSERT INTO resume_experiences (role, organization, location, start_date, end_date, description, highlights, display_order) VALUES `)
 	for index, item := range items {
-		highlights, err := encodeStringList(item.Highlights)
+		encoded, err := encodeStringList(item.Highlights)
 		if err != nil {
 			return err
 		}
+		highlights[index] = encoded
 		if item.DisplayOrder == 0 {
 			item.DisplayOrder = index + 1
 		}
-		if _, err := tx.ExecContext(ctx, `
-INSERT INTO resume_experiences (role, organization, location, start_date, end_date, description, highlights, display_order)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-			item.Role, item.Organization, item.Location, item.StartDate, item.EndDate, item.Description, highlights, item.DisplayOrder); err != nil {
-			return err
+		if index > 0 {
+			b.WriteByte(',')
 		}
+		b.WriteString("(?, ?, ?, ?, ?, ?, ?, ?)")
+		args = append(args, item.Role, item.Organization, item.Location, item.StartDate, item.EndDate, item.Description, highlights[index], item.DisplayOrder)
 	}
-	return nil
+	_, err := tx.ExecContext(ctx, b.String(), args...)
+	return err
 }
 
 func replaceResumeEducationsTx(ctx context.Context, tx *sql.Tx, items []ResumeEducation) error {
 	if _, err := tx.ExecContext(ctx, "DELETE FROM resume_educations"); err != nil {
 		return err
 	}
+	if len(items) == 0 {
+		return nil
+	}
+	highlights := make([]string, len(items))
+	args := make([]any, 0, len(items)*9)
+	var b strings.Builder
+	b.WriteString(`INSERT INTO resume_educations (school, degree, major, location, start_date, end_date, description, highlights, display_order) VALUES `)
 	for index, item := range items {
-		highlights, err := encodeStringList(item.Highlights)
+		encoded, err := encodeStringList(item.Highlights)
 		if err != nil {
 			return err
 		}
+		highlights[index] = encoded
 		if item.DisplayOrder == 0 {
 			item.DisplayOrder = index + 1
 		}
-		if _, err := tx.ExecContext(ctx, `
-INSERT INTO resume_educations (school, degree, major, location, start_date, end_date, description, highlights, display_order)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-			item.School, item.Degree, item.Major, item.Location, item.StartDate, item.EndDate, item.Description, highlights, item.DisplayOrder); err != nil {
-			return err
+		if index > 0 {
+			b.WriteByte(',')
 		}
+		b.WriteString("(?, ?, ?, ?, ?, ?, ?, ?, ?)")
+		args = append(args, item.School, item.Degree, item.Major, item.Location, item.StartDate, item.EndDate, item.Description, highlights[index], item.DisplayOrder)
 	}
-	return nil
+	_, err := tx.ExecContext(ctx, b.String(), args...)
+	return err
 }
 
 func replaceResumeSkillsTx(ctx context.Context, tx *sql.Tx, items []ResumeSkill) error {
 	if _, err := tx.ExecContext(ctx, "DELETE FROM resume_skills"); err != nil {
 		return err
 	}
+	if len(items) == 0 {
+		return nil
+	}
+	args := make([]any, 0, len(items)*5)
+	var b strings.Builder
+	b.WriteString(`INSERT INTO resume_skills (category, name, level, description, display_order) VALUES `)
 	for index, item := range items {
 		if item.DisplayOrder == 0 {
 			item.DisplayOrder = index + 1
 		}
-		if _, err := tx.ExecContext(ctx, `
-INSERT INTO resume_skills (category, name, level, description, display_order)
-VALUES (?, ?, ?, ?, ?)`,
-			item.Category, item.Name, item.Level, item.Description, item.DisplayOrder); err != nil {
-			return err
+		if index > 0 {
+			b.WriteByte(',')
 		}
+		b.WriteString("(?, ?, ?, ?, ?)")
+		args = append(args, item.Category, item.Name, item.Level, item.Description, item.DisplayOrder)
 	}
-	return nil
+	_, err := tx.ExecContext(ctx, b.String(), args...)
+	return err
 }
 
 func (s *Store) ListProjectItems(ctx context.Context) ([]ProjectItem, error) {
@@ -272,25 +294,50 @@ func replaceProjectItemsTx(ctx context.Context, tx *sql.Tx, items []ProjectItem)
 	if _, err := tx.ExecContext(ctx, "DELETE FROM projects"); err != nil {
 		return err
 	}
+	if len(items) == 0 {
+		return nil
+	}
+	// 批量插入 projects。MySQL 多值 INSERT 的 LastInsertId 返回首行自增 id，
+	// 后续行按 auto_increment_increment（默认 1）递增，故 insertID+index 可映射回每行。
+	args := make([]any, 0, len(items)*10)
+	var b strings.Builder
+	b.WriteString(`INSERT INTO projects (title, summary, role, period, cover_url, demo_url, repo_url, content_markdown, featured, display_order) VALUES `)
 	for index, item := range items {
-		res, err := tx.ExecContext(ctx, `
-INSERT INTO projects (title, summary, role, period, cover_url, demo_url, repo_url, content_markdown, featured, display_order)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-			item.Title, item.Summary, item.Role, item.Period, item.CoverURL, item.DemoURL, item.RepoURL, item.ContentMarkdown, item.Featured, index+1)
-		if err != nil {
-			return err
+		if index > 0 {
+			b.WriteByte(',')
 		}
-		insertID, err := res.LastInsertId()
-		if err != nil {
-			return err
-		}
+		b.WriteString("(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+		args = append(args, item.Title, item.Summary, item.Role, item.Period, item.CoverURL, item.DemoURL, item.RepoURL, item.ContentMarkdown, item.Featured, index+1)
+	}
+	res, err := tx.ExecContext(ctx, b.String(), args...)
+	if err != nil {
+		return err
+	}
+	firstID, err := res.LastInsertId()
+	if err != nil {
+		return err
+	}
+	// 批量插入 project_tags。
+	var tagB strings.Builder
+	tagB.WriteString("INSERT INTO project_tags (project_id, tag_id) VALUES ")
+	tagArgs := make([]any, 0, len(items)*2)
+	tagCount := 0
+	for index, item := range items {
+		projectID := uint64(firstID) + uint64(index)
 		for _, tagID := range uniqueUint64(item.TagIDs) {
-			if _, err := tx.ExecContext(ctx, "INSERT INTO project_tags (project_id, tag_id) VALUES (?, ?)", uint64(insertID), tagID); err != nil {
-				return err
+			if tagCount > 0 {
+				tagB.WriteByte(',')
 			}
+			tagB.WriteString("(?, ?)")
+			tagArgs = append(tagArgs, projectID, tagID)
+			tagCount++
 		}
 	}
-	return nil
+	if tagCount == 0 {
+		return nil
+	}
+	_, err = tx.ExecContext(ctx, tagB.String(), tagArgs...)
+	return err
 }
 
 func (s *Store) projectTags(ctx context.Context, projectIDs []uint64) (map[uint64][]string, map[uint64][]uint64, error) {

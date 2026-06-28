@@ -838,7 +838,7 @@ PATCH /api/v1/admin/users/:id/role
 GET /api/v1/admin/logs
 ```
 
-权限：`admin`。支持 `page`、`size`。响应中的 `userId`、`resourceId`、`metadata` 可能被省略。
+权限：`admin`。支持 `page`、`size`。响应中的 `userId`、`userAccount`、`resourceId`、`metadata` 可能被省略；`userAccount` 为该操作发起者的账号（来自 `users` 表，可能因用户被删除而为空）。
 
 ## PowerShell 调用示例
 

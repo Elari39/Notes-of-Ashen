@@ -178,8 +178,10 @@ func (s *Store) ListUsers(ctx context.Context, page, size int) ([]User, int64, e
 		return nil, 0, err
 	}
 
+	// 不查询 password_hash：用户列表仅用于展示，避免密码哈希进入进程内存。
+	// 登录/改密等校验走 FindUserByAccount/FindUser 等专用查询。
 	rows, err := s.db.QueryContext(ctx, `
-	SELECT id, account, password_hash, email, avatar_url, nickname, role, status, created_at, updated_at
+	SELECT id, account, email, avatar_url, nickname, role, status, created_at, updated_at
 	FROM users ORDER BY id DESC LIMIT ? OFFSET ?`, size, offset)
 	if err != nil {
 		return nil, 0, err
@@ -189,7 +191,7 @@ func (s *Store) ListUsers(ctx context.Context, page, size int) ([]User, int64, e
 	items := make([]User, 0)
 	for rows.Next() {
 		var u User
-		if err := rows.Scan(&u.ID, &u.Account, &u.PasswordHash, &u.Email, &u.AvatarURL, &u.Nickname, &u.Role, &u.Status, &u.CreatedAt, &u.UpdatedAt); err != nil {
+		if err := rows.Scan(&u.ID, &u.Account, &u.Email, &u.AvatarURL, &u.Nickname, &u.Role, &u.Status, &u.CreatedAt, &u.UpdatedAt); err != nil {
 			return nil, 0, err
 		}
 		items = append(items, u)
