@@ -33,6 +33,9 @@ services:
         max-file: "3"
     labels:
       org.opencontainers.image.title: "Notes of Ashen"
+    networks:
+      app:
+        ipv4_address: "${APP_WEB_IPV4_ADDRESS:-172.30.127.10}"
 
   api:
     image: notes-of-ashen-api:${IMAGE_TAG:-latest}
@@ -45,7 +48,7 @@ services:
     environment:
       TZ: Asia/Shanghai
       APP_HOST: "${APP_HOST:-0.0.0.0}"
-      APP_PORT: "${APP_PORT:-19000}"
+      APP_PORT: "19000"
       APP_TIMEOUT: "${APP_TIMEOUT:-610000}"
       APP_DATABASE_DSN: "${APP_DATABASE_DSN:?set APP_DATABASE_DSN in .env}"
       APP_DATABASE_MAX_OPEN_CONNS: "${APP_DATABASE_MAX_OPEN_CONNS:-20}"
@@ -85,7 +88,7 @@ services:
       APP_AI_NON_STREAM_TIMEOUT_SECONDS: "${APP_AI_NON_STREAM_TIMEOUT_SECONDS:-600}"
       APP_AI_TEMPERATURE: "${APP_AI_TEMPERATURE:-}"
       APP_AI_MAX_TOKENS: "${APP_AI_MAX_TOKENS:-}"
-      APP_TRUSTED_PROXY_CIDRS: "${APP_TRUSTED_PROXY_CIDRS:-}"
+      APP_TRUSTED_PROXY_CIDRS: "${APP_TRUSTED_PROXY_CIDRS:-172.30.127.10/32}"
     expose:
       - "19000"
       - "9101"
@@ -106,6 +109,8 @@ services:
         max-file: "3"
     labels:
       org.opencontainers.image.title: "Notes of Ashen"
+    networks:
+      - app
 
   meilisearch:
     image: getmeili/meilisearch:v1.13
@@ -135,6 +140,15 @@ services:
         max-file: "3"
     labels:
       org.opencontainers.image.title: "Notes of Ashen"
+    networks:
+      - app
 
 volumes:
   goblog_meili_data:
+
+networks:
+  app:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: "${APP_DOCKER_SUBNET:-172.30.127.0/24}"

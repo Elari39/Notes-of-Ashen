@@ -191,7 +191,8 @@ http.interceptors.response.use(
 
 // ---- 写操作 in-flight 去重 ----
 // 现网链路抖动时，用户容易在等待中重复点击导致重复提交。这里在 axios adapter 层做去重：
-// 同一 method+url+payload 的写请求若已在飞行，后续调用复用同一 Promise，不会真正发出第二个请求。
+// 同一 method+完整 URI+payload+Authorization 的写请求若已在飞行，后续调用复用同一 Promise，
+// 不会真正发出第二个请求。
 // 仅作用于非 GET、非 blob、非 FormData、未带 signal、非 /ai/ 的请求；调用方完全无感。
 const inflightWrites = new Map<string, Promise<AxiosResponse>>();
 
@@ -212,6 +213,18 @@ const isDedupeDisabled = () => {
   }
 };
 
+const getAuthorizationHeader = (headers: AxiosRequestConfig['headers']): string => {
+  if (!headers) return '';
+
+  const get = (headers as { get?: (name: string) => unknown }).get;
+  const value = typeof get === 'function'
+    ? get.call(headers, 'Authorization')
+    : Reflect.get(headers, 'Authorization') ?? Reflect.get(headers, 'authorization');
+
+  if (value === null || typeof value === 'undefined') return '';
+  return Array.isArray(value) ? value.join(',') : String(value);
+};
+
 const buildDedupeKey = (config: AxiosRequestConfig): string | null => {
   if (isDedupeDisabled()) return null;
   // 401 / 网络重试请求虽与原请求同 method+url+body，但 Authorization header 已换，
@@ -227,6 +240,7 @@ const buildDedupeKey = (config: AxiosRequestConfig): string | null => {
   if (typeof FormData !== 'undefined' && config.data instanceof FormData) return null;
 
   let body = '';
+  let uri = '';
   try {
     if (typeof config.data === 'string') {
       body = config.data;
@@ -235,10 +249,12 @@ const buildDedupeKey = (config: AxiosRequestConfig): string | null => {
     } else {
       body = stableStringify(config.data);
     }
+    uri = http.getUri(config);
   } catch {
     return null; // 无法序列化时退化为不去重
   }
-  return `${method.toUpperCase()} ${url} ${body}`;
+  const authorization = getAuthorizationHeader(config.headers);
+  return JSON.stringify([method.toUpperCase(), uri, body, authorization]);
 };
 
 const baseAdapter: AxiosAdapter = getAdapter(http.defaults.adapter ?? ['xhr', 'http', 'fetch']);
@@ -250,8 +266,8 @@ http.defaults.adapter = (async (config: InternalAxiosRequestConfig) => {
   }
   const existing = inflightWrites.get(key);
   if (existing) {
-    // 注意：复用 Promise 时请求拦截器并未再次执行，incLoading 也不会重复加，
-    // 因此 globalLoading 计数与 toast 行为保持一致。
+    // 每次 http() 调用仍会执行各自的请求/响应拦截器，因此 loading 计数保持成对增减；
+    // adapter 层只复用实际网络请求的 Promise。
     return existing;
   }
   const promise = baseAdapter(config).finally(() => {

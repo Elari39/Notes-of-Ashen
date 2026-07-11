@@ -60,8 +60,8 @@ http://127.0.0.1:1270
 ## 技术栈
 
 - 后端：Go 1.25、go-zero REST、MySQL 8.4、Redis 7.4、Meilisearch 1.13、RabbitMQ 4、JWT、bcrypt。
-  - 上述 MySQL / Redis / Meilisearch / RabbitMQ 版本为远程依赖的**推荐版本**，需由外部服务提供（compose 不再启动它们）。
-- 前端：React 18、TypeScript、Vite 5、Tailwind CSS 3、Zustand、Axios、Framer Motion、Recharts、React Markdown。
+  - MySQL / Redis / RabbitMQ 版本为远程依赖的**推荐版本**，需由外部服务提供；Meilisearch 可通过 Compose 的 `search` profile 按需启动。
+- 前端：React 18、TypeScript、Vite 5、Tailwind CSS 3、Zustand、Axios、Framer Motion、ECharts、React Markdown。
 - 部署：Docker、Docker Compose、Nginx、1Panel。
 - 文档与脚本：API 文档位于 [docs/API.md](docs/API.md)，数据库脚本位于 [deploy/mysql](deploy/mysql)。
 
@@ -150,7 +150,7 @@ Copy-Item .env.example .env
 - `APP_RABBITMQ_ROUTING_KEY`：RabbitMQ 路由键，默认 `operation.log`，通常无需修改。
 - `APP_SEARCH_ENABLED`：是否启用 Meilisearch 全文搜索，默认 `false`，关闭时自动回退 MySQL 查询。
 - `APP_MEILISEARCH_HOST`：API 访问 Meilisearch 的地址，Docker 部署默认 `http://meilisearch:7700`。
-- `APP_MEILISEARCH_API_KEY`：Meilisearch API Key；Docker 部署时也作为 Meilisearch Master Key。即使搜索默认关闭，Compose 中的 Meilisearch 容器也需要该值，请在 `.env` 中填写强随机字符串。
+- `APP_MEILISEARCH_API_KEY`：Meilisearch API Key；Docker 部署时也作为 Meilisearch Master Key。启用搜索和 Compose `search` profile 时，请在 `.env` 中填写强随机字符串。
 - `APP_MEILISEARCH_INDEX`：文章索引名，默认 `articles`。
 - `APP_EMAIL_ENABLED`：是否启用邮箱验证码，使用 QQ 邮箱时设置为 `true`。
 - `APP_EMAIL_SMTP_HOST`：SMTP 服务器地址，默认 `smtp.qq.com`。
@@ -164,14 +164,15 @@ Copy-Item .env.example .env
 - `APP_AI_BASE_URL`：兼容 OpenAI Chat Completions 的接口基础地址。
 - `APP_AI_API_KEY`：AI 服务 API Key，只能写入真实 `.env` 或受控环境变量。
 - `APP_AI_MODEL`：AI 辅助使用的模型名称。
-- `APP_AI_KEY_ENCRYPTION_SECRET`：后台保存 AI API Key 时使用的加密密钥，生产环境应设置为不同于 `APP_AUTH_ACCESS_SECRET` 的长随机值。
+- `APP_AI_KEY_ENCRYPTION_SECRET`：后台保存 AI API Key 时使用的加密密钥，生产环境应设置为不同于 `APP_AUTH_ACCESS_SECRET` 的长随机值。迁移旧密文时必须先保留旧认证密钥，完成保存迁移后再轮换。
 - `APP_AI_TIMEOUT_SECONDS`：AI 请求兼容超时时间，默认 `600` 秒（已由 `APP_AI_FIRST_BYTE_TIMEOUT_SECONDS`/`APP_AI_STREAM_TIMEOUT_SECONDS`/`APP_AI_NON_STREAM_TIMEOUT_SECONDS` 三段细化覆盖，本项保留作兜底）。
-- `APP_TRUSTED_PROXY_CIDRS`：可信反向代理 CIDR，默认留空表示不信任客户端传入的 `X-Forwarded-*` / `X-Real-IP`。
+- `APP_TRUSTED_PROXY_CIDRS`：可信反向代理 CIDR。Compose 默认仅信任固定 Web 容器地址；本地非 Docker 启动默认留空。
 - `PRERENDER_ENABLED`：是否启用 Prerender.io crawler 预渲染，`0` 关闭，`1` 启用。
 - `PRERENDER_SERVICE_URL`：Prerender.io 服务地址，默认 `https://service.prerender.io`。
 - `PRERENDER_TOKEN`：Prerender.io Token，只能写入真实 `.env` 或受控环境变量。
 - `APP_GITHUB_TOKEN`：可选 GitHub Token；留空时使用公开匿名额度，不要提交真实 Token（当前版本后端未读取，预留）。
 - `WEB_PORT`：本机 Web 访问端口，默认 `1270`。
+- `APP_DOCKER_SUBNET` / `APP_WEB_IPV4_ADDRESS`：Compose 专用子网和 Web 容器固定地址，默认分别为 `172.30.127.0/24`、`172.30.127.10`。
 
 不要把真实 `.env` 内容写入 README、Issue、提交记录或截图中。
 
@@ -198,6 +199,7 @@ Copy-Item .env.example .env
   12. `add_article_tags_tag_index.sql` — 文章标签索引
   13. `add_article_category_author_index.sql` — 文章分类/作者索引
   14. `add_operation_logs_index.sql` — operation_logs 表 created_at / user_id 索引（幂等）
+  15. `add_users_admin_state_index.sql` — 用户角色/状态复合索引，缩小管理员并发保护的锁定扫描范围（幂等）
 
   > 注意：`article_versions` 表的 `like_count` / `is_pinned` / `display_priority` 三列分别由第 3、4 步脚本补齐，必须在 `add_content_growth_features.sql`（第 2 步）之后执行，否则 `model/article.go` 的 `articleVersionSelectFields` 查询会因缺列报 `Unknown column`。
 - 确认远程 Redis、RabbitMQ 防火墙和安全组允许 1Panel 服务器访问，避免对公网裸露。
@@ -248,21 +250,21 @@ APP_AI_NON_STREAM_TIMEOUT_SECONDS=600
 
 `APP_AI_TIMEOUT_SECONDS` 是兜底超时，已被 `APP_AI_FIRST_BYTE_TIMEOUT_SECONDS`（首字等待）、`APP_AI_STREAM_TIMEOUT_SECONDS`（流式总超时）、`APP_AI_NON_STREAM_TIMEOUT_SECONDS`（非流式总超时）三段细化覆盖。`APP_AI_TEMPERATURE`（留空回退默认 `0.3`）和 `APP_AI_MAX_TOKENS`（留空按 action 回退默认值）为可选覆盖项。
 
-`APP_AI_KEY_ENCRYPTION_SECRET` 只用于加密后台保存的 AI API Key。旧版本已保存的密文仍可读取；管理员再次保存 AI 设置时会写入新格式密文。
+`APP_AI_KEY_ENCRYPTION_SECRET` 只用于加密后台保存的 AI API Key。迁移旧版本密文时必须按以下顺序操作：保留原 `APP_AUTH_ACCESS_SECRET`，先配置新的 `APP_AI_KEY_ENCRYPTION_SECRET`，启动服务并由管理员重新保存 AI 设置完成 `v2:` 格式迁移；确认保存成功后，才能轮换旧 `APP_AUTH_ACCESS_SECRET`。若先轮换旧认证密钥，旧密文将无法解密和迁移。
 
 ### 可信反向代理配置
 
-后端默认不信任客户端传入的 `X-Forwarded-*` / `X-Real-IP` 请求头，限流、操作日志、流量统计和 RSS/Sitemap 基础 URL 都会优先使用直连信息。只有在确认 API 只接受可信 Nginx、1Panel 或其他反向代理转发时，才在真实 `.env` 中配置代理出口地址或网段：
+后端默认不信任客户端传入的 `X-Forwarded-*` / `X-Real-IP` 请求头，限流、操作日志、流量统计和 RSS/Sitemap 基础 URL 都会优先使用直连信息。Compose 通过专用子网给 Web 容器分配固定地址，API 默认仅信任该地址（`172.30.127.10/32`）。若 Web 前方还有可信 Nginx、1Panel 等外层代理，或 API 会直接接受其他可信代理转发，还需把这些代理的出口 CIDR 追加到真实 `.env`，后端才能从右向左跳过完整可信代理链；多个网段用逗号分隔：
 
 ```env
-APP_TRUSTED_PROXY_CIDRS=172.18.0.0/16
+APP_TRUSTED_PROXY_CIDRS=172.30.127.10/32,10.0.0.0/24
 ```
 
-不要在 API 可被公网或不可信客户端直连时配置过宽的网段。
+不要在 API 可被公网或不可信客户端直连时配置过宽的网段。若默认 `172.30.127.0/24` 与宿主机或现有 Docker 网络冲突，请同时修改 `APP_DOCKER_SUBNET`、`APP_WEB_IPV4_ADDRESS`，并将 `APP_TRUSTED_PROXY_CIDRS` 中的 Web `/32` 更新为相同地址。
 
 ### 全文搜索配置
 
-Docker Compose 已包含 Meilisearch 服务，但搜索默认关闭，主站启动不依赖 Meilisearch 健康状态。需要启用全文搜索时，在真实 `.env` 中设置：
+Docker Compose 已包含 Meilisearch 服务，但它位于 `search` profile，搜索默认关闭。需要启用全文搜索时，在真实 `.env` 中设置：
 
 ```env
 APP_SEARCH_ENABLED=true
@@ -271,7 +273,13 @@ APP_MEILISEARCH_API_KEY=replace-with-a-long-random-key
 APP_MEILISEARCH_INDEX=articles
 ```
 
-重新创建服务后，使用 `editor` 或 `admin` 登录后台，并调用 `POST /api/v1/admin/search/reindex` 全量重建文章索引。Meilisearch 不可用时，公开文章搜索会回退到 MySQL 查询。
+然后使用 profile 启动（也可设置环境变量 `COMPOSE_PROFILES=search` 后执行普通 Compose 命令）：
+
+```bash
+docker compose --profile search up -d --build
+```
+
+重新创建服务后，使用 `editor` 或 `admin` 登录后台，并调用 `POST /api/v1/admin/search/reindex` 全量重建文章索引。Meilisearch 初始化或运行中不可用时，API 不会因此退出，公开文章搜索会回退到 MySQL；后端会在后台重试索引初始化，恢复后重新启用 Meilisearch。
 
 ### 预渲染配置
 
@@ -320,6 +328,8 @@ docker compose logs -f web
 - Meilisearch：容器内部 `meilisearch:7700`（仅 Docker 内部网络可达）
 
 MySQL、Redis、RabbitMQ 由远程服务提供（见 1Panel 远程中间件配置），不在 `docker-compose.yml` 内启动，也不会映射端口到宿主机。Web 通过 Nginx 反向代理访问 API。
+
+Compose 中 API 容器端口固定为 `19000`，`.env` 的 `APP_PORT` 仅影响本地非 Docker 启动。默认专用网络为 `172.30.127.0/24`，如有冲突请按“可信反向代理配置”一节同时调整子网、Web 固定地址与可信代理 `/32`。
 
 ### 访问验证
 

@@ -22,6 +22,8 @@ import (
 // 不影响稳态的 Read/Write/Pool 超时。
 const startupRedisTimeout = 10 * time.Second
 
+const searchIndexRetryInterval = 30 * time.Second
+
 type ServiceContext struct {
 	Config        config.Config
 	Store         *model.Store
@@ -32,6 +34,7 @@ type ServiceContext struct {
 	Events        *mq.Publisher
 	Mailer        *emailer.Sender
 	AuthUserCache middleware.AuthUserCache
+	searchCancel  context.CancelFunc
 }
 
 func NewServiceContext(c config.Config) *ServiceContext {
@@ -66,14 +69,7 @@ func NewServiceContext(c config.Config) *ServiceContext {
 	mq.StartConsumer(c.RabbitMQ, db)
 
 	searchClient := search.NewClient(c.Search)
-	// 启动阶段一次性创建并配置 Meilisearch 索引，避免每次文档写入都重复探测/配置。
-	if searchClient.Enabled() {
-		ensureCtx, ensureCancel := context.WithTimeout(context.Background(), 30*time.Second)
-		if err := searchClient.EnsureIndex(ensureCtx); err != nil {
-			logx.Must(err)
-		}
-		ensureCancel()
-	}
+	searchCancel := initializeSearch(searchClient)
 
 	return &ServiceContext{
 		Config:        c,
@@ -85,10 +81,58 @@ func NewServiceContext(c config.Config) *ServiceContext {
 		Events:        events,
 		Mailer:        emailer.NewSender(c.Email),
 		AuthUserCache: middleware.NewAuthUserCache(redisClient),
+		searchCancel:  searchCancel,
 	}
 }
 
+// initializeSearch 尝试在启动阶段创建并配置 Meilisearch 索引。Meilisearch 是可选依赖，
+// 初始化失败时保留客户端，让现有搜索调用按错误回退 MySQL，并在后台持续重试直至恢复。
+func initializeSearch(client *search.Client) context.CancelFunc {
+	if !client.Enabled() {
+		return nil
+	}
+
+	ensure := func(ctx context.Context) error {
+		ensureCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+		defer cancel()
+		return client.EnsureIndex(ensureCtx)
+	}
+	return initializeSearchWithEnsure(ensure, searchIndexRetryInterval)
+}
+
+// initializeSearchWithEnsure 将重试调度与具体搜索客户端解耦，便于覆盖恢复和取消路径。
+func initializeSearchWithEnsure(ensure func(context.Context) error, retryInterval time.Duration) context.CancelFunc {
+	if err := ensure(context.Background()); err == nil {
+		return nil
+	} else {
+		logx.Errorf("[startup] meilisearch index initialization failed; API will continue with MySQL search fallback and retry in background: %v", err)
+	}
+
+	retryCtx, cancel := context.WithCancel(context.Background())
+	go func() {
+		ticker := time.NewTicker(retryInterval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-retryCtx.Done():
+				return
+			case <-ticker.C:
+				if err := ensure(retryCtx); err != nil {
+					logx.Errorf("[search] meilisearch index initialization retry failed; continuing with MySQL fallback: %v", err)
+					continue
+				}
+				logx.Info("[search] meilisearch index initialized successfully; full-text search is available")
+				return
+			}
+		}
+	}()
+	return cancel
+}
+
 func (s *ServiceContext) Close() {
+	if s.searchCancel != nil {
+		s.searchCancel()
+	}
 	if s.Events != nil {
 		s.Events.Close()
 	}

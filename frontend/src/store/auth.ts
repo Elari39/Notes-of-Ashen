@@ -3,9 +3,12 @@ import { User } from '../types';
 import { getCurrentUser } from '../api/user';
 import { refreshAccessToken } from '../utils/refresh';
 
-// 从类 axios 错误中提取 HTTP 状态码，无 response（网络错误/超时）返回 0。
+// 优先读取 AppError 顶层 status，再兼容 axios response.status；
+// 两者都不存在（网络错误/超时）时返回 0。
 const httpStatusFromError = (error: unknown): number => {
   if (typeof error !== 'object' || error === null) return 0;
+  const status = (error as { status?: unknown }).status;
+  if (typeof status === 'number' && Number.isFinite(status) && status > 0) return status;
   const response = (error as { response?: { status?: number } }).response;
   return response?.status ?? 0;
 };

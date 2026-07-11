@@ -89,7 +89,7 @@ Authorization: Bearer <accessToken>
 
 默认不信任客户端传入的 `X-Forwarded-*` / `X-Real-IP`。只有 `RemoteAddr` 命中 `APP_TRUSTED_PROXY_CIDRS` 时，后端才会使用这些转发头参与限流、操作日志、流量统计和 RSS/Sitemap 基础 URL 生成。
 
-后台保存的 AI API Key 使用 `APP_AI_KEY_ENCRYPTION_SECRET` 加密。旧版本使用 `APP_AUTH_ACCESS_SECRET` 派生密钥保存的密文仍可读取；管理员再次保存 AI 设置时会迁移为新格式。
+后台保存的 AI API Key 使用 `APP_AI_KEY_ENCRYPTION_SECRET` 加密。迁移旧版本使用 `APP_AUTH_ACCESS_SECRET` 派生密钥保存的密文时，必须保留原认证密钥，先配置新加密密钥并由管理员重新保存 AI 设置；确认密文迁移为 `v2:` 格式后，才能轮换旧 `APP_AUTH_ACCESS_SECRET`。
 
 ## 健康检查
 
@@ -130,6 +130,8 @@ POST /api/v1/auth/verify-code/send
 ```
 
 权限：公开。用于注册和找回密码。发送前必须提交同用途图片验证码，同 IP 1 分钟最多 5 次。
+
+当 `purpose = reset_password` 时，不存在、已禁用和正常邮箱对外返回完全一致的成功响应，避免泄露账号状态；仅正常可用账户会实际生成并发送邮箱验证码。Redis、SMTP 等服务故障仍会返回服务错误。
 
 | 字段 | 类型 | 必填 | 说明 |
 | --- | --- | --- | --- |
@@ -766,7 +768,7 @@ GET /api/v1/admin/ai/settings
 PUT /api/v1/admin/ai/settings
 ```
 
-权限：`admin`。用于读取和保存后台 AI 辅助创作配置。保存 API Key 时使用 `APP_AI_KEY_ENCRYPTION_SECRET` 加密；若该密钥未配置且请求传入新 API Key，会返回配置错误。读取接口不会返回明文 API Key，只返回是否已配置。
+权限：`admin`。用于读取和保存后台 AI 辅助创作配置。保存 API Key 时使用 `APP_AI_KEY_ENCRYPTION_SECRET` 加密；若该密钥未配置且请求传入新 API Key，会返回配置错误。读取接口不会返回明文 API Key，只返回是否已配置。旧密文迁移期间必须保留原 `APP_AUTH_ACCESS_SECRET`，配置新加密密钥并成功保存后，才能轮换旧认证密钥。
 
 更新字段：
 
