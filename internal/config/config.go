@@ -265,6 +265,12 @@ func (c Config) ValidateConfig() error {
 	if err := validateRequiredSecret("APP_AUTH_ACCESS_SECRET", c.Auth.AccessSecret, minAccessSecretLength); err != nil {
 		return err
 	}
+	if c.Auth.AccessExpire <= 0 {
+		return fmt.Errorf("APP_AUTH_ACCESS_EXPIRE must be a positive integer")
+	}
+	if c.Auth.RefreshExpire <= 0 {
+		return fmt.Errorf("APP_AUTH_REFRESH_EXPIRE must be a positive integer")
+	}
 	if c.Search.MeilisearchAPIKey != "" && containsInsecureMarker(c.Search.MeilisearchAPIKey) {
 		return fmt.Errorf("APP_MEILISEARCH_API_KEY contains an insecure placeholder value")
 	}

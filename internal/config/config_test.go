@@ -83,7 +83,7 @@ func TestValidateRejectsDefaultOrMissingSecrets(t *testing.T) {
 	}{
 		{
 			name: "missing database dsn",
-			conf: Config{Auth: AuthConf{AccessSecret: "a-long-enough-secret-value"}},
+			conf: Config{Auth: AuthConf{AccessSecret: "a-long-enough-secret-value", AccessExpire: 1, RefreshExpire: 1}},
 		},
 		{
 			name: "missing access secret",
@@ -91,19 +91,19 @@ func TestValidateRejectsDefaultOrMissingSecrets(t *testing.T) {
 		},
 		{
 			name: "default access secret",
-			conf: Config{Database: DatabaseConf{DataSource: "user:pass@tcp(mysql:3306)/notes_of_ashen"}, Auth: AuthConf{AccessSecret: "please-change-this-secret-in-production"}},
+			conf: Config{Database: DatabaseConf{DataSource: "user:pass@tcp(mysql:3306)/notes_of_ashen"}, Auth: AuthConf{AccessSecret: "please-change-this-secret-in-production", AccessExpire: 1, RefreshExpire: 1}},
 		},
 		{
 			name: "short access secret",
-			conf: Config{Database: DatabaseConf{DataSource: "user:pass@tcp(mysql:3306)/notes_of_ashen"}, Auth: AuthConf{AccessSecret: "short"}},
+			conf: Config{Database: DatabaseConf{DataSource: "user:pass@tcp(mysql:3306)/notes_of_ashen"}, Auth: AuthConf{AccessSecret: "short", AccessExpire: 1, RefreshExpire: 1}},
 		},
 		{
 			name: "enabled search with placeholder api key",
-			conf: Config{Database: DatabaseConf{DataSource: "user:pass@tcp(mysql:3306)/notes_of_ashen"}, Auth: AuthConf{AccessSecret: "a-long-enough-secret-value"}, Search: SearchConf{Enabled: true, MeilisearchAPIKey: "notes_of_ashen_meili_master_key"}},
+			conf: Config{Database: DatabaseConf{DataSource: "user:pass@tcp(mysql:3306)/notes_of_ashen"}, Auth: AuthConf{AccessSecret: "a-long-enough-secret-value", AccessExpire: 1, RefreshExpire: 1}, Search: SearchConf{Enabled: true, MeilisearchAPIKey: "notes_of_ashen_meili_master_key"}},
 		},
 		{
 			name: "enabled rabbitmq with placeholder password",
-			conf: Config{Database: DatabaseConf{DataSource: "user:pass@tcp(mysql:3306)/notes_of_ashen"}, Auth: AuthConf{AccessSecret: "a-long-enough-secret-value"}, RabbitMQ: RabbitMQConf{Enabled: true, URL: "amqp://user:replace-with-password@rabbitmq:5672/"}},
+			conf: Config{Database: DatabaseConf{DataSource: "user:pass@tcp(mysql:3306)/notes_of_ashen"}, Auth: AuthConf{AccessSecret: "a-long-enough-secret-value", AccessExpire: 1, RefreshExpire: 1}, RabbitMQ: RabbitMQConf{Enabled: true, URL: "amqp://user:replace-with-password@rabbitmq:5672/"}},
 		},
 	}
 
@@ -119,7 +119,7 @@ func TestValidateRejectsDefaultOrMissingSecrets(t *testing.T) {
 func TestValidateAllowsEnvBackedConfig(t *testing.T) {
 	c := Config{
 		Database: DatabaseConf{DataSource: "notes_user:strong-db-password@tcp(mysql:3306)/notes_of_ashen"},
-		Auth:     AuthConf{AccessSecret: "a-long-enough-secret-value"},
+		Auth:     AuthConf{AccessSecret: "a-long-enough-secret-value", AccessExpire: 7200, RefreshExpire: 604800},
 		Redis:    RedisConf{Addr: "redis:6379", Password: "strong-redis-password"},
 		Search:   SearchConf{Enabled: false},
 		RabbitMQ: RabbitMQConf{Enabled: true, URL: "amqp://rabbit_user:strong-rabbitmq-password@rabbitmq:5672/"},
@@ -127,5 +127,36 @@ func TestValidateAllowsEnvBackedConfig(t *testing.T) {
 
 	if err := c.ValidateConfig(); err != nil {
 		t.Fatalf("ValidateConfig() error = %v, want nil", err)
+	}
+}
+
+func TestValidateRejectsNonPositiveTokenExpirations(t *testing.T) {
+	base := Config{
+		Database: DatabaseConf{DataSource: "user:pass@tcp(mysql:3306)/notes_of_ashen"},
+		Auth: AuthConf{
+			AccessSecret:  "a-long-enough-secret-value",
+			AccessExpire:  1,
+			RefreshExpire: 1,
+		},
+		Redis: RedisConf{Addr: "redis:6379"},
+	}
+
+	tests := []struct {
+		name   string
+		mutate func(*Config)
+	}{
+		{name: "zero access ttl", mutate: func(c *Config) { c.Auth.AccessExpire = 0 }},
+		{name: "negative access ttl", mutate: func(c *Config) { c.Auth.AccessExpire = -1 }},
+		{name: "zero refresh ttl", mutate: func(c *Config) { c.Auth.RefreshExpire = 0 }},
+		{name: "negative refresh ttl", mutate: func(c *Config) { c.Auth.RefreshExpire = -1 }},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			conf := base
+			tt.mutate(&conf)
+			if err := conf.ValidateConfig(); err == nil {
+				t.Fatal("ValidateConfig() error = nil, want error")
+			}
+		})
 	}
 }

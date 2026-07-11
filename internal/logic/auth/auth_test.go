@@ -1,12 +1,40 @@
 package auth
 
 import (
+	"errors"
 	"testing"
 	"time"
 
 	apperrors "notes-of-ashen/internal/errors"
 	"notes-of-ashen/model"
 )
+
+func TestShouldSendResetPasswordCodeHidesAccountState(t *testing.T) {
+	systemErr := errors.New("database unavailable")
+	tests := []struct {
+		name     string
+		user     *model.User
+		err      error
+		wantSend bool
+		wantErr  bool
+	}{
+		{name: "missing account", err: model.ErrNotFound},
+		{name: "disabled account", user: &model.User{Status: "disabled"}},
+		{name: "active account", user: &model.User{Status: "active"}, wantSend: true},
+		{name: "system error", err: systemErr, wantErr: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			send, err := shouldSendResetPasswordCode(tt.user, tt.err)
+			if send != tt.wantSend {
+				t.Fatalf("send = %v, want %v", send, tt.wantSend)
+			}
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("err = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
 
 func TestValidateLogoutRefreshTokenRejectsOtherUserToken(t *testing.T) {
 	token := &model.RefreshToken{

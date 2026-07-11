@@ -59,11 +59,17 @@ func SendVerifyCode(ctx context.Context, svcCtx *svc.ServiceContext, req types.S
 	if purpose != "register" && purpose != "reset_password" {
 		return apperrors.BadRequest("purpose is invalid")
 	}
-	if err := checkPublicVerifyCodePurpose(ctx, svcCtx, purpose, req.Email); err != nil {
+	shouldSend, err := checkPublicVerifyCodePurpose(ctx, svcCtx, purpose, req.Email)
+	if err != nil {
 		return err
 	}
 	if err := security.VerifyCaptcha(ctx, svcCtx.Redis, purpose, req.CaptchaID, req.CaptchaCode); err != nil {
 		return err
+	}
+	// 重置密码验证码对不存在或禁用账户同样公开返回成功，避免通过响应枚举账户状态。
+	// 仅正常账户继续生成、存储和发送验证码；真实 Redis/SMTP 故障仍会向上传递。
+	if !shouldSend {
+		return nil
 	}
 
 	code, err := security.RandomDigits(6)
@@ -106,8 +112,8 @@ func Register(ctx context.Context, svcCtx *svc.ServiceContext, req types.Registe
 
 	var id uint64
 	var role string
-	if err := svcCtx.Store.WithUserRegistrationLock(ctx, func(ctx context.Context) error {
-		total, err := svcCtx.Store.CountUsers(ctx)
+	if err := svcCtx.Store.WithUserRegistrationLock(ctx, func(ctx context.Context, registration *model.UserRegistrationTx) error {
+		total, err := registration.CountUsers(ctx)
 		if err != nil {
 			return err
 		}
@@ -115,7 +121,7 @@ func Register(ctx context.Context, svcCtx *svc.ServiceContext, req types.Registe
 		// DB 双保险：GET_LOCK 失效的极端并发下，先落库者成为 admin，后到者通过行锁
 		// 读到 admin 已存在并降级为普通用户，避免出现多个 admin。
 		if isFirstUser {
-			adminExists, err := svcCtx.Store.AdminExists(ctx)
+			adminExists, err := registration.AdminExists(ctx)
 			if err != nil {
 				return err
 			}
@@ -127,21 +133,21 @@ func Register(ctx context.Context, svcCtx *svc.ServiceContext, req types.Registe
 		if isFirstUser {
 			role = "admin"
 		} else {
-			settings, err := svcCtx.Store.SiteSettings(ctx)
+			registrationEnabled, err := registration.RegistrationEnabled(ctx)
 			if err != nil {
 				return err
 			}
-			if !settings.RegistrationEnabled {
+			if !registrationEnabled {
 				return apperrors.Forbidden("registration is disabled")
 			}
 		}
 		// 一次查询同时检测 account 和 email 是否被占用（错误信息保持一致，防枚举）。
-		if _, err := svcCtx.Store.FindUserByAccountOrEmail(ctx, req.Account); err == nil {
+		if _, err := registration.FindUserByAccountOrEmail(ctx, req.Account); err == nil {
 			return apperrors.Conflict("account or email already exists")
 		} else if !errors.Is(err, model.ErrNotFound) {
 			return err
 		}
-		if _, err := svcCtx.Store.FindUserByAccountOrEmail(ctx, req.Email); err == nil {
+		if _, err := registration.FindUserByAccountOrEmail(ctx, req.Email); err == nil {
 			return apperrors.Conflict("account or email already exists")
 		} else if !errors.Is(err, model.ErrNotFound) {
 			return err
@@ -151,7 +157,7 @@ func Register(ctx context.Context, svcCtx *svc.ServiceContext, req types.Registe
 				return err
 			}
 		}
-		createdID, err := svcCtx.Store.CreateUser(ctx, model.UserCreate{
+		createdID, err := registration.CreateUser(ctx, model.UserCreate{
 			Account:      req.Account,
 			PasswordHash: string(passwordHash),
 			Email:        req.Email,
@@ -450,41 +456,46 @@ func validateLogoutRefreshToken(token *model.RefreshToken, userID uint64, now ti
 	return nil
 }
 
-func checkPublicVerifyCodePurpose(ctx context.Context, svcCtx *svc.ServiceContext, purpose, email string) error {
+func checkPublicVerifyCodePurpose(ctx context.Context, svcCtx *svc.ServiceContext, purpose, email string) (bool, error) {
 	switch purpose {
 	case "register":
 		total, err := svcCtx.Store.CountUsers(ctx)
 		if err != nil {
-			return err
+			return false, err
 		}
 		if total > 0 {
 			settings, err := svcCtx.Store.SiteSettings(ctx)
 			if err != nil {
-				return err
+				return false, err
 			}
 			if !settings.RegistrationEnabled {
-				return apperrors.Forbidden("registration is disabled")
+				return false, apperrors.Forbidden("registration is disabled")
 			}
 		}
 		_, err = svcCtx.Store.FindUserByEmail(ctx, email)
 		if err == nil {
-			return apperrors.Conflict("email already exists")
+			return false, apperrors.Conflict("email already exists")
 		}
 		if !errors.Is(err, model.ErrNotFound) {
-			return err
+			return false, err
 		}
+		return true, nil
 	case "reset_password":
 		user, err := svcCtx.Store.FindUserByEmail(ctx, email)
-		if err != nil {
-			return logicutil.MapError(err)
-		}
-		if user.Status != "active" {
-			return apperrors.Forbidden("user is disabled")
-		}
+		return shouldSendResetPasswordCode(user, err)
 	default:
-		return apperrors.BadRequest("purpose is invalid")
+		return false, apperrors.BadRequest("purpose is invalid")
 	}
-	return nil
+}
+
+func shouldSendResetPasswordCode(user *model.User, err error) (bool, error) {
+	if err != nil {
+		if errors.Is(err, model.ErrNotFound) {
+			return false, nil
+		}
+		return false, err
+	}
+	return user != nil && user.Status == "active", nil
 }
 
 func refreshKey(hash string) string {

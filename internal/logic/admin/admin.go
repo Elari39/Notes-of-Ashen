@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"errors"
 
 	"golang.org/x/sync/errgroup"
 
@@ -9,10 +10,10 @@ import (
 	apperrors "notes-of-ashen/internal/errors"
 	"notes-of-ashen/internal/logicutil"
 	"notes-of-ashen/internal/middleware"
-	"notes-of-ashen/model"
 	"notes-of-ashen/internal/svc"
 	"notes-of-ashen/internal/types"
 	"notes-of-ashen/internal/validator"
+	"notes-of-ashen/model"
 )
 
 var userStatuses = map[string]struct{}{
@@ -47,20 +48,8 @@ func UpdateUserStatus(ctx context.Context, svcCtx *svc.ServiceContext, userID ui
 	if err := validator.Status(req.Status, userStatuses, "status"); err != nil {
 		return err
 	}
-	target, err := svcCtx.Store.FindUserByID(ctx, userID)
-	if err != nil {
-		return logicutil.MapError(err)
-	}
-	if target.ID == currentID && req.Status != "active" {
-		return apperrors.Forbidden("cannot disable yourself")
-	}
-	if target.Role == authutil.RoleAdmin && target.Status == "active" && req.Status != "active" {
-		if err := ensureAnotherActiveAdmin(ctx, svcCtx); err != nil {
-			return err
-		}
-	}
-	if err := svcCtx.Store.UpdateUserStatus(ctx, userID, req.Status); err != nil {
-		return logicutil.MapError(err)
+	if err := svcCtx.Store.UpdateUserStatusSafely(ctx, userID, currentID, req.Status); err != nil {
+		return mapAdminUpdateError(err)
 	}
 	middleware.EvictAuthUserCache(ctx, svcCtx.AuthUserCache, userID)
 	return nil
@@ -77,20 +66,8 @@ func UpdateUserRole(ctx context.Context, svcCtx *svc.ServiceContext, userID uint
 	if !authutil.IsValidRole(req.Role) {
 		return apperrors.BadRequest("role is invalid")
 	}
-	target, err := svcCtx.Store.FindUserByID(ctx, userID)
-	if err != nil {
-		return logicutil.MapError(err)
-	}
-	if target.ID == currentID && req.Role != authutil.RoleAdmin {
-		return apperrors.Forbidden("cannot downgrade yourself")
-	}
-	if target.Role == authutil.RoleAdmin && req.Role != authutil.RoleAdmin && target.Status == "active" {
-		if err := ensureAnotherActiveAdmin(ctx, svcCtx); err != nil {
-			return err
-		}
-	}
-	if err := svcCtx.Store.UpdateUserRole(ctx, userID, req.Role); err != nil {
-		return logicutil.MapError(err)
+	if err := svcCtx.Store.UpdateUserRoleSafely(ctx, userID, currentID, req.Role); err != nil {
+		return mapAdminUpdateError(err)
 	}
 	middleware.EvictAuthUserCache(ctx, svcCtx.AuthUserCache, userID)
 	return nil
@@ -118,13 +95,13 @@ func Stats(ctx context.Context, svcCtx *svc.ServiceContext) (*types.AdminStatsRe
 	}
 	// 仪表盘各数据源互相无依赖，并行查询以减少串行 DB 往返。
 	var (
-		stats        *model.AdminStats
-		popular      []model.Article
-		recent       []model.Article
-		logs         []model.OperationLog
-		trend        []model.TrafficTrendPoint
-		topReferers  []model.RefererStat
-		today        model.TrafficTrendPoint
+		stats       *model.AdminStats
+		popular     []model.Article
+		recent      []model.Article
+		logs        []model.OperationLog
+		trend       []model.TrafficTrendPoint
+		topReferers []model.RefererStat
+		today       model.TrafficTrendPoint
 	)
 	var g errgroup.Group
 	g.Go(func() (err error) {
@@ -204,13 +181,15 @@ func Stats(ctx context.Context, svcCtx *svc.ServiceContext) (*types.AdminStatsRe
 	return resp, nil
 }
 
-func ensureAnotherActiveAdmin(ctx context.Context, svcCtx *svc.ServiceContext) error {
-	count, err := svcCtx.Store.CountActiveAdmins(ctx)
-	if err != nil {
-		return err
-	}
-	if count <= 1 {
+func mapAdminUpdateError(err error) error {
+	switch {
+	case errors.Is(err, model.ErrCannotDisableSelf):
+		return apperrors.Forbidden("cannot disable yourself")
+	case errors.Is(err, model.ErrCannotDowngradeSelf):
+		return apperrors.Forbidden("cannot downgrade yourself")
+	case errors.Is(err, model.ErrLastActiveAdmin):
 		return apperrors.Forbidden("at least one active admin is required")
+	default:
+		return logicutil.MapError(err)
 	}
-	return nil
 }

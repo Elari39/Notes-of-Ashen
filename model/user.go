@@ -6,10 +6,16 @@ import (
 	"errors"
 	"time"
 
+	"github.com/go-sql-driver/mysql"
 	"github.com/zeromicro/go-zero/core/logx"
 )
 
-var errRegistrationLockNotAcquired = errors.New("user registration lock not acquired")
+var (
+	errRegistrationLockNotAcquired = errors.New("user registration lock not acquired")
+	ErrCannotDisableSelf           = errors.New("cannot disable yourself")
+	ErrCannotDowngradeSelf         = errors.New("cannot downgrade yourself")
+	ErrLastActiveAdmin             = errors.New("at least one active admin is required")
+)
 
 const (
 	createUserSQL = `
@@ -48,6 +54,12 @@ type UserUpdate struct {
 	Nickname  string
 }
 
+// UserRegistrationTx 将首位用户判定和创建限制在同一事务、同一数据库连接内。
+// 注册回调只能通过该 facade 访问相关数据，避免重新使用连接池破坏 GET_LOCK 的会话语义。
+type UserRegistrationTx struct {
+	tx *sql.Tx
+}
+
 func (s *Store) CountUsers(ctx context.Context) (int64, error) {
 	var count int64
 	err := s.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM users").Scan(&count)
@@ -69,25 +81,94 @@ func (s *Store) AdminExists(ctx context.Context) (bool, error) {
 	return true, nil
 }
 
-func (s *Store) WithUserRegistrationLock(ctx context.Context, fn func(context.Context) error) error {
+func (s *Store) WithUserRegistrationLock(ctx context.Context, fn func(context.Context, *UserRegistrationTx) error) error {
+	conn, err := s.db.Conn(ctx)
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+
 	// GET_LOCK 返回 1 表示加锁成功，0 表示超时，NULL 表示出错（如线程被杀死）。
 	// 必须校验返回值，否则超时/失败会被当作加锁成功，并发注册可能让多个用户都成为 admin。
 	var acquired sql.NullInt64
-	if err := s.db.QueryRowContext(ctx, userRegistrationLockAcquireSQL, userRegistrationLockName).Scan(&acquired); err != nil {
+	if err := conn.QueryRowContext(ctx, userRegistrationLockAcquireSQL, userRegistrationLockName).Scan(&acquired); err != nil {
 		return err
 	}
 	if !acquired.Valid || acquired.Int64 != 1 {
 		return errRegistrationLockNotAcquired
 	}
 	defer func() {
+		releaseCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
 		var released sql.NullInt64
-		if err := s.db.QueryRowContext(context.Background(), userRegistrationLockReleaseSQL, userRegistrationLockName).Scan(&released); err != nil {
+		if err := conn.QueryRowContext(releaseCtx, userRegistrationLockReleaseSQL, userRegistrationLockName).Scan(&released); err != nil {
 			logx.Errorf("release user registration lock failed: %v", err)
 		} else if !released.Valid || released.Int64 != 1 {
 			logx.Errorf("release user registration lock returned non-one: %v", released)
 		}
 	}()
-	return fn(ctx)
+
+	tx, err := conn.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	if err := fn(ctx, &UserRegistrationTx{tx: tx}); err != nil {
+		_ = tx.Rollback()
+		return err
+	}
+	if err := tx.Commit(); err != nil {
+		_ = tx.Rollback()
+		return err
+	}
+	return nil
+}
+
+func (tx *UserRegistrationTx) CountUsers(ctx context.Context) (int64, error) {
+	var count int64
+	err := tx.tx.QueryRowContext(ctx, "SELECT COUNT(*) FROM users").Scan(&count)
+	return count, err
+}
+
+func (tx *UserRegistrationTx) AdminExists(ctx context.Context) (bool, error) {
+	var one int
+	err := tx.tx.QueryRowContext(ctx, "SELECT 1 FROM users WHERE role = 'admin' LIMIT 1 FOR UPDATE").Scan(&one)
+	if errors.Is(err, sql.ErrNoRows) {
+		return false, nil
+	}
+	return err == nil, err
+}
+
+func (tx *UserRegistrationTx) RegistrationEnabled(ctx context.Context) (bool, error) {
+	var raw string
+	err := tx.tx.QueryRowContext(ctx, "SELECT setting_value FROM site_settings WHERE setting_key = ? LIMIT 1", RegistrationEnabledKey).Scan(&raw)
+	if errors.Is(err, sql.ErrNoRows) {
+		return true, nil
+	}
+	var mysqlErr *mysql.MySQLError
+	if errors.As(err, &mysqlErr) && mysqlErr.Number == 1146 {
+		return true, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	return raw == "true" || raw == "1", nil
+}
+
+func (tx *UserRegistrationTx) FindUserByAccountOrEmail(ctx context.Context, value string) (*User, error) {
+	row := tx.tx.QueryRowContext(ctx, `
+	SELECT id, account, password_hash, email, avatar_url, nickname, role, status, created_at, updated_at
+	FROM users WHERE account = ? OR email = ? LIMIT 1`, value, value)
+	return scanUser(row)
+}
+
+func (tx *UserRegistrationTx) CreateUser(ctx context.Context, in UserCreate) (uint64, error) {
+	res, err := tx.tx.ExecContext(ctx, createUserSQL,
+		in.Account, in.PasswordHash, in.Email, in.AvatarURL, in.Nickname, in.Role)
+	if err != nil {
+		return 0, err
+	}
+	id, err := res.LastInsertId()
+	return uint64(id), err
 }
 
 func (s *Store) CreateUser(ctx context.Context, in UserCreate) (uint64, error) {
@@ -149,20 +230,68 @@ func (s *Store) UpdateUserPassword(ctx context.Context, id uint64, passwordHash 
 	return s.requireUserUpdateAffected(ctx, id, res)
 }
 
-func (s *Store) UpdateUserStatus(ctx context.Context, id uint64, status string) error {
-	res, err := s.db.ExecContext(ctx, "UPDATE users SET status = ?, updated_at = NOW() WHERE id = ?", status, id)
-	if err != nil {
-		return err
-	}
-	return s.requireUserUpdateAffected(ctx, id, res)
+func (s *Store) UpdateUserStatusSafely(ctx context.Context, id, currentID uint64, status string) error {
+	return s.updateUserAdminFieldsSafely(ctx, id, currentID, "status", status)
 }
 
-func (s *Store) UpdateUserRole(ctx context.Context, id uint64, role string) error {
-	res, err := s.db.ExecContext(ctx, "UPDATE users SET role = ?, updated_at = NOW() WHERE id = ?", role, id)
-	if err != nil {
+func (s *Store) UpdateUserRoleSafely(ctx context.Context, id, currentID uint64, role string) error {
+	return s.updateUserAdminFieldsSafely(ctx, id, currentID, "role", role)
+}
+
+func (s *Store) updateUserAdminFieldsSafely(ctx context.Context, id, currentID uint64, field, value string) error {
+	return WithTx(ctx, s.db, func(tx *sql.Tx) error {
+		rows, err := tx.QueryContext(ctx, "SELECT id FROM users WHERE role = 'admin' AND status = 'active' ORDER BY id FOR UPDATE")
+		if err != nil {
+			return err
+		}
+		activeAdminCount := 0
+		for rows.Next() {
+			var adminID uint64
+			if err := rows.Scan(&adminID); err != nil {
+				rows.Close()
+				return err
+			}
+			activeAdminCount++
+		}
+		if err := rows.Close(); err != nil {
+			return err
+		}
+		if err := rows.Err(); err != nil {
+			return err
+		}
+
+		var target User
+		if err := tx.QueryRowContext(ctx, "SELECT id, role, status FROM users WHERE id = ? FOR UPDATE", id).
+			Scan(&target.ID, &target.Role, &target.Status); err != nil {
+			return scanErr(err)
+		}
+
+		switch field {
+		case "status":
+			if target.ID == currentID && value != "active" {
+				return ErrCannotDisableSelf
+			}
+			if target.Role == "admin" && target.Status == "active" && value != "active" && activeAdminCount <= 1 {
+				return ErrLastActiveAdmin
+			}
+		case "role":
+			if target.ID == currentID && value != "admin" {
+				return ErrCannotDowngradeSelf
+			}
+			if target.Role == "admin" && target.Status == "active" && value != "admin" && activeAdminCount <= 1 {
+				return ErrLastActiveAdmin
+			}
+		default:
+			return errors.New("unsupported user field update")
+		}
+
+		query := "UPDATE users SET status = ?, updated_at = NOW() WHERE id = ?"
+		if field == "role" {
+			query = "UPDATE users SET role = ?, updated_at = NOW() WHERE id = ?"
+		}
+		_, err = tx.ExecContext(ctx, query, value, id)
 		return err
-	}
-	return s.requireUserUpdateAffected(ctx, id, res)
+	})
 }
 
 func (s *Store) CountActiveAdmins(ctx context.Context) (int64, error) {
