@@ -1,17 +1,8 @@
 import { create } from 'zustand';
-import { User } from '../types';
+import type { User } from '../types';
 import { getCurrentUser } from '../api/user';
 import { refreshAccessToken } from '../utils/refresh';
-
-// 优先读取 AppError 顶层 status，再兼容 axios response.status；
-// 两者都不存在（网络错误/超时）时返回 0。
-const httpStatusFromError = (error: unknown): number => {
-  if (typeof error !== 'object' || error === null) return 0;
-  const status = (error as { status?: unknown }).status;
-  if (typeof status === 'number' && Number.isFinite(status) && status > 0) return status;
-  const response = (error as { response?: { status?: number } }).response;
-  return response?.status ?? 0;
-};
+import { executeFetchUser, type FetchUserMode } from './authPolicy';
 
 interface AuthState {
   user: User | null;
@@ -23,7 +14,7 @@ interface AuthState {
   setAuth: (user: User | null, token: string | null) => void;
   logout: () => void;
   setSessionExpiredHandler: (handler: (() => void) | undefined) => void;
-  fetchUser: () => Promise<void>;
+  fetchUser: (mode?: FetchUserMode) => Promise<User | null>;
   initializeAuth: () => Promise<void>;
 }
 
@@ -46,26 +37,21 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   setSessionExpiredHandler: (handler) => {
     set({ onSessionExpired: handler });
   },
-  fetchUser: async () => {
-    if (!get().accessToken) {
-      set({ user: null, isInitialized: true, isFetching: false });
-      return;
-    }
-    set({ isFetching: true });
+  fetchUser: async (mode = 'silent') => {
+    const accessToken = get().accessToken;
+    if (accessToken) set({ isFetching: true });
     try {
-      const res = await getCurrentUser();
-      set({ user: res.data, isInitialized: true });
-    } catch (error) {
-      // 仅 401/403（会话真正失效）才清凭证；网络抖动/超时/5xx 保留 token，
-      // 避免瞬断把刚刷新到的有效 token 清空强制登出（P4-16）。
-      const status = httpStatusFromError(error);
-      if (status === 401 || status === 403) {
-        set({ user: null, accessToken: null, isInitialized: true });
-        get().onSessionExpired?.();
-      } else {
-        // 网络错误等：保留 token，仅标记初始化完成，UI 可重试。
-        set({ isInitialized: true });
-      }
+      return await executeFetchUser<User>({
+        mode,
+        accessToken,
+        request: async () => (await getCurrentUser()).data,
+        effects: {
+          setUser: (user) => set({ user }),
+          setAccessToken: (token) => set({ accessToken: token }),
+          setInitialized: () => set({ isInitialized: true }),
+          notifySessionExpired: () => get().onSessionExpired?.(),
+        },
+      });
     } finally {
       set({ isFetching: false });
     }

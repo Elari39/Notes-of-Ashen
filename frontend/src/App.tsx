@@ -10,7 +10,11 @@ import { useAuthStore } from './store/auth';
 import { useShallow } from 'zustand/react/shallow';
 import { TooltipProvider } from './components/ui/Tooltip';
 import ConfirmDialogHost from './components/ui/ConfirmDialogHost';
+import InlineNotice from './components/InlineNotice';
+import Button from './components/ui/Button';
 import { reportVisit } from './api/traffic';
+import { translate } from './i18n';
+import { resolvePublicFeatureRoute } from './store/siteSettingsPolicy';
 import {
   AdminAISettings,
   AdminArticles,
@@ -158,15 +162,37 @@ export default App;
 const ignoredTrafficPrefixes = ['/admin', '/login', '/register', '/profile', '/forgot-password'];
 
 const PublicFeatureRoute = ({ enabled, children }: { enabled: boolean; children: ReactElement }) => {
-  const { hasLoaded, error } = useSiteSettingsStore(
-    useShallow((state) => ({ hasLoaded: state.hasLoaded, error: state.error })),
+  const language = usePreferenceStore((state) => state.language);
+  const { hasLoaded, isLoading, loadError, fetchSettings } = useSiteSettingsStore(
+    useShallow((state) => ({
+      hasLoaded: state.hasLoaded,
+      isLoading: state.isLoading,
+      loadError: state.loadError,
+      fetchSettings: state.fetchSettings,
+    })),
   );
+  const routeState = resolvePublicFeatureRoute({ hasLoaded, isLoading, loadError, enabled });
 
-  if (!hasLoaded) {
+  if (routeState === 'loading') {
     return <PagePendingState />;
   }
 
-  if (error || !enabled) {
+  if (routeState === 'error') {
+    return (
+      <div className="mx-auto w-full max-w-3xl px-4 py-12">
+        <InlineNotice
+          message={translate(language, 'siteSettings.loadError')}
+          action={(
+            <Button size="sm" onClick={() => void fetchSettings()} loading={isLoading}>
+              {translate(language, 'common.retry')}
+            </Button>
+          )}
+        />
+      </div>
+    );
+  }
+
+  if (routeState === 'notFound') {
     return withRouteSuspense(<NotFound />);
   }
 

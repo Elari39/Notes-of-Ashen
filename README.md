@@ -172,6 +172,7 @@ Copy-Item .env.example .env
 - `PRERENDER_TOKEN`：Prerender.io Token，只能写入真实 `.env` 或受控环境变量。
 - `APP_GITHUB_TOKEN`：可选 GitHub Token；留空时使用公开匿名额度，不要提交真实 Token（当前版本后端未读取，预留）。
 - `WEB_PORT`：本机 Web 访问端口，默认 `1270`。
+- `WEB_TRUSTED_PROXY_CIDR`：Web Nginx 直接上游的可信 CIDR，默认 `172.30.127.1/32`（Compose `app` 网桥默认网关）。
 - `APP_DOCKER_SUBNET` / `APP_WEB_IPV4_ADDRESS`：Compose 专用子网和 Web 容器固定地址，默认分别为 `172.30.127.0/24`、`172.30.127.10`。
 
 不要把真实 `.env` 内容写入 README、Issue、提交记录或截图中。
@@ -260,7 +261,9 @@ APP_AI_NON_STREAM_TIMEOUT_SECONDS=600
 APP_TRUSTED_PROXY_CIDRS=172.30.127.10/32,10.0.0.0/24
 ```
 
-不要在 API 可被公网或不可信客户端直连时配置过宽的网段。若默认 `172.30.127.0/24` 与宿主机或现有 Docker 网络冲突，请同时修改 `APP_DOCKER_SUBNET`、`APP_WEB_IPV4_ADDRESS`，并将 `APP_TRUSTED_PROXY_CIDRS` 中的 Web `/32` 更新为相同地址。
+Web Nginx 使用 `$binary_remote_addr` 做每 IP 限流，并仅接受 `WEB_TRUSTED_PROXY_CIDR` 指定的直接上游提供的 `X-Forwarded-For`。默认值 `172.30.127.1/32` 是 Compose `app` 网桥的默认网关，适用于宿主机上的 1Panel 反向代理转发到 `127.0.0.1:1270` 的部署方式。该值必须保持为实际直接上游的精确 CIDR，禁止填写 `0.0.0.0/0` 等宽泛公网网段，否则客户端可伪造来源 IP 绕过按 IP 限流。
+
+不要在 API 可被公网或不可信客户端直连时配置过宽的网段。若默认 `172.30.127.0/24` 与宿主机或现有 Docker 网络冲突，请同时修改 `APP_DOCKER_SUBNET`、`APP_WEB_IPV4_ADDRESS`、`WEB_TRUSTED_PROXY_CIDR`（新子网的网桥网关 `/32`），并将 `APP_TRUSTED_PROXY_CIDRS` 中的 Web `/32` 更新为相同地址。
 
 ### 全文搜索配置
 
@@ -329,7 +332,7 @@ docker compose logs -f web
 
 MySQL、Redis、RabbitMQ 由远程服务提供（见 1Panel 远程中间件配置），不在 `docker-compose.yml` 内启动，也不会映射端口到宿主机。Web 通过 Nginx 反向代理访问 API。
 
-Compose 中 API 容器端口固定为 `19000`，`.env` 的 `APP_PORT` 仅影响本地非 Docker 启动。默认专用网络为 `172.30.127.0/24`，如有冲突请按“可信反向代理配置”一节同时调整子网、Web 固定地址与可信代理 `/32`。
+Compose 中 API 容器端口固定为 `19000`，`.env` 的 `APP_PORT` 仅影响本地非 Docker 启动。默认专用网络为 `172.30.127.0/24`，如有冲突请按“可信反向代理配置”一节同时调整子网、Web 固定地址、网桥网关可信代理 `/32` 与后端可信代理 `/32`。
 
 ### 访问验证
 
@@ -381,6 +384,8 @@ http://127.0.0.1:1270/api/v1/articles?page=1&size=10
    ```
 
 7. 绑定域名并开启 HTTPS。
+
+1Panel 作为宿主机上的直接上游时，Web 容器默认只信任 Compose `app` 网桥网关 `172.30.127.1/32` 提供的 `X-Forwarded-For`。若修改 `APP_DOCKER_SUBNET`，必须同步把 `WEB_TRUSTED_PROXY_CIDR` 改为新子网网桥网关的 `/32`；禁止配置 `0.0.0.0/0` 等宽泛公网网段。
 
 项目使用远程 MySQL/Redis/RabbitMQ，不会在宿主机映射 `3306`/`6379`/`5672` 端口，因此不会与 1Panel 已有中间件端口冲突。Go 后端通过 `.env` 中的 DSN/URL 连接远程服务。
 

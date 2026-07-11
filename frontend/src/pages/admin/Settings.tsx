@@ -7,6 +7,7 @@ import { getErrorMessage } from '../../utils/error';
 import { translate } from '../../i18n';
 import { usePreferenceStore } from '../../store/preferences';
 import { useSiteSettingsStore } from '../../store/siteSettings';
+import { areSiteSettingsControlsDisabled } from '../../store/siteSettingsPolicy';
 import type { HomeArticleLayout } from '../../types';
 import { useShallow } from 'zustand/react/shallow';
 
@@ -24,6 +25,8 @@ const AdminSettings: React.FC = () => {
     projectsPageEnabled,
     projectsNavHidden,
     isLoading,
+    hasLoaded,
+    loadError,
     fetchSettings,
     updateSettings,
   } = useSiteSettingsStore(
@@ -39,6 +42,8 @@ const AdminSettings: React.FC = () => {
       projectsPageEnabled: state.projectsPageEnabled,
       projectsNavHidden: state.projectsNavHidden,
       isLoading: state.isLoading,
+      hasLoaded: state.hasLoaded,
+      loadError: state.loadError,
       fetchSettings: state.fetchSettings,
       updateSettings: state.updateSettings,
     })),
@@ -56,6 +61,7 @@ const AdminSettings: React.FC = () => {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const t = (key: Parameters<typeof translate>[1]) => translate(language, key);
+  const controlsDisabled = areSiteSettingsControlsDisabled(hasLoaded, isLoading);
 
   useEffect(() => {
     fetchSettings();
@@ -132,9 +138,19 @@ const AdminSettings: React.FC = () => {
 
       <InlineNotice message={error} className="mb-6" />
       <InlineNotice message={notice} tone="success" className="mb-6" />
+      <InlineNotice
+        message={!hasLoaded && loadError ? t('siteSettings.loadError') : ''}
+        className="mb-6"
+        action={(
+          <Button size="sm" onClick={() => void fetchSettings()} loading={isLoading}>
+            {t('common.retry')}
+          </Button>
+        )}
+      />
       {isLoading && <PagePendingState variant="inline" label={t('common.loading')} />}
 
       <form onSubmit={handleSubmit} className="space-y-8">
+        <fieldset disabled={controlsDisabled} className="space-y-8 disabled:opacity-60">
         <section className="border border-mountain-grey bg-[var(--paper-soft)] p-5">
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div>
@@ -336,6 +352,7 @@ const AdminSettings: React.FC = () => {
             {t('common.cancel')}
           </Button>
         </div>
+        </fieldset>
       </form>
     </div>
   );

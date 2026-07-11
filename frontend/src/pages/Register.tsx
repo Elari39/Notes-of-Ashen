@@ -103,7 +103,7 @@ const Register: React.FC = () => {
       const token = res.data.accessToken;
       // refreshToken 由后端 HttpOnly Cookie 下发，前端无需也无需读取。
       setAuth(null, token);
-      await fetchUser();
+      await fetchUser('strict');
       navigate('/');
     } catch (err: unknown) {
       setError(getErrorMessage(err, t('auth.registerError')));

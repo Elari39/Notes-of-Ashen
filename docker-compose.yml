@@ -11,6 +11,7 @@ services:
       PRERENDER_ENABLED: "${PRERENDER_ENABLED:-0}"
       PRERENDER_SERVICE_URL: "${PRERENDER_SERVICE_URL:-https://service.prerender.io}"
       PRERENDER_TOKEN: "${PRERENDER_TOKEN:-}"
+      WEB_TRUSTED_PROXY_CIDR: "${WEB_TRUSTED_PROXY_CIDR:-172.30.127.1/32}"
     ports:
       - "127.0.0.1:${WEB_PORT:-1270}:8080"
     depends_on:

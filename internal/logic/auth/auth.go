@@ -402,8 +402,7 @@ func issueTokens(ctx context.Context, svcCtx *svc.ServiceContext, userID uint64,
 		return nil, err
 	}
 	if err := svcCtx.Redis.Set(ctx, refreshKey(refreshHash), strconv.FormatUint(userID, 10), svcCtx.Tokens.RefreshTTL()).Err(); err != nil {
-		revokeRefreshTokenBestEffort(svcCtx, refreshHash)
-		return nil, err
+		logx.Errorf("refresh token cache write failed after db create, continuing with db as source of truth (user_id=%d): %v", userID, err)
 	}
 	return &types.TokenPair{
 		AccessToken:  accessToken,
@@ -435,14 +434,6 @@ func validateRegister(req types.RegisterReq) error {
 		return err
 	}
 	return nil
-}
-
-func revokeRefreshTokenBestEffort(svcCtx *svc.ServiceContext, refreshHash string) {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-	defer cancel()
-	if err := svcCtx.Store.RevokeRefreshToken(ctx, refreshHash); err != nil {
-		logx.Errorf("revoke refresh token failed during logout: %v", err)
-	}
 }
 
 func validateLogoutRefreshToken(token *model.RefreshToken, userID uint64, now time.Time) error {

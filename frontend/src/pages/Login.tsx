@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, Link, useLocation, type Location } from 'react-router-dom';
 import { login } from '../api/auth';
 import { useAuthStore } from '../store/auth';
+import { shouldNavigateAfterAuth } from '../store/authPolicy';
 import { usePreferenceStore } from '../store/preferences';
 import { useSiteSettingsStore } from '../store/siteSettings';
 import CaptchaField from '../components/CaptchaField';
@@ -52,12 +53,9 @@ const Login: React.FC = () => {
       const token = res.data.accessToken;
       // refreshToken 由后端 HttpOnly Cookie 下发，前端无需也无需读取。
       setAuth(null, token);
-      await fetchUser();
+      return fetchUser('strict');
     },
     errorFallback: t('auth.loginError'),
-    onSuccess: () => {
-      navigate(redirectTo, { replace: true });
-    },
     onError: () => {
       // 登录失败需要刷新图形验证码（旧逻辑保持不变）
       setCaptchaReloadKey((value) => value + 1);
@@ -65,7 +63,7 @@ const Login: React.FC = () => {
   });
 
   useEffect(() => {
-    if (!isInitialized || isFetching || !accessToken || !user) {
+    if (!shouldNavigateAfterAuth({ accessToken, user, isInitialized, isFetching })) {
       return;
     }
     navigate(redirectTo, { replace: true });
