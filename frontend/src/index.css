@@ -28,16 +28,19 @@
     --cover-wash: rgba(249, 249, 244, 0.2);
     --ash-dot: rgba(20, 20, 19, 0.05);
     --code-bg: var(--surface-dark);
+    --code-toolbar-bg: #282521;
     --code-border: rgba(204, 120, 92, 0.34);
+    --code-toolbar-border: rgba(250, 249, 245, 0.14);
     --code-shine: rgba(250, 249, 245, 0.08);
     --code-ink: #f5f0e8;
-    --code-muted: #a09d96;
-    --code-comment: #8c928a;
-    --code-ochre: #e39a80;
-    --code-green: #8ec6a0;
-    --code-amber: #e8a55a;
-    --code-blue: #8db8d8;
-    --code-purple: #c3a0cf;
+    --code-muted: #c1b8ad;
+    --code-comment: #b0aaa1;
+    --code-ochre: #e5a183;
+    --code-green: #a8cfae;
+    --code-amber: #efb66e;
+    --code-blue: #9fc5e0;
+    --code-purple: #d7add8;
+    --code-scrollbar: rgba(204, 120, 92, 0.62);
     --inline-code-bg: rgba(204, 120, 92, 0.12);
     --table-row: rgba(245, 240, 232, 0.56);
     --table-head: var(--surface-card);
@@ -96,7 +99,9 @@
     --cover-wash: rgba(17, 19, 20, 0.28);
     --ash-dot: rgba(238, 232, 218, 0.08);
     --code-bg: rgba(238, 232, 218, 0.06);
+    --code-toolbar-bg: linear-gradient(180deg, var(--paper-soft), transparent);
     --code-border: rgba(200, 137, 112, 0.24);
+    --code-toolbar-border: var(--code-border);
     --code-shine: rgba(238, 232, 218, 0.08);
     --code-ink: #e8deca;
     --code-muted: #b5a999;
@@ -106,6 +111,7 @@
     --code-amber: #dfb56f;
     --code-blue: #93b7db;
     --code-purple: #d8a5d3;
+    --code-scrollbar: rgba(200, 137, 112, 0.45);
     --inline-code-bg: rgba(200, 137, 112, 0.14);
     --table-row: rgba(238, 232, 218, 0.04);
     --table-head: rgba(200, 137, 112, 0.12);
@@ -488,7 +494,7 @@
     border-radius: 4px;
     color: var(--ink);
     background: var(--inline-code-bg);
-    font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+    font-family: "JetBrains Mono", "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
     font-size: 0.88em;
     line-height: 1.55;
     vertical-align: 0.05em;
@@ -502,7 +508,7 @@
   .article-code-block {
     max-width: 100%;
     color: var(--code-ink) !important;
-    scrollbar-color: rgba(138, 60, 58, 0.45) transparent;
+    scrollbar-color: var(--code-scrollbar) transparent;
     scrollbar-width: thin;
   }
 
@@ -510,9 +516,9 @@
     margin: 1.75rem 0;
     overflow: hidden;
     border: 1px solid var(--code-border);
-    border-radius: 8px;
+    border-radius: 12px;
     background: var(--code-bg);
-    box-shadow: inset 0 1px 0 var(--code-shine), 0 16px 38px rgba(26, 26, 26, 0.08);
+    box-shadow: inset 0 1px 0 var(--code-shine), 0 16px 36px rgba(20, 20, 19, 0.1);
   }
 
   .article-code-toolbar {
@@ -520,9 +526,9 @@
     min-height: 2.4rem;
     align-items: center;
     gap: 0.75rem;
-    border-bottom: 1px solid var(--code-border);
+    border-bottom: 1px solid var(--code-toolbar-border);
     padding: 0.55rem 0.8rem;
-    background: linear-gradient(180deg, var(--paper-soft), transparent);
+    background: var(--code-toolbar-bg);
   }
 
   .article-code-dots {
@@ -543,8 +549,9 @@
     flex: 1;
     overflow: hidden;
     color: var(--code-muted);
-    font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
-    font-size: 0.72rem;
+    font-family: "JetBrains Mono", "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+    font-size: 0.74rem;
+    font-weight: 500;
     letter-spacing: 0;
     text-overflow: ellipsis;
     text-transform: uppercase;
@@ -553,27 +560,50 @@
 
   .article-code-copy {
     shrink: 0;
-    border: 1px solid var(--code-border);
-    border-radius: 4px;
-    padding: 0.28rem 0.58rem;
-    color: var(--code-muted);
-    background: var(--paper-soft);
-    font-size: 0.75rem;
+    min-height: 2.25rem;
+    border: 1px solid var(--code-toolbar-border);
+    border-radius: 6px;
+    padding: 0.35rem 0.7rem;
+    color: var(--code-ink);
+    background: rgba(250, 249, 245, 0.08);
+    font-size: 0.74rem;
+    font-weight: 500;
     line-height: 1.2;
-    transition: border-color 160ms ease, color 160ms ease, background 160ms ease;
+    transition: border-color var(--dur-fast) ease, color var(--dur-fast) ease, background var(--dur-fast) ease, box-shadow var(--dur-fast) ease;
   }
 
   .article-code-copy:hover,
   .article-code-copy:focus-visible {
     border-color: var(--ochre);
     color: var(--ochre);
+    background: rgba(204, 120, 92, 0.14);
     outline: none;
+    box-shadow: 0 0 0 3px rgba(204, 120, 92, 0.2);
   }
 
   .article-code-block code {
     color: var(--code-ink) !important;
+    font-family: "JetBrains Mono", "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
     font-weight: 400;
+    font-size: 0.92rem;
+    line-height: 1.72;
     white-space: pre;
+  }
+
+  @media (max-width: 767px) {
+    .article-code-shell {
+      margin: 1.4rem 0;
+      border-radius: 10px;
+    }
+
+    .article-code-toolbar {
+      gap: 0.6rem;
+      padding: 0.5rem 0.65rem;
+    }
+
+    .article-code-block {
+      font-size: 0.86rem;
+    }
   }
 
   .article-table-shell {

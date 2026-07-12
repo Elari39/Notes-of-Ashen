@@ -39,7 +39,7 @@ SyntaxHighlighter.registerLanguage('ts', typescript);
 SyntaxHighlighter.registerLanguage('yaml', yaml);
 SyntaxHighlighter.registerLanguage('yml', yaml);
 
-const codeFontFamily = '"SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace';
+const codeFontFamily = '"JetBrains Mono", "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace';
 
 const syntaxTheme: Record<string, CSSProperties> = {
   'code[class*="language-"]': {
