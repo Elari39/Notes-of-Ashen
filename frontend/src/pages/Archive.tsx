@@ -58,7 +58,11 @@ const Archive: React.FC = () => {
   };
 
   return (
-    <div className="space-y-16 mt-8 max-w-2xl mx-auto w-full">
+    <div className="editorial-container w-full space-y-12">
+      <header className="max-w-3xl py-6 md:py-10">
+        <p className="editorial-kicker">{t('archive.kicker')}</p>
+        <h1 className="mt-5 editorial-page-title">{t('nav.archive')}</h1>
+      </header>
       <InlineNotice
         message={error}
         action={(
@@ -68,9 +72,9 @@ const Archive: React.FC = () => {
         )}
       />
       {loading && !hasArchiveData && (
-        <div className="space-y-16">
+        <div className="grid gap-6 md:grid-cols-2">
           {[0, 1].map((section) => (
-            <section key={section}>
+            <section key={section} className="editorial-card">
               <Skeleton className="mx-auto mb-8 h-7 w-32" />
               <div className="flex flex-wrap gap-4 justify-center">
                 {Array.from({ length: 8 }).map((_, i) => (
@@ -86,14 +90,15 @@ const Archive: React.FC = () => {
       )}
       {!loading && (!error || hasArchiveData) && (
         <>
-          <section>
-            <h2 className="text-3xl font-bold text-ink mb-8 tracking-widest text-center">{t('archive.titleCategories')}</h2>
+          <div className="grid gap-6 md:grid-cols-2">
+          <section className="editorial-card">
+            <h2 className="mb-8 font-display text-4xl text-ink">{t('archive.titleCategories')}</h2>
             {categories.length === 0 ? (
               <EmptyState illustration="leaf" title={t('common.noCategory')} />
             ) : (
-              <div className="flex flex-wrap gap-4 justify-center">
+              <div className="flex flex-wrap gap-3">
                 {categories.map(c => (
-                  <Link key={c.id} to={`/?categoryId=${c.id}`} className="px-4 py-2 border border-mountain-grey text-ink-light hover:border-ochre hover:text-ochre transition-colors duration-base tracking-wider focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ochre">
+                  <Link key={c.id} to={`/?categoryId=${c.id}`} className="inline-flex min-h-11 items-center rounded-md border border-hairline bg-paper px-4 py-2 text-sm font-medium text-ink transition-colors duration-base hover:border-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ochre">
                     {c.name}
                   </Link>
                 ))}
@@ -101,20 +106,21 @@ const Archive: React.FC = () => {
             )}
           </section>
 
-          <section>
-            <h2 className="text-3xl font-bold text-ink mb-8 tracking-widest text-center">{t('archive.titleTags')}</h2>
+          <section className="editorial-dark-card">
+            <h2 className="mb-8 font-display text-4xl text-on-dark">{t('archive.titleTags')}</h2>
             {tags.length === 0 ? (
               <EmptyState illustration="leaf" title={t('common.noTag')} />
             ) : (
-              <div className="flex flex-wrap gap-4 justify-center">
+              <div className="flex flex-wrap gap-3">
                 {tags.map(tg => (
-                  <Link key={tg.id} to={`/?tagId=${tg.id}`} className="text-ink hover:text-ochre transition-colors duration-base relative before:content-['#'] before:mr-1 before:opacity-30 tracking-wider focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ochre">
+                  <Link key={tg.id} to={`/?tagId=${tg.id}`} className="relative inline-flex min-h-11 items-center rounded-full bg-surface-dark-soft px-4 py-2 text-sm text-on-dark transition-colors duration-base before:mr-1 before:opacity-50 before:content-['#'] hover:text-ochre focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ochre">
                     {tg.name}
                   </Link>
                 ))}
               </div>
             )}
           </section>
+          </div>
         </>
       )}
     </div>

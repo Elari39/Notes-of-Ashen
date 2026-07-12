@@ -4,7 +4,7 @@ import SyntaxHighlighter from 'react-syntax-highlighter/dist/esm/prism-light';
 import { translate } from '../i18n';
 import { usePreferenceStore } from '../store/preferences';
 
-const codeFontFamily = '"SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace';
+const codeFontFamily = '"JetBrains Mono", "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace';
 
 type MarkdownCodeBlockProps = {
   code: string;
@@ -70,11 +70,11 @@ const MarkdownCodeBlock: React.FC<MarkdownCodeBlockProps> = ({ code, language, s
         }}
         customStyle={{
           margin: 0,
-          padding: '1.2rem 1.35rem',
+          padding: '1.25rem 1.4rem',
           background: 'var(--code-bg)',
           color: 'var(--code-ink)',
           fontSize: '0.92rem',
-          lineHeight: 1.8,
+          lineHeight: 1.72,
           overflowX: 'auto',
         }}
       >

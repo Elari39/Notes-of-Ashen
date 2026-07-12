@@ -102,7 +102,7 @@ const EmptyState: React.FC<EmptyStateProps> = ({
   return (
     <div
       className={[
-        'flex flex-col items-center justify-center gap-4 py-12 px-4 text-center',
+        'flex flex-col items-center justify-center gap-4 rounded-xl bg-surface-soft py-14 px-6 text-center',
         className,
       ]
         .filter(Boolean)
@@ -111,7 +111,7 @@ const EmptyState: React.FC<EmptyStateProps> = ({
       {illustration && (
         <div className="text-ink-light opacity-50">{Illustrations[illustration]}</div>
       )}
-      <p className="text-sm tracking-widest text-ink-light">{title}</p>
+      <p className="font-display text-2xl text-ink">{title}</p>
       {description && (
         <p className="max-w-xs text-xs leading-relaxed text-ink-light opacity-70">
           {description}
@@ -123,7 +123,7 @@ const EmptyState: React.FC<EmptyStateProps> = ({
             <button
               type="button"
               onClick={action.onClick}
-              className="inline-flex items-center gap-2 border border-mountain-grey px-4 py-1.5 text-xs tracking-widest text-ink-light transition-colors duration-fast hover:border-ochre hover:text-ochre focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ochre"
+              className="inline-flex min-h-11 items-center gap-2 rounded-md border border-hairline bg-paper px-4 py-2 text-xs font-medium text-ink transition-colors duration-fast hover:border-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ochre"
             >
               {action.label}
             </button>

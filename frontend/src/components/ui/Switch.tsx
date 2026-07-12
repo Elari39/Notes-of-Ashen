@@ -15,13 +15,13 @@ export type SwitchProps = {
 };
 
 const sizeRail: Record<Size, string> = {
-  sm: 'h-4 w-7',
-  md: 'h-5 w-9',
+  sm: 'h-6 w-10',
+  md: 'h-7 w-12',
 };
 
 const sizeThumb: Record<Size, string> = {
-  sm: 'h-3 w-3 data-[state=checked]:translate-x-3 data-[state=unchecked]:translate-x-0',
-  md: 'h-4 w-4 data-[state=checked]:translate-x-4 data-[state=unchecked]:translate-x-0',
+  sm: 'h-5 w-5 data-[state=checked]:translate-x-4 data-[state=unchecked]:translate-x-0',
+  md: 'h-6 w-6 data-[state=checked]:translate-x-5 data-[state=unchecked]:translate-x-0',
 };
 
 /**
@@ -47,7 +47,7 @@ const Switch: React.FC<SwitchProps> = ({
       aria-label={label}
       aria-describedby={ariaDescribedBy}
       className={[
-        'relative inline-flex shrink-0 items-center border transition-colors duration-fast ease-paper',
+        'relative inline-flex shrink-0 items-center rounded-full border transition-colors duration-fast ease-paper',
         'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ochre',
         sizeRail[size],
         'data-[state=checked]:border-ochre data-[state=checked]:bg-ochre',
@@ -60,7 +60,7 @@ const Switch: React.FC<SwitchProps> = ({
     >
       <SwitchPrimitive.Thumb
         className={[
-          'pointer-events-none ml-0.5 inline-block transform bg-paper transition-transform duration-fast ease-paper',
+          'pointer-events-none ml-0.5 inline-block rounded-full transform bg-[var(--on-accent)] transition-transform duration-fast ease-paper',
           sizeThumb[size],
         ].join(' ')}
       />

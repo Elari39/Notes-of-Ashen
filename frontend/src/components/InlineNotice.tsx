@@ -90,7 +90,7 @@ const InlineNotice: React.FC<InlineNoticeProps> = ({
       role={role}
       aria-live={ariaLive}
       className={[
-        'flex items-start gap-2 border-l-2 bg-[var(--notice-bg)] px-4 py-3 text-sm leading-relaxed',
+        'flex items-start gap-3 rounded-md border border-current/20 border-l-[3px] bg-[var(--notice-bg)] px-4 py-3 text-sm leading-relaxed',
         toneClass[tone],
         className,
       ]

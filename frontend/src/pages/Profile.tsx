@@ -148,9 +148,14 @@ const Profile: React.FC = () => {
   };
 
   return (
-    <div className="max-w-md mx-auto w-full space-y-16">
-      <section>
-        <h2 className="text-2xl font-bold text-ink mb-8 tracking-widest text-center">{t('profile.title')}</h2>
+    <div className="editorial-container w-full">
+      <header className="mb-10 max-w-3xl">
+        <p className="editorial-kicker">{t('profile.kicker')}</p>
+        <h1 className="mt-4 editorial-page-title">{t('profile.title')}</h1>
+      </header>
+      <div className="grid gap-6 lg:grid-cols-2 lg:items-start">
+      <section className="form-panel">
+        <h2 className="mb-8 font-display text-3xl text-ink">{t('profile.title')}</h2>
         <form onSubmit={handleUpdateProfile} className="space-y-6">
           <div>
             <label className="block text-sm text-ink-light opacity-70 mb-2">{t('profile.accountLabel')}</label>
@@ -158,7 +163,7 @@ const Profile: React.FC = () => {
               type="text"
               value={user?.account ?? ''}
               disabled
-              className="w-full bg-transparent border-b border-mountain-grey py-2 px-1 text-ink-light opacity-50 cursor-not-allowed"
+              className="form-control cursor-not-allowed opacity-50"
             />
           </div>
           <div>
@@ -167,7 +172,7 @@ const Profile: React.FC = () => {
               type="text"
               value={nickname}
               onChange={e => setNickname(e.target.value)}
-              className="w-full bg-transparent border-b border-mountain-grey py-2 px-1 text-ink focus:outline-none focus:border-ochre transition-colors"
+              className="form-control"
             />
           </div>
           <div>
@@ -176,7 +181,7 @@ const Profile: React.FC = () => {
               type="email"
               value={email}
               onChange={e => setEmail(e.target.value)}
-              className="w-full bg-transparent border-b border-mountain-grey py-2 px-1 text-ink focus:outline-none focus:border-ochre transition-colors"
+              className="form-control"
             />
           </div>
           {profileEmailChanged && (
@@ -196,7 +201,7 @@ const Profile: React.FC = () => {
                   placeholder={t('auth.emailCode')}
                   value={profileEmailCode}
                   onChange={(e) => setProfileEmailCode(e.target.value.trim())}
-                  className="min-w-0 flex-1 bg-transparent border-b border-mountain-grey py-2 px-1 text-ink focus:outline-none focus:border-ochre transition-colors placeholder-ink-light placeholder-opacity-50"
+                  className="form-control min-w-0 flex-1"
                   required
                 />
                 <Button
@@ -226,7 +231,7 @@ const Profile: React.FC = () => {
               type="text"
               value={avatarUrl}
               onChange={e => setAvatarUrl(e.target.value)}
-              className="w-full bg-transparent border-b border-mountain-grey py-2 px-1 text-ink focus:outline-none focus:border-ochre transition-colors"
+              className="form-control"
             />
           </div>
           <InlineNotice message={msg} tone={profileUpdated ? 'success' : 'error'} />
@@ -238,10 +243,8 @@ const Profile: React.FC = () => {
         </form>
       </section>
 
-      <div className="w-24 h-px bg-mountain-grey mx-auto opacity-50"></div>
-
-      <section>
-        <h2 className="text-2xl font-bold text-ink mb-8 tracking-widest text-center">{t('profile.passwordTitle')}</h2>
+      <section className="form-panel">
+        <h2 className="mb-8 font-display text-3xl text-ink">{t('profile.passwordTitle')}</h2>
         <form onSubmit={handleUpdatePassword} className="space-y-6">
           <div>
             <input
@@ -250,7 +253,7 @@ const Profile: React.FC = () => {
               value={oldPassword}
               onChange={e => setOldPassword(e.target.value)}
               required
-              className="w-full bg-transparent border-b border-mountain-grey py-2 px-1 text-ink focus:outline-none focus:border-ochre transition-colors placeholder-ink-light placeholder-opacity-50"
+              className="form-control"
             />
             {pwdFieldErrors.oldPassword && (
               <p className="mt-1 text-xs text-ember">{pwdFieldErrors.oldPassword}</p>
@@ -263,7 +266,7 @@ const Profile: React.FC = () => {
               value={newPassword}
               onChange={e => setNewPassword(e.target.value)}
               required
-              className="w-full bg-transparent border-b border-mountain-grey py-2 px-1 text-ink focus:outline-none focus:border-ochre transition-colors placeholder-ink-light placeholder-opacity-50"
+              className="form-control"
             />
             {pwdFieldErrors.newPassword && (
               <p className="mt-1 text-xs text-ember">{pwdFieldErrors.newPassword}</p>
@@ -276,7 +279,7 @@ const Profile: React.FC = () => {
               value={confirmPassword}
               onChange={e => setConfirmPassword(e.target.value)}
               required
-              className="w-full bg-transparent border-b border-mountain-grey py-2 px-1 text-ink focus:outline-none focus:border-ochre transition-colors placeholder-ink-light placeholder-opacity-50"
+              className="form-control"
             />
             {pwdFieldErrors.confirmPassword && (
               <p className="mt-1 text-xs text-ember">{pwdFieldErrors.confirmPassword}</p>
@@ -297,7 +300,7 @@ const Profile: React.FC = () => {
               placeholder={t('auth.emailCode')}
               value={passwordEmailCode}
               onChange={(e) => setPasswordEmailCode(e.target.value.trim())}
-              className="min-w-0 flex-1 bg-transparent border-b border-mountain-grey py-2 px-1 text-ink focus:outline-none focus:border-ochre transition-colors placeholder-ink-light placeholder-opacity-50"
+              className="form-control min-w-0 flex-1"
               required
             />
             <Button
@@ -321,6 +324,7 @@ const Profile: React.FC = () => {
           </div>
         </form>
       </section>
+      </div>
     </div>
   );
 };

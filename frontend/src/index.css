@@ -4,52 +4,68 @@
 
 @layer base {
   :root {
-    --paper: #f9f9f4;
-    --ink: #1a1a1a;
-    --ink-light: #425066;
-    --ochre: #8a3c3a;
-    --mountain-grey: #ebebeb;
-    --paper-soft: rgba(255, 255, 255, 0.55);
-    --paper-muted: rgba(249, 249, 244, 0.72);
-    --notice-bg: rgba(255, 255, 255, 0.42);
+    --canvas: #faf9f5;
+    --surface-soft: #f5f0e8;
+    --surface-card: #efe9de;
+    --surface-strong: #e8e0d2;
+    --surface-dark: #181715;
+    --surface-dark-soft: #252320;
+    --body: #3d3d3a;
+    --muted: #6c6a64;
+    --hairline: #e6dfd8;
+    --on-dark: #faf9f5;
+    --on-dark-soft: #a09d96;
+    --on-accent: #141413;
+    --paper: var(--canvas);
+    --ink: #141413;
+    --ink-light: var(--body);
+    --ochre: #cc785c;
+    --mountain-grey: var(--hairline);
+    --paper-soft: var(--surface-soft);
+    --paper-muted: rgba(250, 249, 245, 0.88);
+    --notice-bg: var(--surface-soft);
     --cover-wash-subtle: rgba(249, 249, 244, 0.1);
     --cover-wash: rgba(249, 249, 244, 0.2);
-    --ash-dot: rgba(26, 26, 26, 0.08);
-    --code-bg: rgba(255, 255, 255, 0.7);
-    --code-border: rgba(138, 60, 58, 0.2);
-    --code-shine: rgba(255, 255, 255, 0.84);
-    --code-ink: #25303b;
-    --code-muted: #697282;
-    --code-comment: #8c928a;
-    --code-ochre: #9b4639;
-    --code-green: #486f57;
-    --code-amber: #9b5a2d;
-    --code-blue: #416a8f;
-    --code-purple: #7a587d;
-    --inline-code-bg: rgba(138, 60, 58, 0.08);
-    --table-row: rgba(255, 255, 255, 0.36);
-    --table-head: rgba(138, 60, 58, 0.08);
+    --ash-dot: rgba(20, 20, 19, 0.05);
+    --code-bg: var(--surface-dark);
+    --code-toolbar-bg: #282521;
+    --code-border: rgba(204, 120, 92, 0.34);
+    --code-toolbar-border: rgba(250, 249, 245, 0.14);
+    --code-shine: rgba(250, 249, 245, 0.08);
+    --code-ink: #f5f0e8;
+    --code-muted: #c1b8ad;
+    --code-comment: #b0aaa1;
+    --code-ochre: #e5a183;
+    --code-green: #a8cfae;
+    --code-amber: #efb66e;
+    --code-blue: #9fc5e0;
+    --code-purple: #d7add8;
+    --code-scrollbar: rgba(204, 120, 92, 0.62);
+    --inline-code-bg: rgba(204, 120, 92, 0.12);
+    --table-row: rgba(245, 240, 232, 0.56);
+    --table-head: var(--surface-card);
 
     /* 状态色 token（阶段 1）：延续纸墨灰烬意象，moss=苔、amber=琥珀、ember=余烬、dusk=暮色 */
-    --moss: #486f57;
+    --moss: #39744a;
     --moss-soft: rgba(72, 111, 87, 0.08);
-    --amber: #9b5a2d;
+    --amber: #9b5f22;
     --amber-soft: rgba(155, 90, 45, 0.10);
-    --ember: #8a3c3a;
+    --ember: #c64545;
     --ember-soft: rgba(138, 60, 58, 0.10);
-    --dusk: #416a8f;
+    --dusk: #3f6f91;
     --dusk-soft: rgba(65, 106, 143, 0.10);
 
     /* 阴影 token：浅色基于 ink 黑 */
-    --shadow-xs: 0 1px 2px rgba(26, 26, 26, 0.06);
-    --shadow-sm: 0 4px 12px rgba(26, 26, 26, 0.08);
-    --shadow-md: 0 12px 30px rgba(26, 26, 26, 0.12);
-    --shadow-lg: 0 24px 70px rgba(26, 26, 26, 0.18);
+    --shadow-xs: 0 1px 3px rgba(20, 20, 19, 0.06);
+    --shadow-sm: 0 8px 24px rgba(20, 20, 19, 0.07);
+    --shadow-md: 0 18px 48px rgba(20, 20, 19, 0.10);
+    --shadow-lg: 0 28px 80px rgba(20, 20, 19, 0.14);
 
-    /* 圆角 token：站点零圆角风格，最大 6px */
-    --radius-xs: 2px;
-    --radius-sm: 4px;
-    --radius-md: 6px;
+    --radius-xs: 4px;
+    --radius-sm: 6px;
+    --radius-md: 8px;
+    --radius-lg: 12px;
+    --radius-xl: 16px;
 
     /* 动效 token：4 档 + 单一缓动曲线 */
     --dur-fast: 120ms;
@@ -60,19 +76,32 @@
   }
 
   :root[data-theme='dark'] {
-    --paper: #111314;
-    --ink: #eee8da;
-    --ink-light: #b7bdc5;
-    --ochre: #c88970;
-    --mountain-grey: #2e3538;
-    --paper-soft: rgba(238, 232, 218, 0.08);
-    --paper-muted: rgba(17, 19, 20, 0.78);
-    --notice-bg: rgba(238, 232, 218, 0.08);
+    --canvas: #181715;
+    --surface-soft: #1f1e1b;
+    --surface-card: #252320;
+    --surface-strong: #302d29;
+    --surface-dark: #11110f;
+    --surface-dark-soft: #1f1e1b;
+    --body: #d7d1c6;
+    --muted: #a09d96;
+    --hairline: #3b3833;
+    --on-dark: #faf9f5;
+    --on-dark-soft: #a09d96;
+    --paper: var(--canvas);
+    --ink: #faf9f5;
+    --ink-light: var(--body);
+    --ochre: #d68a70;
+    --mountain-grey: var(--hairline);
+    --paper-soft: var(--surface-soft);
+    --paper-muted: rgba(24, 23, 21, 0.9);
+    --notice-bg: var(--surface-card);
     --cover-wash-subtle: rgba(17, 19, 20, 0.16);
     --cover-wash: rgba(17, 19, 20, 0.28);
     --ash-dot: rgba(238, 232, 218, 0.08);
     --code-bg: rgba(238, 232, 218, 0.06);
+    --code-toolbar-bg: linear-gradient(180deg, var(--paper-soft), transparent);
     --code-border: rgba(200, 137, 112, 0.24);
+    --code-toolbar-border: var(--code-border);
     --code-shine: rgba(238, 232, 218, 0.08);
     --code-ink: #e8deca;
     --code-muted: #b5a999;
@@ -82,6 +111,7 @@
     --code-amber: #dfb56f;
     --code-blue: #93b7db;
     --code-purple: #d8a5d3;
+    --code-scrollbar: rgba(200, 137, 112, 0.45);
     --inline-code-bg: rgba(200, 137, 112, 0.14);
     --table-row: rgba(238, 232, 218, 0.04);
     --table-head: rgba(200, 137, 112, 0.12);
@@ -112,8 +142,11 @@
     margin: 0;
     color: var(--ink);
     background-color: var(--paper);
-    background-image: radial-gradient(var(--ash-dot) 1px, transparent 1px);
-    background-size: 40px 40px;
+    background-image:
+      radial-gradient(circle at 10% 0%, rgba(204, 120, 92, 0.07), transparent 32rem),
+      linear-gradient(180deg, var(--paper), var(--paper));
+    font-family: Inter, "Noto Sans SC", "Microsoft YaHei", system-ui, sans-serif;
+    line-height: 1.55;
     transition: background-color var(--dur-page) ease, color var(--dur-page) ease;
   }
 
@@ -144,10 +177,99 @@
     writing-mode: vertical-rl;
   }
 
+  h1,
+  h2,
+  h3,
+  .font-display {
+    font-family: "Cormorant Garamond", "Noto Serif SC", "Songti SC", SimSun, serif;
+    font-weight: 400;
+    letter-spacing: -0.02em;
+  }
+
+  code,
+  pre,
+  kbd,
+  samp {
+    font-family: "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
+  }
+
   /* 全局 focus-visible 兜底：所有交互元素未显式声明时仍可见 */
   :where(a, button, [role='button'], input, select, textarea, summary):focus-visible {
     outline: 2px solid var(--ochre);
     outline-offset: 2px;
+  }
+}
+
+@layer components {
+  .editorial-container {
+    @apply mx-auto w-full max-w-[1200px];
+  }
+
+  .editorial-card {
+    @apply rounded-lg bg-surface-card p-6 md:p-8;
+  }
+
+  .editorial-dark-card {
+    @apply rounded-lg bg-surface-dark p-6 text-on-dark md:p-8;
+  }
+
+  .editorial-kicker {
+    @apply text-xs font-medium uppercase tracking-[0.18em] text-ochre;
+  }
+
+  .editorial-page-title {
+    @apply font-display text-4xl leading-[1.08] text-ink sm:text-5xl lg:text-6xl;
+  }
+
+  .editorial-section-title {
+    @apply font-display text-3xl leading-tight text-ink md:text-4xl;
+  }
+
+  .form-control {
+    @apply min-h-11 w-full rounded-md border border-hairline bg-paper px-3.5 py-2.5 text-sm text-ink transition-[border-color,box-shadow] duration-fast placeholder:text-muted focus:border-ochre focus:outline-none focus:ring-[3px] focus:ring-[var(--inline-code-bg)];
+  }
+
+  .form-panel {
+    @apply rounded-xl border border-hairline bg-paper p-6 shadow-xs md:p-8;
+  }
+
+  .admin-workspace h1,
+  .admin-workspace h2,
+  .admin-workspace h3 {
+    font-family: "Cormorant Garamond", "Noto Serif SC", "Songti SC", SimSun, serif;
+    font-weight: 400;
+    letter-spacing: -0.02em;
+  }
+
+  .admin-workspace :where(input:not([type='checkbox']):not([type='radio']):not([type='color']), select, textarea) {
+    border-color: var(--hairline);
+    border-radius: var(--radius-md);
+    background: var(--paper);
+    min-height: 2.75rem;
+    padding: 0.625rem 0.875rem;
+  }
+
+  .admin-workspace :where(input:not([type='checkbox']):not([type='radio']):not([type='color']), select, textarea):focus {
+    border-color: var(--ochre);
+    box-shadow: 0 0 0 3px var(--inline-code-bg);
+    outline: none;
+  }
+
+  .admin-workspace table {
+    border-collapse: separate;
+    border-spacing: 0;
+  }
+
+  .admin-workspace thead {
+    background: var(--surface-card);
+  }
+
+  .admin-workspace tbody tr {
+    transition: background-color var(--dur-fast) var(--ease-paper);
+  }
+
+  .admin-workspace tbody tr:hover {
+    background: var(--surface-soft);
   }
 }
 
@@ -267,9 +389,10 @@
 
   .article-markdown.prose :where(h1, h2, h3, h4, h5, h6) {
     color: var(--ink);
-    font-family: "Noto Serif SC", "Songti SC", SimSun, "Times New Roman", serif;
-    font-weight: 700;
-    line-height: 1.45;
+    font-family: "Cormorant Garamond", "Noto Serif SC", "Songti SC", SimSun, serif;
+    font-weight: 400;
+    line-height: 1.22;
+    letter-spacing: -0.02em;
   }
 
   .article-markdown.prose :where(h2) {
@@ -283,8 +406,9 @@
   }
 
   .article-markdown.prose :where(p) {
-    color: var(--ink-light);
-    line-height: 2;
+    color: var(--body);
+    font-family: Inter, "Noto Sans SC", "Microsoft YaHei", system-ui, sans-serif;
+    line-height: 1.9;
   }
 
   .article-markdown.prose :where(a) {
@@ -324,7 +448,8 @@
   }
 
   .article-markdown.prose :where(ul, ol) {
-    color: var(--ink-light);
+    color: var(--body);
+    font-family: Inter, "Noto Sans SC", "Microsoft YaHei", system-ui, sans-serif;
   }
 
   .article-markdown.prose :where(li)::marker {
@@ -369,7 +494,7 @@
     border-radius: 4px;
     color: var(--ink);
     background: var(--inline-code-bg);
-    font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+    font-family: "JetBrains Mono", "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
     font-size: 0.88em;
     line-height: 1.55;
     vertical-align: 0.05em;
@@ -383,7 +508,7 @@
   .article-code-block {
     max-width: 100%;
     color: var(--code-ink) !important;
-    scrollbar-color: rgba(138, 60, 58, 0.45) transparent;
+    scrollbar-color: var(--code-scrollbar) transparent;
     scrollbar-width: thin;
   }
 
@@ -391,9 +516,9 @@
     margin: 1.75rem 0;
     overflow: hidden;
     border: 1px solid var(--code-border);
-    border-radius: 8px;
+    border-radius: 12px;
     background: var(--code-bg);
-    box-shadow: inset 0 1px 0 var(--code-shine), 0 16px 38px rgba(26, 26, 26, 0.08);
+    box-shadow: inset 0 1px 0 var(--code-shine), 0 16px 36px rgba(20, 20, 19, 0.1);
   }
 
   .article-code-toolbar {
@@ -401,9 +526,9 @@
     min-height: 2.4rem;
     align-items: center;
     gap: 0.75rem;
-    border-bottom: 1px solid var(--code-border);
+    border-bottom: 1px solid var(--code-toolbar-border);
     padding: 0.55rem 0.8rem;
-    background: linear-gradient(180deg, var(--paper-soft), transparent);
+    background: var(--code-toolbar-bg);
   }
 
   .article-code-dots {
@@ -424,8 +549,9 @@
     flex: 1;
     overflow: hidden;
     color: var(--code-muted);
-    font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
-    font-size: 0.72rem;
+    font-family: "JetBrains Mono", "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+    font-size: 0.74rem;
+    font-weight: 500;
     letter-spacing: 0;
     text-overflow: ellipsis;
     text-transform: uppercase;
@@ -434,27 +560,50 @@
 
   .article-code-copy {
     shrink: 0;
-    border: 1px solid var(--code-border);
-    border-radius: 4px;
-    padding: 0.28rem 0.58rem;
-    color: var(--code-muted);
-    background: var(--paper-soft);
-    font-size: 0.75rem;
+    min-height: 2.25rem;
+    border: 1px solid var(--code-toolbar-border);
+    border-radius: 6px;
+    padding: 0.35rem 0.7rem;
+    color: var(--code-ink);
+    background: rgba(250, 249, 245, 0.08);
+    font-size: 0.74rem;
+    font-weight: 500;
     line-height: 1.2;
-    transition: border-color 160ms ease, color 160ms ease, background 160ms ease;
+    transition: border-color var(--dur-fast) ease, color var(--dur-fast) ease, background var(--dur-fast) ease, box-shadow var(--dur-fast) ease;
   }
 
   .article-code-copy:hover,
   .article-code-copy:focus-visible {
     border-color: var(--ochre);
     color: var(--ochre);
+    background: rgba(204, 120, 92, 0.14);
     outline: none;
+    box-shadow: 0 0 0 3px rgba(204, 120, 92, 0.2);
   }
 
   .article-code-block code {
     color: var(--code-ink) !important;
+    font-family: "JetBrains Mono", "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
     font-weight: 400;
+    font-size: 0.92rem;
+    line-height: 1.72;
     white-space: pre;
+  }
+
+  @media (max-width: 767px) {
+    .article-code-shell {
+      margin: 1.4rem 0;
+      border-radius: 10px;
+    }
+
+    .article-code-toolbar {
+      gap: 0.6rem;
+      padding: 0.5rem 0.65rem;
+    }
+
+    .article-code-block {
+      font-size: 0.86rem;
+    }
   }
 
   .article-table-shell {

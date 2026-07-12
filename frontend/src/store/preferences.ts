@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { getContrastingTextColor, hexToRgba, isHexColor } from '../utils/color';
 
 export type Language = 'zh' | 'en';
 export type ThemePreference = 'system' | 'light' | 'dark';
@@ -51,7 +52,7 @@ const readThemePreference = (): ThemePreference => {
 const readAccentColor = () => {
   if (!isBrowser()) return '';
   const value = localStorage.getItem(ACCENT_KEY) || '';
-  return /^#[0-9a-f]{6}$/i.test(value) ? value : '';
+  return isHexColor(value) ? value : '';
 };
 
 const applyLanguage = (language: Language) => {
@@ -65,28 +66,23 @@ const applyTheme = (theme: EffectiveTheme) => {
   document.documentElement.style.colorScheme = theme;
 };
 
-const hexToRgba = (hex: string, alpha: number) => {
-  const r = parseInt(hex.slice(1, 3), 16);
-  const g = parseInt(hex.slice(3, 5), 16);
-  const b = parseInt(hex.slice(5, 7), 16);
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-};
-
 const applyAccentColor = (accentColor: string) => {
   if (!isBrowser()) return;
   if (accentColor) {
     document.documentElement.style.setProperty('--ochre', accentColor);
+    document.documentElement.style.setProperty('--on-accent', getContrastingTextColor(accentColor));
     const isDark = document.documentElement.dataset.theme === 'dark';
     document.documentElement.style.setProperty('--inline-code-bg', hexToRgba(accentColor, isDark ? 0.14 : 0.08));
     document.documentElement.style.setProperty('--code-ochre', accentColor);
   } else {
     document.documentElement.style.removeProperty('--ochre');
+    document.documentElement.style.removeProperty('--on-accent');
     document.documentElement.style.removeProperty('--inline-code-bg');
     document.documentElement.style.removeProperty('--code-ochre');
   }
   const themeColor = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
   if (themeColor) {
-    themeColor.content = accentColor || '#8a3c3a';
+    themeColor.content = accentColor || '#cc785c';
   }
 };
 
@@ -126,7 +122,7 @@ export const usePreferenceStore = create<PreferenceState>((set, get) => ({
     set({ themePreference, effectiveTheme });
   },
   setAccentColor: (accentColor) => {
-    const normalized = /^#[0-9a-f]{6}$/i.test(accentColor) ? accentColor : '';
+    const normalized = isHexColor(accentColor) ? accentColor : '';
     if (isBrowser()) {
       if (normalized) {
         localStorage.setItem(ACCENT_KEY, normalized);

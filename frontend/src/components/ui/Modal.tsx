@@ -56,13 +56,13 @@ const Modal: React.FC<ModalProps> = ({
           className={[
             'fixed left-1/2 top-1/2 z-[121] w-[calc(100vw-2rem)] -translate-x-1/2 -translate-y-1/2',
             sizeClass[size],
-            'border border-mountain-grey bg-paper shadow-md',
+            'overflow-hidden rounded-xl border border-hairline bg-paper shadow-lg',
             'focus:outline-none',
           ].join(' ')}
         >
           <div className="flex items-start justify-between gap-4 border-b border-mountain-grey px-5 py-3.5">
             <div className="flex-1 min-w-0">
-              <Dialog.Title className="text-sm font-medium tracking-widest text-ink">
+              <Dialog.Title className="font-display text-2xl leading-tight text-ink">
                 {title}
               </Dialog.Title>
               {description && (
@@ -74,7 +74,7 @@ const Modal: React.FC<ModalProps> = ({
             {!hideCloseButton && (
               <Dialog.Close
                 aria-label={closeLabel}
-                className="-mr-1 inline-flex h-7 w-7 shrink-0 items-center justify-center text-ink-light transition-colors hover:text-ochre focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ochre"
+                className="-mr-1 inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-ink-light transition-colors hover:bg-surface-soft hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ochre"
               >
                 ✕
               </Dialog.Close>

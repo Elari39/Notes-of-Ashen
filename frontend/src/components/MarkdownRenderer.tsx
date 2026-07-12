@@ -38,7 +38,7 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, className 
 
   return (
     <>
-      <div className={`article-markdown prose prose-stone max-w-none font-serif ${className}`.trim()}>
+      <div className={`article-markdown prose prose-stone max-w-none font-sans ${className}`.trim()}>
         <ReactMarkdown
           remarkPlugins={[remarkGfm, remarkMath]}
           rehypePlugins={[

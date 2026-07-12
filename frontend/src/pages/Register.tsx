@@ -141,9 +141,10 @@ const Register: React.FC = () => {
   };
 
   return (
-    <div className="flex-grow flex items-center justify-center">
-      <div className="w-full max-w-sm">
-        <h1 className="text-3xl font-bold text-ink mb-12 text-center tracking-widest">{t('auth.registerTitle')}</h1>
+    <div className="editorial-container flex flex-grow items-start justify-center py-4 md:py-10">
+      <div className="w-full max-w-2xl rounded-xl bg-surface-soft p-5 md:p-10">
+        <p className="editorial-kicker mb-4 text-center">{t('auth.registerKicker')}</p>
+        <h1 className="mb-10 text-center font-display text-5xl leading-tight text-ink">{t('auth.registerTitle')}</h1>
         {hasLoaded && !registrationEnabled ? (
           <div className="space-y-6 text-center">
             <InlineNotice message={t('auth.registrationDisabled')} />
@@ -152,7 +153,7 @@ const Register: React.FC = () => {
             </Link>
           </div>
         ) : (
-        <form onSubmit={handleRegister} className="space-y-8">
+        <form onSubmit={handleRegister} className="form-panel space-y-6">
           <FormField id="register-account" label={t('auth.accountWithHint')} error={errors.account}>
             <input
               type="text"
@@ -160,7 +161,7 @@ const Register: React.FC = () => {
               value={account}
               onChange={(e) => setAccount(e.target.value)}
               onBlur={() => validateField('account')}
-              className="w-full bg-transparent border-b border-mountain-grey py-2 px-1 text-ink focus:outline-none focus:border-ochre transition-colors placeholder-ink-light placeholder-opacity-50"
+              className="form-control"
               required
             />
           </FormField>
@@ -171,7 +172,7 @@ const Register: React.FC = () => {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               onBlur={() => validateField('email')}
-              className="w-full bg-transparent border-b border-mountain-grey py-2 px-1 text-ink focus:outline-none focus:border-ochre transition-colors placeholder-ink-light placeholder-opacity-50"
+              className="form-control"
               required
             />
           </FormField>
@@ -192,7 +193,7 @@ const Register: React.FC = () => {
                   placeholder={t('auth.emailCode')}
                   value={emailCode}
                   onChange={(e) => setEmailCode(e.target.value.trim())}
-                  className="min-w-0 flex-1 bg-transparent border-b border-mountain-grey py-2 px-1 text-ink focus:outline-none focus:border-ochre transition-colors placeholder-ink-light placeholder-opacity-50"
+                  className="form-control min-w-0 flex-1"
                   required
                 />
                 <Button
@@ -219,7 +220,7 @@ const Register: React.FC = () => {
               placeholder={t('auth.nicknameOptional')}
               value={nickname}
               onChange={(e) => setNickname(e.target.value)}
-              className="w-full bg-transparent border-b border-mountain-grey py-2 px-1 text-ink focus:outline-none focus:border-ochre transition-colors placeholder-ink-light placeholder-opacity-50"
+              className="form-control"
             />
           </div>
           <div>
@@ -228,7 +229,7 @@ const Register: React.FC = () => {
               placeholder={t('auth.avatarOptional')}
               value={avatarUrl}
               onChange={(e) => setAvatarUrl(e.target.value)}
-              className="w-full bg-transparent border-b border-mountain-grey py-2 px-1 text-ink focus:outline-none focus:border-ochre transition-colors placeholder-ink-light placeholder-opacity-50"
+              className="form-control"
             />
           </div>
           <div>
@@ -245,7 +246,7 @@ const Register: React.FC = () => {
                 onBlur={() => validateField('password')}
                 aria-invalid={errors.password ? true : undefined}
                 aria-describedby={errors.password ? 'register-password-error' : undefined}
-                className="w-full bg-transparent border-b border-mountain-grey py-2 pl-1 pr-16 text-ink focus:outline-none focus:border-ochre transition-colors placeholder-ink-light placeholder-opacity-50"
+                className="form-control pr-20"
                 required
               />
               <button
@@ -278,7 +279,7 @@ const Register: React.FC = () => {
                 onBlur={() => validateField('confirmPassword')}
                 aria-invalid={errors.confirmPassword ? true : undefined}
                 aria-describedby={errors.confirmPassword ? 'register-confirm-password-error' : undefined}
-                className="w-full bg-transparent border-b border-mountain-grey py-2 pl-1 pr-16 text-ink focus:outline-none focus:border-ochre transition-colors placeholder-ink-light placeholder-opacity-50"
+                className="form-control pr-20"
                 required
               />
               <button

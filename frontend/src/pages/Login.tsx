@@ -86,10 +86,21 @@ const Login: React.FC = () => {
   }
 
   return (
-    <div className="flex-grow flex items-center justify-center">
-      <div className="w-full max-w-sm">
-        <h1 className="text-3xl font-bold text-ink mb-12 text-center tracking-widest">{t('auth.loginTitle')}</h1>
-        <form onSubmit={handleLogin} className="space-y-8">
+    <div className="editorial-container flex flex-grow items-center py-4 md:py-10">
+      <div className="grid w-full overflow-hidden rounded-xl bg-surface-soft lg:grid-cols-[0.9fr_1.1fr]">
+        <aside className="editorial-dark-card hidden min-h-[38rem] flex-col justify-between rounded-none p-10 lg:flex">
+          <div>
+            <span aria-hidden="true" className="text-3xl text-ochre">✣</span>
+            <p className="mt-10 text-xs font-medium tracking-[0.2em] text-on-dark-soft">NOTES OF ASHEN</p>
+            <p className="mt-5 font-display text-5xl leading-[1.02] text-on-dark">{t('footer.poem')}</p>
+          </div>
+          <p className="max-w-sm text-sm leading-7 text-on-dark-soft">{t('footer.crafted')}</p>
+        </aside>
+        <div className="flex items-center p-6 sm:p-10 lg:p-14">
+        <div className="mx-auto w-full max-w-md">
+        <p className="editorial-kicker mb-4">{t('auth.loginKicker')}</p>
+        <h1 className="mb-10 font-display text-5xl leading-tight text-ink">{t('auth.loginTitle')}</h1>
+        <form onSubmit={handleLogin} className="space-y-6">
           <FormField id="login-account" label={t('auth.accountOrEmail')} error={errors.account}>
             <input
               type="text"
@@ -97,7 +108,7 @@ const Login: React.FC = () => {
               value={account}
               onChange={(e) => setAccount(e.target.value)}
               onBlur={() => validateField('account')}
-              className="w-full bg-transparent border-b border-mountain-grey py-2 px-1 text-ink focus:outline-none focus:border-ochre transition-colors placeholder-ink-light placeholder-opacity-50"
+              className="form-control"
               required
             />
           </FormField>
@@ -115,7 +126,7 @@ const Login: React.FC = () => {
                 onBlur={() => validateField('password')}
                 aria-invalid={errors.password ? true : undefined}
                 aria-describedby={errors.password ? 'login-password-error' : undefined}
-                className="w-full bg-transparent border-b border-mountain-grey py-2 pl-1 pr-16 text-ink focus:outline-none focus:border-ochre transition-colors placeholder-ink-light placeholder-opacity-50"
+                className="form-control pr-20"
                 required
               />
               <button
@@ -163,6 +174,8 @@ const Login: React.FC = () => {
             <Link to="/forgot-password" className="hover:text-ochre transition-colors">{t('auth.forgotPassword')}</Link>
           </div>
         </form>
+        </div>
+        </div>
       </div>
     </div>
   );

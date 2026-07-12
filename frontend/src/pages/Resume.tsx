@@ -140,15 +140,15 @@ const Resume: React.FC = () => {
   };
 
   return (
-    <div className="mx-auto mt-4 w-full max-w-5xl space-y-8 md:mt-8">
-      <div ref={resumeRef} className="resume-pdf-surface space-y-8">
-        <section className="border-b border-mountain-grey pb-6">
+    <div className="editorial-container w-full space-y-8">
+      <div ref={resumeRef} className="resume-pdf-surface space-y-10 rounded-xl bg-surface-soft p-5 md:p-10 lg:p-12">
+        <section className="border-b border-hairline pb-8">
           <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
             <div>
               <p className="mb-3 text-xs uppercase tracking-[0.28em] text-ochre">
                 {t('resume.kicker')}
               </p>
-              <h1 className="text-3xl font-bold tracking-widest text-ink md:text-4xl">
+              <h1 className="editorial-page-title">
                 {page?.title || t('resume.pageTitleFallback')}
               </h1>
               {page?.subtitle && (
@@ -212,8 +212,8 @@ const Resume: React.FC = () => {
                 <h2 className="mb-5 text-sm font-bold tracking-[0.24em] text-ink">{t('resume.skills')}</h2>
                 <div className="grid gap-5 md:grid-cols-2">
                   {Object.entries(skillsByCategory).map(([category, skills]) => (
-                    <div key={category} className="resume-pdf-avoid-break border border-mountain-grey bg-[var(--paper-soft)] p-5">
-                      <h3 className="mb-4 text-base font-bold tracking-widest text-ink">{category}</h3>
+                    <div key={category} className="resume-pdf-avoid-break rounded-lg bg-paper p-6">
+                      <h3 className="mb-4 font-display text-2xl text-ink">{category}</h3>
                       <div className="space-y-4">
                         {skills.map((skill) => (
                           <SkillBar key={`${skill.category}:${skill.name}`} skill={skill} />
@@ -248,7 +248,7 @@ type TimelineSectionProps =
 
 const TimelineSection: React.FC<TimelineSectionProps> = ({ title, items, type }) => (
   <section>
-    <h2 className="mb-5 text-sm font-bold tracking-[0.24em] text-ink">{title}</h2>
+    <h2 className="mb-5 font-display text-3xl text-ink">{title}</h2>
     <div className="space-y-5 border-l border-mountain-grey pl-5">
       {items.map((item, index) => {
         const titleText = type === 'experience'
@@ -259,11 +259,11 @@ const TimelineSection: React.FC<TimelineSectionProps> = ({ title, items, type })
           : [(item as ResumeEducation).degree, (item as ResumeEducation).major, item.location].filter(Boolean).join(' / ');
 
         return (
-          <article key={`${type}:${item.id || index}`} className="resume-pdf-avoid-break relative border border-mountain-grey bg-[var(--paper-soft)] p-5">
+          <article key={`${type}:${item.id || index}`} className="resume-pdf-avoid-break relative rounded-lg bg-paper p-6">
             <span className="absolute -left-[1.82rem] top-6 h-3 w-3 rounded-full border border-ochre bg-paper" />
             <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
               <div>
-                <h3 className="text-lg font-bold tracking-widest text-ink">{titleText}</h3>
+                <h3 className="font-display text-2xl text-ink">{titleText}</h3>
                 <p className="mt-2 text-sm leading-7 tracking-wide text-ink-light">{metaText}</p>
               </div>
               <p className="shrink-0 text-xs tracking-[0.18em] text-ochre">

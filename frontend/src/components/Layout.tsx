@@ -14,6 +14,7 @@ import { isHttpAvatarUrl, normalizeAvatarUrl } from '../utils/avatar';
 import { formatText, translate } from '../i18n';
 import { useSEO } from '../utils/seo';
 import { routeLoaders } from '../routes/lazyRoutes';
+import { trapFocus } from '../utils/focusTrap';
 
 const Layout: React.FC = () => {
   const { user, logout } = useAuthStore(useShallow((state) => ({ user: state.user, logout: state.logout })));
@@ -53,6 +54,8 @@ const Layout: React.FC = () => {
   const [isPreferenceOpen, setIsPreferenceOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const headerRef = useRef<HTMLElement>(null);
+  const mobileMenuRef = useRef<HTMLElement>(null);
+  const mobileMenuTriggerRef = useRef<HTMLButtonElement>(null);
   const desktopPreferenceRef = useRef<HTMLDivElement>(null);
   const mobilePreferenceRef = useRef<HTMLDivElement>(null);
   const desktopPreferenceTriggerRef = useRef<HTMLButtonElement>(null);
@@ -113,6 +116,10 @@ const Layout: React.FC = () => {
     };
 
     const handleKeyDown = (event: KeyboardEvent) => {
+      if (isMobileMenuOpen && mobileMenuRef.current && event.key === 'Tab') {
+        trapFocus(mobileMenuRef.current, event);
+        return;
+      }
       if (event.key === 'Escape') {
         if (isPreferenceOpen) {
           event.preventDefault();
@@ -122,6 +129,7 @@ const Layout: React.FC = () => {
         }
 
         setIsMobileMenuOpen(false);
+        window.requestAnimationFrame(() => mobileMenuTriggerRef.current?.focus());
       }
     };
 
@@ -133,6 +141,18 @@ const Layout: React.FC = () => {
       document.removeEventListener('keydown', handleKeyDown);
     };
   }, [isPreferenceOpen, isMobileMenuOpen]);
+
+  useEffect(() => {
+    if (!isMobileMenuOpen) return undefined;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    window.requestAnimationFrame(() => {
+      mobileMenuRef.current?.querySelector<HTMLElement>('a, button')?.focus();
+    });
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [isMobileMenuOpen]);
 
   const handleLogout = async () => {
     // refreshToken 走 HttpOnly Cookie，请求体留空；服务端按 Cookie 撤销并清除 Cookie。
@@ -148,14 +168,14 @@ const Layout: React.FC = () => {
   };
 
   const desktopLinkClass = ({ isActive }: { isActive: boolean }) => [
-    'transition-colors',
-    isActive ? 'font-bold text-ochre' : 'hover:text-ink',
+    'relative flex min-h-11 items-center px-1 font-medium transition-colors after:absolute after:bottom-1 after:left-0 after:h-px after:w-full after:origin-left after:bg-ochre after:transition-transform',
+    isActive ? 'text-ink after:scale-x-100' : 'text-muted after:scale-x-0 hover:text-ink',
   ].join(' ');
   const mobileLinkClass = ({ isActive }: { isActive: boolean }) => [
-    'block border-b border-mountain-grey border-opacity-50 px-1 py-3 text-left transition-colors',
-    isActive ? 'font-bold text-ochre' : 'hover:text-ochre',
+    'flex min-h-14 items-center justify-between border-b border-hairline px-1 py-3 text-left font-display text-3xl transition-colors',
+    isActive ? 'text-ochre' : 'text-ink hover:text-ochre',
   ].join(' ');
-  const mobileActionClass = 'w-full border-b border-mountain-grey border-opacity-50 px-1 py-3 text-left transition-colors hover:text-ochre';
+  const mobileActionClass = 'flex min-h-14 w-full items-center border-b border-hairline px-1 py-3 text-left font-display text-3xl text-ink transition-colors hover:text-ochre';
   const closeMobileMenu = () => setIsMobileMenuOpen(false);
 
   const renderPreferencePanel = (
@@ -170,10 +190,10 @@ const Layout: React.FC = () => {
       initial={{ opacity: 0, y: -6 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.2, ease: 'easeOut' }}
-      className={`z-50 border border-mountain-grey bg-paper p-4 text-left shadow-[0_24px_80px_rgba(0,0,0,0.16)] ${
+      className={`z-50 rounded-xl border border-hairline bg-paper p-5 text-left shadow-lg ${
         variant === 'mobile'
           ? 'fixed left-4 right-4 top-24 max-h-[calc(100dvh-7rem-env(safe-area-inset-bottom))] overflow-y-auto pb-[env(safe-area-inset-bottom)] md:hidden'
-          : 'absolute right-0 top-full mt-4 hidden w-[min(20rem,calc(100vw-3rem))] md:block'
+          : 'absolute right-0 top-full mt-3 hidden w-[min(21rem,calc(100vw-3rem))] md:block'
       }`}
     >
       <div className="border-b border-mountain-grey border-opacity-60 pb-3">
@@ -189,18 +209,18 @@ const Layout: React.FC = () => {
       <div className="mt-4 space-y-4">
         <div>
           <p className="mb-2 text-xs tracking-widest text-ink-light">{t('preferences.languageTitle')}</p>
-          <div className="grid grid-cols-2 border border-mountain-grey">
+          <div className="grid grid-cols-2 overflow-hidden rounded-md border border-hairline bg-surface-soft p-1">
             <button
               type="button"
               onClick={() => setLanguage('zh')}
-              className={`px-3 py-2 text-sm transition-colors ${language === 'zh' ? 'bg-ink text-paper' : 'text-ink-light hover:text-ochre'}`}
+              className={`min-h-11 rounded-sm px-3 py-2 text-sm transition-colors ${language === 'zh' ? 'bg-surface-dark text-on-dark' : 'text-muted hover:text-ink'}`}
             >
               {t('preferences.languageZh')}
             </button>
             <button
               type="button"
               onClick={() => setLanguage('en')}
-              className={`border-l border-mountain-grey px-3 py-2 text-sm transition-colors ${language === 'en' ? 'bg-ink text-paper' : 'text-ink-light hover:text-ochre'}`}
+              className={`min-h-11 rounded-sm px-3 py-2 text-sm transition-colors ${language === 'en' ? 'bg-surface-dark text-on-dark' : 'text-muted hover:text-ink'}`}
             >
               {t('preferences.languageEn')}
             </button>
@@ -209,12 +229,12 @@ const Layout: React.FC = () => {
 
         <div>
           <p className="mb-2 text-xs tracking-widest text-ink-light">{t('preferences.themeTitle')}</p>
-          <div className="grid grid-cols-3 border border-mountain-grey">
+          <div className="grid grid-cols-3 overflow-hidden rounded-md border border-hairline bg-surface-soft p-1">
             <button
               type="button"
               aria-label={t('toggle.themeToLight')}
               onClick={() => setThemePreference('light')}
-              className={`px-3 py-2 text-sm transition-colors ${themePreference === 'light' ? 'bg-ink text-paper' : 'text-ink-light hover:text-ochre'}`}
+              className={`min-h-11 rounded-sm px-2 py-2 text-sm transition-colors ${themePreference === 'light' ? 'bg-surface-dark text-on-dark' : 'text-muted hover:text-ink'}`}
             >
               {t('preferences.themeLight')}
             </button>
@@ -222,14 +242,14 @@ const Layout: React.FC = () => {
               type="button"
               aria-label={t('toggle.themeToDark')}
               onClick={() => setThemePreference('dark')}
-              className={`border-l border-mountain-grey px-3 py-2 text-sm transition-colors ${themePreference === 'dark' ? 'bg-ink text-paper' : 'text-ink-light hover:text-ochre'}`}
+              className={`min-h-11 rounded-sm px-2 py-2 text-sm transition-colors ${themePreference === 'dark' ? 'bg-surface-dark text-on-dark' : 'text-muted hover:text-ink'}`}
             >
               {t('preferences.themeDark')}
             </button>
             <button
               type="button"
               onClick={() => setThemePreference('system')}
-              className={`border-l border-mountain-grey px-3 py-2 text-sm transition-colors ${themePreference === 'system' ? 'bg-ink text-paper' : 'text-ink-light hover:text-ochre'}`}
+              className={`min-h-11 rounded-sm px-2 py-2 text-sm transition-colors ${themePreference === 'system' ? 'bg-surface-dark text-on-dark' : 'text-muted hover:text-ink'}`}
             >
               {t('preferences.themeSystem')}
             </button>
@@ -238,10 +258,10 @@ const Layout: React.FC = () => {
 
         <div>
           <p className="mb-2 text-xs tracking-widest text-ink-light">{t('preferences.accentTitle')}</p>
-          <div className="flex items-center gap-3 border border-mountain-grey px-3 py-2">
+          <div className="flex items-center gap-3 rounded-md border border-hairline bg-surface-soft px-3 py-2">
             <input
               type="color"
-              value={accentColor || '#8a3c3a'}
+              value={accentColor || '#cc785c'}
               onChange={(event) => setAccentColor(event.target.value)}
               aria-label={t('preferences.accentTitle')}
               className="h-8 w-10 cursor-pointer border-0 bg-transparent p-0"
@@ -283,8 +303,8 @@ const Layout: React.FC = () => {
           }
           return !open;
         })}
-        className={`group flex items-center gap-2 border border-mountain-grey bg-[var(--paper-soft)] text-ink transition-colors hover:border-ochre hover:text-ochre ${
-          variant === 'mobile' ? 'w-full justify-between px-3 py-3' : 'px-3 py-1.5'
+        className={`group flex min-h-11 items-center gap-2 rounded-md border border-hairline bg-paper text-ink transition-colors hover:border-ink ${
+          variant === 'mobile' ? 'w-full justify-between px-3 py-3' : 'px-3 py-2'
         }`}
       >
         <span className="flex items-center gap-2">
@@ -301,19 +321,20 @@ const Layout: React.FC = () => {
   );
 
   return (
-    <div className="min-h-screen flex flex-col font-serif bg-paper text-ink transition-colors duration-300">
+    <div className="flex min-h-screen flex-col bg-paper font-sans text-ink transition-colors duration-page">
       <Toaster />
       <RequestProgressBar />
-      <header ref={headerRef} className="border-b border-mountain-grey border-opacity-70 px-4 py-4 md:px-12 md:py-6">
-        <div className="flex items-center justify-between gap-4">
-          <Link to="/" className="text-2xl tracking-widest text-ink hover:text-ochre transition-colors duration-300">
-            <span className="font-bold relative">
+      <header ref={headerRef} className="sticky top-0 z-[95] h-16 border-b border-hairline bg-[var(--paper-muted)] px-4 backdrop-blur-xl md:px-8 lg:px-12">
+        <div className="editorial-container flex h-full items-center justify-between gap-4">
+          <Link to="/" className="group flex min-h-11 items-center gap-3 text-ink transition-colors hover:text-ochre">
+            <span aria-hidden="true" className="relative flex h-7 w-7 items-center justify-center rounded-full bg-surface-dark text-sm text-on-dark transition-transform duration-base group-hover:rotate-12">✣</span>
+            <span className="font-display text-2xl leading-none tracking-[-0.02em] md:text-[1.75rem]">
               {t('brand.name')}
-              <span className="absolute -bottom-2 left-0 w-full h-[2px] bg-ochre transform scale-x-0 transition-transform duration-300 origin-left hover:scale-x-100"></span>
             </span>
           </Link>
 
           <button
+            ref={mobileMenuTriggerRef}
             type="button"
             aria-expanded={isMobileMenuOpen}
             aria-label={isMobileMenuOpen ? t('nav.menuClose') : t('nav.menuOpen')}
@@ -321,14 +342,14 @@ const Layout: React.FC = () => {
               setIsMobileMenuOpen((open) => !open);
               setIsPreferenceOpen(false);
             }}
-            className="flex h-11 w-11 shrink-0 flex-col items-center justify-center gap-1.5 border border-mountain-grey text-ink transition-colors hover:border-ochre hover:text-ochre md:hidden"
+            className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-md border border-hairline bg-paper text-ink transition-colors hover:border-ink md:hidden"
           >
-            <span className={`h-px w-5 bg-current transition-transform ${isMobileMenuOpen ? 'translate-y-2 rotate-45' : ''}`}></span>
-            <span className={`h-px w-5 bg-current transition-opacity ${isMobileMenuOpen ? 'opacity-0' : 'opacity-100'}`}></span>
-            <span className={`h-px w-5 bg-current transition-transform ${isMobileMenuOpen ? '-translate-y-2 -rotate-45' : ''}`}></span>
+            <span className={`absolute h-px w-5 bg-current transition-transform ${isMobileMenuOpen ? 'rotate-45' : '-translate-y-1.5'}`}></span>
+            <span className={`absolute h-px w-5 bg-current transition-opacity ${isMobileMenuOpen ? 'opacity-0' : 'opacity-100'}`}></span>
+            <span className={`absolute h-px w-5 bg-current transition-transform ${isMobileMenuOpen ? '-rotate-45' : 'translate-y-1.5'}`}></span>
           </button>
 
-          <nav className="hidden flex-wrap items-center justify-end gap-x-6 gap-y-4 text-sm tracking-widest text-ink-light md:flex">
+          <nav className="hidden items-center justify-end gap-x-5 text-sm md:flex lg:gap-x-7">
             <PreloadNavLink to="/" end className={desktopLinkClass}>{t('nav.home')}</PreloadNavLink>
             <PreloadNavLink to="/archive" preload={routeLoaders.archive} className={desktopLinkClass}>{t('nav.archive')}</PreloadNavLink>
             <PreloadNavLink to="/search" preload={routeLoaders.search} className={desktopLinkClass}>{t('nav.search')}</PreloadNavLink>
@@ -349,7 +370,6 @@ const Layout: React.FC = () => {
                   )}
                   <span>{user.nickname || user.account}</span>
                 </PreloadNavLink>
-                <span className="opacity-50 select-none">|</span>
                 <button type="button" className="hover:text-ochre transition-colors" onClick={handleLogout}>
                   {t('nav.logout')}
                 </button>
@@ -358,7 +378,6 @@ const Layout: React.FC = () => {
               <PreloadNavLink to="/login" preload={routeLoaders.login} className={desktopLinkClass}>{t('nav.login')}</PreloadNavLink>
             )}
 
-            <span className="opacity-40 select-none">|</span>
             {renderPreferenceControl(
               desktopPreferenceRef,
               desktopPreferenceTriggerRef,
@@ -371,10 +390,13 @@ const Layout: React.FC = () => {
 
         {isMobileMenuOpen && (
           <motion.nav
-            initial={{ opacity: 0, y: -6 }}
-            animate={{ opacity: 1, y: 0 }}
+            ref={mobileMenuRef}
+            tabIndex={-1}
+            aria-label={t('nav.menuOpen')}
+            initial={{ y: -6 }}
+            animate={{ y: 0 }}
             transition={{ duration: 0.18, ease: 'easeOut' }}
-            className="mt-4 border-t border-mountain-grey border-opacity-70 pt-2 text-sm tracking-widest text-ink-light md:hidden"
+            className="absolute inset-x-0 top-full z-[94] h-[calc(100dvh-4rem)] overflow-y-auto border-t border-hairline bg-paper px-5 pb-[calc(2rem+env(safe-area-inset-bottom))] pt-7 md:hidden"
           >
             <PreloadNavLink to="/" end onClick={closeMobileMenu} className={mobileLinkClass}>{t('nav.home')}</PreloadNavLink>
             <PreloadNavLink to="/archive" preload={routeLoaders.archive} onClick={closeMobileMenu} className={mobileLinkClass}>{t('nav.archive')}</PreloadNavLink>
@@ -406,7 +428,7 @@ const Layout: React.FC = () => {
               <PreloadNavLink to="/login" preload={routeLoaders.login} onClick={closeMobileMenu} className={mobileLinkClass}>{t('nav.login')}</PreloadNavLink>
             )}
 
-            <div className="pt-3">
+            <div className="pt-6">
               {renderPreferenceControl(
                 mobilePreferenceRef,
                 mobilePreferenceTriggerRef,
@@ -425,7 +447,7 @@ const Layout: React.FC = () => {
       >
         {t('a11y.skipToContent')}
       </a>
-      <main id="main-content" tabIndex={-1} className="flex-grow flex flex-col w-full px-4 py-8 md:px-12 md:py-12">
+      <main id="main-content" tabIndex={-1} className="flex w-full flex-grow flex-col px-4 py-8 md:px-8 md:py-12 lg:px-12 lg:py-16">
         <AnimatePresence mode="wait" initial={false}>
           <motion.div
             key={pageTransitionKey}
@@ -441,9 +463,20 @@ const Layout: React.FC = () => {
         </AnimatePresence>
       </main>
 
-      <footer className="py-12 text-center text-ink-light opacity-70 text-sm tracking-widest">
-        <p>{t('footer.poem')}</p>
-        <p className="mt-2">&copy; 2026 {t('brand.nameEn')}. {t('footer.crafted')}</p>
+      <footer className="mt-8 bg-surface-dark px-4 py-14 text-on-dark-soft md:px-8 md:py-16 lg:px-12">
+        <div className="editorial-container grid gap-10 md:grid-cols-[1.4fr_1fr] md:items-end">
+          <div>
+            <p className="font-display text-4xl leading-tight text-on-dark md:text-5xl">{t('brand.nameEn')}</p>
+            <p className="mt-4 max-w-lg text-sm leading-relaxed">{t('footer.poem')} {t('footer.crafted')}</p>
+          </div>
+          <nav className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm md:justify-self-end md:text-right" aria-label="Footer">
+            <Link to="/" className="hover:text-on-dark">{t('nav.home')}</Link>
+            <Link to="/archive" className="hover:text-on-dark">{t('nav.archive')}</Link>
+            <Link to="/search" className="hover:text-on-dark">{t('nav.search')}</Link>
+            <Link to="/login" className="hover:text-on-dark">{t('nav.login')}</Link>
+          </nav>
+          <p className="border-t border-white/10 pt-6 text-xs md:col-span-2">&copy; 2026 {t('brand.nameEn')}</p>
+        </div>
       </footer>
 
       <BackToTop />

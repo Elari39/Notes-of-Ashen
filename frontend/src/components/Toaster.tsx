@@ -33,7 +33,7 @@ const ToastEntry: React.FC<{ toast: ToastItem }> = ({ toast }) => {
       role={toast.type === 'error' ? 'alert' : 'status'}
       aria-live={toast.type === 'error' ? 'assertive' : 'polite'}
       transition={{ duration: 0.22, ease: 'easeOut' }}
-      className={`flex max-w-sm items-start gap-3 border-l-2 bg-[var(--notice-bg)] px-4 py-3 text-sm leading-relaxed text-ink shadow-[0_12px_40px_rgba(0,0,0,0.12)] ${toneBorder[toast.type]}`}
+      className={`flex max-w-sm items-start gap-3 rounded-lg border border-hairline border-l-[3px] bg-surface-dark px-4 py-3 text-sm leading-relaxed text-on-dark shadow-lg ${toneBorder[toast.type]}`}
       {...motionProps}
     >
       <span className="flex-1">{toast.message}</span>
@@ -41,7 +41,7 @@ const ToastEntry: React.FC<{ toast: ToastItem }> = ({ toast }) => {
         type="button"
         onClick={() => dismissToast(toast.id)}
         aria-label={dismissLabel}
-        className="-m-2 inline-flex h-11 w-11 shrink-0 items-center justify-center text-ink-light opacity-70 transition-opacity hover:opacity-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ochre"
+        className="-m-2 inline-flex h-11 w-11 shrink-0 items-center justify-center text-on-dark-soft opacity-70 transition-opacity hover:opacity-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ochre"
       >
         ✕
       </button>
