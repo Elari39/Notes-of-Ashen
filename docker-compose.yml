@@ -44,6 +44,13 @@ services:
       context: .
       dockerfile: Dockerfile.api
     restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
     env_file:
       - "${APP_ENV_FILE:-.env}"
     environment:
@@ -113,6 +120,104 @@ services:
     networks:
       - app
 
+  mysql:
+    image: mysql:8.4
+    restart: unless-stopped
+    environment:
+      TZ: Asia/Shanghai
+      MYSQL_ROOT_PASSWORD: "${APP_MYSQL_ROOT_PASSWORD:?set APP_MYSQL_ROOT_PASSWORD in .env}"
+      MYSQL_DATABASE: "${APP_MYSQL_DATABASE:-notes_of_ashen}"
+      MYSQL_USER: "${APP_MYSQL_USER:-notes_user}"
+      MYSQL_PASSWORD: "${APP_MYSQL_PASSWORD:?set APP_MYSQL_PASSWORD in .env}"
+    command:
+      - mysqld
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_0900_ai_ci
+    volumes:
+      - goblog_mysql_data:/var/lib/mysql
+      - ./deploy/mysql/schema.sql:/docker-entrypoint-initdb.d/001-schema.sql:ro
+    expose:
+      - "3306"
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u$$MYSQL_USER -p$$MYSQL_PASSWORD --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    labels:
+      org.opencontainers.image.title: "Notes of Ashen MySQL"
+    networks:
+      - app
+
+  redis:
+    image: redis:7.4-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - goblog_redis_data:/data
+    expose:
+      - "6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 5s
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    labels:
+      org.opencontainers.image.title: "Notes of Ashen Redis"
+    networks:
+      - app
+
+  rabbitmq:
+    image: rabbitmq:4-management-alpine
+    restart: unless-stopped
+    environment:
+      TZ: Asia/Shanghai
+      RABBITMQ_DEFAULT_USER: "${APP_RABBITMQ_USER:-notes_user}"
+      RABBITMQ_DEFAULT_PASS: "${APP_RABBITMQ_PASSWORD:?set APP_RABBITMQ_PASSWORD in .env}"
+    volumes:
+      - goblog_rabbitmq_data:/var/lib/rabbitmq
+    expose:
+      - "5672"
+      - "15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    labels:
+      org.opencontainers.image.title: "Notes of Ashen RabbitMQ"
+    networks:
+      - app
+
   meilisearch:
     image: getmeili/meilisearch:v1.13
     profiles: ["search"]
@@ -145,6 +250,9 @@ services:
       - app
 
 volumes:
+  goblog_mysql_data:
+  goblog_redis_data:
+  goblog_rabbitmq_data:
   goblog_meili_data:
 
 networks:
