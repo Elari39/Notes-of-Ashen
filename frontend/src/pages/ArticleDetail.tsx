@@ -6,9 +6,10 @@ import MarkdownRenderer from '../components/MarkdownRenderer';
 import PagePendingState, { RoutePendingIndicator } from '../components/RoutePending';
 import ArticleDetailSkeleton from '../components/ArticleDetailSkeleton';
 import { PreloadLink } from '../components/PreloadLink';
+import Button from '../components/ui/Button';
 import { getArticleById, getArticleContext, likeArticle } from '../api/article';
 import { useSEO } from '../utils/seo';
-import { getErrorMessage } from '../utils/error';
+import { getErrorMessage, toAppError } from '../utils/error';
 import { formatText, getDateLocale, translate } from '../i18n';
 import { usePreferenceStore, type Language } from '../store/preferences';
 import { useReadingProgress } from '../hooks/useReadingProgress';
@@ -26,6 +27,8 @@ const ArticleDetail: React.FC = () => {
   const [articleContext, setArticleContext] = useState<ArticleContext | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [isNotFound, setIsNotFound] = useState(false);
+  const [retryNonce, setRetryNonce] = useState(0);
   const [contextError, setContextError] = useState('');
   const [likeError, setLikeError] = useState('');
   const [likeCount, setLikeCount] = useState(0);
@@ -52,14 +55,18 @@ const ArticleDetail: React.FC = () => {
     const fetchArticle = async () => {
       if (!id) {
         setArticle(null);
+        setArticleContext(null);
+        setIsNotFound(true);
         setLoading(false);
         return;
       }
 
       setLoading(true);
       setError('');
+      setIsNotFound(false);
       setContextError('');
       setLikeError('');
+      setArticle(null);
       setArticleContext(null);
       setActiveHeadingId('');
       setCoverError(false);
@@ -86,7 +93,9 @@ const ArticleDetail: React.FC = () => {
         }
       } catch (err) {
         if (!controller.signal.aborted) {
-          setError(getErrorMessage(err, translate(languageRef.current, 'article.loadError')));
+          const appError = toAppError(err, translate(languageRef.current, 'article.loadError'));
+          setError(appError.message);
+          setIsNotFound(appError.status === 404);
         }
       } finally {
         if (!controller.signal.aborted) {
@@ -99,7 +108,11 @@ const ArticleDetail: React.FC = () => {
     return () => {
       controller.abort();
     };
-  }, [id]);
+  }, [id, retryNonce]);
+
+  const retryArticle = () => {
+    setRetryNonce((value) => value + 1);
+  };
 
   useEffect(() => {
     const fallbackActiveHeading = () => {
@@ -195,9 +208,20 @@ const ArticleDetail: React.FC = () => {
   }
 
   if (!article) {
+    const message = error || t('article.missing');
     return (
-      <div className="max-w-md mx-auto mt-20">
-        <InlineNotice message={error || t('article.missing')} />
+      <div className="mx-auto mt-20 max-w-md space-y-5">
+        <InlineNotice
+          message={message}
+          action={!isNotFound && error ? (
+            <Button size="sm" onClick={retryArticle}>
+              {t('common.retry')}
+            </Button>
+          ) : undefined}
+        />
+        <Link to="/" className="inline-block border border-ink px-5 py-2 text-sm tracking-widest text-ink transition-colors hover:bg-ink hover:text-paper">
+          {t('common.backHome')}
+        </Link>
       </div>
     );
   }
@@ -239,7 +263,8 @@ const ArticleDetail: React.FC = () => {
                       <img
                         src={coverUrl}
                         alt={article.title}
-                        loading="lazy"
+                        loading="eager"
+                        fetchPriority="high"
                         decoding="async"
                         onError={() => setCoverError(true)}
                         onLoad={() => setCoverError(false)}

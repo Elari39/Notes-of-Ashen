@@ -36,6 +36,7 @@ const Resume: React.FC = () => {
   const [isExporting, setIsExporting] = useState(false);
   const [error, setError] = useState('');
   const [exportError, setExportError] = useState('');
+  const [retryVersion, setRetryVersion] = useState(0);
   const resumeRef = useRef<HTMLDivElement>(null);
 
   useSEO(page?.title || t('resume.pageTitleFallback'));
@@ -63,7 +64,7 @@ const Resume: React.FC = () => {
     return () => {
       active = false;
     };
-  }, []);
+  }, [retryVersion]);
 
   useEffect(() => {
     let active = true;
@@ -134,6 +135,10 @@ const Resume: React.FC = () => {
     }
   };
 
+  const handleRetry = () => {
+    setRetryVersion((version) => version + 1);
+  };
+
   return (
     <div className="mx-auto mt-4 w-full max-w-5xl space-y-8 md:mt-8">
       <div ref={resumeRef} className="resume-pdf-surface space-y-8">
@@ -152,7 +157,7 @@ const Resume: React.FC = () => {
                 </p>
               )}
             </div>
-            {!isLoading && !error && hasContent && (
+            {!isLoading && page && hasContent && (
               <Button
                 type="button"
                 onClick={handleExportPDF}
@@ -174,12 +179,19 @@ const Resume: React.FC = () => {
             label={t('resume.loading')}
           />
         )}
-        <InlineNotice message={error} />
+        <InlineNotice
+          message={error}
+          action={(
+            <Button type="button" variant="ghost" size="sm" onClick={handleRetry}>
+              {t('common.retry')}
+            </Button>
+          )}
+        />
         <InlineNotice message={exportError} className="resume-export-notice" />
-        {!isLoading && !error && !hasContent && (
+        {!isLoading && page && !hasContent && (
           <EmptyState illustration="ink-drop" title={t('resume.empty')} />
         )}
-        {!isLoading && !error && page && hasContent && (
+        {!isLoading && page && hasContent && (
           <>
             {page.contentMarkdown.trim() && (
               <section className="max-w-3xl">

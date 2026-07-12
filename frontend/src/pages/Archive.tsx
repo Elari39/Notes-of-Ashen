@@ -7,6 +7,7 @@ import InlineNotice from '../components/InlineNotice';
 import PagePendingState from '../components/RoutePending';
 import Skeleton from '../components/Skeleton';
 import EmptyState from '../components/ui/EmptyState';
+import Button from '../components/ui/Button';
 import { getErrorMessage } from '../utils/error';
 import { translate } from '../i18n';
 import { usePreferenceStore } from '../store/preferences';
@@ -17,6 +18,7 @@ const Archive: React.FC = () => {
   const [tags, setTags] = useState<Tag[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [retryVersion, setRetryVersion] = useState(0);
   const t = (key: Parameters<typeof translate>[1]) => translate(language, key);
 
   useEffect(() => {
@@ -48,13 +50,23 @@ const Archive: React.FC = () => {
     return () => {
       active = false;
     };
-  }, [language]);
+  }, [language, retryVersion]);
 
   const hasArchiveData = categories.length > 0 || tags.length > 0;
+  const handleRetry = () => {
+    setRetryVersion((version) => version + 1);
+  };
 
   return (
     <div className="space-y-16 mt-8 max-w-2xl mx-auto w-full">
-      <InlineNotice message={error} />
+      <InlineNotice
+        message={error}
+        action={(
+          <Button type="button" variant="ghost" size="sm" onClick={handleRetry}>
+            {t('common.retry')}
+          </Button>
+        )}
+      />
       {loading && !hasArchiveData && (
         <div className="space-y-16">
           {[0, 1].map((section) => (
@@ -72,7 +84,7 @@ const Archive: React.FC = () => {
       {loading && hasArchiveData && (
         <PagePendingState variant="inline" label={t('common.loadingArchive')} />
       )}
-      {!loading && (
+      {!loading && (!error || hasArchiveData) && (
         <>
           <section>
             <h2 className="text-3xl font-bold text-ink mb-8 tracking-widest text-center">{t('archive.titleCategories')}</h2>

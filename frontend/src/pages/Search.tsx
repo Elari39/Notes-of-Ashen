@@ -27,6 +27,7 @@ const Search: React.FC = () => {
   const [total, setTotal] = useState(0);
   const [error, setError] = useState('');
   const [coverErrors, setCoverErrors] = useState<Record<number, boolean>>({});
+  const [retryVersion, setRetryVersion] = useState(0);
   const size = 10;
   const t = (key: Parameters<typeof translate>[1]) => translate(language, key);
   const query = (searchParams.get('q') || '').trim();
@@ -83,7 +84,7 @@ const Search: React.FC = () => {
     return () => {
       controller.abort();
     };
-  }, [hasSearchScope, page, query, categoryId, tagId, language]);
+  }, [hasSearchScope, page, query, categoryId, tagId, language, retryVersion]);
 
   const updateParams = (updates: Record<string, string | number | undefined>) => {
     const next = new URLSearchParams(searchParams);
@@ -127,6 +128,10 @@ const Search: React.FC = () => {
       delete next[articleId];
       return next;
     });
+  };
+
+  const handleRetry = () => {
+    setRetryVersion((version) => version + 1);
   };
 
   return (
@@ -190,7 +195,14 @@ const Search: React.FC = () => {
               </Button>
             </div>
 
-            <InlineNotice message={error} />
+            <InlineNotice
+              message={error}
+              action={(
+                <Button type="button" variant="ghost" size="sm" onClick={handleRetry}>
+                  {t('common.retry')}
+                </Button>
+              )}
+            />
 
             {loading && articles.length === 0 && (
               <div className="space-y-12">
@@ -205,7 +217,7 @@ const Search: React.FC = () => {
                 label={t('search.loading')}
               />
             )}
-            {!loading && articles.length === 0 ? (
+            {!loading && !error && articles.length === 0 ? (
               <EmptyState
                 illustration="cloud"
                 title={t('search.emptyTitle')}

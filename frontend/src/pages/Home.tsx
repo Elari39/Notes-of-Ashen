@@ -26,6 +26,7 @@ const Home: React.FC = () => {
   const [total, setTotal] = useState(0);
   const [error, setError] = useState('');
   const [coverErrors, setCoverErrors] = useState<Record<number, boolean>>({});
+  const [retryVersion, setRetryVersion] = useState(0);
   const size = 10;
   const t = (key: Parameters<typeof translate>[1]) => translate(language, key);
   const page = parsePositiveInt(searchParams.get('page'), 1);
@@ -66,7 +67,7 @@ const Home: React.FC = () => {
     return () => {
       controller.abort();
     };
-  }, [page, categoryId, tagId, language]);
+  }, [page, categoryId, tagId, language, retryVersion]);
 
   const updateParams = (updates: Record<string, string | number | undefined>) => {
     const next = new URLSearchParams(searchParams);
@@ -100,6 +101,10 @@ const Home: React.FC = () => {
     });
   };
 
+  const handleRetry = () => {
+    setRetryVersion((version) => version + 1);
+  };
+
   return (
     <div className="mx-auto mt-4 w-full max-w-4xl space-y-14 md:mt-8 md:space-y-20">
       {hasActiveFilters && (
@@ -117,7 +122,14 @@ const Home: React.FC = () => {
           </Button>
         </div>
       )}
-      <InlineNotice message={error} />
+      <InlineNotice
+        message={error}
+        action={(
+          <Button type="button" variant="ghost" size="sm" onClick={handleRetry}>
+            {t('common.retry')}
+          </Button>
+        )}
+      />
       {loading && articles.length === 0 && (
         <div className="space-y-14 md:space-y-20">
           {Array.from({ length: 5 }).map((_, index) => (
@@ -131,7 +143,7 @@ const Home: React.FC = () => {
           label={t('common.loadingArticles')}
         />
       )}
-      {!loading && articles.length === 0 ? (
+      {!loading && !error && articles.length === 0 ? (
         <EmptyState
           illustration="ink-drop"
           title={t('common.emptyArticles')}

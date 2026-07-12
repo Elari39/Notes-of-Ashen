@@ -7,6 +7,8 @@ import type { Article, ArticleStatus, Category, Tag } from '../../types';
 import type { AIAssistAction } from '../../types/api';
 import InlineNotice from '../../components/InlineNotice';
 import MarkdownRenderer from '../../components/MarkdownRenderer';
+import PagePendingState from '../../components/RoutePending';
+import Button from '../../components/ui/Button';
 import { getErrorMessage } from '../../utils/error';
 import { generateSlug } from '../../utils/slug';
 import { isValidCoverUrl } from '../../utils/cover';
@@ -16,6 +18,12 @@ import { formatText, getArticleStatusLabel, translate } from '../../i18n';
 import { usePreferenceStore } from '../../store/preferences';
 import { useSubmit } from '../../hooks/useSubmit';
 import { useDebouncedValue } from '../../hooks/useDebouncedValue';
+import {
+  canOperateArticleEditor,
+  executeArticleEditorOperation,
+  resolveArticleEditorAccess,
+  type ArticleBaselineStatus,
+} from './editorAccessPolicy';
 
 type TaxonomyOption = {
   id: number;
@@ -317,6 +325,8 @@ const ArticleEditor: React.FC = () => {
   const language = usePreferenceStore((state) => state.language);
   const isEdit = id && id !== 'new';
   const t = (key: Parameters<typeof translate>[1]) => translate(language, key);
+  const languageRef = useRef(language);
+  languageRef.current = language;
 
   const [title, setTitle] = useState('');
   const [slug, setSlug] = useState('');
@@ -339,6 +349,10 @@ const ArticleEditor: React.FC = () => {
   const draftRecoveryRef = useRef<EditorDraft | null>(null);
   draftRecoveryRef.current = draftRecovery;
   const editorBaselineRef = useRef<EditorDraft | null>(null);
+  const [articleBaselineStatus, setArticleBaselineStatus] = useState<ArticleBaselineStatus>(isEdit ? 'loading' : 'ready');
+  const [articleBaselineId, setArticleBaselineId] = useState<string | undefined>();
+  const [articleBaselineError, setArticleBaselineError] = useState('');
+  const [baselineRetryKey, setBaselineRetryKey] = useState(0);
   // discard 草稿后置位，跳过下一次自动保存写入，避免 effect 基于当前字段又把刚丢弃的草稿写回。
   const skipAutosaveOnceRef = useRef(false);
 
@@ -373,6 +387,10 @@ const ArticleEditor: React.FC = () => {
   })();
   // 预览防抖：每次按键只更新 content，预览用延迟值，避免全文重解析。
   const debouncedPreviewContent = useDebouncedValue(content, 250);
+  const currentArticleBaselineStatus: ArticleBaselineStatus = isEdit && articleBaselineId !== id
+    ? 'loading'
+    : articleBaselineStatus;
+  const articleEditorAccess = resolveArticleEditorAccess(Boolean(isEdit), currentArticleBaselineStatus);
 
   useEffect(() => {
     const state = location.state as { aiNotice?: string } | null;
@@ -384,26 +402,41 @@ const ArticleEditor: React.FC = () => {
   }, [location.pathname, location.state, navigate]);
 
   useEffect(() => {
+    let active = true;
     setIsEditorReady(false);
     setDraftRecovery(null);
+    setAiDraft(null);
+    setAiMenuOpen(false);
     editorBaselineRef.current = null;
+    setError('');
     const fetchDeps = async () => {
       try {
         const [catRes, tagRes] = await Promise.all([
           getCategories({ size: 100 }),
           getTags({ size: 100 }),
         ]);
+        if (!active) {
+          return;
+        }
         setCategories(catRes.data.items || []);
         setTags(tagRes.data.items || []);
       } catch (e) {
-        setError(getErrorMessage(e, translate(language, 'articleEditor.depsError')));
+        if (active) {
+          setError(getErrorMessage(e, translate(languageRef.current, 'articleEditor.depsError')));
+        }
       }
     };
-    fetchDeps();
+    void fetchDeps();
 
-    if (isEdit) {
-      getArticlePreview(id)
+    if (isEdit && id) {
+      setArticleBaselineStatus('loading');
+      setArticleBaselineId(id);
+      setArticleBaselineError('');
+      void getArticlePreview(id)
         .then(res => {
+          if (!active) {
+            return;
+          }
           const article = res.data;
           const baseline = articleToEditorDraft(article);
           const draftKey = editorDraftKey(id);
@@ -431,10 +464,20 @@ const ArticleEditor: React.FC = () => {
           } else if (localDraft) {
             removeEditorDraft(draftKey);
           }
+          setArticleBaselineStatus('ready');
           setIsEditorReady(true);
         })
-        .catch(e => setError(getErrorMessage(e, translate(language, 'article.loadError'))));
+        .catch(e => {
+          if (!active) {
+            return;
+          }
+          setArticleBaselineStatus('error');
+          setArticleBaselineError(getErrorMessage(e, translate(languageRef.current, 'article.loadError')));
+        });
     } else {
+      setArticleBaselineStatus('ready');
+      setArticleBaselineId(undefined);
+      setArticleBaselineError('');
       const baseline = emptyEditorDraft();
       const draftKey = editorDraftKey('new');
       editorBaselineRef.current = baseline;
@@ -463,7 +506,16 @@ const ArticleEditor: React.FC = () => {
       }
       setIsEditorReady(true);
     }
-  }, [id, isEdit, language]);
+    return () => {
+      active = false;
+    };
+  }, [baselineRetryKey, id, isEdit]);
+
+  const retryArticleBaseline = () => {
+    setArticleBaselineStatus('loading');
+    setArticleBaselineError('');
+    setBaselineRetryKey((value) => value + 1);
+  };
 
   const handleSummaryChange = (value: string) => {
     setSummary(value);
@@ -570,13 +622,20 @@ const ArticleEditor: React.FC = () => {
 
   const { submit: submitSave, submitting } = useSubmit({
     handler: async () => {
+      if (!canOperateArticleEditor(Boolean(isEdit), currentArticleBaselineStatus)) {
+        throw new Error('Article baseline is not loaded yet');
+      }
       const trimmedCoverUrl = coverUrl.trim();
       let nextSummary = summary;
       let nextSeoDescription = seoDescription;
       let nextSeoKeywords = seoKeywords;
       if (generateSummaryOnSave && content.trim()) {
         try {
-          const aiRes = await assistArticle({ action: 'metadata', title, content });
+          const aiRes = await executeArticleEditorOperation(
+            Boolean(isEdit),
+            currentArticleBaselineStatus,
+            () => assistArticle({ action: 'metadata', title, content }),
+          );
           const generatedSummary = aiRes.data.summary?.trim();
           if (generatedSummary) {
             nextSummary = generatedSummary;
@@ -609,13 +668,19 @@ const ArticleEditor: React.FC = () => {
         tagIds,
       };
 
-      if (isEdit) {
-        await updateArticle(id, payload);
-        removeEditorDraft(editorDraftKey(id));
-      } else {
-        await createArticle(payload);
-        removeEditorDraft(editorDraftKey('new'));
-      }
+      await executeArticleEditorOperation(
+        Boolean(isEdit),
+        currentArticleBaselineStatus,
+        async () => {
+          if (isEdit) {
+            await updateArticle(id, payload);
+            removeEditorDraft(editorDraftKey(id));
+          } else {
+            await createArticle(payload);
+            removeEditorDraft(editorDraftKey('new'));
+          }
+        },
+      );
     },
     successMessage: t('toast.saveSuccess'),
     errorFallback: t('articleEditor.saveError'),
@@ -630,6 +695,9 @@ const ArticleEditor: React.FC = () => {
   });
 
   const handleSave = () => {
+    if (!canOperateArticleEditor(Boolean(isEdit), currentArticleBaselineStatus)) {
+      return;
+    }
     if (!title.trim()) {
       setError(t('articleEditor.titleRequired'));
       return;
@@ -649,6 +717,9 @@ const ArticleEditor: React.FC = () => {
   };
 
   const handleAIAssist = async (action: AIAssistAction) => {
+    if (!canOperateArticleEditor(Boolean(isEdit), currentArticleBaselineStatus)) {
+      return;
+    }
     const target = action === 'metadata'
       ? { text: content, start: 0, end: content.length }
       : getActiveMarkdownRange(textareaRef.current, content);
@@ -663,7 +734,11 @@ const ArticleEditor: React.FC = () => {
     setAiAction(action);
     setAiMenuOpen(false);
     try {
-      const res = await assistArticle({ action, title, content: target.text });
+      const res = await executeArticleEditorOperation(
+        Boolean(isEdit),
+        currentArticleBaselineStatus,
+        () => assistArticle({ action, title, content: target.text }),
+      );
       const data = res.data;
       if (action === 'metadata') {
         if (data.summary) setSummary(data.summary);
@@ -689,6 +764,9 @@ const ArticleEditor: React.FC = () => {
   };
 
   const applyAIContent = () => {
+    if (!canOperateArticleEditor(Boolean(isEdit), currentArticleBaselineStatus)) {
+      return;
+    }
     const draft = aiDraft;
     if (!draft?.revisedContent) {
       return;
@@ -749,6 +827,25 @@ const ArticleEditor: React.FC = () => {
       setTagSubmitting(false);
     }
   };
+
+  if (articleEditorAccess !== 'editor') {
+    return (
+      <div className="flex h-[80vh] flex-col">
+        {articleEditorAccess === 'loading' ? (
+          <PagePendingState variant="admin" label={t('common.loading')} />
+        ) : (
+          <InlineNotice
+            message={articleBaselineError || t('article.loadError')}
+            action={(
+              <Button type="button" size="sm" onClick={retryArticleBaseline}>
+                {t('common.retry')}
+              </Button>
+            )}
+          />
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col h-[80vh]">

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import InlineNotice from '../../components/InlineNotice';
 import PagePendingState from '../../components/RoutePending';
 import Switch from '../../components/ui/Switch';
@@ -7,6 +7,7 @@ import { getAISettings, updateAISettings } from '../../api/aiSettings';
 import { getErrorMessage } from '../../utils/error';
 import { usePreferenceStore } from '../../store/preferences';
 import { translate } from '../../i18n';
+import { canSaveAISettings, executeAISettingsUpdate } from './editorAccessPolicy';
 
 const AdminAISettings: React.FC = () => {
   const language = usePreferenceStore((state) => state.language);
@@ -24,9 +25,11 @@ const AdminAISettings: React.FC = () => {
   const [streamTimeoutSeconds, setStreamTimeoutSeconds] = useState(300);
   const [nonStreamTimeoutSeconds, setNonStreamTimeoutSeconds] = useState(600);
   const [loading, setLoading] = useState(true);
+  const [hasLoaded, setHasLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  const loadRequestIdRef = useRef(0);
 
   const timeoutInvalid = useMemo(() => (
     firstByteTimeoutSeconds <= 0 ||
@@ -34,42 +37,61 @@ const AdminAISettings: React.FC = () => {
     nonStreamTimeoutSeconds < firstByteTimeoutSeconds
   ), [firstByteTimeoutSeconds, streamTimeoutSeconds, nonStreamTimeoutSeconds]);
 
-  useEffect(() => {
-    let mounted = true;
+  const loadSettings = useCallback(async () => {
+    const requestId = loadRequestIdRef.current + 1;
+    loadRequestIdRef.current = requestId;
     setLoading(true);
     setError('');
-    getAISettings()
-      .then((res) => {
-        if (!mounted) {
-          return;
-        }
-        const data = res.data;
-        setEnabled(Boolean(data.enabled));
-        setBaseUrl(data.baseUrl || '');
-        setModel(data.model || '');
-        setApiKeyConfigured(Boolean(data.apiKeyConfigured));
-        setFirstByteTimeoutSeconds(data.firstByteTimeoutSeconds || 60);
-        setStreamTimeoutSeconds(data.streamTimeoutSeconds || 300);
-        setNonStreamTimeoutSeconds(data.nonStreamTimeoutSeconds || 600);
-      })
-      .catch((e) => mounted && setError(getErrorMessage(e, translate(languageRef.current, 'aiSettings.loadError'))))
-      .finally(() => mounted && setLoading(false));
-    return () => {
-      mounted = false;
-    };
+    setNotice('');
+    try {
+      const res = await getAISettings();
+      if (requestId !== loadRequestIdRef.current) {
+        return;
+      }
+      const data = res.data;
+      setEnabled(Boolean(data.enabled));
+      setBaseUrl(data.baseUrl || '');
+      setModel(data.model || '');
+      setApiKeyConfigured(Boolean(data.apiKeyConfigured));
+      setFirstByteTimeoutSeconds(data.firstByteTimeoutSeconds || 60);
+      setStreamTimeoutSeconds(data.streamTimeoutSeconds || 300);
+      setNonStreamTimeoutSeconds(data.nonStreamTimeoutSeconds || 600);
+      setHasLoaded(true);
+    } catch (e) {
+      if (requestId !== loadRequestIdRef.current) {
+        return;
+      }
+      setHasLoaded(false);
+      setError(getErrorMessage(e, translate(languageRef.current, 'aiSettings.loadError')));
+    } finally {
+      if (requestId === loadRequestIdRef.current) {
+        setLoading(false);
+      }
+    }
   }, []);
+
+  useEffect(() => {
+    void loadSettings();
+    return () => {
+      loadRequestIdRef.current += 1;
+    };
+  }, [loadSettings]);
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError('');
     setNotice('');
+    if (!canSaveAISettings(hasLoaded)) {
+      setError(t('aiSettings.loadError'));
+      return;
+    }
     if (timeoutInvalid) {
       setError(t('aiSettings.timeoutError'));
       return;
     }
     setSaving(true);
     try {
-      const res = await updateAISettings({
+      const res = await executeAISettingsUpdate(hasLoaded, () => updateAISettings({
         enabled,
         baseUrl: baseUrl.trim(),
         model: model.trim(),
@@ -78,7 +100,7 @@ const AdminAISettings: React.FC = () => {
         firstByteTimeoutSeconds,
         streamTimeoutSeconds,
         nonStreamTimeoutSeconds,
-      });
+      }));
       setApiKey('');
       setClearApiKey(false);
       setApiKeyConfigured(Boolean(res.data.apiKeyConfigured));
@@ -96,11 +118,22 @@ const AdminAISettings: React.FC = () => {
         <h3 className="text-2xl font-bold tracking-widest text-ink">{t('aiSettings.title')}</h3>
       </div>
 
-      <InlineNotice message={error} className="mb-6" />
-      <InlineNotice message={notice} tone="success" className="mb-6" />
+      {hasLoaded && <InlineNotice message={error} className="mb-6" />}
+      {hasLoaded && <InlineNotice message={notice} tone="success" className="mb-6" />}
 
       {loading && <PagePendingState variant="admin" label={t('aiSettings.loading')} />}
-      {!loading && (
+      {!loading && !hasLoaded && (
+        <InlineNotice
+          message={error || t('aiSettings.loadError')}
+          className="mb-6"
+          action={(
+            <Button size="sm" onClick={() => void loadSettings()}>
+              {t('common.retry')}
+            </Button>
+          )}
+        />
+      )}
+      {hasLoaded && (
         <form onSubmit={handleSubmit} className="space-y-8">
           <section className="border border-mountain-grey bg-[var(--paper-soft)] p-5">
             <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">

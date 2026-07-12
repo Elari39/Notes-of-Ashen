@@ -4,6 +4,7 @@ import Layout from './components/Layout';
 import Home from './pages/Home';
 import ProtectedRoute from './components/ProtectedRoute';
 import PagePendingState, { RoutePendingIndicator } from './components/RoutePending';
+import ScrollRestoration from './components/ScrollRestoration';
 import { usePreferenceStore } from './store/preferences';
 import { useSiteSettingsStore } from './store/siteSettings';
 import { useAuthStore } from './store/auth';
@@ -98,6 +99,7 @@ function App() {
 
   return (
     <TooltipProvider delayDuration={300}>
+      <ScrollRestoration />
       <TrafficReporter />
       <Routes>
         <Route path="/" element={<Layout />}>

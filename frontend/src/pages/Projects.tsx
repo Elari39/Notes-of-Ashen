@@ -3,6 +3,7 @@ import InlineNotice from '../components/InlineNotice';
 import PagePendingState from '../components/RoutePending';
 import Skeleton from '../components/Skeleton';
 import EmptyState from '../components/ui/EmptyState';
+import Button from '../components/ui/Button';
 import Tag from '../components/ui/Tag';
 import ProjectPreviewModal from '../components/ProjectPreviewModal';
 import { getProjectsPage } from '../api/siteSettings';
@@ -23,6 +24,7 @@ const Projects: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [selected, setSelected] = useState<ProjectItem | null>(null);
+  const [retryVersion, setRetryVersion] = useState(0);
 
   useSEO(page?.title || t('projects.pageTitleFallback'));
 
@@ -49,7 +51,11 @@ const Projects: React.FC = () => {
     return () => {
       active = false;
     };
-  }, []);
+  }, [retryVersion]);
+
+  const handleRetry = () => {
+    setRetryVersion((version) => version + 1);
+  };
 
   return (
     <div className="mx-auto mt-4 w-full max-w-6xl space-y-8 md:mt-8">
@@ -84,11 +90,18 @@ const Projects: React.FC = () => {
       {isLoading && page && (
         <PagePendingState variant="inline" label={t('projects.loading')} />
       )}
-      <InlineNotice message={error} />
-      {!isLoading && !error && (!page?.items || page.items.length === 0) && (
+      <InlineNotice
+        message={error}
+        action={(
+          <Button type="button" variant="ghost" size="sm" onClick={handleRetry}>
+            {t('common.retry')}
+          </Button>
+        )}
+      />
+      {!isLoading && page && page.items.length === 0 && (
         <EmptyState illustration="leaf" title={t('projects.empty')} />
       )}
-      {!isLoading && !error && page?.items && page.items.length > 0 && (
+      {!isLoading && page && page.items.length > 0 && (
         <section className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
           {page.items.map((project) => (
             <ProjectCard key={project.id} project={project} onSelect={setSelected} />
@@ -111,21 +124,10 @@ type ProjectCardProps = {
 const ProjectCard: React.FC<ProjectCardProps> = React.memo(({ project, onSelect }) => {
   const language = usePreferenceStore((state) => state.language);
   const t = (key: Parameters<typeof translate>[1]) => translate(language, key);
-  const handleKeyDown = (event: React.KeyboardEvent<HTMLElement>) => {
-    if (event.key === 'Enter' || event.key === ' ') {
-      event.preventDefault();
-      onSelect(project);
-    }
-  };
 
   return (
     <article
-      role="button"
-      tabIndex={0}
-      aria-label={formatText(t('projects.openDetail'), { title: project.title })}
-      onClick={() => onSelect(project)}
-      onKeyDown={handleKeyDown}
-      className="group flex min-h-full cursor-pointer flex-col overflow-hidden border border-mountain-grey bg-[var(--paper-soft)] outline-none transition-colors hover:border-ochre focus-visible:border-ochre focus-visible:ring-2 focus-visible:ring-ochre"
+      className="group flex min-h-full flex-col overflow-hidden border border-mountain-grey bg-[var(--paper-soft)] transition-colors hover:border-ochre"
     >
       <div className="relative aspect-[4/3] overflow-hidden border-b border-mountain-grey bg-[var(--paper)]">
         {project.coverUrl ? (
@@ -153,14 +155,14 @@ const ProjectCard: React.FC<ProjectCardProps> = React.memo(({ project, onSelect 
               <h2 className="text-xl font-bold tracking-widest text-ink">{project.title}</h2>
             </div>
             {(project.demoUrl || project.repoUrl) && (
-              <div className="flex shrink-0 flex-wrap gap-3 text-sm tracking-widest" onClick={(event) => event.stopPropagation()}>
+              <div className="flex shrink-0 flex-wrap gap-3 text-sm tracking-widest">
                 {project.demoUrl && (
-                  <a href={project.demoUrl} target="_blank" rel="noreferrer" className="text-ochre hover:text-ink">
+                  <a href={project.demoUrl} target="_blank" rel="noreferrer" className="text-ochre transition-colors hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ochre">
                     {t('projects.demo')}
                   </a>
                 )}
                 {project.repoUrl && (
-                  <a href={project.repoUrl} target="_blank" rel="noreferrer" className="text-ochre hover:text-ink">
+                  <a href={project.repoUrl} target="_blank" rel="noreferrer" className="text-ochre transition-colors hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ochre">
                     {t('projects.repo')}
                   </a>
                 )}
@@ -182,8 +184,16 @@ const ProjectCard: React.FC<ProjectCardProps> = React.memo(({ project, onSelect 
           </div>
         )}
 
-        <div className="mt-auto border-t border-mountain-grey pt-4 text-xs tracking-[0.2em] text-ochre transition-colors group-hover:text-ink">
-          {t('projects.viewDetail')}
+        <div className="mt-auto border-t border-mountain-grey pt-4">
+          <Button
+            type="button"
+            variant="link"
+            size="sm"
+            onClick={() => onSelect(project)}
+            aria-label={formatText(t('projects.openDetail'), { title: project.title })}
+          >
+            {t('projects.viewDetail')}
+          </Button>
         </div>
       </div>
     </article>

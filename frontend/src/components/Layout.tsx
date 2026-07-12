@@ -1,7 +1,7 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useId, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate, useOutlet } from 'react-router-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
-import { PreloadLink } from './PreloadLink';
+import { PreloadNavLink } from './PreloadLink';
 import Toaster from './Toaster';
 import BackToTop from './BackToTop';
 import RequestProgressBar from './RequestProgressBar';
@@ -55,6 +55,13 @@ const Layout: React.FC = () => {
   const headerRef = useRef<HTMLElement>(null);
   const desktopPreferenceRef = useRef<HTMLDivElement>(null);
   const mobilePreferenceRef = useRef<HTMLDivElement>(null);
+  const desktopPreferenceTriggerRef = useRef<HTMLButtonElement>(null);
+  const mobilePreferenceTriggerRef = useRef<HTMLButtonElement>(null);
+  const lastPreferenceTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const desktopPreferencePanelId = useId();
+  const mobilePreferencePanelId = useId();
+  const desktopPreferenceTitleId = useId();
+  const mobilePreferenceTitleId = useId();
   const avatarUrl = normalizeAvatarUrl(user?.avatarUrl);
   const shouldShowAvatar = isHttpAvatarUrl(avatarUrl);
   const t = (key: Parameters<typeof translate>[1]) => translate(language, key);
@@ -107,7 +114,13 @@ const Layout: React.FC = () => {
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
-        setIsPreferenceOpen(false);
+        if (isPreferenceOpen) {
+          event.preventDefault();
+          setIsPreferenceOpen(false);
+          window.requestAnimationFrame(() => lastPreferenceTriggerRef.current?.focus());
+          return;
+        }
+
         setIsMobileMenuOpen(false);
       }
     };
@@ -134,16 +147,26 @@ const Layout: React.FC = () => {
     navigate('/');
   };
 
-  const desktopLinkClass = 'hover:text-ink transition-colors';
-  const mobileLinkClass = 'block border-b border-mountain-grey border-opacity-50 px-1 py-3 text-left transition-colors hover:text-ochre';
+  const desktopLinkClass = ({ isActive }: { isActive: boolean }) => [
+    'transition-colors',
+    isActive ? 'font-bold text-ochre' : 'hover:text-ink',
+  ].join(' ');
+  const mobileLinkClass = ({ isActive }: { isActive: boolean }) => [
+    'block border-b border-mountain-grey border-opacity-50 px-1 py-3 text-left transition-colors',
+    isActive ? 'font-bold text-ochre' : 'hover:text-ochre',
+  ].join(' ');
   const mobileActionClass = 'w-full border-b border-mountain-grey border-opacity-50 px-1 py-3 text-left transition-colors hover:text-ochre';
   const closeMobileMenu = () => setIsMobileMenuOpen(false);
 
-  const renderPreferencePanel = (variant: 'desktop' | 'mobile') => (
+  const renderPreferencePanel = (
+    variant: 'desktop' | 'mobile',
+    panelId: string,
+    titleId: string,
+  ) => (
     <motion.div
+      id={panelId}
       role="dialog"
-      aria-modal="true"
-      aria-label={t('preferences.title')}
+      aria-labelledby={titleId}
       initial={{ opacity: 0, y: -6 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.2, ease: 'easeOut' }}
@@ -154,7 +177,7 @@ const Layout: React.FC = () => {
       }`}
     >
       <div className="border-b border-mountain-grey border-opacity-60 pb-3">
-        <p className="text-sm font-bold tracking-widest text-ink">{t('preferences.title')}</p>
+        <p id={titleId} className="text-sm font-bold tracking-widest text-ink">{t('preferences.title')}</p>
         <p className="mt-2 text-xs leading-relaxed tracking-wide text-ink-light opacity-80">
           {t('preferences.subtitle')}
         </p>
@@ -239,14 +262,27 @@ const Layout: React.FC = () => {
     </motion.div>
   );
 
-  const renderPreferenceControl = (ref: React.RefObject<HTMLDivElement>, variant: 'desktop' | 'mobile') => (
+  const renderPreferenceControl = (
+    ref: React.RefObject<HTMLDivElement>,
+    triggerRef: React.RefObject<HTMLButtonElement>,
+    variant: 'desktop' | 'mobile',
+    panelId: string,
+    titleId: string,
+  ) => (
     <div ref={ref} className="relative">
       <button
+        ref={triggerRef}
         type="button"
         aria-haspopup="dialog"
         aria-expanded={isPreferenceOpen}
+        aria-controls={panelId}
         aria-label={t('preferences.openLabel')}
-        onClick={() => setIsPreferenceOpen((open) => !open)}
+        onClick={() => setIsPreferenceOpen((open) => {
+          if (!open) {
+            lastPreferenceTriggerRef.current = triggerRef.current;
+          }
+          return !open;
+        })}
         className={`group flex items-center gap-2 border border-mountain-grey bg-[var(--paper-soft)] text-ink transition-colors hover:border-ochre hover:text-ochre ${
           variant === 'mobile' ? 'w-full justify-between px-3 py-3' : 'px-3 py-1.5'
         }`}
@@ -260,7 +296,7 @@ const Layout: React.FC = () => {
         </span>
       </button>
 
-      {isPreferenceOpen && renderPreferencePanel(variant)}
+      {isPreferenceOpen && renderPreferencePanel(variant, panelId, titleId)}
     </div>
   );
 
@@ -293,37 +329,43 @@ const Layout: React.FC = () => {
           </button>
 
           <nav className="hidden flex-wrap items-center justify-end gap-x-6 gap-y-4 text-sm tracking-widest text-ink-light md:flex">
-            <Link to="/" className={desktopLinkClass}>{t('nav.home')}</Link>
-            <PreloadLink to="/archive" preload={routeLoaders.archive} className={desktopLinkClass}>{t('nav.archive')}</PreloadLink>
-            <PreloadLink to="/search" preload={routeLoaders.search} className={desktopLinkClass}>{t('nav.search')}</PreloadLink>
+            <PreloadNavLink to="/" end className={desktopLinkClass}>{t('nav.home')}</PreloadNavLink>
+            <PreloadNavLink to="/archive" preload={routeLoaders.archive} className={desktopLinkClass}>{t('nav.archive')}</PreloadNavLink>
+            <PreloadNavLink to="/search" preload={routeLoaders.search} className={desktopLinkClass}>{t('nav.search')}</PreloadNavLink>
             {projectsPageEnabled && !projectsNavHidden && (
-              <PreloadLink to="/projects" preload={routeLoaders.projects} className={desktopLinkClass}>{t('nav.projects')}</PreloadLink>
+              <PreloadNavLink to="/projects" preload={routeLoaders.projects} className={desktopLinkClass}>{t('nav.projects')}</PreloadNavLink>
             )}
             {resumePageEnabled && !resumeNavHidden && (
-              <PreloadLink to="/resume" preload={routeLoaders.resume} className={desktopLinkClass}>{t('nav.resume')}</PreloadLink>
+              <PreloadNavLink to="/resume" preload={routeLoaders.resume} className={desktopLinkClass}>{t('nav.resume')}</PreloadNavLink>
             )}
             {user ? (
               <>
                 {(user.role === 'admin' || user.role === 'editor') && (
-                  <PreloadLink to="/admin" preload={[routeLoaders.adminLayout, routeLoaders.adminDashboard]} className="hover:text-ochre transition-colors font-bold">{t('nav.admin')}</PreloadLink>
+                  <PreloadNavLink to="/admin" preload={[routeLoaders.adminLayout, routeLoaders.adminDashboard]} className={({ isActive }) => `transition-colors font-bold ${isActive ? 'text-ochre' : 'hover:text-ochre'}`}>{t('nav.admin')}</PreloadNavLink>
                 )}
-                <PreloadLink to="/profile" preload={routeLoaders.profile} className="flex items-center space-x-2 hover:text-ink transition-colors group">
+                <PreloadNavLink to="/profile" preload={routeLoaders.profile} className={({ isActive }) => `group flex items-center space-x-2 transition-colors ${isActive ? 'font-bold text-ochre' : 'hover:text-ink'}`}>
                   {shouldShowAvatar && (
                     <img src={avatarUrl} alt="avatar" decoding="async" className="w-6 h-6 rounded-full border border-mountain-grey group-hover:border-ochre transition-colors object-cover" />
                   )}
                   <span>{user.nickname || user.account}</span>
-                </PreloadLink>
+                </PreloadNavLink>
                 <span className="opacity-50 select-none">|</span>
                 <button type="button" className="hover:text-ochre transition-colors" onClick={handleLogout}>
                   {t('nav.logout')}
                 </button>
               </>
             ) : (
-              <PreloadLink to="/login" preload={routeLoaders.login} className={desktopLinkClass}>{t('nav.login')}</PreloadLink>
+              <PreloadNavLink to="/login" preload={routeLoaders.login} className={desktopLinkClass}>{t('nav.login')}</PreloadNavLink>
             )}
 
             <span className="opacity-40 select-none">|</span>
-            {renderPreferenceControl(desktopPreferenceRef, 'desktop')}
+            {renderPreferenceControl(
+              desktopPreferenceRef,
+              desktopPreferenceTriggerRef,
+              'desktop',
+              desktopPreferencePanelId,
+              desktopPreferenceTitleId,
+            )}
           </nav>
         </div>
 
@@ -334,38 +376,44 @@ const Layout: React.FC = () => {
             transition={{ duration: 0.18, ease: 'easeOut' }}
             className="mt-4 border-t border-mountain-grey border-opacity-70 pt-2 text-sm tracking-widest text-ink-light md:hidden"
           >
-            <Link to="/" onClick={closeMobileMenu} className={mobileLinkClass}>{t('nav.home')}</Link>
-            <PreloadLink to="/archive" preload={routeLoaders.archive} onClick={closeMobileMenu} className={mobileLinkClass}>{t('nav.archive')}</PreloadLink>
-            <PreloadLink to="/search" preload={routeLoaders.search} onClick={closeMobileMenu} className={mobileLinkClass}>{t('nav.search')}</PreloadLink>
+            <PreloadNavLink to="/" end onClick={closeMobileMenu} className={mobileLinkClass}>{t('nav.home')}</PreloadNavLink>
+            <PreloadNavLink to="/archive" preload={routeLoaders.archive} onClick={closeMobileMenu} className={mobileLinkClass}>{t('nav.archive')}</PreloadNavLink>
+            <PreloadNavLink to="/search" preload={routeLoaders.search} onClick={closeMobileMenu} className={mobileLinkClass}>{t('nav.search')}</PreloadNavLink>
             {projectsPageEnabled && !projectsNavHidden && (
-              <PreloadLink to="/projects" preload={routeLoaders.projects} onClick={closeMobileMenu} className={mobileLinkClass}>{t('nav.projects')}</PreloadLink>
+              <PreloadNavLink to="/projects" preload={routeLoaders.projects} onClick={closeMobileMenu} className={mobileLinkClass}>{t('nav.projects')}</PreloadNavLink>
             )}
             {resumePageEnabled && !resumeNavHidden && (
-              <PreloadLink to="/resume" preload={routeLoaders.resume} onClick={closeMobileMenu} className={mobileLinkClass}>{t('nav.resume')}</PreloadLink>
+              <PreloadNavLink to="/resume" preload={routeLoaders.resume} onClick={closeMobileMenu} className={mobileLinkClass}>{t('nav.resume')}</PreloadNavLink>
             )}
             {user ? (
               <>
                 {(user.role === 'admin' || user.role === 'editor') && (
-                  <PreloadLink to="/admin" preload={[routeLoaders.adminLayout, routeLoaders.adminDashboard]} onClick={closeMobileMenu} className={`${mobileLinkClass} font-bold text-ochre`}>
+                  <PreloadNavLink to="/admin" preload={[routeLoaders.adminLayout, routeLoaders.adminDashboard]} onClick={closeMobileMenu} className={({ isActive }) => `${mobileLinkClass({ isActive })} font-bold`}>
                     {t('nav.admin')}
-                  </PreloadLink>
+                  </PreloadNavLink>
                 )}
-                <PreloadLink to="/profile" preload={routeLoaders.profile} onClick={closeMobileMenu} className={`${mobileLinkClass} flex items-center gap-3`}>
+                <PreloadNavLink to="/profile" preload={routeLoaders.profile} onClick={closeMobileMenu} className={({ isActive }) => `${mobileLinkClass({ isActive })} flex items-center gap-3`}>
                   {shouldShowAvatar && (
                     <img src={avatarUrl} alt="avatar" loading="lazy" decoding="async" className="h-7 w-7 rounded-full border border-mountain-grey object-cover" />
                   )}
                   <span>{user.nickname || user.account}</span>
-                </PreloadLink>
+                </PreloadNavLink>
                 <button type="button" className={mobileActionClass} onClick={handleLogout}>
                   {t('nav.logout')}
                 </button>
               </>
             ) : (
-              <PreloadLink to="/login" preload={routeLoaders.login} onClick={closeMobileMenu} className={mobileLinkClass}>{t('nav.login')}</PreloadLink>
+              <PreloadNavLink to="/login" preload={routeLoaders.login} onClick={closeMobileMenu} className={mobileLinkClass}>{t('nav.login')}</PreloadNavLink>
             )}
 
             <div className="pt-3">
-              {renderPreferenceControl(mobilePreferenceRef, 'mobile')}
+              {renderPreferenceControl(
+                mobilePreferenceRef,
+                mobilePreferenceTriggerRef,
+                'mobile',
+                mobilePreferencePanelId,
+                mobilePreferenceTitleId,
+              )}
             </div>
           </motion.nav>
         )}
