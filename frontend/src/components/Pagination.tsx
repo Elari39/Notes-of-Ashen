@@ -55,7 +55,7 @@ const Pagination: React.FC<PaginationProps> = ({
     setJumpValue('');
   };
 
-  const itemClass = 'min-w-[2rem] px-2 py-1 text-sm text-ink-light tracking-widest hover:text-ochre transition-colors duration-fast focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ochre disabled:opacity-30 disabled:hover:text-ink-light';
+  const itemClass = 'min-h-11 min-w-11 rounded-md border border-hairline px-3 py-2 text-sm text-muted hover:border-ink hover:text-ink transition-colors duration-fast focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ochre disabled:opacity-30 disabled:hover:text-muted';
 
   return (
     <div className="flex flex-wrap justify-center items-center gap-x-4 gap-y-2 mt-16 pt-8 border-t border-mountain-grey border-opacity-50">
@@ -81,10 +81,10 @@ const Pagination: React.FC<PaginationProps> = ({
                   onClick={() => onPageChange(it)}
                   aria-current={it === currentPage ? 'page' : undefined}
                   className={[
-                    'min-w-[2rem] px-2 py-1 text-sm tracking-widest transition-colors duration-fast focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ochre',
+                    'min-h-11 min-w-11 rounded-md px-2 py-2 text-sm transition-colors duration-fast focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ochre',
                     it === currentPage
-                      ? 'border-b border-ochre text-ochre'
-                      : 'text-ink-light hover:text-ochre',
+                      ? 'bg-ochre text-on-accent'
+                      : 'text-muted hover:bg-surface-soft hover:text-ink',
                   ].join(' ')}
                 >
                   {it}
@@ -94,7 +94,7 @@ const Pagination: React.FC<PaginationProps> = ({
           )}
         </ul>
       ) : (
-        <span className="text-sm text-ink font-serif" aria-current="page">
+        <span className="font-display text-xl text-ink" aria-current="page">
           {formatText(t('pagination.page'), { current: currentPage, total: totalPages })}
         </span>
       )}

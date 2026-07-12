@@ -29,29 +29,29 @@ export type ButtonProps = ButtonAsButton | ButtonAsAnchor;
 const variantClass: Record<Variant, string> = {
   // 实心主按钮：ochre 底 + paper 字
   primary:
-    'bg-ochre text-paper border border-ochre hover:brightness-95 active:brightness-90 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:brightness-100',
+    'bg-ochre text-on-accent border border-ochre hover:brightness-95 active:brightness-90 disabled:bg-surface-strong disabled:text-muted disabled:border-surface-strong disabled:cursor-not-allowed disabled:hover:brightness-100',
   // 边框次按钮：项目最常见的形态
   ghost:
-    'bg-transparent text-ink border border-mountain-grey hover:border-ochre hover:text-ochre active:bg-[var(--paper-soft)] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:border-mountain-grey disabled:hover:text-ink',
+    'bg-paper text-ink border border-hairline hover:border-ink hover:bg-surface-soft active:bg-surface-card disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:border-hairline disabled:hover:bg-paper',
   // 无边框淡按钮：辅助 / 工具栏
   subtle:
-    'bg-transparent text-ink-light border border-transparent hover:bg-[var(--paper-soft)] hover:text-ink active:bg-[var(--paper-muted)] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent',
+    'bg-transparent text-muted border border-transparent hover:bg-surface-soft hover:text-ink active:bg-surface-card disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent',
   // 危险操作：ghost 形态 + danger 文字 / hover 反白
   danger:
-    'bg-transparent text-ember border border-[var(--ember-soft)] hover:bg-ember hover:text-paper hover:border-ember active:brightness-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-ember',
+    'bg-transparent text-ember border border-[var(--ember-soft)] hover:bg-ember hover:text-white hover:border-ember active:brightness-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-ember',
   // 纯文字按钮，配合 article a 链接样式
   link:
     'bg-transparent text-ochre border-0 underline decoration-[var(--code-border)] underline-offset-4 hover:decoration-ochre disabled:opacity-50 disabled:cursor-not-allowed',
 };
 
 const sizeClass: Record<Size, string> = {
-  sm: 'min-h-[2rem] px-3 py-1 text-xs tracking-widest',
-  md: 'min-h-[2.5rem] px-4 py-1.5 text-sm tracking-widest',
-  lg: 'min-h-[3rem] px-6 py-2 text-base tracking-widest',
+  sm: 'min-h-[2.75rem] px-3 py-2 text-xs font-medium',
+  md: 'min-h-[2.75rem] px-5 py-2.5 text-sm font-medium',
+  lg: 'min-h-[3.25rem] px-6 py-3 text-base font-medium',
 };
 
 const baseClass =
-  'inline-flex items-center justify-center gap-2 transition-colors duration-fast ease-paper focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ochre';
+  'inline-flex rounded-md items-center justify-center gap-2 transition-[color,background-color,border-color,filter] duration-fast ease-paper focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ochre';
 
 const Spinner: React.FC<{ size: Size }> = ({ size }) => {
   const dim = size === 'sm' ? 12 : size === 'lg' ? 16 : 14;

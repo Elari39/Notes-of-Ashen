@@ -66,8 +66,9 @@ const AdminDashboard: React.FC = () => {
 
   return (
     <div>
-      <div className="mb-8 border-b border-mountain-grey pb-4">
-        <h3 className="text-2xl font-bold tracking-widest text-ink">{t('dashboard.title')}</h3>
+      <div className="mb-8 border-b border-hairline pb-5">
+        <p className="editorial-kicker mb-3">{t('dashboard.kicker')}</p>
+        <h3 className="text-4xl text-ink">{t('dashboard.title')}</h3>
       </div>
 
       <InlineNotice message={error} className="mb-6" />
@@ -75,11 +76,11 @@ const AdminDashboard: React.FC = () => {
 
       {stats && (
         <div className="space-y-10">
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
             {statItems.map((key) => (
-              <div key={key} className="border border-mountain-grey bg-[var(--paper-soft)] p-4">
-                <p className="text-xs tracking-widest text-ink-light">{t(`dashboard.${key}`)}</p>
-                <p className="mt-3 text-3xl font-bold text-ink">{stats[key]}</p>
+              <div key={key} className="rounded-lg bg-paper p-4 shadow-xs">
+                <p className="text-xs font-medium text-muted">{t(`dashboard.${key}`)}</p>
+                <p className="mt-3 font-display text-4xl text-ink">{stats[key]}</p>
               </div>
             ))}
           </div>
@@ -236,11 +237,11 @@ const TrafficOverview: React.FC<{
           <p className="mt-2 text-xs text-ink-light">{t('dashboard.trafficSubtitle')}</p>
         </div>
         <div className="grid grid-cols-2 gap-2 text-sm">
-          <div className="border border-mountain-grey px-3 py-2">
+          <div className="rounded-md bg-paper px-4 py-3">
             <span className="block text-xs text-ink-light">{t('dashboard.todayPv')}</span>
             <strong className="mt-1 block text-xl text-ink">{todayPv}</strong>
           </div>
-          <div className="border border-mountain-grey px-3 py-2">
+          <div className="rounded-md bg-paper px-4 py-3">
             <span className="block text-xs text-ink-light">{t('dashboard.todayUv')}</span>
             <strong className="mt-1 block text-xl text-ink">{todayUv}</strong>
           </div>
@@ -248,9 +249,9 @@ const TrafficOverview: React.FC<{
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(16rem,1fr)]">
-        <div ref={chartRef} className="h-72 border border-mountain-grey bg-[var(--paper-soft)] p-3" />
+        <div ref={chartRef} className="h-72 rounded-lg bg-paper p-3 shadow-xs" />
 
-        <div className="border border-mountain-grey bg-[var(--paper-soft)] p-4">
+        <div className="rounded-lg bg-paper p-5 shadow-xs">
           <h5 className="mb-4 text-xs font-bold tracking-widest text-ink">{t('dashboard.referers')}</h5>
           {referers.length === 0 ? (
             <p className="text-sm text-ink-light">{t('dashboard.empty')}</p>

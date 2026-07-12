@@ -239,15 +239,14 @@ const ArticleDetail: React.FC = () => {
         aria-hidden="true"
       />
 
-      <div className="mx-auto grid w-full max-w-[86rem] gap-8 lg:grid-cols-[16rem_minmax(0,46rem)_16rem] lg:items-start lg:justify-center">
-        <div className="hidden lg:block" aria-hidden="true" />
+      <div className="editorial-container grid w-full gap-10 lg:grid-cols-[minmax(0,48rem)_16rem] lg:items-start lg:justify-center xl:gap-16">
 
         <article className="min-w-0 w-full">
           {loading && <PagePendingState variant="inline" label={t('common.loadingArticle')} />}
           <InlineNotice message={error} className="mb-6" />
-          <header className="mb-16 text-center">
+          <header className="mb-14">
             {coverUrl && (
-              <div className="mb-12 w-full h-64 md:h-80 overflow-hidden relative">
+              <div className={`relative mb-12 w-full overflow-hidden rounded-xl ${isCoverHidden ? 'h-28 md:h-32' : 'h-72 md:h-[28rem]'}`}>
                 {isCoverHidden ? (
                   <div className="flex h-full items-center justify-center border border-mountain-grey bg-[var(--paper-soft)] text-xs tracking-widest text-ink-light opacity-70">
                     {t('article.coverHidden')}
@@ -268,7 +267,7 @@ const ArticleDetail: React.FC = () => {
                         decoding="async"
                         onError={() => setCoverError(true)}
                         onLoad={() => setCoverError(false)}
-                        className="w-full h-full object-cover grayscale hover:grayscale-0 transition-[filter] duration-slow"
+                        className="h-full w-full object-cover opacity-95 transition-[opacity,transform] duration-slow hover:scale-[1.01] hover:opacity-100"
                       />
                     </button>
                     <div className="absolute inset-0 bg-[var(--cover-wash)] pointer-events-none" />
@@ -277,20 +276,21 @@ const ArticleDetail: React.FC = () => {
               </div>
             )}
 
-            <h1 className="text-4xl md:text-5xl font-bold text-ink mb-8 leading-tight">
+            <p className="editorial-kicker mb-5">{t('articleDetail.kicker')}</p>
+            <h1 className="mb-7 font-display text-5xl leading-[1.02] tracking-[-0.035em] text-ink md:text-6xl">
               {article.title}
             </h1>
 
-            <div className="flex flex-col items-center justify-center space-y-4 text-sm text-ink-light tracking-widest opacity-80">
-              <div className="flex flex-wrap justify-center gap-x-6 gap-y-2">
+            <div className="flex flex-col space-y-4 text-sm text-muted">
+              <div className="flex flex-wrap gap-x-6 gap-y-2">
                 <span>{new Date(article.createdAt).toLocaleDateString(getDateLocale(language), { year: 'numeric', month: 'long', day: 'numeric' })}</span>
                 <span>{t('common.views')} {article.viewCount}</span>
                 <span>{t('articleDetail.likes')} {likeCount}</span>
               </div>
 
-              <div className="flex flex-wrap items-center justify-center gap-4 text-xs">
+              <div className="flex flex-wrap items-center gap-3 text-xs">
                 {article.category && (
-                  <Link to={`/?categoryId=${article.category.id}`} className="px-2 py-1 border border-mountain-grey text-ochre hover:bg-ochre hover:text-paper transition-colors">
+                  <Link to={`/?categoryId=${article.category.id}`} className="rounded-full bg-surface-card px-3 py-1.5 font-medium text-ink transition-colors hover:bg-surface-strong">
                     {article.category.name}
                   </Link>
                 )}
@@ -320,19 +320,19 @@ const ArticleDetail: React.FC = () => {
 
           <MarkdownRenderer content={article.content} headings={headings} className="prose-lg mx-auto" />
 
-          <div className="mt-16 border-t border-mountain-grey border-opacity-50 pt-8 text-center">
+          <div className="mt-16 rounded-xl bg-surface-soft px-6 py-8 text-center">
             <button
               type="button"
               onClick={handleLike}
               disabled={hasLiked || isLiking}
-              className={`group inline-flex items-center gap-3 border px-5 py-2 text-sm tracking-widest transition-colors ${
+              className={`group inline-flex min-h-11 items-center gap-3 rounded-md border px-5 py-2 text-sm font-medium transition-colors ${
                 hasLiked
-                  ? 'border-ochre bg-ochre text-paper'
-                  : 'border-mountain-grey text-ink hover:border-ochre hover:text-ochre'
+                  ? 'border-ochre bg-ochre text-on-accent'
+                  : 'border-hairline bg-paper text-ink hover:border-ink'
               } disabled:cursor-not-allowed disabled:opacity-80`}
               aria-pressed={hasLiked}
             >
-              <span className={`h-2.5 w-2.5 rounded-full ${hasLiked ? 'bg-paper' : 'bg-ochre group-hover:scale-125'} transition-transform`} />
+              <span className={`h-2.5 w-2.5 rounded-full ${hasLiked ? 'bg-[var(--on-accent)]' : 'bg-ochre group-hover:scale-125'} transition-transform`} />
               <span>{hasLiked ? t('articleDetail.liked') : (isLiking ? t('articleDetail.liking') : t('articleDetail.like'))}</span>
               <span>{likeCount}</span>
             </button>
@@ -340,7 +340,7 @@ const ArticleDetail: React.FC = () => {
           </div>
 
           <div className="mt-10 text-center">
-            <Link to="/" className="inline-block px-6 py-2 border border-ink text-ink hover:bg-ink hover:text-paper transition-colors duration-300 tracking-widest">
+            <Link to="/" className="inline-flex min-h-11 items-center rounded-md border border-hairline bg-paper px-6 py-2 text-sm font-medium text-ink transition-colors hover:border-ink">
               {t('common.backHome')}
             </Link>
           </div>
@@ -356,7 +356,7 @@ const ArticleDetail: React.FC = () => {
             collapsed={tocCollapsed}
             onToggle={() => setTocCollapsed((value) => !value)}
             language={language}
-            className="sticky top-8 hidden lg:block"
+            className="sticky top-24 hidden lg:block"
           />
         )}
       </div>
@@ -379,13 +379,13 @@ const ArticleTOC: React.FC<{
   const t = (key: Parameters<typeof translate>[1]) => translate(language, key);
 
   return (
-    <aside className={`border border-mountain-grey bg-[var(--paper-soft)] p-4 ${className}`.trim()} aria-label={t('articleToc.title')}>
+    <aside className={`rounded-lg bg-surface-soft p-5 ${className}`.trim()} aria-label={t('articleToc.title')}>
       <div className="mb-3 flex items-center justify-between gap-3">
-        <h2 className="text-xs font-bold tracking-[0.2em] text-ink">{t('articleToc.title')}</h2>
+        <h2 className="font-display text-xl text-ink">{t('articleToc.title')}</h2>
         <button
           type="button"
           onClick={onToggle}
-          className="border border-mountain-grey px-2 py-1 text-xs text-ink-light transition-colors hover:border-ochre hover:text-ochre"
+          className="inline-flex min-h-11 items-center rounded-md border border-hairline bg-paper px-3 py-2 text-xs text-muted transition-colors hover:border-ink hover:text-ink"
           aria-expanded={!collapsed}
         >
           {collapsed ? t('articleToc.expand') : t('articleToc.collapse')}
@@ -401,8 +401,8 @@ const ArticleTOC: React.FC<{
               onClick={() => document.getElementById(heading.id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
               className={`block w-full truncate border-l px-3 py-1.5 text-left transition-colors ${
                 activeHeadingId === heading.id
-                  ? 'border-ochre text-ochre'
-                  : 'border-mountain-grey text-ink-light hover:border-ochre hover:text-ink'
+                  ? 'border-ochre text-ink'
+                  : 'border-hairline text-muted hover:border-ochre hover:text-ink'
               }`}
               style={{ paddingLeft: `${Math.max(0, heading.depth - 1) * 0.65 + 0.75}rem` }}
               title={heading.title}
@@ -430,7 +430,7 @@ const ArticleContextBlock: React.FC<{ context: ArticleContext | null; error: str
   }
 
   return (
-    <section className="mt-14 border-t border-mountain-grey border-opacity-50 pt-10">
+    <section className="mt-16 border-t border-hairline pt-12">
       {hasNavigation && (
         <div className="grid gap-4 md:grid-cols-2">
           <ArticleNavLink label={t('articleDetail.previous')} article={context.previous} align="left" />
@@ -440,16 +440,16 @@ const ArticleContextBlock: React.FC<{ context: ArticleContext | null; error: str
 
       {hasRelated && (
         <div className="mt-12">
-          <h2 className="mb-5 text-sm font-bold tracking-widest text-ink">{t('articleDetail.related')}</h2>
+          <h2 className="mb-5 font-display text-3xl text-ink">{t('articleDetail.related')}</h2>
           <div className="grid gap-4 md:grid-cols-3">
             {context.related.map((item) => (
               <PreloadLink
                 key={item.id}
                 to={`/article/${item.id}`}
                 preload={routeLoaders.articleDetail}
-                className="border border-mountain-grey bg-[var(--paper-soft)] p-4 transition-colors hover:border-ochre"
+                className="rounded-lg bg-surface-card p-5 transition-colors hover:bg-surface-strong"
               >
-                <h3 className="line-clamp-2 font-bold leading-relaxed text-ink">{item.title}</h3>
+                <h3 className="line-clamp-2 font-display text-2xl leading-tight text-ink">{item.title}</h3>
                 <p className="mt-3 line-clamp-3 text-sm leading-relaxed text-ink-light">{item.summary}</p>
               </PreloadLink>
             ))}
@@ -473,10 +473,10 @@ const ArticleNavLink: React.FC<{
     <PreloadLink
       to={`/article/${article.id}`}
       preload={routeLoaders.articleDetail}
-      className={`block border border-mountain-grey bg-[var(--paper-soft)] p-4 transition-colors hover:border-ochre ${align === 'right' ? 'md:text-right' : ''}`}
+      className={`block rounded-lg bg-surface-card p-5 transition-colors hover:bg-surface-strong ${align === 'right' ? 'md:text-right' : ''}`}
     >
       <span className="text-xs tracking-widest text-ink-light">{label}</span>
-      <h2 className="mt-2 line-clamp-2 font-bold leading-relaxed text-ink">{article.title}</h2>
+      <h2 className="mt-2 line-clamp-2 font-display text-2xl leading-tight text-ink">{article.title}</h2>
     </PreloadLink>
   );
 };

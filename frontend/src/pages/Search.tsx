@@ -135,27 +135,27 @@ const Search: React.FC = () => {
   };
 
   return (
-    <div className="mx-auto mt-4 w-full max-w-5xl">
-      <section className="relative overflow-hidden border-y border-mountain-grey border-opacity-70 py-12 md:py-16">
+    <div className="editorial-container w-full">
+      <section className="relative overflow-hidden rounded-xl bg-surface-soft px-6 py-12 md:px-12 md:py-16">
         <div className="absolute left-0 top-8 h-24 w-px bg-ochre opacity-60"></div>
         <div className="absolute bottom-8 right-0 h-24 w-px bg-ochre opacity-40"></div>
 
         <div className="mx-auto max-w-3xl text-center">
           <p className="text-xs tracking-[0.32em] text-ochre">{t('search.kicker')}</p>
-          <h1 className="mt-5 text-4xl font-bold tracking-widest text-ink md:text-5xl">
+          <h1 className="mt-5 editorial-page-title">
             {t('search.title')}
           </h1>
           <p className="mx-auto mt-5 max-w-2xl text-sm leading-loose tracking-wide text-ink-light">
             {t('search.subtitle')}
           </p>
 
-          <form onSubmit={handleSubmit} className="mx-auto mt-10 flex max-w-2xl flex-col gap-3 border border-mountain-grey bg-[var(--paper-muted)] p-3 md:flex-row md:items-center">
+          <form onSubmit={handleSubmit} className="mx-auto mt-10 flex max-w-2xl flex-col gap-3 rounded-lg border border-hairline bg-paper p-3 shadow-xs md:flex-row md:items-center">
             <TextField
               value={keyword}
               onChange={(event) => setKeyword(event.target.value)}
               aria-label={t('search.inputLabel')}
               placeholder={t('search.placeholder')}
-              fieldClassName="flex-1 border-b-0 px-1"
+              fieldClassName="flex-1 border-0 px-1 focus-within:ring-0"
               className="text-lg min-h-[3rem]"
             />
             <div className="flex gap-3">
@@ -172,7 +172,7 @@ const Search: React.FC = () => {
         </div>
       </section>
 
-      <section className="mt-12">
+      <section className="mt-12 md:mt-16">
         {!hasSearchScope ? (
           <EmptyState
             illustration="leaf"

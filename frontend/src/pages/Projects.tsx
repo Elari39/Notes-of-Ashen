@@ -58,12 +58,12 @@ const Projects: React.FC = () => {
   };
 
   return (
-    <div className="mx-auto mt-4 w-full max-w-6xl space-y-8 md:mt-8">
-      <section className="border-b border-mountain-grey pb-6">
+    <div className="editorial-container w-full space-y-10">
+      <section className="max-w-3xl py-6 md:py-10">
         <p className="mb-3 text-xs uppercase tracking-[0.28em] text-ochre">
           {t('projects.kicker')}
         </p>
-        <h1 className="text-3xl font-bold tracking-widest text-ink md:text-4xl">
+        <h1 className="editorial-page-title">
           {page?.title || t('projects.pageTitleFallback')}
         </h1>
         {page?.subtitle && (
@@ -76,7 +76,7 @@ const Projects: React.FC = () => {
       {isLoading && !page && (
         <section className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3" aria-hidden="true">
           {Array.from({ length: 6 }).map((_, idx) => (
-            <div key={idx} className="flex min-h-full flex-col overflow-hidden border border-mountain-grey bg-[var(--paper-soft)]">
+            <div key={idx} className="flex min-h-full flex-col overflow-hidden rounded-lg bg-surface-card">
               <Skeleton className="aspect-[4/3] w-full border-0 border-b border-mountain-grey" />
               <div className="flex flex-1 flex-col gap-4 p-5">
                 <Skeleton className="h-6 w-3/4" />
@@ -127,14 +127,14 @@ const ProjectCard: React.FC<ProjectCardProps> = React.memo(({ project, onSelect 
 
   return (
     <article
-      className="group flex min-h-full flex-col overflow-hidden border border-mountain-grey bg-[var(--paper-soft)] transition-colors hover:border-ochre"
+      className="group flex min-h-full flex-col overflow-hidden rounded-lg bg-surface-card transition-colors hover:bg-surface-strong"
     >
-      <div className="relative aspect-[4/3] overflow-hidden border-b border-mountain-grey bg-[var(--paper)]">
+      <div className="relative aspect-[4/3] overflow-hidden bg-paper">
         {project.coverUrl ? (
           <img
             src={project.coverUrl}
             alt={project.title}
-            className="h-full w-full object-cover grayscale transition-[transform,filter] duration-slow ease-paper group-hover:scale-[1.03] group-hover:grayscale-0"
+            className="h-full w-full object-cover opacity-90 transition-[transform,opacity] duration-slow ease-paper group-hover:scale-[1.025] group-hover:opacity-100"
             loading="lazy"
           />
         ) : (
@@ -152,7 +152,7 @@ const ProjectCard: React.FC<ProjectCardProps> = React.memo(({ project, onSelect 
         <div className="flex flex-1 flex-col gap-3">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div className="flex flex-wrap items-center gap-2">
-              <h2 className="text-xl font-bold tracking-widest text-ink">{project.title}</h2>
+              <h2 className="font-display text-3xl leading-tight text-ink">{project.title}</h2>
             </div>
             {(project.demoUrl || project.repoUrl) && (
               <div className="flex shrink-0 flex-wrap gap-3 text-sm tracking-widest">

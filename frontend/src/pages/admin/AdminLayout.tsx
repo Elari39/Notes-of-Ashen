@@ -2,7 +2,6 @@ import React from 'react';
 import { Link, useLocation, useOutlet } from 'react-router-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { PreloadNavLink } from '../../components/PreloadLink';
-import Tag from '../../components/ui/Tag';
 import { translate, type TranslationKey } from '../../i18n';
 import { usePreferenceStore } from '../../store/preferences';
 import { useAuthStore } from '../../store/auth';
@@ -12,10 +11,10 @@ import { routeLoaders } from '../../routes/lazyRoutes';
 
 const navLinkClass = ({ isActive }: { isActive: boolean }) =>
   [
-    'relative block py-1 pl-3 transition-colors duration-fast md:py-2',
+    'relative flex min-h-11 items-center rounded-md px-3 py-2 text-sm font-medium transition-colors duration-fast',
     isActive
-      ? 'text-ochre font-bold md:before:absolute md:before:left-0 md:before:top-1/2 md:before:h-4 md:before:w-[2px] md:before:-translate-y-1/2 md:before:bg-ochre'
-      : 'text-ink-light hover:text-ochre',
+      ? 'bg-ochre text-on-accent'
+      : 'text-on-dark-soft hover:bg-surface-dark-soft hover:text-on-dark',
   ].join(' ');
 
 /** 路径段 → i18n key 映射（保留未知段为原值显示） */
@@ -74,13 +73,13 @@ const AdminLayout: React.FC = () => {
     }, []);
 
   return (
-    <div className="flex flex-col gap-6 md:flex-row md:gap-8 max-w-7xl mx-auto w-full">
-      <aside className="w-full shrink-0 border-b border-mountain-grey pb-4 md:w-48 md:border-b-0 md:border-r md:min-h-[60vh] md:pb-0 md:pr-6">
+    <div className="editorial-container flex w-full flex-col gap-5 lg:flex-row lg:gap-6">
+      <aside className="w-full shrink-0 rounded-xl bg-surface-dark p-4 text-on-dark lg:sticky lg:top-24 lg:min-h-[calc(100vh-8rem)] lg:w-56 lg:self-start lg:p-5">
         <div className="mb-4 flex items-center gap-3 md:mb-8">
-          <h2 className="text-xl font-bold text-ink tracking-widest">{t('admin.title')}</h2>
-          <Tag tone="ochre" size="sm">{t('admin.title')}</Tag>
+          <span aria-hidden="true" className="text-xl text-ochre">✣</span>
+          <h2 className="font-display text-2xl text-on-dark">{t('admin.title')}</h2>
         </div>
-        <nav className="flex gap-4 overflow-x-auto whitespace-nowrap pb-1 text-sm tracking-widest md:flex-col md:gap-0 md:space-y-2 md:overflow-visible md:whitespace-normal md:pb-0">
+        <nav className="flex gap-2 overflow-x-auto whitespace-nowrap pb-1 lg:flex-col lg:overflow-visible lg:whitespace-normal lg:pb-0">
           <PreloadNavLink to="/admin/dashboard" preload={routeLoaders.adminDashboard} className={navLinkClass}>
             {t('admin.dashboard')}
           </PreloadNavLink>
@@ -93,7 +92,7 @@ const AdminLayout: React.FC = () => {
           <PreloadNavLink to="/admin/tags" preload={routeLoaders.adminTags} className={navLinkClass}>
             {t('admin.tags')}
           </PreloadNavLink>
-          <div className="hidden h-4 md:block"></div>
+          <div className="hidden h-3 lg:block"></div>
           {user?.role === 'admin' && (
             <>
               <PreloadNavLink to="/admin/users" preload={routeLoaders.adminUsers} className={navLinkClass}>
@@ -123,9 +122,9 @@ const AdminLayout: React.FC = () => {
         </nav>
       </aside>
 
-      <div className="flex-grow min-w-0">
+      <div className="admin-workspace min-w-0 flex-grow rounded-xl bg-surface-soft p-4 sm:p-6 lg:p-8">
         {breadcrumbSegments.length > 0 && (
-          <nav aria-label={t('common.breadcrumb')} className="mb-6 hidden flex-wrap items-center gap-1.5 text-xs tracking-widest text-ink-light md:flex">
+          <nav aria-label={t('common.breadcrumb')} className="mb-7 hidden flex-wrap items-center gap-1.5 text-xs text-muted md:flex">
             {breadcrumbSegments.map((seg, idx) => {
               const isLast = idx === breadcrumbSegments.length - 1;
               return (

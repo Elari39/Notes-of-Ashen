@@ -9,7 +9,7 @@ import Button from '../components/ui/Button';
 import Tag from '../components/ui/Tag';
 import { PreloadLink } from '../components/PreloadLink';
 import { getErrorMessage } from '../utils/error';
-import { getDateLocale, translate } from '../i18n';
+import { formatText, getDateLocale, translate } from '../i18n';
 import { usePreferenceStore } from '../store/preferences';
 import { getArticles } from '../api/article';
 import { Article } from '../types';
@@ -20,6 +20,8 @@ import { routeLoaders } from '../routes/lazyRoutes';
 const Home: React.FC = () => {
   const language = usePreferenceStore((state) => state.language);
   const homeArticleLayout = useSiteSettingsStore((state) => state.homeArticleLayout);
+  const siteTitle = useSiteSettingsStore((state) => state.siteTitle);
+  const siteDescription = useSiteSettingsStore((state) => state.siteDescription);
   const [searchParams, setSearchParams] = useSearchParams();
   const [articles, setArticles] = useState<Article[]>([]);
   const [loading, setLoading] = useState(true);
@@ -33,6 +35,7 @@ const Home: React.FC = () => {
   const categoryId = parsePositiveInt(searchParams.get('categoryId'), 0);
   const tagId = parsePositiveInt(searchParams.get('tagId'), 0);
   const hasActiveFilters = Boolean(categoryId || tagId);
+  const latestArticle = articles[0];
 
   useEffect(() => {
     const controller = new AbortController();
@@ -106,7 +109,62 @@ const Home: React.FC = () => {
   };
 
   return (
-    <div className="mx-auto mt-4 w-full max-w-4xl space-y-14 md:mt-8 md:space-y-20">
+    <div className="editorial-container w-full space-y-16 md:space-y-24">
+      {!hasActiveFilters && (
+        <section className="grid items-stretch gap-6 py-4 lg:grid-cols-[1.12fr_0.88fr] lg:gap-8 lg:py-8">
+          <div className="flex flex-col justify-center py-8 lg:py-14">
+            <p className="editorial-kicker">{t('home.heroKicker')}</p>
+            <h1 className="mt-6 max-w-4xl font-display text-5xl leading-[0.98] tracking-[-0.035em] text-ink sm:text-6xl lg:text-7xl xl:text-[5.5rem]">
+              {siteTitle}
+            </h1>
+            <p className="mt-7 max-w-2xl text-base leading-8 text-body md:text-lg">
+              {siteDescription}
+            </p>
+            <div className="mt-9 flex flex-wrap gap-3">
+              <a href="#latest-notes" className="inline-flex min-h-11 items-center rounded-md bg-ochre px-5 py-2.5 text-sm font-medium text-on-accent transition-[filter] hover:brightness-95">
+                {t('home.heroBrowse')} <span aria-hidden="true" className="ml-2">↓</span>
+              </a>
+              <Link to="/search" className="inline-flex min-h-11 items-center rounded-md border border-hairline bg-paper px-5 py-2.5 text-sm font-medium text-ink transition-colors hover:border-ink">
+                {t('nav.search')}
+              </Link>
+            </div>
+          </div>
+
+          <div className="editorial-dark-card relative min-h-[22rem] overflow-hidden lg:min-h-[30rem]">
+            <div aria-hidden="true" className="absolute -right-16 -top-16 h-52 w-52 rounded-full border border-white/10"></div>
+            <div aria-hidden="true" className="absolute -right-5 top-8 h-28 w-28 rounded-full bg-ochre opacity-90"></div>
+            <div className="relative flex h-full flex-col justify-between gap-12">
+              <div className="flex items-center justify-between gap-4 text-xs font-medium tracking-[0.18em] text-on-dark-soft">
+                <span>{t('home.latestLabel')}</span>
+                <span>{formatText(t('home.articleCount'), { total })}</span>
+              </div>
+              {latestArticle ? (
+                <PreloadLink to={`/article/${latestArticle.id}`} preload={routeLoaders.articleDetail} className="group block">
+                  <p className="text-xs text-on-dark-soft">{new Date(latestArticle.createdAt).toLocaleDateString(getDateLocale(language))}</p>
+                  <h2 className="mt-4 max-w-xl font-display text-4xl leading-[1.05] text-on-dark transition-colors group-hover:text-ochre md:text-5xl">
+                    {latestArticle.title}
+                  </h2>
+                  <span className="mt-8 inline-flex items-center text-sm font-medium text-on-dark">{t('home.heroBrowse')} <span className="ml-2">→</span></span>
+                </PreloadLink>
+              ) : (
+                <div>
+                  <p className="font-display text-4xl leading-tight text-on-dark">{t('common.emptyArticles')}</p>
+                  <p className="mt-4 text-sm text-on-dark-soft">{siteDescription}</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </section>
+      )}
+
+      <section id="latest-notes" className="scroll-mt-24 space-y-10">
+        <div className="flex items-end justify-between gap-6 border-b border-hairline pb-5">
+          <div>
+            <p className="editorial-kicker">{t('home.journalKicker')}</p>
+            <h2 className="mt-3 editorial-section-title">{t('home.latestTitle')}</h2>
+          </div>
+          <p className="hidden text-sm text-muted sm:block">{formatText(t('home.articleCount'), { total })}</p>
+        </div>
       {hasActiveFilters && (
         <div className="flex flex-col gap-3 border-b border-mountain-grey border-opacity-40 pb-6 text-sm text-ink-light md:flex-row md:items-center md:justify-between">
           <p className="tracking-widest opacity-75">
@@ -131,7 +189,7 @@ const Home: React.FC = () => {
         )}
       />
       {loading && articles.length === 0 && (
-        <div className="space-y-14 md:space-y-20">
+        <div className="grid gap-6 lg:grid-cols-2">
           {Array.from({ length: 5 }).map((_, index) => (
             <ArticleCardSkeleton key={index} />
           ))}
@@ -152,6 +210,7 @@ const Home: React.FC = () => {
         />
       ) : articles.length > 0 ? (
         <>
+          <div className={homeArticleLayout === 'alternating' ? 'space-y-6' : 'grid gap-6 md:grid-cols-2'}>
           {articles.map((article, index) => {
             const coverUrl = normalizeCoverUrl(article.coverUrl);
             const isCoverHidden = Boolean(coverUrl && coverErrors[article.id]);
@@ -165,9 +224,9 @@ const Home: React.FC = () => {
             const shouldReverse = homeArticleLayout === 'alternating' && shouldShowCover && visibleCoverCountBefore % 2 === 1;
 
             return (
-              <article key={article.id} className={`group relative flex flex-col gap-5 pb-2 items-start md:flex-row md:gap-8 md:pb-0 ${shouldReverse ? 'md:flex-row-reverse' : ''}`}>
+              <article key={article.id} className={`group relative overflow-hidden rounded-lg bg-surface-card ${homeArticleLayout === 'alternating' ? `flex flex-col items-stretch md:min-h-64 md:flex-row ${shouldReverse ? 'md:flex-row-reverse' : ''}` : 'flex flex-col'}`}>
                 {shouldShowCover && (
-                  <div className="relative aspect-[16/9] w-full shrink-0 overflow-hidden md:h-48 md:w-1/3 md:aspect-auto">
+                  <div className={`relative aspect-[16/9] w-full shrink-0 overflow-hidden ${homeArticleLayout === 'alternating' ? 'md:h-auto md:w-[42%] md:aspect-auto' : ''}`}>
                     <PreloadLink to={`/article/${article.id}`} preload={routeLoaders.articleDetail} className="block h-full">
                       <img
                         src={coverUrl}
@@ -176,22 +235,22 @@ const Home: React.FC = () => {
                         decoding="async"
                         onError={() => handleCoverError(article.id)}
                         onLoad={() => handleCoverLoad(article.id)}
-                        className="w-full h-full object-cover grayscale opacity-80 group-hover:grayscale-0 group-hover:opacity-100 transition-[filter,opacity] duration-slow"
+                        className="h-full w-full object-cover opacity-90 transition-[opacity,transform] duration-slow group-hover:scale-[1.015] group-hover:opacity-100"
                       />
                     </PreloadLink>
                     <div className="absolute inset-0 bg-[var(--cover-wash-subtle)] pointer-events-none"></div>
                   </div>
                 )}
-                <div className="flex-1">
+                <div className="flex flex-1 flex-col justify-between p-6 md:p-8">
                   <PreloadLink to={`/article/${article.id}`} preload={routeLoaders.articleDetail} className="block">
-                    <h2 className="mb-4 text-2xl font-bold leading-tight text-ink transition-colors duration-500 group-hover:text-ochre md:text-3xl">
+                    <h2 className="mb-4 font-display text-3xl leading-[1.08] text-ink transition-colors duration-base group-hover:text-ochre md:text-4xl">
                       {article.title}
                     </h2>
-                    <p className="text-ink-light leading-relaxed mb-6 whitespace-pre-line line-clamp-3">
+                    <p className="mb-7 line-clamp-3 whitespace-pre-line text-sm leading-7 text-body">
                       {article.summary}
                     </p>
                   </PreloadLink>
-                  <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-ink-light opacity-70 tracking-wider">
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-muted">
                     {article.isPinned && (
                       <Tag tone="ochre" size="sm">{t('common.pinned')}</Tag>
                     )}
@@ -213,10 +272,10 @@ const Home: React.FC = () => {
                     )}
                   </div>
                 </div>
-                <div className="absolute -bottom-10 left-0 w-24 h-px bg-mountain-grey opacity-50 group-hover:w-full group-hover:bg-ochre transition-[width,background-color] duration-slow ease-paper"></div>
               </article>
             );
           })}
+          </div>
 
           <Pagination
             currentPage={page}
@@ -226,6 +285,7 @@ const Home: React.FC = () => {
           />
         </>
       ) : null}
+      </section>
     </div>
   );
 };

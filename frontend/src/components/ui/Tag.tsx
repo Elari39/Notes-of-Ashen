@@ -15,7 +15,7 @@ export type TagProps = {
 };
 
 const toneClass: Record<TagTone, string> = {
-  neutral: 'border-mountain-grey text-ink-light',
+  neutral: 'border-transparent text-ink bg-surface-card',
   ochre: 'border-[var(--code-border)] text-ochre bg-[var(--inline-code-bg)]',
   success: 'border-[var(--moss-soft)] text-moss bg-[var(--moss-soft)]',
   warning: 'border-[var(--amber-soft)] text-amber bg-[var(--amber-soft)]',
@@ -29,7 +29,7 @@ const sizeClass: Record<Size, string> = {
 };
 
 const baseClass =
-  'inline-flex items-center gap-1 border transition-colors duration-fast ease-paper';
+  'inline-flex items-center gap-1 rounded-full border font-medium transition-colors duration-fast ease-paper';
 const interactiveClass =
   'cursor-pointer hover:border-ink-light hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ochre';
 

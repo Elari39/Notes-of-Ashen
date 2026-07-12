@@ -73,17 +73,18 @@ const ForgotPassword: React.FC = () => {
   };
 
   return (
-    <div className="flex-grow flex items-center justify-center">
-      <div className="w-full max-w-sm">
-        <h1 className="text-3xl font-bold text-ink mb-12 text-center tracking-widest">{t('auth.forgotPasswordTitle')}</h1>
-        <form onSubmit={handleResetPassword} className="space-y-8">
+    <div className="flex flex-grow items-center justify-center py-4 md:py-10">
+      <div className="w-full max-w-xl rounded-xl bg-surface-soft p-5 md:p-10">
+        <p className="editorial-kicker mb-4 text-center">{t('auth.recoveryKicker')}</p>
+        <h1 className="mb-10 text-center font-display text-5xl leading-tight text-ink">{t('auth.forgotPasswordTitle')}</h1>
+        <form onSubmit={handleResetPassword} className="form-panel space-y-6">
           <div>
             <input
               type="email"
               placeholder={t('auth.email')}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full bg-transparent border-b border-mountain-grey py-2 px-1 text-ink focus:outline-none focus:border-ochre transition-colors placeholder-ink-light placeholder-opacity-50"
+              className="form-control"
               required
             />
           </div>
@@ -102,7 +103,7 @@ const ForgotPassword: React.FC = () => {
               placeholder={t('auth.emailCode')}
               value={emailCode}
               onChange={(e) => setEmailCode(e.target.value.trim())}
-              className="min-w-0 flex-1 bg-transparent border-b border-mountain-grey py-2 px-1 text-ink focus:outline-none focus:border-ochre transition-colors placeholder-ink-light placeholder-opacity-50"
+              className="form-control min-w-0 flex-1"
               required
             />
             <Button
@@ -127,7 +128,7 @@ const ForgotPassword: React.FC = () => {
               placeholder={t('auth.newPassword')}
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
-              className="w-full bg-transparent border-b border-mountain-grey py-2 px-1 text-ink focus:outline-none focus:border-ochre transition-colors placeholder-ink-light placeholder-opacity-50"
+              className="form-control"
               required
             />
           </div>
@@ -137,7 +138,7 @@ const ForgotPassword: React.FC = () => {
               placeholder={t('auth.confirmPassword')}
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
-              className="w-full bg-transparent border-b border-mountain-grey py-2 px-1 text-ink focus:outline-none focus:border-ochre transition-colors placeholder-ink-light placeholder-opacity-50"
+              className="form-control"
               required
             />
           </div>

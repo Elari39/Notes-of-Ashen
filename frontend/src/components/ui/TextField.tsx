@@ -24,12 +24,12 @@ type TextareaProps = CommonProps &
 export type TextFieldProps = InputProps | TextareaProps;
 
 const sizeInputClass: Record<Size, string> = {
-  sm: 'min-h-[2rem] px-2 py-1 text-sm',
-  md: 'min-h-[2.5rem] px-3 py-1.5 text-sm',
+  sm: 'min-h-[2.75rem] px-3 py-2 text-sm',
+  md: 'min-h-[2.75rem] px-3.5 py-2.5 text-sm',
 };
 
 const wrapperBase =
-  'flex items-center gap-2 border-b bg-transparent transition-colors duration-fast ease-paper';
+  'flex items-center gap-2 rounded-md border bg-paper transition-[border-color,box-shadow] duration-fast ease-paper focus-within:ring-[3px] focus-within:ring-[var(--inline-code-bg)]';
 
 /**
  * 统一表单输入。
@@ -52,7 +52,7 @@ const TextField = React.forwardRef<HTMLInputElement | HTMLTextAreaElement, TextF
 
     const toneClass = invalid
       ? 'border-ember text-ember placeholder:text-ember/60'
-      : 'border-mountain-grey text-ink hover:border-ink-light focus-within:border-ochre';
+      : 'border-hairline text-ink hover:border-muted focus-within:border-ochre';
 
     if (props.asTextarea) {
       const { asTextarea: _asTextarea, rows = 4, ...textareaRest } = rest as React.TextareaHTMLAttributes<HTMLTextAreaElement> & { asTextarea: true; rows?: number };
@@ -63,11 +63,11 @@ const TextField = React.forwardRef<HTMLInputElement | HTMLTextAreaElement, TextF
           rows={rows}
           aria-invalid={invalid || undefined}
           className={[
-            'block w-full resize-y border bg-transparent px-3 py-2 text-sm leading-relaxed transition-colors duration-fast ease-paper',
+            'block w-full resize-y rounded-md border bg-paper px-3.5 py-3 text-sm leading-relaxed transition-[border-color,box-shadow] duration-fast ease-paper',
             'focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ochre',
             invalid
               ? 'border-ember text-ember placeholder:text-ember/60'
-              : 'border-mountain-grey text-ink placeholder:text-ink-light placeholder:opacity-50 hover:border-ink-light focus:border-ochre',
+              : 'border-hairline text-ink placeholder:text-muted hover:border-muted focus:border-ochre focus:ring-[3px] focus:ring-[var(--inline-code-bg)]',
             fieldClassName,
             className,
           ]
