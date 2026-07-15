@@ -41,7 +41,7 @@ const Home: React.FC = () => {
   const hasActiveFilters = Boolean(categoryId || tagId);
   const shouldShowHero = page === 1 && !hasActiveFilters;
   const featuredArticle = shouldShowHero ? articles[0] : undefined;
-  const listArticles = featuredArticle ? articles.slice(1) : articles;
+  const listArticles = articles;
   const NotesHeading = shouldShowHero ? 'h2' : 'h1';
   const normalizedSiteTitle = siteTitle.trim();
   const normalizedSiteDescription = siteDescription.trim();
@@ -279,12 +279,6 @@ const Home: React.FC = () => {
           />
         ) : articles.length > 0 ? (
           <>
-            {listArticles.length === 0 && featuredArticle && (
-              <p className="rounded-lg bg-surface-soft px-6 py-8 text-sm leading-7 text-muted">
-                {t('home.moreComing')}
-              </p>
-            )}
-
             {listArticles.length > 0 && (
               <div className={homeArticleLayout === 'alternating' ? 'space-y-6' : 'grid gap-5 md:grid-cols-2 lg:gap-6 xl:grid-cols-3'}>
                 {listArticles.map((article, index) => {

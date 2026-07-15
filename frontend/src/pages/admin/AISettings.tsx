@@ -28,7 +28,7 @@ const AdminAISettings: React.FC = () => {
   const t = (key: Parameters<typeof translate>[1]) => translate(language, key);
   const languageRef = useRef(language);
   languageRef.current = language;
-  const modelListId = useId();
+  const modelInputId = useId();
   const apiKeyInputId = useId();
 
   const [draft, setDraft] = useState<AISettingsDraft | null>(null);
@@ -335,21 +335,34 @@ const AdminAISettings: React.FC = () => {
                   />
                 </label>
 
-                <label className="block text-sm text-ink-light">
-                  <span className="mb-2 block tracking-widest">Model</span>
-                  <input
-                    list={modelListId}
-                    value={draft.model}
-                    onChange={(event) => handleModelChange(event.target.value)}
-                    disabled={operationBusy}
-                    placeholder={t('aiSettings.modelPlaceholder')}
-                    autoComplete="off"
-                    className="w-full border border-mountain-grey bg-transparent px-3 py-2 text-ink outline-none focus:border-ochre disabled:cursor-not-allowed disabled:opacity-50"
-                  />
-                  <datalist id={modelListId}>
-                    {modelOptions.map((option) => <option key={option} value={option} />)}
-                  </datalist>
-                </label>
+                <div className="block text-sm text-ink-light">
+                  <label htmlFor={modelInputId} className="mb-2 block tracking-widest">Model</label>
+                  <div className="flex flex-col gap-2 sm:flex-row">
+                    <input
+                      id={modelInputId}
+                      value={draft.model}
+                      onChange={(event) => handleModelChange(event.target.value)}
+                      disabled={operationBusy}
+                      placeholder={t('aiSettings.modelPlaceholder')}
+                      autoComplete="off"
+                      className="min-w-0 flex-1 border border-mountain-grey bg-transparent px-3 py-2 text-ink outline-none focus:border-ochre disabled:cursor-not-allowed disabled:opacity-50"
+                    />
+                    {modelOptions.length > 0 && (
+                      <select
+                        value=""
+                        onChange={(event) => handleModelChange(event.target.value)}
+                        disabled={operationBusy}
+                        aria-label={t('aiSettings.modelCandidatesLabel')}
+                        className="w-full border border-mountain-grey bg-transparent px-3 py-2 text-ink outline-none focus:border-ochre disabled:cursor-not-allowed disabled:opacity-50 sm:w-48"
+                      >
+                        <option value="" disabled>
+                          {formatText(t('aiSettings.modelCandidates'), { count: modelOptions.length })}
+                        </option>
+                        {modelOptions.map((option) => <option key={option} value={option}>{option}</option>)}
+                      </select>
+                    )}
+                  </div>
+                </div>
 
                 <div className="block text-sm text-ink-light md:col-span-2">
                   <label htmlFor={apiKeyInputId} className="mb-2 block tracking-widest">

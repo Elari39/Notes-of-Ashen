@@ -1,6 +1,6 @@
 import type { AxiosError } from 'axios';
-import { formatText, translate } from '../i18n';
-import { AI_EXACT_ERROR_MESSAGES } from './aiErrorMessages';
+import { formatText, translate } from '../i18n.ts';
+import { AI_EXACT_ERROR_MESSAGES } from './aiErrorMessages.ts';
 
 type ErrorResponse = {
   code?: number;
@@ -24,12 +24,14 @@ export const ERROR_KEYS = {
 export class AppError extends Error {
   code?: number;
   status?: number;
+  sourceMessage: string;
 
-  constructor(message: string, code?: number, status?: number) {
+  constructor(message: string, code?: number, status?: number, sourceMessage = message) {
     super(message);
     this.name = 'AppError';
     this.code = code;
     this.status = status;
+    this.sourceMessage = sourceMessage;
   }
 }
 
@@ -256,7 +258,12 @@ const isHttpErrorLike = (error: unknown): error is HttpErrorLike => {
 
 export const toAppError = (error: unknown, fallback?: string) => {
   if (error instanceof AppError) {
-    return new AppError(translateMessage(error.message, fallback), error.code, error.status);
+    return new AppError(
+      translateMessage(error.sourceMessage, fallback),
+      error.code,
+      error.status,
+      error.sourceMessage,
+    );
   }
 
   if (isHttpErrorLike(error)) {
@@ -266,22 +273,28 @@ export const toAppError = (error: unknown, fallback?: string) => {
     if (httpError.code === 'ECONNABORTED') {
       // 写操作超时大概率服务端仍在处理；提示用户稍后刷新核对，而不是反复提交
       const key = isWrite ? ERROR_KEYS.timeoutWrite : ERROR_KEYS.timeout;
-      return new AppError(translateMessage(key, fallback), undefined, httpError.response?.status);
+      return new AppError(translateMessage(key, fallback), undefined, httpError.response?.status, key);
     }
     if (!httpError.response) {
-      return new AppError(translateMessage(ERROR_KEYS.network, fallback));
+      return new AppError(
+        translateMessage(ERROR_KEYS.network, fallback),
+        undefined,
+        undefined,
+        ERROR_KEYS.network,
+      );
     }
 
     const data = httpError.response.data;
-    const message = translateMessage(data?.message, fallback);
-    return new AppError(message, data?.code, httpError.response.status);
+    const sourceMessage = data?.message?.trim() || '';
+    const message = translateMessage(sourceMessage, fallback);
+    return new AppError(message, data?.code, httpError.response.status, sourceMessage);
   }
 
   if (error instanceof Error) {
-    return new AppError(translateMessage(error.message, fallback));
+    return new AppError(translateMessage(error.message, fallback), undefined, undefined, error.message);
   }
 
-  return new AppError(fallback || '操作失败，请稍后重试');
+  return new AppError(translateMessage(undefined, fallback), undefined, undefined, '');
 };
 
 export const getErrorMessage = (error: unknown, fallback?: string) => toAppError(error, fallback).message;

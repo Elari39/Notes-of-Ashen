@@ -30,7 +30,12 @@ test('AI 接口格式、模型探测与密钥迁移文案提供完整中英文�
   assert.equal(translate('zh', 'aiSettings.apiFormat'), '接口格式');
   assert.equal(translate('en', 'aiSettings.apiFormat'), 'API Format');
   assert.equal(translate('zh', 'aiSettings.anthropicFormat'), 'Anthropic');
+  assert.equal(translate('zh', 'aiSettings.modelCandidatesLabel'), '选择已获取的模型');
   assert.equal(translate('en', 'aiSettings.modelsEmpty'), 'The service returned no models. You can still enter a model manually.');
+  assert.equal(
+    translate('zh', 'aiSettings.testSuccess'),
+    '模型 {model} 连接成功，耗时 {latency} ms。请确认已启用 AI 辅助创作并保存配置后再使用。',
+  );
   assert.equal(translate('zh', 'aiSettings.keyNeedsUpdate'), '已保存的 API Key 需要重新录入并保存，才能迁移到 v3 加密格式。');
   assert.equal(translate('en', 'aiSettings.testError'), 'Model connection test failed');
 });
