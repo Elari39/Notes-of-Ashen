@@ -2,14 +2,25 @@ import { type CSSProperties, type KeyboardEvent, type MouseEvent } from 'react';
 import type { Components, ExtraProps } from 'react-markdown';
 import SyntaxHighlighter from 'react-syntax-highlighter/dist/esm/prism-light';
 import bash from 'react-syntax-highlighter/dist/esm/languages/prism/bash';
+import c from 'react-syntax-highlighter/dist/esm/languages/prism/c';
+import cpp from 'react-syntax-highlighter/dist/esm/languages/prism/cpp';
+import csharp from 'react-syntax-highlighter/dist/esm/languages/prism/csharp';
 import css from 'react-syntax-highlighter/dist/esm/languages/prism/css';
+import docker from 'react-syntax-highlighter/dist/esm/languages/prism/docker';
 import go from 'react-syntax-highlighter/dist/esm/languages/prism/go';
+import ini from 'react-syntax-highlighter/dist/esm/languages/prism/ini';
+import java from 'react-syntax-highlighter/dist/esm/languages/prism/java';
 import javascript from 'react-syntax-highlighter/dist/esm/languages/prism/javascript';
 import jsx from 'react-syntax-highlighter/dist/esm/languages/prism/jsx';
 import json from 'react-syntax-highlighter/dist/esm/languages/prism/json';
+import kotlin from 'react-syntax-highlighter/dist/esm/languages/prism/kotlin';
 import markdown from 'react-syntax-highlighter/dist/esm/languages/prism/markdown';
+import markup from 'react-syntax-highlighter/dist/esm/languages/prism/markup';
+import powershell from 'react-syntax-highlighter/dist/esm/languages/prism/powershell';
 import python from 'react-syntax-highlighter/dist/esm/languages/prism/python';
+import rust from 'react-syntax-highlighter/dist/esm/languages/prism/rust';
 import sql from 'react-syntax-highlighter/dist/esm/languages/prism/sql';
+import toml from 'react-syntax-highlighter/dist/esm/languages/prism/toml';
 import tsx from 'react-syntax-highlighter/dist/esm/languages/prism/tsx';
 import typescript from 'react-syntax-highlighter/dist/esm/languages/prism/typescript';
 import yaml from 'react-syntax-highlighter/dist/esm/languages/prism/yaml';
@@ -17,22 +28,34 @@ import type { LightboxImage } from './ImageLightbox';
 import MarkdownCodeBlock from './MarkdownCodeBlock';
 import MarkdownTable from './MarkdownTable';
 import { usePreferenceStore } from '../store/preferences';
+import { resolveMarkdownCodeLanguage } from '../utils/markdownCodeLanguage';
 
 SyntaxHighlighter.registerLanguage('bash', bash);
 SyntaxHighlighter.registerLanguage('sh', bash);
 SyntaxHighlighter.registerLanguage('shell', bash);
+SyntaxHighlighter.registerLanguage('c', c);
+SyntaxHighlighter.registerLanguage('cpp', cpp);
+SyntaxHighlighter.registerLanguage('csharp', csharp);
 SyntaxHighlighter.registerLanguage('css', css);
+SyntaxHighlighter.registerLanguage('docker', docker);
 SyntaxHighlighter.registerLanguage('go', go);
 SyntaxHighlighter.registerLanguage('golang', go);
+SyntaxHighlighter.registerLanguage('ini', ini);
+SyntaxHighlighter.registerLanguage('java', java);
 SyntaxHighlighter.registerLanguage('jsx', jsx);
 SyntaxHighlighter.registerLanguage('javascript', javascript);
 SyntaxHighlighter.registerLanguage('js', javascript);
 SyntaxHighlighter.registerLanguage('json', json);
+SyntaxHighlighter.registerLanguage('kotlin', kotlin);
 SyntaxHighlighter.registerLanguage('markdown', markdown);
 SyntaxHighlighter.registerLanguage('md', markdown);
+SyntaxHighlighter.registerLanguage('markup', markup);
+SyntaxHighlighter.registerLanguage('powershell', powershell);
 SyntaxHighlighter.registerLanguage('python', python);
 SyntaxHighlighter.registerLanguage('py', python);
+SyntaxHighlighter.registerLanguage('rust', rust);
 SyntaxHighlighter.registerLanguage('sql', sql);
+SyntaxHighlighter.registerLanguage('toml', toml);
 SyntaxHighlighter.registerLanguage('tsx', tsx);
 SyntaxHighlighter.registerLanguage('typescript', typescript);
 SyntaxHighlighter.registerLanguage('ts', typescript);
@@ -86,26 +109,6 @@ const syntaxTheme: Record<string, CSSProperties> = {
   italic: { fontStyle: 'italic' },
 };
 
-const languageAliases: Record<string, string> = {
-  golang: 'go',
-  js: 'javascript',
-  md: 'markdown',
-  py: 'python',
-  shell: 'bash',
-  sh: 'bash',
-  ts: 'typescript',
-  yml: 'yaml',
-};
-
-const getLanguage = (className?: string) => {
-  const match = /language-([\w-]+)/.exec(className || '');
-  if (!match) {
-    return '';
-  }
-  const language = match[1].toLowerCase();
-  return languageAliases[language] || language;
-};
-
 const openImageLabel = (language: 'zh' | 'en', alt = '') => {
   if (language === 'en') {
     return alt ? `View full-size image: ${alt}` : 'View full-size image';
@@ -151,7 +154,7 @@ export const createMarkdownComponents = ({ onImageClick, headingIdByLine }: Mark
       );
     },
     code({ className, children, node, ...props }) {
-      const language = getLanguage(className);
+      const language = resolveMarkdownCodeLanguage(className);
       const code = String(children).replace(/\n$/, '');
       const isBlock = Boolean(language) || code.includes('\n') || Boolean(node?.position && node.position.start.line !== node.position.end.line);
 
