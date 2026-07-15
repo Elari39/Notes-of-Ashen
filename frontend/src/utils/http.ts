@@ -11,6 +11,7 @@ import { AppError, ERROR_KEYS, toAppError } from './error';
 import { fixVisibleMojibakeDeep } from './mojibake';
 import { notifyFromError } from './notify';
 import { refreshAccessToken } from './refresh';
+import { resolveDefaultTimeout } from './timeoutPolicy';
 import { getVisitorId } from './visitor';
 
 const http = axios.create({
@@ -22,28 +23,9 @@ const http = axios.create({
 });
 
 // ---- 分级超时策略 ----
-// 后端 RestConf.Timeout = 610s，远高于客户端；写操作链路（MySQL/Redis/MQ 远程）抖动时
+// 后端 RestConf.Timeout = 610s，写操作链路（MySQL/Redis/MQ 远程）抖动时
 // 容易出现"前端超时但服务端实际已写入"。按 method/路径分级，给写请求更宽裕的窗口，
-// 同时把 AI/导入导出等长任务接口的窗口拉到 600s。
-const TIMEOUT_DEFAULT_GET = 10_000;
-const TIMEOUT_DEFAULT_WRITE = 30_000;
-const TIMEOUT_LONG_RUNNING = 600_000;
-
-const LONG_RUNNING_PATTERNS: RegExp[] = [
-  /\/ai\//,
-  /\/articles\/import\b/,
-  /\/articles\/[^/]+\/export\b/,
-  /\/admin\/search\/reindex\b/,
-];
-
-const resolveDefaultTimeout = (config: AxiosRequestConfig): number => {
-  const url = config.url ?? '';
-  if (LONG_RUNNING_PATTERNS.some((pattern) => pattern.test(url))) {
-    return TIMEOUT_LONG_RUNNING;
-  }
-  const method = (config.method || 'get').toLowerCase();
-  return method === 'get' ? TIMEOUT_DEFAULT_GET : TIMEOUT_DEFAULT_WRITE;
-};
+// 导入导出等长任务保留 600s；AI 提供商请求返回 0，由后台 AI 设置和服务端安全上限控制。
 
 let refreshTokenTask: Promise<string> | null = null;
 let sessionExpiredHandled = false;

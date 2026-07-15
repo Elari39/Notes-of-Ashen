@@ -233,7 +233,7 @@ export interface UpdateArticleStatusReq {
   status: ArticleStatus;
 }
 
-export type AIAssistAction = 'metadata' | 'proofread' | 'polish' | 'expand' | 'shorten' | 'translate';
+export type AIAssistAction = 'complete' | 'metadata' | 'proofread' | 'polish' | 'expand' | 'shorten' | 'translate';
 
 export interface AIAssistReq {
   action: AIAssistAction;
@@ -242,9 +242,14 @@ export interface AIAssistReq {
 }
 
 export interface AIAssistResp {
+  title?: string;
+  slug?: string;
   summary?: string;
+  seoTitle?: string;
   seoDescription?: string;
   seoKeywords?: string;
+  categorySuggestion?: string;
+  tagSuggestions?: string[];
   revisedContent?: string;
   suggestions?: string[];
 }

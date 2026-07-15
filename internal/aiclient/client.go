@@ -53,11 +53,16 @@ type Request struct {
 }
 
 type Response struct {
-	Summary        string   `json:"summary"`
-	SEODescription string   `json:"seoDescription"`
-	SEOKeywords    string   `json:"seoKeywords"`
-	RevisedContent string   `json:"revisedContent"`
-	Suggestions    []string `json:"suggestions"`
+	Title              string   `json:"title"`
+	Slug               string   `json:"slug"`
+	Summary            string   `json:"summary"`
+	SEOTitle           string   `json:"seoTitle"`
+	SEODescription     string   `json:"seoDescription"`
+	SEOKeywords        string   `json:"seoKeywords"`
+	CategorySuggestion string   `json:"categorySuggestion"`
+	TagSuggestions     []string `json:"tagSuggestions"`
+	RevisedContent     string   `json:"revisedContent"`
+	Suggestions        []string `json:"suggestions"`
 }
 
 type chatMessage struct {

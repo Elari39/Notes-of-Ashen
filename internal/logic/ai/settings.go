@@ -131,7 +131,7 @@ func Models(ctx context.Context, svcCtx *svc.ServiceContext, req types.AIConnect
 	}
 	models, err := aiclient.ListModels(ctx, conf)
 	if err != nil {
-		return nil, mapAIProviderError(ctx, "list models", err)
+		return nil, MapProviderError(ctx, "list models", err)
 	}
 	return &types.AIModelsResp{Models: models}, nil
 }
@@ -157,7 +157,7 @@ func TestModel(ctx context.Context, svcCtx *svc.ServiceContext, req types.AIMode
 	}
 	latency, err := aiclient.TestModel(ctx, conf)
 	if err != nil {
-		return nil, mapAIProviderError(ctx, "test model", err)
+		return nil, MapProviderError(ctx, "test model", err)
 	}
 	latencyMs := latency.Milliseconds()
 	if latencyMs < 1 {
@@ -486,7 +486,8 @@ func aiEncryptionKey(secret string) [32]byte {
 	return sha256.Sum256([]byte("notes-of-ashen:ai-settings:" + secret))
 }
 
-func mapAIProviderError(ctx context.Context, operation string, err error) error {
+// MapProviderError 将上游 AI 错误映射为稳定的本站业务错误，供 AI 业务调用复用。
+func MapProviderError(ctx context.Context, operation string, err error) error {
 	logx.WithContext(ctx).Errorf("ai provider %s failed: %v", operation, err)
 	var netErr net.Error
 	if errors.Is(err, context.DeadlineExceeded) || (errors.As(err, &netErr) && netErr.Timeout()) {

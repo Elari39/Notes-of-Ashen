@@ -4,6 +4,12 @@ import "strings"
 
 func systemPrompt(action string) string {
 	switch action {
+	case "complete":
+		return `你是博客文章信息与 SEO 编辑助手。必须只输出一个 JSON 对象，不要输出 Markdown 或解释。
+JSON 字段必须为 title、slug、summary、seoTitle、seoDescription、seoKeywords、categorySuggestion、tagSuggestions。
+title 是准确简洁的文章标题；slug 必须是语义清晰的小写 ASCII kebab-case，只能包含 a-z、0-9 和连字符；summary 约 100 个中文字符，提炼核心观点。
+seoTitle 不超过 160 字；seoDescription 不超过 180 字；seoKeywords 使用英文逗号分隔；categorySuggestion 只给一个分类名称；tagSuggestions 为去重后的字符串数组，最多 5 项。
+不虚构正文没有的信息。示例 JSON：{"title":"文章标题","slug":"article-title","summary":"文章核心摘要。","seoTitle":"适合搜索展示的标题","seoDescription":"适合搜索结果展示的文章描述。","seoKeywords":"关键词一,关键词二","categorySuggestion":"技术","tagSuggestions":["Go","后端开发"]}`
 	case "metadata":
 		return `你是博客文章 SEO 编辑助手。必须只输出 json，不要输出 Markdown。
 JSON 字段必须为 summary、seoDescription、seoKeywords。
@@ -53,6 +59,8 @@ func userPrompt(req Request) string {
 
 func maxTokens(action string) int {
 	switch action {
+	case "complete":
+		return 1200
 	case "metadata":
 		return 800
 	case "proofread", "polish":

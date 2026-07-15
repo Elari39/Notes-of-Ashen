@@ -40,6 +40,7 @@ var listStatuses = map[string]struct{}{
 }
 
 var aiActions = map[string]struct{}{
+	"complete":  {},
 	"metadata":  {},
 	"proofread": {},
 	"polish":    {},
@@ -469,22 +470,39 @@ func AIAssist(ctx context.Context, svcCtx *svc.ServiceContext, req types.AIAssis
 		Content: req.Content,
 	})
 	if err != nil {
-		return nil, err
+		return nil, ailogic.MapProviderError(ctx, "article assist", err)
 	}
-	out := &types.AIAssistResp{
-		Summary:        trimRunes(strings.TrimSpace(resp.Summary), 500),
-		SEODescription: trimRunes(strings.TrimSpace(resp.SEODescription), 255),
-		SEOKeywords:    trimRunes(strings.TrimSpace(resp.SEOKeywords), 255),
-		RevisedContent: strings.TrimSpace(resp.RevisedContent),
-		Suggestions:    resp.Suggestions,
-	}
-	if req.Action == "metadata" && out.Summary == "" && out.SEODescription == "" && out.SEOKeywords == "" {
-		return nil, apperrors.BadRequest("ai response is invalid")
-	}
-	if req.Action != "metadata" && out.RevisedContent == "" {
-		return nil, apperrors.BadRequest("ai response is invalid")
+	out := normalizeAIAssistResponse(resp)
+	switch req.Action {
+	case "complete":
+		if !hasAICompletion(out) {
+			return nil, apperrors.BadRequest("ai response is invalid")
+		}
+	case "metadata":
+		if out.Summary == "" && out.SEODescription == "" && out.SEOKeywords == "" {
+			return nil, apperrors.BadRequest("ai response is invalid")
+		}
+	default:
+		if out.RevisedContent == "" {
+			return nil, apperrors.BadRequest("ai response is invalid")
+		}
 	}
 	return out, nil
+}
+
+func normalizeAIAssistResponse(resp *aiclient.Response) *types.AIAssistResp {
+	return &types.AIAssistResp{
+		Title:              trimRunes(strings.TrimSpace(resp.Title), 160),
+		Slug:               normalizeGeneratedSlug(resp.Slug, 180),
+		Summary:            trimRunes(strings.TrimSpace(resp.Summary), 500),
+		SEOTitle:           trimRunes(strings.TrimSpace(resp.SEOTitle), 160),
+		SEODescription:     trimRunes(strings.TrimSpace(resp.SEODescription), 255),
+		SEOKeywords:        trimRunes(strings.TrimSpace(resp.SEOKeywords), 255),
+		CategorySuggestion: trimRunes(strings.TrimSpace(resp.CategorySuggestion), 64),
+		TagSuggestions:     normalizeAISuggestions(resp.TagSuggestions, 5, 64),
+		RevisedContent:     strings.TrimSpace(resp.RevisedContent),
+		Suggestions:        resp.Suggestions,
+	}
 }
 
 func ListVersions(ctx context.Context, svcCtx *svc.ServiceContext, articleID uint64, page, size int) (*types.ArticleVersionListResp, error) {
@@ -640,6 +658,64 @@ func trimRunes(value string, max int) string {
 		return value
 	}
 	return string(runes[:max])
+}
+
+func normalizeGeneratedSlug(value string, max int) string {
+	if max <= 0 {
+		return ""
+	}
+	value = strings.ToLower(strings.TrimSpace(value))
+	var builder strings.Builder
+	pendingSeparator := false
+	for _, char := range value {
+		isLetter := char >= 'a' && char <= 'z'
+		isDigit := char >= '0' && char <= '9'
+		if !isLetter && !isDigit {
+			if builder.Len() > 0 {
+				pendingSeparator = true
+			}
+			continue
+		}
+		if pendingSeparator && builder.Len() < max {
+			builder.WriteByte('-')
+		}
+		pendingSeparator = false
+		if builder.Len() >= max {
+			break
+		}
+		builder.WriteRune(char)
+	}
+	return strings.TrimRight(builder.String(), "-")
+}
+
+func normalizeAISuggestions(values []string, maxItems, maxLength int) []string {
+	if maxItems <= 0 || maxLength <= 0 {
+		return nil
+	}
+	result := make([]string, 0, min(len(values), maxItems))
+	seen := make(map[string]struct{}, len(values))
+	for _, value := range values {
+		value = trimRunes(strings.TrimSpace(value), maxLength)
+		key := strings.ToLower(value)
+		if value == "" {
+			continue
+		}
+		if _, exists := seen[key]; exists {
+			continue
+		}
+		seen[key] = struct{}{}
+		result = append(result, value)
+		if len(result) == maxItems {
+			break
+		}
+	}
+	return result
+}
+
+func hasAICompletion(resp *types.AIAssistResp) bool {
+	return resp.Title != "" || resp.Slug != "" || resp.Summary != "" || resp.SEOTitle != "" ||
+		resp.SEODescription != "" || resp.SEOKeywords != "" || resp.CategorySuggestion != "" ||
+		len(resp.TagSuggestions) > 0
 }
 
 func normalizeScheduledAt(value *time.Time) *time.Time {

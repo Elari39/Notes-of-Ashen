@@ -429,7 +429,7 @@ POST /api/v1/articles/ai/assist
 
 | 字段 | 类型 | 必填 | 说明 |
 | --- | --- | --- | --- |
-| action | string | 是 | `metadata`、`proofread`、`polish`、`expand`、`shorten` 或 `translate` |
+| action | string | 是 | `complete`、`metadata`、`proofread`、`polish`、`expand`、`shorten` 或 `translate` |
 | title | string | 否 | 文章标题，最长 160 |
 | content | string | 是 | Markdown 正文，最长 30000 |
 
@@ -437,11 +437,20 @@ POST /api/v1/articles/ai/assist
 
 | 字段 | 类型 | 说明 |
 | --- | --- | --- |
-| summary | string | `metadata` 时可能返回的摘要 |
-| seoDescription | string | `metadata` 时可能返回的 SEO 描述 |
-| seoKeywords | string | `metadata` 时可能返回的 SEO 关键词 |
-| revisedContent | string | 非 `metadata` 动作返回的修订正文 |
+| title | string | `complete` 时可能返回的文章标题，最长 160 |
+| slug | string | `complete` 时可能返回的小写 ASCII kebab-case slug，最长 180 |
+| summary | string | `complete` 或 `metadata` 时可能返回的摘要 |
+| seoTitle | string | `complete` 时可能返回的 SEO 标题 |
+| seoDescription | string | `complete` 或 `metadata` 时可能返回的 SEO 描述 |
+| seoKeywords | string | `complete` 或 `metadata` 时可能返回的 SEO 关键词 |
+| categorySuggestion | string | `complete` 时可能返回的分类文字建议，不会自动创建或选择分类 |
+| tagSuggestions | string[] | `complete` 时可能返回的标签文字建议，去重后最多 5 项，不会自动创建或选择标签 |
+| revisedContent | string | `proofread`、`polish`、`expand`、`shorten`、`translate` 返回的修订正文 |
 | suggestions | string[] | 修改建议 |
+
+`complete` 会同时尝试返回标题、slug、摘要、SEO 标题、SEO 描述、SEO 关键词及分类/标签建议。后台文章编辑页只把有效结果写入当前为空的文本字段，不覆盖人工内容；分类和标签仅显示在独立建议卡片中。`metadata` 继续用于保存文章时的轻量摘要/SEO 补全。
+
+文章补全使用后台已保存的 `firstByteTimeoutSeconds` 和 `nonStreamTimeoutSeconds`，前端不再设置独立的固定 AI 请求时限；上游超时返回 `504`，同时仍受服务端和反向代理安全上限约束。
 
 ### Markdown 导入
 

@@ -167,12 +167,12 @@ func TestAIConnectionOperationsRequireAdmin(t *testing.T) {
 }
 
 func TestMapAIProviderErrorDoesNotForwardProviderAuthStatus(t *testing.T) {
-	err := mapAIProviderError(context.Background(), "test", &aiclient.HTTPStatusError{StatusCode: http.StatusUnauthorized})
+	err := MapProviderError(context.Background(), "test", &aiclient.HTTPStatusError{StatusCode: http.StatusUnauthorized})
 	var codeErr *apperrors.CodeError
 	if !errors.As(err, &codeErr) || codeErr.StatusCode != http.StatusBadGateway {
 		t.Fatalf("provider 401 mapped to %#v", err)
 	}
-	err = mapAIProviderError(context.Background(), "test", context.DeadlineExceeded)
+	err = MapProviderError(context.Background(), "test", context.DeadlineExceeded)
 	if !errors.As(err, &codeErr) || codeErr.StatusCode != http.StatusGatewayTimeout {
 		t.Fatalf("timeout mapped to %#v", err)
 	}

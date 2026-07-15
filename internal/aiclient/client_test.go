@@ -16,11 +16,13 @@ import (
 const testAPIKey = "secret-test-api-key"
 
 func TestParseAssistantJSON(t *testing.T) {
-	resp, err := ParseAssistantJSON("```json\n{\"summary\":\"摘要\",\"seoDescription\":\"描述\",\"seoKeywords\":\"go, blog\"}\n```")
+	resp, err := ParseAssistantJSON("```json\n{\"title\":\"标题\",\"slug\":\"article-title\",\"summary\":\"摘要\",\"seoTitle\":\"SEO 标题\",\"seoDescription\":\"描述\",\"seoKeywords\":\"go, blog\",\"categorySuggestion\":\"技术\",\"tagSuggestions\":[\"Go\",\"AI\"]}\n```")
 	if err != nil {
 		t.Fatalf("ParseAssistantJSON() error = %v", err)
 	}
-	if resp.Summary != "摘要" || resp.SEOKeywords != "go, blog" {
+	if resp.Title != "标题" || resp.Slug != "article-title" || resp.Summary != "摘要" ||
+		resp.SEOTitle != "SEO 标题" || resp.SEOKeywords != "go, blog" ||
+		resp.CategorySuggestion != "技术" || len(resp.TagSuggestions) != 2 {
 		t.Fatalf("unexpected response: %#v", resp)
 	}
 }
@@ -436,6 +438,18 @@ func TestSystemPromptSupportsWritingActions(t *testing.T) {
 				t.Fatalf("systemPrompt(%q) did not use a dedicated prompt", action)
 			}
 		})
+	}
+}
+
+func TestSystemPromptSupportsArticleCompletion(t *testing.T) {
+	prompt := systemPrompt("complete")
+	for _, field := range []string{"title", "slug", "summary", "seoTitle", "seoDescription", "seoKeywords", "categorySuggestion", "tagSuggestions"} {
+		if !strings.Contains(prompt, field) {
+			t.Fatalf("complete prompt missing %q", field)
+		}
+	}
+	if maxTokens("complete") != 1200 {
+		t.Fatalf("complete max tokens = %d, want 1200", maxTokens("complete"))
 	}
 }
 

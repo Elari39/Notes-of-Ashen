@@ -226,11 +226,16 @@ type AIAssistReq struct {
 }
 
 type AIAssistResp struct {
-	Summary        string   `json:"summary,omitempty"`
-	SEODescription string   `json:"seoDescription,omitempty"`
-	SEOKeywords    string   `json:"seoKeywords,omitempty"`
-	RevisedContent string   `json:"revisedContent,omitempty"`
-	Suggestions    []string `json:"suggestions,omitempty"`
+	Title              string   `json:"title,omitempty"`
+	Slug               string   `json:"slug,omitempty"`
+	Summary            string   `json:"summary,omitempty"`
+	SEOTitle           string   `json:"seoTitle,omitempty"`
+	SEODescription     string   `json:"seoDescription,omitempty"`
+	SEOKeywords        string   `json:"seoKeywords,omitempty"`
+	CategorySuggestion string   `json:"categorySuggestion,omitempty"`
+	TagSuggestions     []string `json:"tagSuggestions,omitempty"`
+	RevisedContent     string   `json:"revisedContent,omitempty"`
+	Suggestions        []string `json:"suggestions,omitempty"`
 }
 
 type AISettingsResp struct {

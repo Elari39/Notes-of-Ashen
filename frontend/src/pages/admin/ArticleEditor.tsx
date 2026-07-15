@@ -24,6 +24,11 @@ import {
   resolveArticleEditorAccess,
   type ArticleBaselineStatus,
 } from './editorAccessPolicy';
+import {
+  buildArticleCompletionPatch,
+  readAITaxonomySuggestions,
+  type AITaxonomySuggestions,
+} from './articleAICompletionPolicy';
 
 type TaxonomyOption = {
   id: number;
@@ -366,6 +371,7 @@ const ArticleEditor: React.FC = () => {
   const [aiMenuOpen, setAiMenuOpen] = useState(false);
   const [aiAction, setAiAction] = useState<AIAssistAction | null>(null);
   const [aiNotice, setAiNotice] = useState('');
+  const [aiTaxonomySuggestions, setAiTaxonomySuggestions] = useState<AITaxonomySuggestions | null>(null);
   const [aiDraft, setAiDraft] = useState<{
     action: AIAssistAction;
     revisedContent: string;
@@ -406,6 +412,7 @@ const ArticleEditor: React.FC = () => {
     setIsEditorReady(false);
     setDraftRecovery(null);
     setAiDraft(null);
+    setAiTaxonomySuggestions(null);
     setAiMenuOpen(false);
     editorBaselineRef.current = null;
     setError('');
@@ -720,7 +727,7 @@ const ArticleEditor: React.FC = () => {
     if (!canOperateArticleEditor(Boolean(isEdit), currentArticleBaselineStatus)) {
       return;
     }
-    const target = action === 'metadata'
+    const target = action === 'metadata' || action === 'complete'
       ? { text: content, start: 0, end: content.length }
       : getActiveMarkdownRange(textareaRef.current, content);
     if (!target.text.trim()) {
@@ -731,6 +738,9 @@ const ArticleEditor: React.FC = () => {
     setError('');
     setAiNotice('');
     setAiDraft(null);
+    if (action === 'complete') {
+      setAiTaxonomySuggestions(null);
+    }
     setAiAction(action);
     setAiMenuOpen(false);
     try {
@@ -745,6 +755,25 @@ const ArticleEditor: React.FC = () => {
         if (data.seoDescription) setSeoDescription(data.seoDescription);
         if (data.seoKeywords) setSeoKeywords(data.seoKeywords);
         setAiNotice(t('articleEditor.aiMetadataApplied'));
+        return;
+      }
+      if (action === 'complete') {
+        const { patch, appliedCount } = buildArticleCompletionPatch({
+          title,
+          slug,
+          summary,
+          seoTitle,
+          seoDescription,
+          seoKeywords,
+        }, data);
+        if (patch.title) setTitle(patch.title);
+        if (patch.slug) setSlug(patch.slug);
+        if (patch.summary) setSummary(patch.summary);
+        if (patch.seoTitle) setSeoTitle(patch.seoTitle);
+        if (patch.seoDescription) setSeoDescription(patch.seoDescription);
+        if (patch.seoKeywords) setSeoKeywords(patch.seoKeywords);
+        setAiTaxonomySuggestions(readAITaxonomySuggestions(data));
+        setAiNotice(formatText(t('articleEditor.aiCompletionApplied'), { count: appliedCount }));
         return;
       }
       setAiDraft({
@@ -863,7 +892,7 @@ const ArticleEditor: React.FC = () => {
             </button>
             {aiMenuOpen && (
               <div className="absolute right-0 top-full z-30 mt-2 w-52 border border-mountain-grey bg-paper shadow-sm">
-                <button type="button" onClick={() => handleAIAssist('metadata')} className="block w-full px-3 py-2 text-left text-sm text-ink hover:bg-mountain-grey hover:bg-opacity-20">
+                <button type="button" onClick={() => handleAIAssist('complete')} className="block w-full px-3 py-2 text-left text-sm text-ink hover:bg-mountain-grey hover:bg-opacity-20">
                   {t('articleEditor.aiMetadata')}
                 </button>
                 <button type="button" onClick={() => handleAIAssist('proofread')} className="block w-full px-3 py-2 text-left text-sm text-ink hover:bg-mountain-grey hover:bg-opacity-20">
@@ -892,6 +921,31 @@ const ArticleEditor: React.FC = () => {
 
       <InlineNotice message={error} className="mb-6" />
       <InlineNotice message={aiNotice} className="mb-6" />
+
+      {aiTaxonomySuggestions && (
+        <section className="mb-6 border border-ochre bg-[var(--paper-soft)] p-4" aria-label={t('articleEditor.aiTaxonomyTitle')}>
+          <h4 className="text-sm font-bold tracking-widest text-ink">{t('articleEditor.aiTaxonomyTitle')}</h4>
+          <p className="mt-1 text-xs leading-relaxed text-ink-light">{t('articleEditor.aiTaxonomyHint')}</p>
+          <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
+            {aiTaxonomySuggestions.category && (
+              <div>
+                <p className="text-xs tracking-widest text-ink-light">{t('articleEditor.aiCategorySuggestion')}</p>
+                <p className="mt-2 text-sm font-medium text-ink">{aiTaxonomySuggestions.category}</p>
+              </div>
+            )}
+            {aiTaxonomySuggestions.tags.length > 0 && (
+              <div>
+                <p className="text-xs tracking-widest text-ink-light">{t('articleEditor.aiTagSuggestions')}</p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {aiTaxonomySuggestions.tags.map((tag) => (
+                    <span key={tag} className="border border-mountain-grey px-2 py-1 text-xs text-ink">{tag}</span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </section>
+      )}
 
       {draftRecovery && (
         <section className="mb-6 border border-ochre bg-[var(--paper-soft)] p-4">
