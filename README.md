@@ -236,9 +236,11 @@ docker compose up -d api
 
 后台文章编辑页提供摘要/SEO 元数据生成、纠错和润色能力。AI 配置不再从环境变量或 YAML 读取，统一由管理员在后台 AI 设置页填写并保存到数据库 `site_settings`。可选择 `openai` 或 `anthropic` API 格式，填写服务基础地址和 API Key 后，先获取模型列表、选择模型并测试连接，最后保存并启用。当前 AI 调用均为非流式请求，配置项只保留首字等待和请求总超时。
 
-`openai` 格式可填写兼容 OpenAI API 的基础地址，例如 `https://api.example.com/v1`，也可填写完整的 `/chat/completions` 地址；`anthropic` 格式使用 Messages API。出于 SSRF 防护，Base URL 必须解析到公网地址，不支持本机或内网模型服务。获取模型和测试模型接口都接受尚未保存的草稿连接配置，便于保存前验证。不要把真实 API Key 写入 README、Issue、提交记录或截图中。
+`openai` 格式可填写兼容 OpenAI API 的基础地址，例如 `https://api.example.com/v1`，也可填写完整的 `/chat/completions` 地址；`anthropic` 格式使用 Messages API，可填写主机地址或带服务前缀的基础地址，例如 `https://api.example.com`、`https://api.example.com/anthropic`。当 Anthropic 基础地址未包含 `/v1` 且不是完整的 `/messages` 或 `/models` 端点时，后端会按标准 SDK 语义补全 `/v1/messages` 或 `/v1/models`；显式完整端点和查询参数保持不变。出于 SSRF 防护，Base URL 必须解析到公网地址，不支持本机或内网模型服务。获取模型和测试模型接口都接受尚未保存的草稿连接配置，便于保存前验证；模型测试使用固定 JSON 探针并预留 512 个输出 token，以兼容先生成思考块的模型。不要把真实 API Key 写入 README、Issue、提交记录或截图中。
 
 新保存的 API Key 使用 `v3:` 密文，密钥由 `APP_AUTH_ACCESS_SECRET` 通过独立用途派生。`v2:` 密文使用的是已移除的独立加密密钥，升级后会在设置响应中标记 `apiKeyNeedsUpdate = true`，管理员必须重新填写 API Key；无版本前缀的旧密文仍兼容读取，建议尽快重新保存以迁移到 `v3:`。由于 `v3:` 密钥依赖 `APP_AUTH_ACCESS_SECRET`，轮换认证密钥时必须同时安排重新录入 AI API Key，否则原密文将不可解密。
+
+API 访问日志只记录请求方法、路径、状态码、耗时、可信客户端 IP 和 Request ID，不记录查询串、请求头、Cookie 或请求正文；上游 AI 诊断错误也会对 API Key 脱敏。若凭证曾进入历史日志，应立即轮换对应密钥、撤销相关登录会话，并按部署环境的日志保留策略清理历史副本。
 
 ### 可信反向代理配置
 

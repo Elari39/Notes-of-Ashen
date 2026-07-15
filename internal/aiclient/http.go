@@ -190,8 +190,8 @@ func endpointFor(baseURL, format string, kind endpointKind) (string, error) {
 			break
 		}
 	}
-	if format == APIFormatAnthropic && basePath == "" && !hadKnownEndpoint {
-		basePath = "/v1"
+	if format == APIFormatAnthropic && !hadKnownEndpoint && !strings.HasSuffix(basePath, "/v1") {
+		basePath = strings.TrimRight(basePath, "/") + "/v1"
 	}
 	parsed.Path = strings.TrimRight(basePath, "/") + desiredPath
 	parsed.RawPath = ""

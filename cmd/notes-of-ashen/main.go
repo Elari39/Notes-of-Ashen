@@ -31,6 +31,9 @@ func main() {
 	logx.Must(c.ApplyEnv())
 	logx.Must(c.ValidateConfig())
 
+	// go-zero 的内置访问日志会在 5xx 时转储完整请求，其中可能包含认证凭证和 API Key。
+	// 关闭内置实现，统一使用项目的安全访问日志中间件。
+	c.RestConf.Middlewares.Log = false
 	server := rest.MustNewServer(c.RestConf)
 
 	ctx := svc.NewServiceContext(c)

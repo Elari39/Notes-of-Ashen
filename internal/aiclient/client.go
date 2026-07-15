@@ -14,7 +14,7 @@ const (
 	APIFormatOpenAI    = "openai"
 	APIFormatAnthropic = "anthropic"
 
-	modelProbeMaxTokens = 16
+	modelProbeMaxTokens = 512
 )
 
 // Config 是 AI 客户端实际发起请求所需的运行时配置。

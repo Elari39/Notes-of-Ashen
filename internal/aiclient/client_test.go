@@ -98,6 +98,20 @@ func TestEndpointForSupportsBaseAndFullEndpoints(t *testing.T) {
 			want:   "https://api.anthropic.com/v1/messages",
 		},
 		{
+			name:   "anthropic path prefix adds v1",
+			base:   "https://api.example.com/anthropic",
+			format: APIFormatAnthropic,
+			kind:   endpointCompletion,
+			want:   "https://api.example.com/anthropic/v1/messages",
+		},
+		{
+			name:   "anthropic path prefix derives models and keeps query",
+			base:   "https://api.example.com/anthropic?tenant=notes",
+			format: APIFormatAnthropic,
+			kind:   endpointModels,
+			want:   "https://api.example.com/anthropic/v1/models?tenant=notes",
+		},
+		{
 			name:   "anthropic version base",
 			base:   "https://api.anthropic.com/v1",
 			format: APIFormatAnthropic,
@@ -237,7 +251,7 @@ func TestListModelsNormalizesResults(t *testing.T) {
 	}
 }
 
-func TestTestModelUsesLowTokenJSONProbe(t *testing.T) {
+func TestTestModelUsesJSONProbeBudget(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var request openAIChatRequest
 		if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
@@ -265,7 +279,7 @@ func TestTestModelUsesLowTokenJSONProbe(t *testing.T) {
 	}
 }
 
-func TestTestModelAnthropicUsesLowTokenJSONProbe(t *testing.T) {
+func TestTestModelAnthropicUsesJSONProbeBudget(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost || r.URL.Path != "/v1/messages" {
 			t.Errorf("request = %s %s", r.Method, r.URL.Path)
@@ -289,7 +303,7 @@ func TestTestModelAnthropicUsesLowTokenJSONProbe(t *testing.T) {
 		if len(request.Messages) != 1 || request.Messages[0].Content != `Return exactly {"ok":true}.` {
 			t.Errorf("probe messages = %#v", request.Messages)
 		}
-		_, _ = fmt.Fprint(w, `{"content":[{"type":"text","text":"{\"ok\":true}"}]}`)
+		_, _ = fmt.Fprint(w, `{"content":[{"type":"thinking","thinking":"Checking the response format."},{"type":"text","text":"{\"ok\":true}"}]}`)
 	}))
 	defer server.Close()
 

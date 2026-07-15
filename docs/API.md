@@ -91,6 +91,8 @@ Authorization: Bearer <accessToken>
 
 后台新保存的 AI API Key 使用 `v3:` 密文，密钥由 `APP_AUTH_ACCESS_SECRET` 通过独立用途派生。`v2:` 密文升级后不可继续使用，设置响应会返回 `apiKeyNeedsUpdate = true`，需要管理员重新录入；无版本前缀的旧密文仍兼容读取，并会在后续保存时迁移为 `v3:`。轮换 `APP_AUTH_ACCESS_SECRET` 会使原 `v3:` 密文不可解密，必须同时安排重新录入 AI API Key。
 
+API 访问日志仅记录方法、路径、状态码、耗时、可信客户端 IP 和 Request ID，不记录查询串、请求头、Cookie 或请求正文。上游 AI 错误在写入诊断日志前会对当前 API Key 脱敏，且不会向调用方透传上游响应正文。
+
 ## 健康检查
 
 ### 健康探针
@@ -808,6 +810,8 @@ POST /api/v1/admin/ai/models
 
 权限：`admin`。使用请求中的草稿连接配置访问上游模型列表，无需先保存设置。若 `apiKey` 留空，仅当 `apiFormat` 和标准化后的 `baseUrl` 与已保存设置一致时才会复用已保存且可解密的 API Key；测试尚未保存的新端点时必须传入 `apiKey`。
 
+`anthropic` 格式遵循标准 SDK 的 Base URL 语义：基础地址未包含 `/v1` 且不是完整的 `/messages` 或 `/models` 端点时，后端会补全 `/v1/models`；测试模型时对应补全 `/v1/messages`。显式完整端点和原有查询参数保持不变。
+
 请求字段校验失败返回 `400`；上游拒绝、协议错误或无效响应统一返回 `502`，上游超时返回 `504`。不会把上游的 `401/403` 原样透传为本站认证失败，也不会回显上游响应正文或 API Key。
 
 请求字段：
@@ -832,7 +836,7 @@ POST /api/v1/admin/ai/models
 POST /api/v1/admin/ai/test
 ```
 
-权限：`admin`。使用草稿配置向指定模型发送固定的低 token JSON 探针，连接成功且响应格式有效时返回模型名称和完整请求耗时。`apiKey` 的复用规则与模型列表接口相同。
+权限：`admin`。使用草稿配置向指定模型发送固定的小型 JSON 探针，并预留 512 个输出 token 以兼容先生成思考块的模型；连接成功且响应格式有效时返回模型名称和完整请求耗时。`apiKey` 的复用规则与模型列表接口相同。
 
 失败状态码与模型列表接口一致；测试不会保存草稿配置、启用 AI 或返回模型生成正文。
 

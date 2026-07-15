@@ -22,11 +22,13 @@ import (
 )
 
 func RegisterHandlers(server *rest.Server, svcCtx *svc.ServiceContext) {
+	forwardedOptions := middlewareForwardedOptions(svcCtx)
 	// RequestID 为所有请求注入 X-Request-Id 与请求上下文，供错误日志关联排查。
 	server.Use(middleware.RequestID)
+	// 安全访问日志只记录请求元数据，禁止输出查询串、Header、Cookie 和请求正文。
+	server.Use(middleware.NewAccessLogMiddleware(forwardedOptions).Handle)
 	authMiddleware := middleware.NewAuthMiddleware(svcCtx.Tokens, svcCtx.Store).
 		WithUserCache(svcCtx.AuthUserCache)
-	forwardedOptions := middlewareForwardedOptions(svcCtx)
 	loginRateLimit := middleware.NewFailClosedRateLimitMiddleware(svcCtx.Redis, "auth_login", 5, time.Minute, forwardedOptions)
 	verifyCodeRateLimit := middleware.NewFailClosedRateLimitMiddleware(svcCtx.Redis, "verify_code_send", 5, time.Minute, forwardedOptions)
 	resetPasswordRateLimit := middleware.NewFailClosedRateLimitMiddleware(svcCtx.Redis, "password_reset", 5, time.Minute, forwardedOptions)
