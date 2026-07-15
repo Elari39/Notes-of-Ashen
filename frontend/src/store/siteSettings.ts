@@ -5,6 +5,9 @@ import type { SiteSettings } from '../types';
 import type { UpdateSiteSettingsReq } from '../types/api';
 import { executeFetchSettings, executeUpdateSettings } from './siteSettingsPolicy';
 
+export const DEFAULT_SITE_TITLE = 'Notes of Ashen';
+export const DEFAULT_SITE_DESCRIPTION = 'A personal blog written slowly by the lamp of ink.';
+
 interface SiteSettingsState {
   registrationEnabled: boolean;
   registrationEmailCodeRequired: boolean;
@@ -30,7 +33,7 @@ const toSiteSettingsState = (settings: SiteSettings): Partial<SiteSettingsState>
   registrationEnabled: settings.registrationEnabled,
   registrationEmailCodeRequired: settings.registrationEmailCodeRequired ?? true,
   homeArticleLayout: settings.homeArticleLayout || 'standard',
-  siteTitle: settings.siteTitle || 'Notes of Ashen',
+  siteTitle: settings.siteTitle || DEFAULT_SITE_TITLE,
   siteDescription: settings.siteDescription || '',
   siteKeywords: settings.siteKeywords || '',
   siteBaseUrl: settings.siteBaseUrl || '',
@@ -44,8 +47,8 @@ export const useSiteSettingsStore = create<SiteSettingsState>((set, get) => ({
   registrationEnabled: true,
   registrationEmailCodeRequired: true,
   homeArticleLayout: 'standard',
-  siteTitle: 'Notes of Ashen',
-  siteDescription: 'A personal blog written slowly by the lamp of ink.',
+  siteTitle: DEFAULT_SITE_TITLE,
+  siteDescription: DEFAULT_SITE_DESCRIPTION,
   siteKeywords: 'blog,notes,writing',
   siteBaseUrl: '',
   resumePageEnabled: false,

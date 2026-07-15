@@ -24,9 +24,16 @@ const zh = {
   'home.clearFiltersPoetic': '清除筛选',
   'home.heroKicker': '一份缓慢生长的个人刊物',
   'home.heroBrowse': '开始阅读',
+  'home.featuredRead': '阅读全文',
   'home.featuredLabel': '精选文章',
+  'home.defaultSiteDescription': '一份以墨为灯、缓慢书写的个人博客。',
+  'home.emptyKicker': '静候新篇',
+  'home.emptyTitle': '卷帙未盈。',
+  'home.emptyDescription': '新的札记正在酝酿，稍后再来看看。',
+  'home.loadErrorTitle': '未能展开札记',
   'home.latestTitle': '最新札记',
   'home.latestLabel': 'LATEST NOTE',
+  'home.articleCountOne': '已收录 {total} 篇文章',
   'home.articleCount': '已收录 {total} 篇文章',
   'home.journalKicker': '札记与随笔',
   'home.ctaKicker': '继续探索',
@@ -502,7 +509,7 @@ const zh = {
   'settings.homeLayoutTitle': '首页文章布局',
   'settings.homeLayoutDesc': '控制首页文章列表的封面与文字排列方式。',
   'settings.homeLayoutStandard': '默认排列',
-  'settings.homeLayoutStandardDesc': '封面统一在左侧，文字在右侧。',
+  'settings.homeLayoutStandardDesc': '文章以多列卡片排列，封面位于文字上方。',
   'settings.homeLayoutAlternating': '交错排列',
   'settings.homeLayoutAlternatingDesc': '有封面的文章左右交替，无封面文章不打断节奏。',
   'settings.saved': '站点设置已保存',
@@ -612,9 +619,16 @@ const en: Record<TranslationKey, string> = {
   'home.clearFiltersPoetic': 'Clear Filters',
   'home.heroKicker': 'A slowly growing personal journal',
   'home.heroBrowse': 'Start reading',
+  'home.featuredRead': 'Read article',
   'home.featuredLabel': 'FEATURED ARTICLE',
+  'home.defaultSiteDescription': 'A personal blog written slowly by the lamp of ink.',
+  'home.emptyKicker': 'A NEW PAGE AWAITS',
+  'home.emptyTitle': 'No articles yet.',
+  'home.emptyDescription': 'New notes are taking shape. Please check back soon.',
+  'home.loadErrorTitle': 'The notes could not be opened',
   'home.latestTitle': 'Latest notes',
   'home.latestLabel': 'LATEST NOTE',
+  'home.articleCountOne': '{total} article collected',
   'home.articleCount': '{total} articles collected',
   'home.journalKicker': 'Journal & essays',
   'home.ctaKicker': 'KEEP EXPLORING',
@@ -1090,7 +1104,7 @@ const en: Record<TranslationKey, string> = {
   'settings.homeLayoutTitle': 'Home Article Layout',
   'settings.homeLayoutDesc': 'Control how covers and text are arranged in the home article list.',
   'settings.homeLayoutStandard': 'Standard',
-  'settings.homeLayoutStandardDesc': 'Covers stay on the left and text stays on the right.',
+  'settings.homeLayoutStandardDesc': 'Articles use a multi-column card grid, with covers above the text.',
   'settings.homeLayoutAlternating': 'Alternating',
   'settings.homeLayoutAlternatingDesc': 'Articles with covers alternate sides; text-only articles do not interrupt the rhythm.',
   'settings.saved': 'Site settings saved',
@@ -1188,6 +1202,13 @@ export const formatText = (template: string, values: Record<string, string | num
     (message, [key, value]) => message.split(`{${key}}`).join(String(value)),
     template,
   );
+};
+
+export const formatArticleCount = (language: Language, total: number) => {
+  const key: TranslationKey = language === 'en' && total === 1
+    ? 'home.articleCountOne'
+    : 'home.articleCount';
+  return formatText(translate(language, key), { total });
 };
 
 export const getDateLocale = (language: Language) => (language === 'zh' ? 'zh-CN' : 'en-US');
