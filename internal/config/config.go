@@ -17,6 +17,8 @@ type Config struct {
 	Search   SearchConf
 	RabbitMQ RabbitMQConf
 	Email    EmailConf
+	Media    MediaConf
+	Backup   BackupConf
 	Proxy    ProxyConf
 }
 
@@ -63,6 +65,42 @@ type EmailConf struct {
 	From         string
 	FromName     string
 	TLSMode      string // implicit(默认,465) | starttls(587) | none(明文,仅内网测试)
+}
+
+type MediaConf struct {
+	RootDir        string
+	MaxUploadBytes int64
+}
+
+type BackupConf struct {
+	MaxUploadBytes int64
+}
+
+const (
+	DefaultMediaRootDir         = "./data/media"
+	DefaultMediaMaxUploadBytes  = int64(10 << 20)
+	DefaultBackupMaxUploadBytes = int64(1 << 30)
+)
+
+func (c MediaConf) EffectiveRootDir() string {
+	if strings.TrimSpace(c.RootDir) == "" {
+		return DefaultMediaRootDir
+	}
+	return strings.TrimSpace(c.RootDir)
+}
+
+func (c MediaConf) EffectiveMaxUploadBytes() int64 {
+	if c.MaxUploadBytes == 0 {
+		return DefaultMediaMaxUploadBytes
+	}
+	return c.MaxUploadBytes
+}
+
+func (c BackupConf) EffectiveMaxUploadBytes() int64 {
+	if c.MaxUploadBytes == 0 {
+		return DefaultBackupMaxUploadBytes
+	}
+	return c.MaxUploadBytes
 }
 
 type ProxyConf struct {
@@ -180,6 +218,13 @@ func (c *Config) ApplyEnv() error {
 	setString("APP_EMAIL_FROM", &c.Email.From)
 	setString("APP_EMAIL_FROM_NAME", &c.Email.FromName)
 	setString("APP_EMAIL_TLS_MODE", &c.Email.TLSMode)
+	setString("APP_MEDIA_ROOT", &c.Media.RootDir)
+	if err := setInt64("APP_MEDIA_MAX_UPLOAD_BYTES", &c.Media.MaxUploadBytes); err != nil {
+		return err
+	}
+	if err := setInt64("APP_BACKUP_MAX_UPLOAD_BYTES", &c.Backup.MaxUploadBytes); err != nil {
+		return err
+	}
 	setString("APP_TRUSTED_PROXY_CIDRS", &c.Proxy.TrustedCIDRs)
 
 	return nil
@@ -262,6 +307,12 @@ func (c Config) ValidateConfig() error {
 		if err := validateRequiredSecret("APP_EMAIL_FROM", c.Email.From, 1); err != nil {
 			return err
 		}
+	}
+	if c.Media.MaxUploadBytes < 0 {
+		return fmt.Errorf("APP_MEDIA_MAX_UPLOAD_BYTES must be a positive integer")
+	}
+	if c.Backup.MaxUploadBytes < 0 {
+		return fmt.Errorf("APP_BACKUP_MAX_UPLOAD_BYTES must be a positive integer")
 	}
 	return nil
 }

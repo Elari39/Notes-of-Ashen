@@ -19,6 +19,7 @@ ENV PRERENDER_ENABLED=0
 ENV PRERENDER_SERVICE_URL=https://service.prerender.io
 ENV PRERENDER_TOKEN=
 ENV WEB_TRUSTED_PROXY_CIDR=172.30.127.1/32
+ENV WEB_BACKUP_MAX_BODY_SIZE=1025m
 
 COPY deploy/nginx/default.conf /etc/nginx/templates/default.conf.template
 COPY deploy/nginx/10-limits.conf /etc/nginx/conf.d/10-limits.conf

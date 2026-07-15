@@ -84,6 +84,22 @@ func (c *Client) Enabled() bool {
 	return c != nil && c.enabled
 }
 
+func (c *Client) Health(ctx context.Context) error {
+	if !c.Enabled() {
+		return fmt.Errorf("search is disabled")
+	}
+	var resp struct {
+		Status string `json:"status"`
+	}
+	if err := c.do(ctx, http.MethodGet, "/health", nil, nil, &resp); err != nil {
+		return err
+	}
+	if resp.Status != "available" {
+		return fmt.Errorf("search is unavailable")
+	}
+	return nil
+}
+
 func (c *Client) Search(ctx context.Context, req SearchRequest) (*SearchResult, error) {
 	if !c.Enabled() {
 		return nil, fmt.Errorf("search is disabled")

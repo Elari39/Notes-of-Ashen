@@ -23,6 +23,10 @@ type IDPathReq {
 	ID uint64 `path:"id"`
 }
 
+type MediaPathReq {
+	Key string `path:"key"`
+}
+
 type ArticleVersionPathReq {
 	ID        uint64 `path:"id"`
 	VersionNo int    `path:"versionNo"`
@@ -302,6 +306,7 @@ type CategoryResp {
 	CreatedBy   uint64    `json:"createdBy"`
 	CreatedAt   time.Time `json:"createdAt"`
 	UpdatedAt   time.Time `json:"updatedAt"`
+	ArticleCount int64     `json:"articleCount"`
 }
 
 // CategoryListResp 为文档展示用，对应 types.go 泛型 ListResp[CategoryResp]。
@@ -320,6 +325,7 @@ type TagResp {
 	CreatedBy   uint64    `json:"createdBy"`
 	CreatedAt   time.Time `json:"createdAt"`
 	UpdatedAt   time.Time `json:"updatedAt"`
+	ArticleCount int64     `json:"articleCount"`
 }
 
 // TagListResp 为文档展示用，对应 types.go 泛型 ListResp[TagResp]。
@@ -348,6 +354,8 @@ type ArticleResp {
 	Status           string                   `json:"status"`
 	ViewCount        uint64                   `json:"viewCount"`
 	LikeCount        uint64                   `json:"likeCount"`
+	WordCount        int                      `json:"wordCount"`
+	ReadingTimeMinutes int                    `json:"readingTimeMinutes"`
 	ScheduledAt      *time.Time               `json:"scheduledAt,omitempty"`
 	PublishedAt      *time.Time               `json:"publishedAt,omitempty"`
 	IsPinned         bool                     `json:"isPinned"`
@@ -413,6 +421,160 @@ type ArticleVersionListResp {
 type SearchReindexResp {
 	Indexed int  `json:"indexed"`
 	Enabled bool `json:"enabled"`
+}
+
+type SearchSuggestionReq {
+	Query string `json:"q"`
+	Limit int    `json:"limit,optional"`
+}
+
+type SearchSuggestionResp {
+	Kind         string `json:"kind"`
+	ID           uint64 `json:"id"`
+	Label        string `json:"label"`
+	ArticleCount int64  `json:"articleCount,omitempty"`
+}
+
+type SearchSuggestionsResp {
+	Items []SearchSuggestionResp `json:"items"`
+}
+
+type MediaListReq {
+	Page  int    `json:"page,optional"`
+	Size  int    `json:"size,optional"`
+	Query string `json:"q,optional"`
+}
+
+type MediaAssetResp {
+	ID           uint64    `json:"id"`
+	StorageKey   string    `json:"storageKey"`
+	URL          string    `json:"url"`
+	OriginalName string    `json:"originalName"`
+	MIMEType     string    `json:"mimeType"`
+	SizeBytes    uint64    `json:"sizeBytes"`
+	Width        uint64    `json:"width"`
+	Height       uint64    `json:"height"`
+	AltText      string    `json:"altText"`
+	SHA256       string    `json:"sha256"`
+	CreatedBy    uint64    `json:"createdBy"`
+	CreatedAt    time.Time `json:"createdAt"`
+	UpdatedAt    time.Time `json:"updatedAt"`
+}
+
+type MediaListResp {
+	Items []MediaAssetResp `json:"items"`
+	Total int64            `json:"total"`
+	Page  int              `json:"page"`
+	Size  int              `json:"size"`
+}
+
+type UpdateMediaReq {
+	AltText string `json:"altText"`
+}
+
+type AnalyticsRangeReq {
+	From string `json:"from,optional"`
+	To   string `json:"to,optional"`
+}
+
+type AnalyticsListReq {
+	From  string `json:"from,optional"`
+	To    string `json:"to,optional"`
+	Query string `json:"q,optional"`
+	Page  int    `json:"page,optional"`
+	Size  int    `json:"size,optional"`
+}
+
+type AnalyticsSummaryResp {
+	PV            int64    `json:"pv"`
+	UV            int64    `json:"uv"`
+	Likes         int64    `json:"likes"`
+	PreviousPV    int64    `json:"previousPv"`
+	PreviousUV    int64    `json:"previousUv"`
+	PreviousLikes int64    `json:"previousLikes"`
+	PVChange      *float64 `json:"pvChange,omitempty"`
+	UVChange      *float64 `json:"uvChange,omitempty"`
+	LikesChange   *float64 `json:"likesChange,omitempty"`
+}
+
+type PageAnalyticsResp {
+	RouteType string `json:"routeType"`
+	Path      string `json:"path"`
+	ArticleID uint64 `json:"articleId,omitempty"`
+	Title     string `json:"title,omitempty"`
+	PV        int64  `json:"pv"`
+	UV        int64  `json:"uv"`
+}
+
+type AnalyticsOverviewResp {
+	From        string                  `json:"from"`
+	To          string                  `json:"to"`
+	Summary     AnalyticsSummaryResp    `json:"summary"`
+	Trend       []TrafficTrendPointResp `json:"trend"`
+	TopPages    []PageAnalyticsResp     `json:"topPages"`
+	TopReferers []RefererStatResp       `json:"topReferers"`
+}
+
+type ArticleAnalyticsResp {
+	ArticleID  uint64 `json:"articleId"`
+	Title      string `json:"title"`
+	Status     string `json:"status"`
+	PV         int64  `json:"pv"`
+	UV         int64  `json:"uv"`
+	Likes      int64  `json:"likes"`
+	TotalViews uint64 `json:"totalViews"`
+	TotalLikes uint64 `json:"totalLikes"`
+}
+
+type ArticleAnalyticsListResp {
+	Items []ArticleAnalyticsResp `json:"items"`
+	Total int64                  `json:"total"`
+	Page  int                    `json:"page"`
+	Size  int                    `json:"size"`
+}
+
+type ArticleAnalyticsPointResp {
+	Date  string `json:"date"`
+	PV    int64  `json:"pv"`
+	UV    int64  `json:"uv"`
+	Likes int64  `json:"likes"`
+}
+
+type ArticleAnalyticsDetailResp {
+	Article  ArticleAnalyticsResp        `json:"article"`
+	From     string                      `json:"from"`
+	To       string                      `json:"to"`
+	Trend    []ArticleAnalyticsPointResp `json:"trend"`
+	Referers []RefererStatResp           `json:"referers"`
+}
+
+type SystemHealthReq {
+	Refresh bool `json:"refresh,optional"`
+}
+
+type DependencyCheckResp {
+	Name      string `json:"name"`
+	Status    string `json:"status"`
+	LatencyMs int64  `json:"latencyMs"`
+	Message   string `json:"message,omitempty"`
+}
+
+type SystemHealthResp {
+	Status    string                `json:"status"`
+	CheckedAt time.Time             `json:"checkedAt"`
+	Checks    []DependencyCheckResp `json:"checks"`
+}
+
+type BackupExportReq {
+	CurrentPassword string `json:"currentPassword"`
+	Passphrase      string `json:"passphrase"`
+}
+
+type BackupRestoreResp {
+	Users    int      `json:"users"`
+	Articles int      `json:"articles"`
+	Media    int      `json:"media"`
+	Warnings []string `json:"warnings"`
 }
 
 type TrafficVisitReq {
@@ -487,6 +649,9 @@ type ArticleLikeResp {
 }
 
 service notesOfAshen-api {
+	@handler mediaFile
+	get /media/:key (MediaPathReq)
+
 	@handler rss
 	get /rss.xml
 
@@ -531,6 +696,9 @@ service notesOfAshen-api {
 
 	@handler tagList
 	get /api/v1/tags (PageReq) returns (TagListResp)
+
+	@handler searchSuggestions
+	get /api/v1/search/suggestions (SearchSuggestionReq) returns (SearchSuggestionsResp)
 
 	@handler siteSettings
 	get /api/v1/site/settings returns (SiteSettingsResp)
@@ -606,6 +774,44 @@ service notesOfAshen-api {
 
 	@handler adminArticleList
 	get /api/v1/admin/articles (ArticleListReq) returns (ArticleListResp)
+
+	@handler adminCategoryList
+	get /api/v1/admin/categories (PageReq) returns (CategoryListResp)
+
+	@handler adminTagList
+	get /api/v1/admin/tags (PageReq) returns (TagListResp)
+
+	@handler adminMediaList
+	get /api/v1/admin/media (MediaListReq) returns (MediaListResp)
+
+	// multipart/form-data: file（必填）与 altText（可选）。
+	@handler adminMediaUpload
+	post /api/v1/admin/media returns (MediaAssetResp)
+
+	@handler adminMediaUpdate
+	patch /api/v1/admin/media/:id (UpdateMediaReq) returns (MediaAssetResp)
+
+	@handler adminMediaDelete
+	delete /api/v1/admin/media/:id (IDPathReq) returns (EmptyResp)
+
+	@handler adminAnalyticsOverview
+	get /api/v1/admin/analytics/overview (AnalyticsRangeReq) returns (AnalyticsOverviewResp)
+
+	@handler adminArticleAnalytics
+	get /api/v1/admin/analytics/articles (AnalyticsListReq) returns (ArticleAnalyticsListResp)
+
+	@handler adminArticleAnalyticsDetail
+	get /api/v1/admin/analytics/articles/:id (AnalyticsRangeReq) returns (ArticleAnalyticsDetailResp)
+
+	@handler adminSystemHealth
+	get /api/v1/admin/system/health (SystemHealthReq) returns (SystemHealthResp)
+
+	@handler adminBackupExport
+	post /api/v1/admin/backups/export (BackupExportReq)
+
+	// multipart/form-data: file、currentPassword、passphrase、confirmation=REPLACE。
+	@handler adminBackupRestore
+	post /api/v1/admin/backups/restore returns (BackupRestoreResp)
 
 	@handler adminStats
 	get /api/v1/admin/stats returns (AdminStatsResp)

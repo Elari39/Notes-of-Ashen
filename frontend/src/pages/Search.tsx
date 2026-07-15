@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import InlineNotice from '../components/InlineNotice';
 import Pagination from '../components/Pagination';
 import SearchHighlight from '../components/SearchHighlight';
@@ -18,10 +18,16 @@ import { formatText, getDateLocale, translate } from '../i18n';
 import { usePreferenceStore } from '../store/preferences';
 import { routeLoaders } from '../routes/lazyRoutes';
 import { useSEO } from '../utils/seo';
+import { getSearchSuggestions } from '../api/search';
+import { getCategories } from '../api/category';
+import { getTags } from '../api/tag';
+import { safeLocalStorage } from '../utils/storage';
+import type { Category, SearchSuggestion, Tag as TagType } from '../types';
 
 const Search: React.FC = () => {
   const language = usePreferenceStore((state) => state.language);
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
   const [keyword, setKeyword] = useState('');
   const [articles, setArticles] = useState<Article[]>([]);
   const [loading, setLoading] = useState(false);
@@ -29,6 +35,12 @@ const Search: React.FC = () => {
   const [error, setError] = useState('');
   const [coverErrors, setCoverErrors] = useState<Record<number, boolean>>({});
   const [retryVersion, setRetryVersion] = useState(0);
+  const [suggestions, setSuggestions] = useState<SearchSuggestion[]>([]);
+  const [recentSearches, setRecentSearches] = useState<string[]>(() => readRecentSearches());
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [tags, setTags] = useState<TagType[]>([]);
+  const [inputFocused, setInputFocused] = useState(false);
+  const [activeSuggestion, setActiveSuggestion] = useState(-1);
   const size = 10;
   const t = (key: Parameters<typeof translate>[1]) => translate(language, key);
   const query = (searchParams.get('q') || '').trim();
@@ -42,6 +54,41 @@ const Search: React.FC = () => {
   useEffect(() => {
     setKeyword(query);
   }, [query]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    Promise.all([
+      getCategories({ page: 1, size: 100 }, controller.signal),
+      getTags({ page: 1, size: 100 }, controller.signal),
+    ])
+      .then(([categoryResponse, tagResponse]) => {
+        setCategories((categoryResponse.data.items || []).filter((item) => item.articleCount > 0));
+        setTags((tagResponse.data.items || []).filter((item) => item.articleCount > 0));
+      })
+      .catch(() => undefined);
+    return () => controller.abort();
+  }, []);
+
+  useEffect(() => {
+    const value = keyword.trim();
+    if (value.length < 2) {
+      setSuggestions([]);
+      setActiveSuggestion(-1);
+      return;
+    }
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => {
+      getSearchSuggestions(value, controller.signal)
+        .then((response) => setSuggestions(response.data.items || []))
+        .catch(() => {
+          if (!controller.signal.aborted) setSuggestions([]);
+        });
+    }, 250);
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, [keyword]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -111,6 +158,8 @@ const Search: React.FC = () => {
     }
 
     setSearchParams({ q: nextKeyword });
+    setRecentSearches(addRecentSearch(nextKeyword));
+    setInputFocused(false);
   };
 
   const handleClear = () => {
@@ -120,6 +169,56 @@ const Search: React.FC = () => {
 
   const handleCoverError = (articleId: number) => {
     setCoverErrors((current) => ({ ...current, [articleId]: true }));
+  };
+
+  const chooseSuggestion = (item: SearchSuggestion) => {
+    setInputFocused(false);
+    setActiveSuggestion(-1);
+    if (item.kind === 'article') {
+      navigate(`/article/${item.id}`);
+      return;
+    }
+    setSearchParams(item.kind === 'category' ? { categoryId: String(item.id) } : { tagId: String(item.id) });
+  };
+
+  const chooseRecent = (value: string) => {
+    setKeyword(value);
+    setSearchParams({ q: value });
+    setRecentSearches(addRecentSearch(value));
+    setInputFocused(false);
+  };
+
+  const removeRecent = (value: string) => {
+    const next = recentSearches.filter((item) => item.toLocaleLowerCase() !== value.toLocaleLowerCase());
+    writeRecentSearches(next);
+    setRecentSearches(next);
+    setActiveSuggestion(-1);
+  };
+
+  const visibleSuggestions = keyword.trim().length >= 2 ? suggestions : [];
+  const keyboardItems = visibleSuggestions.length > 0
+    ? visibleSuggestions
+    : recentSearches.map((label, index) => ({ kind: 'recent' as const, id: index, label }));
+
+  const handleSearchKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === 'Escape') {
+      setInputFocused(false);
+      setActiveSuggestion(-1);
+      return;
+    }
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      event.preventDefault();
+      if (keyboardItems.length === 0) return;
+      const delta = event.key === 'ArrowDown' ? 1 : -1;
+      setActiveSuggestion((current) => (current + delta + keyboardItems.length) % keyboardItems.length);
+      return;
+    }
+    if (event.key === 'Enter' && activeSuggestion >= 0 && keyboardItems[activeSuggestion]) {
+      event.preventDefault();
+      const item = keyboardItems[activeSuggestion];
+      if (item.kind === 'recent') chooseRecent(item.label);
+      else chooseSuggestion(item);
+    }
   };
 
   const handleCoverLoad = (articleId: number) => {
@@ -156,6 +255,14 @@ const Search: React.FC = () => {
             <TextField
               value={keyword}
               onChange={(event) => setKeyword(event.target.value)}
+              onFocus={() => setInputFocused(true)}
+              onBlur={() => setInputFocused(false)}
+              onKeyDown={handleSearchKeyDown}
+              role="combobox"
+              aria-expanded={inputFocused && keyboardItems.length > 0}
+              aria-autocomplete="list"
+              aria-controls="search-suggestion-listbox"
+              aria-activedescendant={activeSuggestion >= 0 ? `search-suggestion-${activeSuggestion}` : undefined}
               aria-label={t('search.inputLabel')}
               placeholder={t('search.placeholder')}
               fieldClassName="flex-1 border-0 px-1 focus-within:ring-0"
@@ -172,8 +279,98 @@ const Search: React.FC = () => {
               </Button>
             </div>
           </form>
+          {inputFocused && keyboardItems.length > 0 && (
+            <div
+              id="search-suggestion-listbox"
+              className="mx-auto mt-2 max-w-2xl rounded-lg border border-hairline bg-paper p-2 text-left shadow-lg"
+              role="listbox"
+            >
+              <div className="flex items-center justify-between px-2 py-1 text-xs text-muted">
+                <span>{visibleSuggestions.length > 0 ? t('search.suggestions') : t('search.recent')}</span>
+                {visibleSuggestions.length === 0 && (
+                  <button
+                    type="button"
+                    onMouseDown={(event) => event.preventDefault()}
+                    onClick={() => {
+                      writeRecentSearches([]);
+                      setRecentSearches([]);
+                    }}
+                    className="text-ochre"
+                  >
+                    {t('search.clearRecent')}
+                  </button>
+                )}
+              </div>
+              {keyboardItems.map((item, index) => item.kind === 'recent' ? (
+                <div key={`${item.kind}-${item.id}-${item.label}`} className="flex items-center gap-1">
+                  <button
+                    id={`search-suggestion-${index}`}
+                    type="button"
+                    role="option"
+                    aria-selected={activeSuggestion === index}
+                    onMouseDown={(event) => event.preventDefault()}
+                    onClick={() => chooseRecent(item.label)}
+                    className={`min-w-0 flex-1 rounded-md px-3 py-2 text-left text-sm ${activeSuggestion === index ? 'bg-surface-soft text-ochre' : 'text-ink hover:bg-surface-soft'}`}
+                  >
+                    {item.label}
+                  </button>
+                  <button
+                    type="button"
+                    aria-label={`${t('search.removeRecent')}: ${item.label}`}
+                    onMouseDown={(event) => event.preventDefault()}
+                    onClick={() => removeRecent(item.label)}
+                    className="rounded-md px-3 py-2 text-muted hover:bg-surface-soft hover:text-ember"
+                  >
+                    ×
+                  </button>
+                </div>
+              ) : (
+                <button
+                  id={`search-suggestion-${index}`}
+                  key={`${item.kind}-${item.id}-${item.label}`}
+                  type="button"
+                  role="option"
+                  aria-selected={activeSuggestion === index}
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={() => chooseSuggestion(item)}
+                  className={`flex w-full items-center justify-between rounded-md px-3 py-2 text-sm ${activeSuggestion === index ? 'bg-surface-soft text-ochre' : 'text-ink hover:bg-surface-soft'}`}
+                >
+                  <span>{item.label}</span>
+                  {item.kind !== 'article' && <span className="text-xs text-muted">{item.articleCount}</span>}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </section>
+
+      {(categories.length > 0 || tags.length > 0) && (
+        <section className="mt-8 rounded-lg border border-hairline bg-paper p-5">
+          <h2 className="mb-4 text-sm font-bold tracking-widest text-ink">{t('search.taxonomyFilters')}</h2>
+          <div className="flex flex-wrap gap-2">
+            {categories.map((item) => (
+              <button
+                type="button"
+                key={`c-${item.id}`}
+                onClick={() => updateParams({ categoryId: item.id, tagId: undefined, page: undefined })}
+                className={`rounded-full px-3 py-2 text-xs ${categoryId === item.id ? 'bg-ochre text-on-accent' : 'bg-surface-soft text-ink'}`}
+              >
+                {item.name} · {item.articleCount}
+              </button>
+            ))}
+            {tags.map((item) => (
+              <button
+                type="button"
+                key={`t-${item.id}`}
+                onClick={() => updateParams({ tagId: item.id, categoryId: undefined, page: undefined })}
+                className={`rounded-full px-3 py-2 text-xs ${tagId === item.id ? 'bg-ochre text-on-accent' : 'bg-surface-soft text-ink'}`}
+              >
+                #{item.name} · {item.articleCount}
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
 
       <section className="mt-12 md:mt-16">
         {!hasSearchScope ? (
@@ -276,6 +473,7 @@ const Search: React.FC = () => {
                             )}
                             <span>{new Date(article.createdAt).toLocaleDateString(getDateLocale(language), { year: 'numeric', month: 'long', day: 'numeric' })}</span>
                             <span>{t('common.views')} {article.viewCount}</span>
+                            <span>{formatText(t('reading.minutes'), { count: article.readingTimeMinutes })}</span>
                             {article.category && (
                               <Link to={`/?categoryId=${article.category.id}`} className="border border-mountain-grey border-opacity-60 px-2 py-0.5 transition-colors hover:border-ochre hover:text-ochre">
                                 {article.category.name}
@@ -310,6 +508,33 @@ const Search: React.FC = () => {
       </section>
     </div>
   );
+};
+
+const recentSearchKey = 'notes-of-ashen:recent-searches:v1';
+
+const readRecentSearches = (): string[] => {
+  try {
+    const parsed = JSON.parse(safeLocalStorage.getItem(recentSearchKey) || '[]');
+    return Array.isArray(parsed)
+      ? parsed.filter((item): item is string => typeof item === 'string').slice(0, 10)
+      : [];
+  } catch {
+    return [];
+  }
+};
+
+const writeRecentSearches = (items: string[]) => {
+  safeLocalStorage.setItem(recentSearchKey, JSON.stringify(items.slice(0, 10)));
+};
+
+const addRecentSearch = (value: string) => {
+  const normalized = value.toLocaleLowerCase();
+  const next = [
+    value,
+    ...readRecentSearches().filter((item) => item.toLocaleLowerCase() !== normalized),
+  ].slice(0, 10);
+  writeRecentSearches(next);
+  return next;
 };
 
 const parsePositiveInt = (value: string | null, fallback: number) => {

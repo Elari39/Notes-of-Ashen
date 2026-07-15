@@ -139,6 +139,17 @@ export interface UpdateUserRoleReq {
   role: UserRole;
 }
 
+export interface AnalyticsParams extends PageParams {
+  from?: string;
+  to?: string;
+  q?: string;
+}
+
+export interface BackupExportReq {
+  currentPassword: string;
+  passphrase: string;
+}
+
 export interface ArticleListParams extends PageParams {
   q?: string;
   categoryId?: number;

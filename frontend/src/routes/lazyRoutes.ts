@@ -44,6 +44,9 @@ export const routeLoaders = {
   adminSettings: cacheRoute(() => import('../pages/admin/Settings')),
   adminAISettings: cacheRoute(() => import('../pages/admin/AISettings')),
   adminProjectsContent: cacheRoute(() => import('../pages/admin/ProjectsContent')),
+  adminMedia: cacheRoute(() => import('../pages/admin/Media')),
+  adminAnalytics: cacheRoute(() => import('../pages/admin/Analytics')),
+  adminSystem: cacheRoute(() => import('../pages/admin/System')),
   notFound: cacheRoute(() => import('../pages/NotFound')),
 } satisfies Record<string, RouteLoader>;
 
@@ -69,3 +72,6 @@ export const AdminSettings = lazy(routeLoaders.adminSettings);
 export const AdminAISettings = lazy(routeLoaders.adminAISettings);
 export const AdminProjectsContent = lazy(routeLoaders.adminProjectsContent);
 export const NotFound = lazy(routeLoaders.notFound);
+export const AdminMedia = lazy(routeLoaders.adminMedia);
+export const AdminAnalytics = lazy(routeLoaders.adminAnalytics);
+export const AdminSystem = lazy(routeLoaders.adminSystem);

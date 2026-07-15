@@ -82,7 +82,7 @@ func TestSiteSettingsForUpdatePreservesMissingFieldsAndClearsBaseURL(t *testing.
 		SiteTitle:           "Title",
 		SiteDescription:     "Description",
 		SiteKeywords:        "go,blog",
-		SiteBaseURL:         "https://example.com",
+		SiteBaseURL:         "https://1.1.1.1",
 		ProjectsPageEnabled: true,
 		ProjectsNavHidden:   false,
 	}
@@ -121,7 +121,7 @@ func TestValidateProjectsPageReq(t *testing.T) {
 				Title:           " Go Blog ",
 				Summary:         "A blog",
 				Tags:            []string{"Go", "go", "React"},
-				DemoURL:         "https://example.com",
+				DemoURL:         "https://1.1.1.1",
 				ContentMarkdown: "## Detail",
 				Featured:        true,
 			},

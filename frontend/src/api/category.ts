@@ -5,6 +5,9 @@ import { CreateCategoryReq, UpdateCategoryReq, PageParams } from '../types/api';
 export const getCategories = (params?: PageParams, signal?: AbortSignal) =>
   http.get<unknown, BaseResp<PaginatedResp<Category>>>('/categories', { params, signal });
 
+export const getAdminCategories = (params?: PageParams, signal?: AbortSignal) =>
+  http.get<unknown, BaseResp<PaginatedResp<Category>>>('/admin/categories', { params, signal });
+
 export const createCategory = (data: CreateCategoryReq) => 
   http.post<unknown, BaseResp<Category>>('/categories', data);
 

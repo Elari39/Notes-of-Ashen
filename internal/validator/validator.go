@@ -72,6 +72,30 @@ func OptionalHTTPURL(value, field string) error {
 	return nil
 }
 
+func OptionalImageURL(value, field string) error {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return nil
+	}
+	if strings.HasPrefix(value, "/media/") {
+		name := strings.TrimPrefix(value, "/media/")
+		parts := strings.Split(name, ".")
+		if len(parts) == 2 && len(parts[0]) == 64 && !strings.ContainsAny(name, "/\\") {
+			for _, r := range parts[0] {
+				if !strings.ContainsRune("0123456789abcdef", r) {
+					return apperrors.BadRequest(field + " format is invalid")
+				}
+			}
+			switch parts[1] {
+			case "jpg", "png", "gif", "webp":
+				return nil
+			}
+		}
+		return apperrors.BadRequest(field + " format is invalid")
+	}
+	return OptionalHTTPURL(value, field)
+}
+
 // IsBlockedHostIP 判断 IP 是否属于本机、内网、文档、基准测试、保留、
 // 链路本地或 CGNAT 等不应被服务端用户可控请求访问的地址段。
 func IsBlockedHostIP(ip net.IP) bool {

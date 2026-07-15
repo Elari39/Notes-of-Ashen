@@ -4,13 +4,17 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
 	"notes-of-ashen/internal/authutil"
 	apperrors "notes-of-ashen/internal/errors"
 	"notes-of-ashen/internal/response"
+	"notes-of-ashen/internal/security"
 	"notes-of-ashen/model"
+
+	"github.com/redis/go-redis/v9"
 )
 
 type UserFinder interface {
@@ -38,6 +42,12 @@ type AuthMiddleware struct {
 	tokenManager *authutil.Manager
 	users        UserFinder
 	cache        AuthUserCache
+	redis        *redis.Client
+}
+
+func (m *AuthMiddleware) WithTokenCutoff(client *redis.Client) *AuthMiddleware {
+	m.redis = client
+	return m
 }
 
 func NewAuthMiddleware(tokenManager *authutil.Manager, users UserFinder) *AuthMiddleware {
@@ -69,6 +79,10 @@ func (m *AuthMiddleware) Handle(next http.HandlerFunc) http.HandlerFunc {
 			response.ErrorCtx(r.Context(), w, apperrors.Unauthorized("invalid or expired token"))
 			return
 		}
+		if m.tokenIssuedBeforeCutoff(r.Context(), claims) {
+			response.ErrorCtx(r.Context(), w, apperrors.Unauthorized("invalid or expired token"))
+			return
+		}
 
 		role, status, err := m.resolveUser(r.Context(), claims.UserID)
 		if err != nil {
@@ -87,6 +101,23 @@ func (m *AuthMiddleware) Handle(next http.HandlerFunc) http.HandlerFunc {
 		ctx := authutil.WithUser(r.Context(), claims.UserID, role)
 		next(w, r.WithContext(ctx))
 	}
+}
+
+func (m *AuthMiddleware) tokenIssuedBeforeCutoff(ctx context.Context, claims *authutil.Claims) bool {
+	if claims.IssuedAt == nil {
+		return false
+	}
+	cutoff := security.AccessTokensNotBefore()
+	if m.redis == nil {
+		return cutoff > 0 && claims.IssuedAt.Unix() <= cutoff
+	}
+	raw, err := m.redis.Get(ctx, security.AccessTokensNotBeforeKey).Result()
+	if err == nil {
+		if redisCutoff, parseErr := strconv.ParseInt(raw, 10, 64); parseErr == nil && redisCutoff > cutoff {
+			cutoff = redisCutoff
+		}
+	}
+	return cutoff > 0 && claims.IssuedAt.Unix() <= cutoff
 }
 
 // resolveUser 优先读缓存，未命中或缓存不可用时直查 DB 并回填。

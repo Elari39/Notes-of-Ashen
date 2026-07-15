@@ -16,7 +16,23 @@ import (
 
 func List(ctx context.Context, svcCtx *svc.ServiceContext, page, size int) (*types.ListResp[types.CategoryResp], error) {
 	page, size = logicutil.Page(page, size)
-	items, total, err := svcCtx.Store.ListCategories(ctx, page, size)
+	items, total, err := svcCtx.Store.ListCategories(ctx, page, size, true)
+	if err != nil {
+		return nil, err
+	}
+	resp := make([]types.CategoryResp, 0, len(items))
+	for _, item := range items {
+		resp = append(resp, logicutil.CategoryResp(item))
+	}
+	return &types.ListResp[types.CategoryResp]{Items: resp, Total: total, Page: page, Size: size}, nil
+}
+
+func AdminList(ctx context.Context, svcCtx *svc.ServiceContext, page, size int) (*types.ListResp[types.CategoryResp], error) {
+	if err := authutil.RequireContentManager(ctx); err != nil {
+		return nil, err
+	}
+	page, size = logicutil.Page(page, size)
+	items, total, err := svcCtx.Store.ListCategories(ctx, page, size, false)
 	if err != nil {
 		return nil, err
 	}

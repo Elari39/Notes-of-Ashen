@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { getCategories, createCategory, deleteCategory, updateCategory } from '../../api/category';
+import { getAdminCategories, createCategory, deleteCategory, updateCategory } from '../../api/category';
 import { Category } from '../../types';
 import Pagination from '../../components/Pagination';
 import InlineNotice from '../../components/InlineNotice';
@@ -36,7 +36,7 @@ const AdminCategories: React.FC = () => {
     setLoading(true);
     setError('');
     try {
-      const res = await getCategories({ page, size });
+      const res = await getAdminCategories({ page, size });
       if (listRequestRef.current !== requestId) {
         return;
       }
@@ -141,7 +141,7 @@ const AdminCategories: React.FC = () => {
       </form>
 
       {loading && categories.length === 0 && (
-        <TableSkeleton rows={5} cols={3} />
+        <TableSkeleton rows={5} cols={4} />
       )}
       {loading && categories.length > 0 && (
         <PagePendingState variant="inline" label={t('common.loading')} />
@@ -155,6 +155,7 @@ const AdminCategories: React.FC = () => {
               <tr className="border-b border-mountain-grey text-ink-light opacity-80 tracking-widest">
                 <th className="py-3 font-normal">{t('common.name')}</th>
                 <th className="py-3 font-normal">Slug</th>
+                <th className="py-3 font-normal">{t('taxonomy.articleCount')}</th>
                 <th className="py-3 font-normal text-right">{t('common.action')}</th>
               </tr>
             </thead>
@@ -163,6 +164,7 @@ const AdminCategories: React.FC = () => {
                 <tr key={category.id} className="border-b border-mountain-grey border-opacity-50 hover:bg-mountain-grey hover:bg-opacity-20 transition-colors text-ink">
                   <td data-label={t('common.name')} className="admin-card-title py-4 font-bold">{category.name}</td>
                   <td data-label="Slug" className="py-4 text-ink-light">{category.slug}</td>
+                  <td data-label={t('taxonomy.articleCount')} className="py-4 text-ink-light">{category.articleCount}</td>
                   <td data-label={t('common.action')} className="admin-card-actions py-4 text-right">
                     <div className="admin-action-list">
                       <button onClick={() => handleEdit(category)} className="text-ink opacity-80 hover:text-ochre hover:opacity-100 tracking-wider transition-colors duration-fast">{t('common.edit')}</button>

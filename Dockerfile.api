@@ -26,8 +26,10 @@ ENV TZ=Asia/Shanghai
 COPY --from=builder /out/notes-of-ashen /app/notes-of-ashen
 COPY etc /app/etc
 
-# 以非 root 用户运行，降低 RCE 时的影响面。
-RUN adduser -D -u 10001 appuser && chown -R appuser:appuser /app
+# 以非 root 用户运行，降低 RCE 时的影响面；媒体卷首次创建时继承可写目录权限。
+RUN adduser -D -u 10001 appuser \
+    && mkdir -p /data/media \
+    && chown -R appuser:appuser /app /data/media
 USER appuser
 
 EXPOSE 19000

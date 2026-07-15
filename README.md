@@ -48,10 +48,11 @@ http://127.0.0.1:1270
 
 - 用户认证：注册、登录、退出、刷新 Token。
 - 文章管理：创建、编辑、删除、发布、归档、草稿预览、版本查看、版本恢复、Markdown 导入/导出、AI 一键补全文章与 SEO 信息、AI 辅助创作、置顶与显示优先级。
-- 内容展示：公开文章列表、文章详情、按年月日展开的发布归档、Meilisearch 全文搜索、Markdown 渲染、代码高亮、LaTeX 数学公式、文章目录和点赞反馈。
+- 内容展示：公开文章列表、文章详情、字数与预计阅读时间、原生分享/复制链接、按年月日展开的发布归档、搜索建议与本地最近搜索、Meilisearch 全文搜索、Markdown 渲染、代码高亮、LaTeX 数学公式、文章目录和点赞反馈。
 - 作品集：作品集画廊和项目标签。
-- 分类与标签：公开读取，后台可创建、更新和删除。
-- 管理后台：用户管理、用户状态管理、站点设置、项目管理、操作日志查看、访问趋势和来源统计。
+- 分类与标签：公开与后台文章数量展示，后台可创建、更新和删除。
+- 媒体库：本地持久化 JPEG/PNG/GIF/WebP，内容哈希去重，文章与作品集可选择封面或插入 Markdown 图片。
+- 管理后台：用户管理、用户状态管理、站点设置、项目管理、操作日志、页面/文章内容分析、依赖健康探测、口令加密备份与整站恢复。
 - 站点能力：RSS、Sitemap、站点标题、描述、关键词、Prerender.io 预渲染配置等。
 - 流量统计：公开页面自动上报 PV、UV 与来源，后台展示最近 30 天趋势。
 - 异步日志：通过 RabbitMQ 投递操作事件，并写入 `operation_logs`。
@@ -166,6 +167,10 @@ Copy-Item .env.example .env
 - `APP_EMAIL_SMTP_PASSWORD`：QQ 邮箱 SMTP 授权码，不是 QQ 登录密码。
 - `APP_EMAIL_FROM`：发件邮箱，通常和 `APP_EMAIL_SMTP_USERNAME` 一致；留空时后端会回退使用 SMTP 用户名。
 - `APP_EMAIL_FROM_NAME`：发件人名称。
+- `APP_MEDIA_ROOT`：媒体文件根目录；Compose 固定使用 `/data/media` 并挂载持久化卷，本地直跑未设置时默认 `./data/media`。
+- `APP_MEDIA_MAX_UPLOAD_BYTES`：单个媒体文件上限，默认 `10485760`（10 MiB）。
+- `APP_BACKUP_MAX_UPLOAD_BYTES`：加密备份上传与展开数据上限，默认 `1073741824`（1 GiB）。
+- `WEB_BACKUP_MAX_BODY_SIZE`：Web Nginx 恢复接口请求体上限，默认 `1025m`；调整备份上限时必须同步调整。
 - `APP_TRUSTED_PROXY_CIDRS`：可信反向代理 CIDR。Compose 默认仅信任固定 Web 容器地址；本地非 Docker 启动默认留空。
 - `PRERENDER_ENABLED`：是否启用 Prerender.io crawler 预渲染，`0` 关闭，`1` 启用。
 - `PRERENDER_SERVICE_URL`：Prerender.io 服务地址，默认 `https://service.prerender.io`。
@@ -205,6 +210,7 @@ Copy-Item .env.example .env
   15. `add_users_admin_state_index.sql` — 用户角色/状态复合索引，缩小管理员并发保护的锁定扫描范围（幂等）
   16. `add_operation_logs_filter_indexes.sql` — operation_logs 表事件/来源 IP 与时间复合索引（幂等）
   17. `add_ai_api_format_setting.sql` — 为 AI 设置补充 `apiFormat`，默认使用 `openai`（幂等，不删除旧设置键）
+  18. `add_media_content_analytics.sql` — 本地媒体元数据、页面/文章每日 PV/UV 聚合及访客去重表
 
 历史增量脚本保持不变。已部署数据库中的 `resume_*` 表和相关站点设置不会被运行时代码访问，也无需为本次升级执行破坏性删除。
 
@@ -274,6 +280,16 @@ docker compose --profile search up -d --build
 ```
 
 重新创建服务后，使用 `editor` 或 `admin` 登录后台，并调用 `POST /api/v1/admin/search/reindex` 全量重建文章索引。Meilisearch 初始化或运行中不可用时，API 不会因此退出，公开文章搜索会回退到 MySQL；后端会在后台重试索引初始化，恢复后重新启用 Meilisearch。
+
+### 媒体、内容分析与系统工具
+
+Docker Compose 使用 `goblog_media_data` 同时挂载到 API 的 `/data/media`（可写）和 Web 的 `/usr/share/nginx/media`（只读）。Nginx 以 `/media/` 提供不可变长期缓存；不要在 Web 容器内直接修改媒体文件。非 Docker 开发使用 `Media.RootDir` 或 `APP_MEDIA_ROOT`，并由 Vite 将 `/media` 代理到 API。
+
+媒体仅接受 JPEG、PNG、GIF 和 WebP，按内容 SHA-256 保存和去重。后台 `editor/admin` 可浏览与上传，只有 `admin` 可删除；被文章、历史版本、作品或头像引用的媒体不会被删除。
+
+“内容分析”从 `traffic_content_daily_stats` 新表部署后开始累计页面和文章级 PV/UV，无法从旧的文章总浏览量可靠回填。用于 UV 去重的访客哈希明细会定期清理，每日聚合长期保留；不采集设备、浏览器和地域信息。
+
+“系统工具”仅管理员可访问，提供依赖健康探测以及 `.noa-backup` 加密导出/恢复。备份口令不会持久化；归档不包含 AI API Key、Token、日志、流量明细、搜索索引和访客点赞哈希。恢复是破坏性的整站替换，会清空目标会话、日志、流量统计和 AI Key，并强制退出当前登录。执行恢复前仍应保留数据库/媒体卷的基础设施快照，并先在独立实例演练。
 
 ### 预渲染配置
 
@@ -474,6 +490,7 @@ Docker 部署会为本地中间件使用独立 volume：
 - `notes-of-ashen_goblog_redis_data`
 - `notes-of-ashen_goblog_rabbitmq_data`
 - `notes-of-ashen_goblog_meili_data`
+- `notes-of-ashen_goblog_media_data`
 
 MySQL 的数据卷首次创建时会自动执行 [deploy/mysql/schema.sql](deploy/mysql/schema.sql) 初始化数据库和表结构。后续增量 SQL 需要按版本变更手动执行或通过迁移流程处理。
 

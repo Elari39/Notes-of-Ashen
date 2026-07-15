@@ -8,23 +8,25 @@ import (
 )
 
 type Category struct {
-	ID          uint64
-	Name        string
-	Slug        string
-	Description string
-	CreatedBy   uint64
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
+	ID           uint64
+	Name         string
+	Slug         string
+	Description  string
+	CreatedBy    uint64
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
+	ArticleCount int64
 }
 
 type Tag struct {
-	ID          uint64
-	Name        string
-	Slug        string
-	Description string
-	CreatedBy   uint64
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
+	ID           uint64
+	Name         string
+	Slug         string
+	Description  string
+	CreatedBy    uint64
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
+	ArticleCount int64
 }
 
 type TaxonomyCreate struct {
@@ -118,15 +120,22 @@ LIMIT 1`, name, slug, slug)
 	return scanCategory(row)
 }
 
-func (s *Store) ListCategories(ctx context.Context, page, size int) ([]Category, int64, error) {
+func (s *Store) ListCategories(ctx context.Context, page, size int, publicOnly bool) ([]Category, int64, error) {
 	offset := (page - 1) * size
 	var total int64
 	if err := s.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM categories").Scan(&total); err != nil {
 		return nil, 0, err
 	}
+	visibility := ""
+	if publicOnly {
+		visibility = " AND a.status = 'published' AND (a.scheduled_at IS NULL OR a.scheduled_at <= NOW())"
+	}
 	rows, err := s.db.QueryContext(ctx, `
-SELECT id, name, slug, description, created_by, created_at, updated_at
-FROM categories ORDER BY id DESC LIMIT ? OFFSET ?`, size, offset)
+SELECT c.id, c.name, c.slug, c.description, c.created_by, c.created_at, c.updated_at, COUNT(a.id)
+FROM categories c
+LEFT JOIN articles a ON a.category_id = c.id`+visibility+`
+GROUP BY c.id, c.name, c.slug, c.description, c.created_by, c.created_at, c.updated_at
+ORDER BY c.id DESC LIMIT ? OFFSET ?`, size, offset)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -134,7 +143,7 @@ FROM categories ORDER BY id DESC LIMIT ? OFFSET ?`, size, offset)
 
 	items := make([]Category, 0)
 	for rows.Next() {
-		item, err := scanCategory(rows)
+		item, err := scanCategoryWithCount(rows)
 		if err != nil {
 			return nil, 0, err
 		}
@@ -190,15 +199,23 @@ LIMIT 1`, name, slug, slug)
 	return scanTag(row)
 }
 
-func (s *Store) ListTags(ctx context.Context, page, size int) ([]Tag, int64, error) {
+func (s *Store) ListTags(ctx context.Context, page, size int, publicOnly bool) ([]Tag, int64, error) {
 	offset := (page - 1) * size
 	var total int64
 	if err := s.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM tags").Scan(&total); err != nil {
 		return nil, 0, err
 	}
+	visibility := ""
+	if publicOnly {
+		visibility = " AND a.status = 'published' AND (a.scheduled_at IS NULL OR a.scheduled_at <= NOW())"
+	}
 	rows, err := s.db.QueryContext(ctx, `
-SELECT id, name, slug, description, created_by, created_at, updated_at
-FROM tags ORDER BY id DESC LIMIT ? OFFSET ?`, size, offset)
+SELECT t.id, t.name, t.slug, t.description, t.created_by, t.created_at, t.updated_at, COUNT(a.id)
+FROM tags t
+LEFT JOIN article_tags at ON at.tag_id = t.id
+LEFT JOIN articles a ON a.id = at.article_id`+visibility+`
+GROUP BY t.id, t.name, t.slug, t.description, t.created_by, t.created_at, t.updated_at
+ORDER BY t.id DESC LIMIT ? OFFSET ?`, size, offset)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -206,13 +223,64 @@ FROM tags ORDER BY id DESC LIMIT ? OFFSET ?`, size, offset)
 
 	items := make([]Tag, 0)
 	for rows.Next() {
-		item, err := scanTag(rows)
+		item, err := scanTagWithCount(rows)
 		if err != nil {
 			return nil, 0, err
 		}
 		items = append(items, *item)
 	}
 	return items, total, rows.Err()
+}
+
+func (s *Store) SuggestCategories(ctx context.Context, query string, limit int) ([]Category, error) {
+	rows, err := s.db.QueryContext(ctx, `
+SELECT c.id, c.name, c.slug, c.description, c.created_by, c.created_at, c.updated_at, COUNT(a.id)
+FROM categories c
+JOIN articles a ON a.category_id = c.id
+  AND a.status = 'published' AND (a.scheduled_at IS NULL OR a.scheduled_at <= NOW())
+WHERE c.name LIKE ?
+GROUP BY c.id, c.name, c.slug, c.description, c.created_by, c.created_at, c.updated_at
+ORDER BY CASE WHEN c.name LIKE ? THEN 0 ELSE 1 END, COUNT(a.id) DESC, c.name
+LIMIT ?`, "%"+query+"%", query+"%", limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := make([]Category, 0, limit)
+	for rows.Next() {
+		item, err := scanCategoryWithCount(rows)
+		if err != nil {
+			return nil, err
+		}
+		items = append(items, *item)
+	}
+	return items, rows.Err()
+}
+
+func (s *Store) SuggestTags(ctx context.Context, query string, limit int) ([]Tag, error) {
+	rows, err := s.db.QueryContext(ctx, `
+SELECT t.id, t.name, t.slug, t.description, t.created_by, t.created_at, t.updated_at, COUNT(a.id)
+FROM tags t
+JOIN article_tags at ON at.tag_id = t.id
+JOIN articles a ON a.id = at.article_id
+  AND a.status = 'published' AND (a.scheduled_at IS NULL OR a.scheduled_at <= NOW())
+WHERE t.name LIKE ?
+GROUP BY t.id, t.name, t.slug, t.description, t.created_by, t.created_at, t.updated_at
+ORDER BY CASE WHEN t.name LIKE ? THEN 0 ELSE 1 END, COUNT(a.id) DESC, t.name
+LIMIT ?`, "%"+query+"%", query+"%", limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := make([]Tag, 0, limit)
+	for rows.Next() {
+		item, err := scanTagWithCount(rows)
+		if err != nil {
+			return nil, err
+		}
+		items = append(items, *item)
+	}
+	return items, rows.Err()
 }
 
 func scanCategory(row rowScanner) (*Category, error) {
@@ -230,6 +298,28 @@ func scanTag(row rowScanner) (*Tag, error) {
 	var item Tag
 	var description sql.NullString
 	err := row.Scan(&item.ID, &item.Name, &item.Slug, &description, &item.CreatedBy, &item.CreatedAt, &item.UpdatedAt)
+	if err != nil {
+		return nil, scanErr(err)
+	}
+	item.Description = stringFromNull(description)
+	return &item, nil
+}
+
+func scanCategoryWithCount(row rowScanner) (*Category, error) {
+	var item Category
+	var description sql.NullString
+	err := row.Scan(&item.ID, &item.Name, &item.Slug, &description, &item.CreatedBy, &item.CreatedAt, &item.UpdatedAt, &item.ArticleCount)
+	if err != nil {
+		return nil, scanErr(err)
+	}
+	item.Description = stringFromNull(description)
+	return &item, nil
+}
+
+func scanTagWithCount(row rowScanner) (*Tag, error) {
+	var item Tag
+	var description sql.NullString
+	err := row.Scan(&item.ID, &item.Name, &item.Slug, &description, &item.CreatedBy, &item.CreatedAt, &item.UpdatedAt, &item.ArticleCount)
 	if err != nil {
 		return nil, scanErr(err)
 	}

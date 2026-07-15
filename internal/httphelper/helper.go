@@ -77,6 +77,10 @@ func Query(r *http.Request, key string) string {
 	return strings.TrimSpace(r.URL.Query().Get(key))
 }
 
+func QueryInt(r *http.Request, key string, fallback int) int {
+	return queryInt(r, key, fallback)
+}
+
 func QueryUint64(r *http.Request, key string) (uint64, error) {
 	raw := strings.TrimSpace(r.URL.Query().Get(key))
 	if raw == "" {

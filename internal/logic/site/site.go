@@ -290,6 +290,9 @@ func validateProjectURL(value, field string) error {
 	if err := validator.Length(value, field, 0, 255); err != nil {
 		return err
 	}
+	if strings.HasSuffix(field, ".coverUrl") {
+		return validator.OptionalImageURL(value, field)
+	}
 	return validator.OptionalHTTPURL(value, field)
 }
 

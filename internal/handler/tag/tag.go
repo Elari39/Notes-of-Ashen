@@ -22,6 +22,18 @@ func ListHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	}
 }
 
+func AdminListHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		page, size := basehandler.PageSize(r)
+		resp, err := taglogic.AdminList(r.Context(), svcCtx, page, size)
+		if err != nil {
+			response.ErrorCtx(r.Context(), w, err)
+			return
+		}
+		response.Ok(w, resp)
+	}
+}
+
 func CreateHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req types.TaxonomyReq

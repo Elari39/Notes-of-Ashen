@@ -5,10 +5,12 @@ import PagePendingState from '../../components/RoutePending';
 import { getAdminProjectsPage, updateAdminProjectsPage } from '../../api/siteSettings';
 import { getTags } from '../../api/tag';
 import { usePreferenceStore } from '../../store/preferences';
-import type { ProjectItem, ProjectsPage, Tag } from '../../types';
+import type { MediaAsset, ProjectItem, ProjectsPage, Tag } from '../../types';
 import { getErrorMessage } from '../../utils/error';
 import { useConfirm } from '../../hooks/useConfirm';
 import { formatText, translate } from '../../i18n';
+import MediaPicker from '../../components/admin/MediaPicker';
+import Button from '../../components/ui/Button';
 
 const emptyProjects: ProjectsPage = {
   title: '',
@@ -308,6 +310,23 @@ const ProjectEditor: React.FC<ProjectEditorProps> = ({
 }) => {
   const language = usePreferenceStore((state) => state.language);
   const t = (key: Parameters<typeof translate>[1]) => translate(language, key);
+  const [mediaMode, setMediaMode] = useState<'cover' | 'content' | null>(null);
+  const contentRef = useRef<HTMLTextAreaElement>(null);
+  const handleMediaSelect = (asset: MediaAsset) => {
+    if (mediaMode === 'cover') {
+      onChange({ coverUrl: asset.url });
+      return;
+    }
+    const textarea = contentRef.current;
+    const start = textarea?.selectionStart ?? project.contentMarkdown.length;
+    const end = textarea?.selectionEnd ?? start;
+    const markdown = `![${asset.altText || asset.originalName.replace(/\.[^.]+$/, '')}](${asset.url})`;
+    onChange({ contentMarkdown: `${project.contentMarkdown.slice(0, start)}${markdown}${project.contentMarkdown.slice(end)}` });
+    window.requestAnimationFrame(() => {
+      textarea?.focus();
+      textarea?.setSelectionRange(start + markdown.length, start + markdown.length);
+    });
+  };
   return (
   <article className="border border-mountain-grey bg-[var(--paper-soft)] p-4 md:p-5">
     <div className={`${collapsed ? '' : 'mb-5'} flex flex-col gap-3 md:flex-row md:items-center md:justify-between`}>
@@ -359,7 +378,12 @@ const ProjectEditor: React.FC<ProjectEditorProps> = ({
           <TextInput label={t('projectAdmin.projectTitle')} value={project.title} disabled={disabled} onChange={(value) => onChange({ title: value })} />
           <TextInput label={t('projectAdmin.role')} value={project.role} disabled={disabled} onChange={(value) => onChange({ role: value })} />
           <TextInput label={t('projectAdmin.period')} value={project.period} disabled={disabled} onChange={(value) => onChange({ period: value })} />
-          <TextInput label={t('projectAdmin.coverUrl')} value={project.coverUrl} disabled={disabled} onChange={(value) => onChange({ coverUrl: value })} />
+          <div>
+            <TextInput label={t('projectAdmin.coverUrl')} value={project.coverUrl} disabled={disabled} onChange={(value) => onChange({ coverUrl: value })} />
+            <Button type="button" size="sm" variant="subtle" className="mt-2" onClick={() => setMediaMode('cover')}>
+              {t('media.choose')}
+            </Button>
+          </div>
           <TextInput label={t('projectAdmin.demoUrl')} value={project.demoUrl} disabled={disabled} onChange={(value) => onChange({ demoUrl: value })} />
           <TextInput label={t('projectAdmin.repoUrl')} value={project.repoUrl} disabled={disabled} onChange={(value) => onChange({ repoUrl: value })} />
           <label className="flex items-center gap-3 border border-mountain-grey px-3 py-2 text-sm text-ink-light">
@@ -404,8 +428,14 @@ const ProjectEditor: React.FC<ProjectEditorProps> = ({
 
         <div className="mt-5 grid min-h-[24rem] grid-cols-1 gap-5 lg:grid-cols-2">
           <section className="flex min-h-[20rem] flex-col border border-mountain-grey p-4">
-            <div className="mb-3 text-sm font-bold tracking-widest text-ink">{t('projectAdmin.detailEditor')}</div>
+            <div className="mb-3 flex items-center justify-between gap-2 text-sm font-bold tracking-widest text-ink">
+              <span>{t('projectAdmin.detailEditor')}</span>
+              <Button type="button" size="sm" variant="subtle" onClick={() => setMediaMode('content')}>
+                {t('media.insert')}
+              </Button>
+            </div>
             <textarea
+              ref={contentRef}
               value={project.contentMarkdown}
               onChange={(event) => onChange({ contentMarkdown: event.target.value })}
               disabled={disabled}
@@ -422,6 +452,13 @@ const ProjectEditor: React.FC<ProjectEditorProps> = ({
             )}
           </section>
         </div>
+        <MediaPicker
+          open={mediaMode !== null}
+          onOpenChange={(open) => {
+            if (!open) setMediaMode(null);
+          }}
+          onSelect={handleMediaSelect}
+        />
       </>
     )}
   </article>

@@ -57,5 +57,12 @@ Email:
   From: ""
   FromName: "Notes of Ashen"
 
+Media:
+  RootDir: "./data/media"
+  MaxUploadBytes: 10485760
+
+Backup:
+  MaxUploadBytes: 1073741824
+
 Proxy:
   TrustedCIDRs: ""

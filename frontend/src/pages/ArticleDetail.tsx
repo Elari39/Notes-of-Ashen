@@ -18,12 +18,15 @@ import { extractMarkdownHeadings, type MarkdownHeading } from '../utils/markdown
 import type { Article, ArticleContext } from '../types';
 import { routeLoaders } from '../routes/lazyRoutes';
 import { safeLocalStorage } from '../utils/storage';
+import { useSiteSettingsStore } from '../store/siteSettings';
+import { toast } from '../utils/notify';
 
 type ArticleDetailData = Article & { content: string };
 
 const ArticleDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const language = usePreferenceStore((state) => state.language);
+  const siteBaseUrl = useSiteSettingsStore((state) => state.siteBaseUrl);
   const [article, setArticle] = useState<ArticleDetailData | null>(null);
   const [articleContext, setArticleContext] = useState<ArticleContext | null>(null);
   const [loading, setLoading] = useState(true);
@@ -204,6 +207,22 @@ const ArticleDetail: React.FC = () => {
     }
   };
 
+  const shareURL = getArticleShareURL(article?.id, siteBaseUrl);
+  const handleShare = async () => {
+    if (!article) return;
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: article.title, text: article.summary, url: shareURL });
+      } catch (err) {
+        if (!(err instanceof DOMException) || err.name !== 'AbortError') {
+          toast.error('share.failed');
+        }
+      }
+      return;
+    }
+    await copyArticleLink(shareURL);
+  };
+
   if (loading && !article) {
     return <ArticleDetailSkeleton />;
   }
@@ -287,6 +306,8 @@ const ArticleDetail: React.FC = () => {
                 <span>{new Date(article.createdAt).toLocaleDateString(getDateLocale(language), { year: 'numeric', month: 'long', day: 'numeric' })}</span>
                 <span>{t('common.views')} {article.viewCount}</span>
                 <span>{t('articleDetail.likes')} {likeCount}</span>
+                <span>{formatText(t('reading.words'), { count: article.wordCount })}</span>
+                <span>{formatText(t('reading.minutes'), { count: article.readingTimeMinutes })}</span>
               </div>
 
               <div className="flex flex-wrap items-center gap-3 text-xs">
@@ -338,6 +359,16 @@ const ArticleDetail: React.FC = () => {
               <span>{likeCount}</span>
             </button>
             <InlineNotice message={likeError} className="mt-4" />
+            <div className="mt-5 flex flex-wrap justify-center gap-3">
+              {typeof navigator.share === 'function' && (
+                <Button type="button" size="sm" variant="ghost" onClick={() => void handleShare()}>
+                  {t('share.native')}
+                </Button>
+              )}
+              <Button type="button" size="sm" variant="ghost" onClick={() => void copyArticleLink(shareURL)}>
+                {t('share.copy')}
+              </Button>
+            </div>
           </div>
 
           <div className="mt-10 text-center">
@@ -363,6 +394,36 @@ const ArticleDetail: React.FC = () => {
       </div>
     </>
   );
+};
+
+const copyArticleLink = async (url: string) => {
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(url);
+    } else {
+      const input = document.createElement('textarea');
+      input.value = url;
+      input.style.position = 'fixed';
+      input.style.opacity = '0';
+      document.body.appendChild(input);
+      input.select();
+      const copied = document.execCommand('copy');
+      input.remove();
+      if (!copied) throw new Error('copy failed');
+    }
+    toast.success('share.copied');
+  } catch {
+    toast.error('share.failed');
+  }
+};
+
+const getArticleShareURL = (articleID: number | undefined, siteBaseUrl: string) => {
+  if (!articleID) return window.location.href;
+  try {
+    return new URL(`/article/${articleID}`, siteBaseUrl.trim() || window.location.origin).toString();
+  } catch {
+    return new URL(`/article/${articleID}`, window.location.origin).toString();
+  }
 };
 
 const ArticleTOC: React.FC<{

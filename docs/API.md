@@ -327,6 +327,8 @@ GET /api/v1/articles/:id
 | status | string | `draft`、`published` 或 `archived` |
 | viewCount | uint64 | 浏览量 |
 | likeCount | uint64 | 点赞数 |
+| wordCount | int | 可见 Markdown 文本字数；汉字逐字、英文和数字连续串逐词 |
+| readingTimeMinutes | int | 混合阅读时间；中文 400 字/分钟、英文 200 词/分钟，非空正文至少 1 分钟 |
 | scheduledAt | string | 定时发布时间，可能省略 |
 | publishedAt | string | 发布时间，可能省略 |
 | isPinned | bool | 是否置顶 |
@@ -500,12 +502,13 @@ POST /api/v1/articles/:id/versions/:versionNo/restore
 
 ```text
 GET /api/v1/categories
+GET /api/v1/admin/categories
 POST /api/v1/categories
 PUT /api/v1/categories/:id
 DELETE /api/v1/categories/:id
 ```
 
-读取权限：公开。写入权限：`editor` 或 `admin`。创建和更新字段如下：
+公开列表只统计当前可见的已发布文章；后台列表要求 `editor` 或 `admin`，统计全部状态文章。响应的 `articleCount` 为对应口径的文章数。写入权限：`editor` 或 `admin`。创建和更新字段如下：
 
 | 字段 | 类型 | 必填 | 说明 |
 | --- | --- | --- | --- |
@@ -519,12 +522,50 @@ DELETE /api/v1/categories/:id
 
 ```text
 GET /api/v1/tags
+GET /api/v1/admin/tags
 POST /api/v1/tags
 PUT /api/v1/tags/:id
 DELETE /api/v1/tags/:id
 ```
 
-读取权限：公开。写入权限：`editor` 或 `admin`。创建和更新字段同分类。
+公开与后台数量口径、读取和写入权限同分类。标签的 `articleCount` 只统计文章关联，不包含作品集关联。
+
+## 搜索建议
+
+```text
+GET /api/v1/search/suggestions?q=go&limit=8
+```
+
+权限：公开。`q` 长度为 2 到 80 个字符；`limit` 默认 8、最大 10。返回文章标题、分类和标签混合建议，文章优先使用 Meilisearch，禁用或故障时回退 MySQL。所有结果均再次按数据库公开可见性过滤，不返回草稿、归档或未来定时文章。分类和标签建议包含 `articleCount`。
+
+最近搜索不提供服务端接口，仅由浏览器本地保存。
+
+## 媒体接口
+
+静态媒体通过以下同源路径长期缓存访问：
+
+```text
+GET /media/{sha256}.{jpg|png|gif|webp}
+```
+
+管理接口：
+
+```text
+GET    /api/v1/admin/media?page=1&size=18&q=cover
+POST   /api/v1/admin/media
+PATCH  /api/v1/admin/media/:id
+DELETE /api/v1/admin/media/:id
+```
+
+列表、上传和修改 Alt 权限为 `editor` 或 `admin`；删除仅允许 `admin`。上传使用 `multipart/form-data`，`file` 必填、`altText` 可选。仅接受 JPEG、PNG、GIF、WebP，文件扩展名、检测到的 MIME 和图片解码格式必须一致；默认上限 10 MiB。文件按内容 SHA-256 去重，URL 固定为可迁移的 `/media/{hash}.{ext}`。
+
+`PATCH` 请求体：
+
+```json
+{ "altText": "文章配图说明" }
+```
+
+删除前会检查文章正文和封面、历史版本、作品正文和封面以及用户头像；仍被引用时返回 `409`。
 
 ## 站点接口
 
@@ -726,6 +767,49 @@ GET /api/v1/admin/articles
 ```
 
 权限：`editor` 或 `admin`。支持 `page`、`size`、`status`、`q`、`categoryId`、`tagId`。内容管理角色可查看全部文章。
+
+### 内容分析
+
+```text
+GET /api/v1/admin/analytics/overview?from=2026-07-01&to=2026-07-30
+GET /api/v1/admin/analytics/articles?from=2026-07-01&to=2026-07-30&page=1&size=20&q=
+GET /api/v1/admin/analytics/articles/:id?from=2026-07-01&to=2026-07-30
+```
+
+权限：`editor` 或 `admin`。日期为空时默认最近 30 天，范围包含首尾自然日，最长 366 天。概览返回本周期与等长前置周期的 PV、UV、新增点赞、变化率、每日趋势、来源排行和页面排行；前期值为 0 时对应变化率省略。文章列表同时返回区间 PV、UV、新增点赞以及累计浏览、点赞。
+
+统计只接受白名单公开路由，查询串不会进入页面维度；不采集设备、浏览器或地理位置。页面和文章级趋势从新增聚合表部署后开始累计，无法从历史总浏览量回填。
+
+### 管理员依赖健康
+
+```text
+GET /api/v1/admin/system/health
+GET /api/v1/admin/system/health?refresh=true
+```
+
+权限：`admin`。并发探测 MySQL、Redis、Meilisearch、RabbitMQ、SMTP 和媒体目录。每项返回 `up`、`down` 或 `disabled`、耗时及脱敏说明；关闭的可选依赖不降低总体状态。结果缓存 30 秒，`refresh=true` 强制刷新。SMTP 仅建连、TLS、认证和 `NOOP`，不会发送邮件。
+
+### 加密备份与整站恢复
+
+```text
+POST /api/v1/admin/backups/export
+POST /api/v1/admin/backups/restore
+```
+
+权限：`admin`。两项操作都要求重新提交当前账户密码；归档口令长度 12 到 128 字符，不保存、不记录日志。导出请求为 JSON：
+
+```json
+{
+  "currentPassword": "current-account-password",
+  "passphrase": "backup-passphrase-at-least-12"
+}
+```
+
+导出返回 `application/octet-stream` 的 `.noa-backup` 文件。归档使用 age scrypt 口令加密，包含用户资料与 bcrypt 密码哈希、文章及版本、分类、标签、作品、站点设置中的非密钥配置、媒体元数据和原文件，以及文章累计浏览和点赞数。
+
+恢复使用 `multipart/form-data`：`file`、`currentPassword`、`passphrase` 必填，`confirmation` 必须为 `REPLACE`。恢复前完整校验版本、路径、展开总量、清单、SHA-256、数据计数、唯一约束、关联关系和至少一个启用管理员；默认上传上限 1 GiB。
+
+归档明确排除 Refresh Token、验证码、缓存、AI API Key 密文、环境变量、审计日志、流量明细、搜索索引和访客点赞哈希。恢复会整站替换目标内容，清空会话、日志、流量和访客去重数据，强制关闭 AI 并使旧 Access Token 失效；管理员必须重新登录、重新录入 AI API Key。数据库提交后会清缓存并重建 Meilisearch，索引重建或旧媒体清理失败只作为警告返回。
 
 ### 后台 AI 设置
 

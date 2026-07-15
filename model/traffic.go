@@ -11,6 +11,8 @@ type TrafficRecord struct {
 	Date        string
 	VisitorHash string
 	ArticleID   uint64
+	RouteType   string
+	Path        string
 	SourceType  string
 	SourceName  string
 }
@@ -48,6 +50,27 @@ VALUES (?, ?)`, in.Date, in.VisitorHash)
 INSERT INTO traffic_daily_stats (stat_date, pv, uv)
 VALUES (?, 1, ?)
 ON DUPLICATE KEY UPDATE pv = pv + 1, uv = uv + VALUES(uv)`, in.Date, uvIncrement); err != nil {
+			return err
+		}
+
+		contentUV := int64(0)
+		res, err = tx.ExecContext(ctx, `
+INSERT IGNORE INTO traffic_content_daily_visitors (stat_date, route_type, article_id, path, visitor_hash)
+VALUES (?, ?, ?, ?, ?)`, in.Date, in.RouteType, in.ArticleID, in.Path, in.VisitorHash)
+		if err != nil {
+			return err
+		}
+		affected, err = res.RowsAffected()
+		if err != nil {
+			return err
+		}
+		if affected > 0 {
+			contentUV = 1
+		}
+		if _, err := tx.ExecContext(ctx, `
+INSERT INTO traffic_content_daily_stats (stat_date, route_type, article_id, path, pv, uv)
+VALUES (?, ?, ?, ?, 1, ?)
+ON DUPLICATE KEY UPDATE pv = pv + 1, uv = uv + VALUES(uv)`, in.Date, in.RouteType, in.ArticleID, in.Path, contentUV); err != nil {
 			return err
 		}
 

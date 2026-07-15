@@ -12,11 +12,14 @@ services:
       PRERENDER_SERVICE_URL: "${PRERENDER_SERVICE_URL:-https://service.prerender.io}"
       PRERENDER_TOKEN: "${PRERENDER_TOKEN:-}"
       WEB_TRUSTED_PROXY_CIDR: "${WEB_TRUSTED_PROXY_CIDR:-172.30.127.1/32}"
+      WEB_BACKUP_MAX_BODY_SIZE: "${WEB_BACKUP_MAX_BODY_SIZE:-1025m}"
     ports:
       - "127.0.0.1:${WEB_PORT:-1270}:8080"
     depends_on:
       api:
         condition: service_healthy
+    volumes:
+      - goblog_media_data:/usr/share/nginx/media:ro
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/ || exit 1"]
       interval: 10s
@@ -85,7 +88,12 @@ services:
       APP_EMAIL_SMTP_PASSWORD: "${APP_EMAIL_SMTP_PASSWORD:-}"
       APP_EMAIL_FROM: "${APP_EMAIL_FROM:-}"
       APP_EMAIL_FROM_NAME: "${APP_EMAIL_FROM_NAME:-Notes of Ashen}"
+      APP_MEDIA_ROOT: "${APP_MEDIA_ROOT:-/data/media}"
+      APP_MEDIA_MAX_UPLOAD_BYTES: "${APP_MEDIA_MAX_UPLOAD_BYTES:-10485760}"
+      APP_BACKUP_MAX_UPLOAD_BYTES: "${APP_BACKUP_MAX_UPLOAD_BYTES:-1073741824}"
       APP_TRUSTED_PROXY_CIDRS: "${APP_TRUSTED_PROXY_CIDRS:-172.30.127.10/32}"
+    volumes:
+      - goblog_media_data:/data/media
     expose:
       - "19000"
       - "9101"
@@ -243,6 +251,7 @@ volumes:
   goblog_redis_data:
   goblog_rabbitmq_data:
   goblog_meili_data:
+  goblog_media_data:
 
 networks:
   app:

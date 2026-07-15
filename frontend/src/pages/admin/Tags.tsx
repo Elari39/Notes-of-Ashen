@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { getTags, createTag, deleteTag, updateTag } from '../../api/tag';
+import { getAdminTags, createTag, deleteTag, updateTag } from '../../api/tag';
 import { Tag } from '../../types';
 import Pagination from '../../components/Pagination';
 import InlineNotice from '../../components/InlineNotice';
@@ -37,7 +37,7 @@ const AdminTags: React.FC = () => {
     setLoading(true);
     setError('');
     try {
-      const res = await getTags({ page, size });
+      const res = await getAdminTags({ page, size });
       if (listRequestRef.current !== requestId) {
         return;
       }
@@ -142,7 +142,7 @@ const AdminTags: React.FC = () => {
       </form>
 
       {loading && tags.length === 0 && (
-        <TableSkeleton rows={5} cols={3} />
+        <TableSkeleton rows={5} cols={4} />
       )}
       {loading && tags.length > 0 && (
         <PagePendingState variant="inline" label={t('common.loading')} />
@@ -156,6 +156,7 @@ const AdminTags: React.FC = () => {
               <tr className="border-b border-mountain-grey text-ink-light opacity-80 tracking-widest">
                 <th className="py-3 font-normal">{t('common.name')}</th>
                 <th className="py-3 font-normal">Slug</th>
+                <th className="py-3 font-normal">{t('taxonomy.articleCount')}</th>
                 <th className="py-3 font-normal text-right">{t('common.action')}</th>
               </tr>
             </thead>
@@ -164,6 +165,7 @@ const AdminTags: React.FC = () => {
                 <tr key={tag.id} className="border-b border-mountain-grey border-opacity-50 hover:bg-mountain-grey hover:bg-opacity-20 transition-colors text-ink">
                   <td data-label={t('common.name')} className="admin-card-title py-4 font-bold relative before:content-['#'] before:mr-1 before:opacity-30">{tag.name}</td>
                   <td data-label="Slug" className="py-4 text-ink-light">{tag.slug}</td>
+                  <td data-label={t('taxonomy.articleCount')} className="py-4 text-ink-light">{tag.articleCount}</td>
                   <td data-label={t('common.action')} className="admin-card-actions py-4 text-right">
                     <div className="admin-action-list">
                       <button onClick={() => handleEdit(tag)} className="text-ink opacity-80 hover:text-ochre hover:opacity-100 tracking-wider">{t('common.edit')}</button>

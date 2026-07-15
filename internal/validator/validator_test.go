@@ -13,8 +13,8 @@ func TestOptionalHTTPURL(t *testing.T) {
 	}{
 		{name: "empty is allowed", value: "", wantErr: false},
 		{name: "space is allowed", value: "   ", wantErr: false},
-		{name: "https url is allowed", value: "https://example.com/a.png", wantErr: false},
-		{name: "http url is allowed", value: "http://example.com/a.png", wantErr: false},
+		{name: "https url is allowed", value: "https://1.1.1.1/a.png", wantErr: false},
+		{name: "http url is allowed", value: "http://1.1.1.1/a.png", wantErr: false},
 		{name: "account is rejected", value: "Elari39", wantErr: true},
 		{name: "anonymous text is rejected", value: "匿名", wantErr: true},
 		{name: "missing scheme is rejected", value: "example.com/a.png", wantErr: true},

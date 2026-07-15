@@ -5,6 +5,9 @@ import { CreateTagReq, UpdateTagReq, PageParams } from '../types/api';
 export const getTags = (params?: PageParams, signal?: AbortSignal) =>
   http.get<unknown, BaseResp<PaginatedResp<Tag>>>('/tags', { params, signal });
 
+export const getAdminTags = (params?: PageParams, signal?: AbortSignal) =>
+  http.get<unknown, BaseResp<PaginatedResp<Tag>>>('/admin/tags', { params, signal });
+
 export const createTag = (data: CreateTagReq) => 
   http.post<unknown, BaseResp<Tag>>('/tags', data);
 

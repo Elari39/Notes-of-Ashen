@@ -43,7 +43,11 @@ export default defineConfig(({ mode }) => {
         '/api': {
           target: apiTarget,
           changeOrigin: true,
-        }
+        },
+        '/media': {
+          target: apiTarget,
+          changeOrigin: true,
+        },
       }
     }
   }

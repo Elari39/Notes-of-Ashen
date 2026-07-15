@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/rand"
+	"net"
 	"sync"
 	"time"
 
@@ -129,6 +130,35 @@ func (p *Publisher) Publish(ctx context.Context, event Event) {
 		p.mu.Unlock()
 		p.fallbackWrite(event)
 	}
+}
+
+func (p *Publisher) Health(ctx context.Context) error {
+	if p == nil || !p.conf.Enabled {
+		return fmt.Errorf("rabbitmq is disabled")
+	}
+	conf := amqp.Config{Dial: func(network, addr string) (net.Conn, error) {
+		conn, err := (&net.Dialer{Timeout: 2 * time.Second}).DialContext(ctx, network, addr)
+		if err != nil {
+			return nil, err
+		}
+		if deadline, ok := ctx.Deadline(); ok {
+			if err := conn.SetDeadline(deadline); err != nil {
+				_ = conn.Close()
+				return nil, err
+			}
+		}
+		return conn, nil
+	}}
+	conn, err := amqp.DialConfig(p.conf.URL, conf)
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+	ch, err := conn.Channel()
+	if err != nil {
+		return err
+	}
+	return ch.Close()
 }
 
 // fallbackWrite 在 MQ 发布失败时降级同步落库，保证审计日志不丢失（与 !Enabled 分支一致）。

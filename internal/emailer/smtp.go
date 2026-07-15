@@ -140,6 +140,71 @@ func (s *Sender) SendVerifyCode(ctx context.Context, to, purpose, code string) e
 	return nil
 }
 
+func (s *Sender) Health(ctx context.Context) error {
+	if !s.conf.Enabled {
+		return fmt.Errorf("email is disabled")
+	}
+	if err := s.validate(); err != nil {
+		return err
+	}
+	host := strings.TrimSpace(s.conf.SMTPHost)
+	addr := fmt.Sprintf("%s:%d", host, s.conf.SMTPPort)
+	dialer := net.Dialer{Timeout: defaultSendTimeout}
+	mode := strings.ToLower(strings.TrimSpace(s.conf.TLSMode))
+	if mode == "" {
+		mode = "implicit"
+	}
+	var client *smtp.Client
+	var err error
+	switch mode {
+	case "implicit":
+		conn, dialErr := dialer.DialContext(ctx, "tcp", addr)
+		if dialErr != nil {
+			return dialErr
+		}
+		tlsConn := tls.Client(conn, &tls.Config{ServerName: host, MinVersion: tls.VersionTLS12})
+		if handshakeErr := tlsConn.HandshakeContext(ctx); handshakeErr != nil {
+			_ = conn.Close()
+			return handshakeErr
+		}
+		client, err = smtp.NewClient(tlsConn, host)
+		if err != nil {
+			_ = tlsConn.Close()
+			return err
+		}
+	case "starttls", "none":
+		conn, dialErr := dialer.DialContext(ctx, "tcp", addr)
+		if dialErr != nil {
+			return dialErr
+		}
+		if deadline, ok := ctx.Deadline(); ok {
+			if deadlineErr := conn.SetDeadline(deadline); deadlineErr != nil {
+				_ = conn.Close()
+				return deadlineErr
+			}
+		}
+		client, err = smtp.NewClient(conn, host)
+		if err != nil {
+			_ = conn.Close()
+			return err
+		}
+		if mode == "starttls" {
+			if err = client.StartTLS(&tls.Config{ServerName: host, MinVersion: tls.VersionTLS12}); err != nil {
+				_ = client.Close()
+				return err
+			}
+		}
+	default:
+		return fmt.Errorf("unsupported email tls mode")
+	}
+	defer client.Close()
+	auth := smtp.PlainAuth("", strings.TrimSpace(s.conf.SMTPUsername), s.conf.SMTPPassword, host)
+	if err := client.Auth(auth); err != nil {
+		return err
+	}
+	return client.Noop()
+}
+
 func (s *Sender) validate() error {
 	if strings.TrimSpace(s.conf.SMTPHost) == "" ||
 		s.conf.SMTPPort <= 0 ||

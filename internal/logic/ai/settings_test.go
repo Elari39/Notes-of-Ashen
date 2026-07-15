@@ -189,11 +189,11 @@ func TestDraftConfigReusesSavedKeyOnlyForSameEndpoint(t *testing.T) {
 	svcCtx, mock, closeDB := newAISettingsMockContext(t)
 	defer closeDB()
 	mock.ExpectQuery("SELECT setting_key, setting_value FROM site_settings").
-		WillReturnRows(aiSettingsRows(cipherText, "https://api.example.com/v1", model.AIAPIFormatOpenAI))
+		WillReturnRows(aiSettingsRows(cipherText, "https://1.1.1.1/v1", model.AIAPIFormatOpenAI))
 
 	conf, err := draftConfig(context.Background(), svcCtx, draftConfigInput{
 		APIFormat: model.AIAPIFormatOpenAI,
-		BaseURL:   "https://api.example.com/v1/",
+		BaseURL:   "https://1.1.1.1/v1/",
 	})
 	if err != nil {
 		t.Fatalf("draftConfig() error = %v", err)
@@ -214,11 +214,11 @@ func TestDraftConfigRejectsSavedKeyForDifferentEndpoint(t *testing.T) {
 	svcCtx, mock, closeDB := newAISettingsMockContext(t)
 	defer closeDB()
 	mock.ExpectQuery("SELECT setting_key, setting_value FROM site_settings").
-		WillReturnRows(aiSettingsRows(cipherText, "https://api.example.com/v1", model.AIAPIFormatOpenAI))
+		WillReturnRows(aiSettingsRows(cipherText, "https://1.1.1.1/v1", model.AIAPIFormatOpenAI))
 
 	_, err = draftConfig(context.Background(), svcCtx, draftConfigInput{
 		APIFormat: model.AIAPIFormatAnthropic,
-		BaseURL:   "https://api.example.com/v1",
+		BaseURL:   "https://1.1.1.1/v1",
 	})
 	if err == nil || !strings.Contains(err.Error(), "api key is required") {
 		t.Fatalf("draftConfig() error = %v", err)
@@ -233,7 +233,7 @@ func TestDraftConfigUsesTemporaryKeyWithoutReadingSettings(t *testing.T) {
 	defer closeDB()
 	conf, err := draftConfig(context.Background(), svcCtx, draftConfigInput{
 		APIFormat: model.AIAPIFormatAnthropic,
-		BaseURL:   "https://api.anthropic.com/v1",
+		BaseURL:   "https://1.1.1.1/v1",
 		APIKey:    "temporary-key",
 		Model:     "claude-model",
 	})
@@ -252,12 +252,12 @@ func TestUpdateSettingsPreservesOmittedConnectionFields(t *testing.T) {
 	svcCtx, mock, closeDB := newAISettingsMockContext(t)
 	defer closeDB()
 	mock.ExpectQuery("SELECT setting_key, setting_value FROM site_settings").
-		WillReturnRows(aiSettingsRows("cipher-text", "https://api.example.com/v1", model.AIAPIFormatOpenAI))
+		WillReturnRows(aiSettingsRows("cipher-text", "https://1.1.1.1/v1", model.AIAPIFormatOpenAI))
 	mock.ExpectExec("INSERT INTO site_settings").
 		WithArgs(
 			model.AIEnabledKey, "false",
 			model.AIAPIFormatKey, model.AIAPIFormatOpenAI,
-			model.AIBaseURLKey, "https://api.example.com/v1",
+			model.AIBaseURLKey, "https://1.1.1.1/v1",
 			model.AIAPIKeyCipherKey, "cipher-text",
 			model.AIModelKey, "model",
 			model.AIFirstByteTimeoutKey, "60",
@@ -270,7 +270,7 @@ func TestUpdateSettingsPreservesOmittedConnectionFields(t *testing.T) {
 	if err != nil {
 		t.Fatalf("UpdateSettings() error = %v", err)
 	}
-	if resp.BaseURL != "https://api.example.com/v1" || resp.Model != "model" || resp.FirstByteTimeoutSeconds != 60 || resp.NonStreamTimeoutSeconds != 600 {
+	if resp.BaseURL != "https://1.1.1.1/v1" || resp.Model != "model" || resp.FirstByteTimeoutSeconds != 60 || resp.NonStreamTimeoutSeconds != 600 {
 		t.Fatalf("omitted fields were not preserved: %#v", resp)
 	}
 	if err := mock.ExpectationsWereMet(); err != nil {

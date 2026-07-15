@@ -67,6 +67,7 @@ export interface Category {
   createdBy: number;
   createdAt: string;
   updatedAt: string;
+  articleCount: number;
 }
 
 export interface Tag {
@@ -77,6 +78,7 @@ export interface Tag {
   createdBy: number;
   createdAt: string;
   updatedAt: string;
+  articleCount: number;
 }
 
 export interface Article {
@@ -91,6 +93,8 @@ export interface Article {
   status: ArticleStatus;
   viewCount: number;
   likeCount: number;
+  wordCount: number;
+  readingTimeMinutes: number;
   scheduledAt?: string;
   publishedAt?: string;
   isPinned: boolean;
@@ -176,6 +180,64 @@ export interface AdminStats {
   recentArticles: Article[];
   recentLogs: Log[];
 }
+
+export type SearchSuggestionKind = 'article' | 'category' | 'tag';
+
+export interface SearchSuggestion {
+  kind: SearchSuggestionKind;
+  id: number;
+  label: string;
+  articleCount?: number;
+}
+
+export interface MediaAsset {
+  id: number;
+  storageKey: string;
+  url: string;
+  originalName: string;
+  mimeType: string;
+  sizeBytes: number;
+  width: number;
+  height: number;
+  altText: string;
+  sha256: string;
+  createdBy: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AnalyticsSummary {
+  pv: number; uv: number; likes: number;
+  previousPv: number; previousUv: number; previousLikes: number;
+  pvChange?: number; uvChange?: number; likesChange?: number;
+}
+
+export interface PageAnalytics {
+  routeType: string; path: string; articleId?: number; title?: string; pv: number; uv: number;
+}
+
+export interface AnalyticsOverview {
+  from: string; to: string; summary: AnalyticsSummary;
+  trend: TrafficTrendPoint[]; topPages: PageAnalytics[]; topReferers: RefererStat[];
+}
+
+export interface ArticleAnalytics {
+  articleId: number; title: string; status: ArticleStatus;
+  pv: number; uv: number; likes: number; totalViews: number; totalLikes: number;
+}
+
+export interface ArticleAnalyticsPoint extends TrafficTrendPoint { likes: number; }
+
+export interface ArticleAnalyticsDetail {
+  article: ArticleAnalytics; from: string; to: string;
+  trend: ArticleAnalyticsPoint[]; referers: RefererStat[];
+}
+
+export type DependencyStatus = 'up' | 'down' | 'disabled';
+export interface DependencyCheck { name: string; status: DependencyStatus; latencyMs: number; message?: string; }
+export interface SystemHealth { status: 'healthy' | 'degraded'; checkedAt: string; checks: DependencyCheck[]; }
+
+export interface BackupRestoreResult { users: number; articles: number; media: number; warnings: string[]; }
 
 export interface Log {
   id: number;

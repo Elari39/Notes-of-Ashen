@@ -3,7 +3,7 @@ import { useLocation, useParams, useNavigate } from 'react-router-dom';
 import { assistArticle, getArticlePreview, createArticle, updateArticle } from '../../api/article';
 import { createCategory, getCategories } from '../../api/category';
 import { createTag, getTags } from '../../api/tag';
-import type { Article, ArticleStatus, Category, Tag } from '../../types';
+import type { Article, ArticleStatus, Category, Tag, MediaAsset } from '../../types';
 import type { AIAssistAction } from '../../types/api';
 import InlineNotice from '../../components/InlineNotice';
 import MarkdownRenderer from '../../components/MarkdownRenderer';
@@ -30,6 +30,8 @@ import {
   type AITaxonomySuggestions,
 } from './articleAICompletionPolicy';
 import { safeLocalStorage } from '../../utils/storage';
+import MediaPicker from '../../components/admin/MediaPicker';
+import { getReadingStats } from '../../utils/readingStats';
 
 type TaxonomyOption = {
   id: number;
@@ -340,6 +342,7 @@ const ArticleEditor: React.FC = () => {
   const [generateSummaryOnSave, setGenerateSummaryOnSave] = useState(true);
   const [content, setContent] = useState('');
   const [coverUrl, setCoverUrl] = useState('');
+  const [mediaPickerMode, setMediaPickerMode] = useState<'cover' | 'content' | null>(null);
   const [status, setStatus] = useState<ArticleStatus>('draft');
   const [scheduledAt, setScheduledAt] = useState('');
   const [isPinned, setIsPinned] = useState(false);
@@ -350,6 +353,7 @@ const ArticleEditor: React.FC = () => {
   const [categoryId, setCategoryId] = useState<number | ''>('');
   const [tagIds, setTagIds] = useState<number[]>([]);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const liveReadingStats = useMemo(() => getReadingStats(content), [content]);
   const [isEditorReady, setIsEditorReady] = useState(false);
   const [draftRecovery, setDraftRecovery] = useState<EditorDraft | null>(null);
   const draftRecoveryRef = useRef<EditorDraft | null>(null);
@@ -858,6 +862,22 @@ const ArticleEditor: React.FC = () => {
     }
   };
 
+  const handleMediaSelect = (asset: MediaAsset) => {
+    if (mediaPickerMode === 'cover') {
+      setCoverUrl(asset.url);
+      return;
+    }
+    const textarea = textareaRef.current;
+    const start = textarea?.selectionStart ?? content.length;
+    const end = textarea?.selectionEnd ?? start;
+    const markdown = `![${asset.altText || asset.originalName.replace(/\.[^.]+$/, '')}](${asset.url})`;
+    setContent(`${content.slice(0, start)}${markdown}${content.slice(end)}`);
+    window.requestAnimationFrame(() => {
+      textarea?.focus();
+      textarea?.setSelectionRange(start + markdown.length, start + markdown.length);
+    });
+  };
+
   if (articleEditorAccess !== 'editor') {
     return (
       <div className="flex h-[80vh] flex-col">
@@ -1006,10 +1026,18 @@ const ArticleEditor: React.FC = () => {
           type="text" placeholder={t('articleEditor.slugPlaceholder')} value={slug} onChange={e => setSlug(e.target.value)}
           className="w-full bg-transparent border-b border-mountain-grey py-2 text-ink focus:outline-none focus:border-ochre"
         />
-        <input
-          type="text" placeholder={t('articleEditor.coverPlaceholder')} value={coverUrl} onChange={e => setCoverUrl(e.target.value)}
-          className="w-full bg-transparent border-b border-mountain-grey py-2 text-ink focus:outline-none focus:border-ochre"
-        />
+        <div className="flex items-end gap-2">
+          <input
+            type="text"
+            placeholder={t('articleEditor.coverPlaceholder')}
+            value={coverUrl}
+            onChange={(event) => setCoverUrl(event.target.value)}
+            className="min-w-0 flex-1 border-b border-mountain-grey bg-transparent py-2 text-ink focus:border-ochre focus:outline-none"
+          />
+          <Button type="button" size="sm" variant="subtle" onClick={() => setMediaPickerMode('cover')}>
+            {t('media.choose')}
+          </Button>
+        </div>
         <select
           value={status} onChange={e => setStatus(e.target.value as ArticleStatus)}
           className="w-full bg-transparent border-b border-mountain-grey py-2 text-ink focus:outline-none focus:border-ochre"
@@ -1140,6 +1168,16 @@ const ArticleEditor: React.FC = () => {
 
       <div className="flex-grow flex flex-col md:flex-row gap-6 overflow-hidden">
         <div className="w-full md:w-1/2 flex flex-col border border-mountain-grey p-4">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2 border-b border-hairline pb-3 text-xs text-muted">
+            <span>
+              {formatText(t('reading.words'), { count: liveReadingStats.wordCount })}
+              {' · '}
+              {formatText(t('reading.minutes'), { count: liveReadingStats.readingTimeMinutes })}
+            </span>
+            <Button type="button" size="sm" variant="subtle" onClick={() => setMediaPickerMode('content')}>
+              {t('media.insert')}
+            </Button>
+          </div>
           <textarea
             ref={textareaRef}
             value={content}
@@ -1152,6 +1190,13 @@ const ArticleEditor: React.FC = () => {
   <MarkdownRenderer content={debouncedPreviewContent} />
 </div>
       </div>
+      <MediaPicker
+        open={mediaPickerMode !== null}
+        onOpenChange={(open) => {
+          if (!open) setMediaPickerMode(null);
+        }}
+        onSelect={handleMediaSelect}
+      />
     </div>
   );
 };

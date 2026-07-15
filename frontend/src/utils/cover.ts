@@ -5,13 +5,15 @@ export const normalizeCoverUrl = (coverUrl?: string) => {
     return '';
   }
 
-  return isHttpCoverUrl(trimmed) ? trimmed : '';
+  return isHttpCoverUrl(trimmed) || isLocalMediaUrl(trimmed) ? trimmed : '';
 };
 
 export const isValidCoverUrl = (coverUrl?: string) => {
   const trimmed = coverUrl?.trim() || '';
-  return trimmed === '' || isHttpCoverUrl(trimmed);
+  return trimmed === '' || isHttpCoverUrl(trimmed) || isLocalMediaUrl(trimmed);
 };
+
+const isLocalMediaUrl = (value: string) => /^\/media\/[a-f0-9]{64}\.(jpg|png|gif|webp)$/.test(value);
 
 const isHttpCoverUrl = (value: string) => {
   try {

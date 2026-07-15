@@ -9,7 +9,7 @@ import Button from '../components/ui/Button';
 import Tag from '../components/ui/Tag';
 import { PreloadLink } from '../components/PreloadLink';
 import { getErrorMessage } from '../utils/error';
-import { formatArticleCount, getDateLocale, translate } from '../i18n';
+import { formatArticleCount, formatText, getDateLocale, translate } from '../i18n';
 import { usePreferenceStore } from '../store/preferences';
 import { getArticles } from '../api/article';
 import { Article } from '../types';
@@ -337,6 +337,7 @@ const Home: React.FC = () => {
                             {article.isPinned && <Tag tone="ochre" size="sm">{t('common.pinned')}</Tag>}
                             <span>{new Date(article.publishedAt || article.createdAt).toLocaleDateString(getDateLocale(language), { year: 'numeric', month: 'long', day: 'numeric' })}</span>
                             <span>{t('common.views')} {article.viewCount}</span>
+                            <span>{formatText(t('reading.minutes'), { count: article.readingTimeMinutes })}</span>
                           </div>
 
                           {(article.category || (article.tags && article.tags.length > 0)) && (

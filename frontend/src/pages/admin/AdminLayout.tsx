@@ -28,6 +28,9 @@ const segmentLabelKey: Record<string, TranslationKey> = {
   settings: 'admin.settings',
   'ai-settings': 'admin.aiSettings',
   projects: 'admin.projects',
+  media: 'admin.media',
+  analytics: 'admin.analytics',
+  system: 'admin.system',
 };
 
 const AdminLayout: React.FC = () => {
@@ -85,6 +88,12 @@ const AdminLayout: React.FC = () => {
           <PreloadNavLink to="/admin/tags" preload={routeLoaders.adminTags} className={navLinkClass}>
             {t('admin.tags')}
           </PreloadNavLink>
+          <PreloadNavLink to="/admin/media" preload={routeLoaders.adminMedia} className={navLinkClass}>
+            {t('admin.media')}
+          </PreloadNavLink>
+          <PreloadNavLink to="/admin/analytics" preload={routeLoaders.adminAnalytics} className={navLinkClass}>
+            {t('admin.analytics')}
+          </PreloadNavLink>
           <div className="hidden h-3 lg:block"></div>
           {user?.role === 'admin' && (
             <>
@@ -99,6 +108,9 @@ const AdminLayout: React.FC = () => {
               </PreloadNavLink>
               <PreloadNavLink to="/admin/ai-settings" preload={routeLoaders.adminAISettings} className={navLinkClass}>
                 {t('admin.aiSettings')}
+              </PreloadNavLink>
+              <PreloadNavLink to="/admin/system" preload={routeLoaders.adminSystem} className={navLinkClass}>
+                {t('admin.system')}
               </PreloadNavLink>
               {projectsPageEnabled && (
                 <PreloadNavLink to="/admin/projects" preload={routeLoaders.adminProjectsContent} className={navLinkClass}>

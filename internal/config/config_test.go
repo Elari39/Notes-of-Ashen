@@ -20,6 +20,9 @@ func TestApplyEnvOverridesConfig(t *testing.T) {
 	t.Setenv("APP_EMAIL_SMTP_PASSWORD", "mail-auth-code")
 	t.Setenv("APP_EMAIL_FROM", "user@qq.com")
 	t.Setenv("APP_EMAIL_FROM_NAME", "Notes of Ashen")
+	t.Setenv("APP_MEDIA_ROOT", "/data/media")
+	t.Setenv("APP_MEDIA_MAX_UPLOAD_BYTES", "10485760")
+	t.Setenv("APP_BACKUP_MAX_UPLOAD_BYTES", "1073741824")
 	t.Setenv("APP_TRUSTED_PROXY_CIDRS", "172.18.0.0/16")
 
 	if err := c.ApplyEnv(); err != nil {
@@ -49,6 +52,9 @@ func TestApplyEnvOverridesConfig(t *testing.T) {
 	}
 	if c.Email.SMTPUsername != "user@qq.com" || c.Email.SMTPPassword != "mail-auth-code" {
 		t.Fatalf("Email credentials were not overridden")
+	}
+	if c.Media.RootDir != "/data/media" || c.Media.MaxUploadBytes != 10485760 || c.Backup.MaxUploadBytes != 1073741824 {
+		t.Fatalf("media/backup configuration was not overridden: %+v %+v", c.Media, c.Backup)
 	}
 	if c.Proxy.TrustedCIDRs != "172.18.0.0/16" {
 		t.Fatalf("Proxy.TrustedCIDRs = %q", c.Proxy.TrustedCIDRs)

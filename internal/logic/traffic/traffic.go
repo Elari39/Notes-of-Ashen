@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -41,7 +42,8 @@ func Visit(ctx context.Context, svcCtx *svc.ServiceContext, req types.TrafficVis
 	}
 	// 规范化 path，避免 "/admin/../articles" 之类绕过黑名单。
 	normalizedPath := normalizeTrafficPath(req.Path)
-	if !isPublicTrafficPath(normalizedPath) {
+	routeType, contentPath, ok := canonicalContentRoute(normalizedPath, req.ArticleID)
+	if !ok || !isPublicTrafficPath(contentPath) {
 		return nil
 	}
 	// articleId 来自 body 任意值，校验其指向真实已发布文章，防止伪造刷统计。
@@ -53,7 +55,7 @@ func Visit(ctx context.Context, svcCtx *svc.ServiceContext, req types.TrafficVis
 			}
 			return err
 		}
-		if article.Status != "published" {
+		if !model.IsArticlePubliclyVisible(*article, time.Now()) {
 			return nil
 		}
 	}
@@ -67,13 +69,31 @@ func Visit(ctx context.Context, svcCtx *svc.ServiceContext, req types.TrafficVis
 		Date:        date,
 		VisitorHash: visitorHash,
 		ArticleID:   req.ArticleID,
+		RouteType:   routeType,
+		Path:        contentPath,
 		SourceType:  sourceType,
 		SourceName:  sourceName,
 	}); err != nil {
 		return err
 	}
 	recordRedisTraffic(ctx, svcCtx.Redis, date, visitorHash, sourceType, sourceName)
+	cleanupVisitorRows(ctx, svcCtx, now)
 	return nil
+}
+
+func cleanupVisitorRows(ctx context.Context, svcCtx *svc.ServiceContext, now time.Time) {
+	if svcCtx.Redis == nil {
+		return
+	}
+	key := "traffic:visitor-cleanup:" + now.Format("2006-01-02")
+	ok, err := svcCtx.Redis.SetNX(ctx, key, 1, 48*time.Hour).Result()
+	if err != nil || !ok {
+		return
+	}
+	before := now.AddDate(0, 0, -7).Format("2006-01-02")
+	if err := svcCtx.Store.CleanupTrafficVisitors(ctx, before); err != nil {
+		logx.Errorf("cleanup traffic visitor rows failed: %v", err)
+	}
 }
 
 func recordRedisTraffic(ctx context.Context, redisClient *redis.Client, date, visitorHash, sourceType, sourceName string) {
@@ -114,11 +134,26 @@ func isPublicTrafficPath(path string) bool {
 // 避免 "/admin/" "/admin/../articles" 等变体绕过黑名单前缀匹配。
 func normalizeTrafficPath(path string) string {
 	path = strings.TrimSpace(path)
+	if index := strings.IndexByte(path, '?'); index >= 0 {
+		path = path[:index]
+	}
 	path = strings.Trim(path, "/")
 	if path == "" {
 		return "/"
 	}
 	return "/" + path
+}
+
+func canonicalContentRoute(path string, articleID uint64) (string, string, bool) {
+	if articleID > 0 {
+		return "article", "/article/" + strconv.FormatUint(articleID, 10), true
+	}
+	switch path {
+	case "/", "/archive", "/search", "/projects":
+		return "page", path, true
+	default:
+		return "", "", false
+	}
 }
 
 func visitorDailyHash(date, ip, userAgent string) string {

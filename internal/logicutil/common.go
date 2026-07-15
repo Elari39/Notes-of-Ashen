@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	"notes-of-ashen/internal/contentstats"
 	apperrors "notes-of-ashen/internal/errors"
 	"notes-of-ashen/internal/types"
 	"notes-of-ashen/model"
@@ -73,49 +74,54 @@ func UserResp(u model.User) types.UserResp {
 
 func CategoryResp(c model.Category) types.CategoryResp {
 	return types.CategoryResp{
-		ID:          c.ID,
-		Name:        c.Name,
-		Slug:        c.Slug,
-		Description: c.Description,
-		CreatedBy:   c.CreatedBy,
-		CreatedAt:   utcTime(c.CreatedAt),
-		UpdatedAt:   utcTime(c.UpdatedAt),
+		ID:           c.ID,
+		Name:         c.Name,
+		Slug:         c.Slug,
+		Description:  c.Description,
+		CreatedBy:    c.CreatedBy,
+		CreatedAt:    utcTime(c.CreatedAt),
+		UpdatedAt:    utcTime(c.UpdatedAt),
+		ArticleCount: c.ArticleCount,
 	}
 }
 
 func TagResp(t model.Tag) types.TagResp {
 	return types.TagResp{
-		ID:          t.ID,
-		Name:        t.Name,
-		Slug:        t.Slug,
-		Description: t.Description,
-		CreatedBy:   t.CreatedBy,
-		CreatedAt:   utcTime(t.CreatedAt),
-		UpdatedAt:   utcTime(t.UpdatedAt),
+		ID:           t.ID,
+		Name:         t.Name,
+		Slug:         t.Slug,
+		Description:  t.Description,
+		CreatedBy:    t.CreatedBy,
+		CreatedAt:    utcTime(t.CreatedAt),
+		UpdatedAt:    utcTime(t.UpdatedAt),
+		ArticleCount: t.ArticleCount,
 	}
 }
 
 func ArticleResp(a model.Article, tags []model.Tag, category *model.Category, includeContent bool) types.ArticleResp {
+	stats := contentstats.Analyze(a.Content)
 	resp := types.ArticleResp{
-		ID:              a.ID,
-		AuthorID:        a.AuthorID,
-		CategoryID:      a.CategoryID,
-		Title:           a.Title,
-		Slug:            a.Slug,
-		Summary:         a.Summary,
-		CoverURL:        a.CoverURL,
-		Status:          a.Status,
-		ViewCount:       a.ViewCount,
-		LikeCount:       a.LikeCount,
-		ScheduledAt:     utcTimePtr(a.ScheduledAt),
-		PublishedAt:     utcTimePtr(a.PublishedAt),
-		IsPinned:        a.IsPinned,
-		DisplayPriority: a.DisplayPriority,
-		SEOTitle:        a.SEOTitle,
-		SEODescription:  a.SEODescription,
-		SEOKeywords:     a.SEOKeywords,
-		CreatedAt:       utcTime(a.CreatedAt),
-		UpdatedAt:       utcTime(a.UpdatedAt),
+		ID:                 a.ID,
+		AuthorID:           a.AuthorID,
+		CategoryID:         a.CategoryID,
+		Title:              a.Title,
+		Slug:               a.Slug,
+		Summary:            a.Summary,
+		CoverURL:           a.CoverURL,
+		Status:             a.Status,
+		ViewCount:          a.ViewCount,
+		LikeCount:          a.LikeCount,
+		WordCount:          stats.WordCount,
+		ReadingTimeMinutes: stats.ReadingTimeMinutes,
+		ScheduledAt:        utcTimePtr(a.ScheduledAt),
+		PublishedAt:        utcTimePtr(a.PublishedAt),
+		IsPinned:           a.IsPinned,
+		DisplayPriority:    a.DisplayPriority,
+		SEOTitle:           a.SEOTitle,
+		SEODescription:     a.SEODescription,
+		SEOKeywords:        a.SEOKeywords,
+		CreatedAt:          utcTime(a.CreatedAt),
+		UpdatedAt:          utcTime(a.UpdatedAt),
 	}
 	if includeContent {
 		resp.Content = a.Content

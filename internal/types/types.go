@@ -240,29 +240,31 @@ type ArticleListReq struct {
 }
 
 type ArticleResp struct {
-	ID               uint64                   `json:"id"`
-	AuthorID         uint64                   `json:"authorId"`
-	CategoryID       uint64                   `json:"categoryId,omitempty"`
-	Title            string                   `json:"title"`
-	Slug             string                   `json:"slug"`
-	Summary          string                   `json:"summary"`
-	Content          string                   `json:"content,omitempty"`
-	CoverURL         string                   `json:"coverUrl"`
-	Status           string                   `json:"status"`
-	ViewCount        uint64                   `json:"viewCount"`
-	LikeCount        uint64                   `json:"likeCount"`
-	ScheduledAt      *time.Time               `json:"scheduledAt,omitempty"`
-	PublishedAt      *time.Time               `json:"publishedAt,omitempty"`
-	IsPinned         bool                     `json:"isPinned"`
-	DisplayPriority  int                      `json:"displayPriority"`
-	SEOTitle         string                   `json:"seoTitle"`
-	SEODescription   string                   `json:"seoDescription"`
-	SEOKeywords      string                   `json:"seoKeywords"`
-	CreatedAt        time.Time                `json:"createdAt"`
-	UpdatedAt        time.Time                `json:"updatedAt"`
-	Tags             []TagResp                `json:"tags"`
-	Category         *CategoryResp            `json:"category,omitempty"`
-	SearchHighlights *ArticleSearchHighlights `json:"searchHighlights,omitempty"`
+	ID                 uint64                   `json:"id"`
+	AuthorID           uint64                   `json:"authorId"`
+	CategoryID         uint64                   `json:"categoryId,omitempty"`
+	Title              string                   `json:"title"`
+	Slug               string                   `json:"slug"`
+	Summary            string                   `json:"summary"`
+	Content            string                   `json:"content,omitempty"`
+	CoverURL           string                   `json:"coverUrl"`
+	Status             string                   `json:"status"`
+	ViewCount          uint64                   `json:"viewCount"`
+	LikeCount          uint64                   `json:"likeCount"`
+	WordCount          int                      `json:"wordCount"`
+	ReadingTimeMinutes int                      `json:"readingTimeMinutes"`
+	ScheduledAt        *time.Time               `json:"scheduledAt,omitempty"`
+	PublishedAt        *time.Time               `json:"publishedAt,omitempty"`
+	IsPinned           bool                     `json:"isPinned"`
+	DisplayPriority    int                      `json:"displayPriority"`
+	SEOTitle           string                   `json:"seoTitle"`
+	SEODescription     string                   `json:"seoDescription"`
+	SEOKeywords        string                   `json:"seoKeywords"`
+	CreatedAt          time.Time                `json:"createdAt"`
+	UpdatedAt          time.Time                `json:"updatedAt"`
+	Tags               []TagResp                `json:"tags"`
+	Category           *CategoryResp            `json:"category,omitempty"`
+	SearchHighlights   *ArticleSearchHighlights `json:"searchHighlights,omitempty"`
 }
 
 type ArticleSearchHighlights struct {
@@ -295,23 +297,142 @@ type TaxonomyReq struct {
 }
 
 type CategoryResp struct {
-	ID          uint64    `json:"id"`
-	Name        string    `json:"name"`
-	Slug        string    `json:"slug"`
-	Description string    `json:"description"`
-	CreatedBy   uint64    `json:"createdBy"`
-	CreatedAt   time.Time `json:"createdAt"`
-	UpdatedAt   time.Time `json:"updatedAt"`
+	ID           uint64    `json:"id"`
+	Name         string    `json:"name"`
+	Slug         string    `json:"slug"`
+	Description  string    `json:"description"`
+	CreatedBy    uint64    `json:"createdBy"`
+	CreatedAt    time.Time `json:"createdAt"`
+	UpdatedAt    time.Time `json:"updatedAt"`
+	ArticleCount int64     `json:"articleCount"`
 }
 
 type TagResp struct {
-	ID          uint64    `json:"id"`
-	Name        string    `json:"name"`
-	Slug        string    `json:"slug"`
-	Description string    `json:"description"`
-	CreatedBy   uint64    `json:"createdBy"`
-	CreatedAt   time.Time `json:"createdAt"`
-	UpdatedAt   time.Time `json:"updatedAt"`
+	ID           uint64    `json:"id"`
+	Name         string    `json:"name"`
+	Slug         string    `json:"slug"`
+	Description  string    `json:"description"`
+	CreatedBy    uint64    `json:"createdBy"`
+	CreatedAt    time.Time `json:"createdAt"`
+	UpdatedAt    time.Time `json:"updatedAt"`
+	ArticleCount int64     `json:"articleCount"`
+}
+
+type SearchSuggestionResp struct {
+	Kind         string `json:"kind"`
+	ID           uint64 `json:"id"`
+	Label        string `json:"label"`
+	ArticleCount int64  `json:"articleCount,omitempty"`
+}
+
+type SearchSuggestionsResp struct {
+	Items []SearchSuggestionResp `json:"items"`
+}
+
+type MediaAssetResp struct {
+	ID           uint64    `json:"id"`
+	StorageKey   string    `json:"storageKey"`
+	URL          string    `json:"url"`
+	OriginalName string    `json:"originalName"`
+	MIMEType     string    `json:"mimeType"`
+	SizeBytes    uint64    `json:"sizeBytes"`
+	Width        uint      `json:"width"`
+	Height       uint      `json:"height"`
+	AltText      string    `json:"altText"`
+	SHA256       string    `json:"sha256"`
+	CreatedBy    uint64    `json:"createdBy"`
+	CreatedAt    time.Time `json:"createdAt"`
+	UpdatedAt    time.Time `json:"updatedAt"`
+}
+
+type UpdateMediaReq struct {
+	AltText string `json:"altText"`
+}
+
+type AnalyticsRangeReq struct {
+	From string `json:"from,optional"`
+	To   string `json:"to,optional"`
+}
+
+type AnalyticsSummaryResp struct {
+	PV            int64    `json:"pv"`
+	UV            int64    `json:"uv"`
+	Likes         int64    `json:"likes"`
+	PreviousPV    int64    `json:"previousPv"`
+	PreviousUV    int64    `json:"previousUv"`
+	PreviousLikes int64    `json:"previousLikes"`
+	PVChange      *float64 `json:"pvChange,omitempty"`
+	UVChange      *float64 `json:"uvChange,omitempty"`
+	LikesChange   *float64 `json:"likesChange,omitempty"`
+}
+
+type PageAnalyticsResp struct {
+	RouteType string `json:"routeType"`
+	Path      string `json:"path"`
+	ArticleID uint64 `json:"articleId,omitempty"`
+	Title     string `json:"title,omitempty"`
+	PV        int64  `json:"pv"`
+	UV        int64  `json:"uv"`
+}
+
+type AnalyticsOverviewResp struct {
+	From        string                  `json:"from"`
+	To          string                  `json:"to"`
+	Summary     AnalyticsSummaryResp    `json:"summary"`
+	Trend       []TrafficTrendPointResp `json:"trend"`
+	TopPages    []PageAnalyticsResp     `json:"topPages"`
+	TopReferers []RefererStatResp       `json:"topReferers"`
+}
+
+type ArticleAnalyticsResp struct {
+	ArticleID  uint64 `json:"articleId"`
+	Title      string `json:"title"`
+	Status     string `json:"status"`
+	PV         int64  `json:"pv"`
+	UV         int64  `json:"uv"`
+	Likes      int64  `json:"likes"`
+	TotalViews uint64 `json:"totalViews"`
+	TotalLikes uint64 `json:"totalLikes"`
+}
+
+type ArticleAnalyticsPointResp struct {
+	Date  string `json:"date"`
+	PV    int64  `json:"pv"`
+	UV    int64  `json:"uv"`
+	Likes int64  `json:"likes"`
+}
+
+type ArticleAnalyticsDetailResp struct {
+	Article  ArticleAnalyticsResp        `json:"article"`
+	From     string                      `json:"from"`
+	To       string                      `json:"to"`
+	Trend    []ArticleAnalyticsPointResp `json:"trend"`
+	Referers []RefererStatResp           `json:"referers"`
+}
+
+type DependencyCheckResp struct {
+	Name      string `json:"name"`
+	Status    string `json:"status"`
+	LatencyMs int64  `json:"latencyMs"`
+	Message   string `json:"message,omitempty"`
+}
+
+type SystemHealthResp struct {
+	Status    string                `json:"status"`
+	CheckedAt time.Time             `json:"checkedAt"`
+	Checks    []DependencyCheckResp `json:"checks"`
+}
+
+type BackupExportReq struct {
+	CurrentPassword string `json:"currentPassword"`
+	Passphrase      string `json:"passphrase"`
+}
+
+type BackupRestoreResp struct {
+	Users    int      `json:"users"`
+	Articles int      `json:"articles"`
+	Media    int      `json:"media"`
+	Warnings []string `json:"warnings"`
 }
 
 type UserStatusReq struct {

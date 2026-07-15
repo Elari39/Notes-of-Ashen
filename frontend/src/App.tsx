@@ -36,6 +36,9 @@ import {
   ForgotPassword,
   Login,
   NotFound,
+  AdminMedia,
+  AdminAnalytics,
+  AdminSystem,
   Profile,
   Projects,
   Register,
@@ -131,12 +134,15 @@ function App() {
               <Route path="articles/:id/versions" element={withRouteSuspense(<ArticleVersions />, 'admin')} />
               <Route path="categories" element={withRouteSuspense(<AdminCategories />, 'admin')} />
               <Route path="tags" element={withRouteSuspense(<AdminTags />, 'admin')} />
+              <Route path="media" element={withRouteSuspense(<AdminMedia />, 'admin')} />
+              <Route path="analytics" element={withRouteSuspense(<AdminAnalytics />, 'admin')} />
               <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
                 <Route path="users" element={withRouteSuspense(<AdminUsers />, 'admin')} />
                 <Route path="logs" element={withRouteSuspense(<AdminLogs />, 'admin')} />
                 <Route path="settings" element={withRouteSuspense(<AdminSettings />, 'admin')} />
                 <Route path="ai-settings" element={withRouteSuspense(<AdminAISettings />, 'admin')} />
                 <Route path="projects" element={withRouteSuspense(<AdminProjectsContent />, 'admin')} />
+                <Route path="system" element={withRouteSuspense(<AdminSystem />, 'admin')} />
               </Route>
             </Route>
           </Route>
