@@ -10,6 +10,14 @@ export interface PageParams {
   [key: string]: string | number | boolean | undefined;
 }
 
+export interface OperationLogListParams extends PageParams {
+  eventType?: string;
+  actor?: string;
+  ip?: string;
+  startAt?: string;
+  endAt?: string;
+}
+
 // Auth
 export interface RegisterReq {
   account: string;

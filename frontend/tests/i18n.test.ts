@@ -18,3 +18,10 @@ test('首页默认描述和状态文案提供完整中英文翻译', () => {
   assert.equal(translate('zh', 'home.emptyTitle'), '卷帙未盈。');
   assert.equal(translate('en', 'home.emptyTitle'), 'No articles yet.');
 });
+
+test('操作日志筛选和详情文案提供完整中英文翻译', () => {
+  assert.equal(translate('zh', 'logs.filteredEmptyTitle'), '没有匹配的日志');
+  assert.equal(translate('en', 'logs.filteredEmptyTitle'), 'No matching logs');
+  assert.equal(translate('zh', 'logs.event.tokenMismatchLogout'), '异常令牌退出');
+  assert.equal(translate('en', 'logs.event.tokenMismatchLogout'), 'Suspicious token logout');
+});

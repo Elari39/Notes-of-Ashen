@@ -33,6 +33,18 @@ type PageReq {
 	Size int `json:"size,optional"`
 }
 
+// OperationLogListReq 由 handler 用查询参数手动解析。
+// startAt/endAt 使用 RFC3339；查询范围为 [startAt, endAt)。
+type OperationLogListReq {
+	Page      int    `json:"page,optional"`
+	Size      int    `json:"size,optional"`
+	EventType string `json:"eventType,optional"`
+	Actor     string `json:"actor,optional"`
+	IP        string `json:"ip,optional"`
+	StartAt   string `json:"startAt,optional"`
+	EndAt     string `json:"endAt,optional"`
+}
+
 type RegisterReq {
 	Account   string `json:"account"`
 	Password  string `json:"password"`
@@ -641,7 +653,7 @@ service notesOfAshen-api {
 	patch /api/v1/admin/users/:id/role (UserRoleReq) returns (EmptyResp)
 
 	@handler adminLogList
-	get /api/v1/admin/logs (PageReq) returns (OperationLogListResp)
+	get /api/v1/admin/logs (OperationLogListReq) returns (OperationLogListResp)
 
 	@handler adminSearchReindex
 	post /api/v1/admin/search/reindex returns (SearchReindexResp)

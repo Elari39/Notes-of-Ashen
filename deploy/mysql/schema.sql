@@ -311,7 +311,9 @@ CREATE TABLE IF NOT EXISTS operation_logs (
     user_agent TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     INDEX idx_operation_logs_created (created_at),
-    INDEX idx_operation_logs_user (user_id)
+    INDEX idx_operation_logs_user (user_id),
+    INDEX idx_operation_logs_event_created (event_type, created_at),
+    INDEX idx_operation_logs_ip_created (ip, created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE utf8mb4_0900_ai_ci;
 
 -- Traffic daily stats

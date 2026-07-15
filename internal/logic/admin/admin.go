@@ -3,6 +3,10 @@ package admin
 import (
 	"context"
 	"errors"
+	"net"
+	"strconv"
+	"strings"
+	"time"
 
 	"golang.org/x/sync/errgroup"
 
@@ -73,12 +77,15 @@ func UpdateUserRole(ctx context.Context, svcCtx *svc.ServiceContext, userID uint
 	return nil
 }
 
-func ListLogs(ctx context.Context, svcCtx *svc.ServiceContext, page, size int) (*types.ListResp[types.OperationLogResp], error) {
+func ListLogs(ctx context.Context, svcCtx *svc.ServiceContext, req types.OperationLogListReq) (*types.ListResp[types.OperationLogResp], error) {
 	if err := authutil.RequireAdmin(ctx); err != nil {
 		return nil, err
 	}
-	page, size = logicutil.Page(page, size)
-	items, total, err := svcCtx.Store.ListOperationLogs(ctx, page, size)
+	filter, err := operationLogFilter(req)
+	if err != nil {
+		return nil, err
+	}
+	items, total, err := svcCtx.Store.ListOperationLogsFiltered(ctx, filter)
 	if err != nil {
 		return nil, err
 	}
@@ -86,7 +93,82 @@ func ListLogs(ctx context.Context, svcCtx *svc.ServiceContext, page, size int) (
 	for _, item := range items {
 		resp = append(resp, logicutil.OperationLogResp(item))
 	}
-	return &types.ListResp[types.OperationLogResp]{Items: resp, Total: total, Page: page, Size: size}, nil
+	return &types.ListResp[types.OperationLogResp]{Items: resp, Total: total, Page: filter.Page, Size: filter.Size}, nil
+}
+
+func operationLogFilter(req types.OperationLogListReq) (model.OperationLogFilter, error) {
+	page, size := logicutil.Page(req.Page, req.Size)
+	filter := model.OperationLogFilter{
+		Page:      page,
+		Size:      size,
+		EventType: strings.TrimSpace(req.EventType),
+		IP:        strings.TrimSpace(req.IP),
+	}
+	if filter.EventType != "" {
+		if err := validator.Length(filter.EventType, "eventType", 1, 64); err != nil {
+			return model.OperationLogFilter{}, err
+		}
+	}
+
+	actor := strings.TrimSpace(req.Actor)
+	if actor != "" {
+		if err := validator.Length(actor, "actor", 1, 64); err != nil {
+			return model.OperationLogFilter{}, err
+		}
+		if isDigits(actor) {
+			userID, err := strconv.ParseUint(actor, 10, 64)
+			if err != nil || userID == 0 {
+				return model.OperationLogFilter{}, apperrors.BadRequest("actor is invalid")
+			}
+			filter.UserID = userID
+		} else {
+			filter.UserAccount = actor
+		}
+	}
+
+	if filter.IP != "" && net.ParseIP(filter.IP) == nil {
+		return model.OperationLogFilter{}, apperrors.BadRequest("ip format is invalid")
+	}
+
+	startAt, err := optionalRFC3339(req.StartAt, "startAt")
+	if err != nil {
+		return model.OperationLogFilter{}, err
+	}
+	endAt, err := optionalRFC3339(req.EndAt, "endAt")
+	if err != nil {
+		return model.OperationLogFilter{}, err
+	}
+	if startAt != nil && endAt != nil && !startAt.Before(*endAt) {
+		return model.OperationLogFilter{}, apperrors.BadRequest("startAt must be before endAt")
+	}
+	filter.StartAt = startAt
+	filter.EndAt = endAt
+	return filter, nil
+}
+
+func optionalRFC3339(value, field string) (*time.Time, error) {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return nil, nil
+	}
+	parsed, err := time.Parse(time.RFC3339, value)
+	if err != nil {
+		return nil, apperrors.BadRequest(field + " format is invalid")
+	}
+	utc := parsed.UTC()
+	return &utc, nil
+}
+
+func isDigits(value string) bool {
+	if value == "" {
+		return false
+	}
+	for _, r := range value {
+		if r < '0' || r > '9' {
+			return false
+		}
+	}
+	return true
 }
 
 func Stats(ctx context.Context, svcCtx *svc.ServiceContext) (*types.AdminStatsResp, error) {

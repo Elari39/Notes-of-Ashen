@@ -8,10 +8,12 @@ import type { ECharts } from 'echarts/core';
 import { getAdminStats } from '../../api/admin';
 import InlineNotice from '../../components/InlineNotice';
 import PagePendingState from '../../components/RoutePending';
+import Tag from '../../components/ui/Tag';
 import { getArticleStatusLabel, getDateLocale, translate } from '../../i18n';
 import { usePreferenceStore, type Language } from '../../store/preferences';
 import { getErrorMessage } from '../../utils/error';
 import type { AdminStats, Article, Log, RefererStat, TrafficTrendPoint } from '../../types';
+import { formatLogResource, getLogEventPresentation } from './logPresentation';
 
 use([LineChart, GridComponent, TooltipComponent, LegendComponent, CanvasRenderer]);
 
@@ -303,18 +305,25 @@ const ArticleList: React.FC<{
   </section>
 );
 
-const LogRow: React.FC<{ log: Log; language: Language }> = ({ log, language }) => (
-  <div className="grid gap-2 border-b border-mountain-grey p-4 text-sm last:border-b-0 md:grid-cols-[1fr_auto] md:items-center">
-    <div>
-      <p className="font-bold text-ink">{log.eventType}</p>
-      <p className="mt-1 text-xs text-ink-light">
-        {log.userAccount || log.userId || '-'} · {log.resourceType}
-        {log.resourceId ? ` #${log.resourceId}` : ''}{log.ip ? ` · ${log.ip}` : ''}
-      </p>
+const LogRow: React.FC<{ log: Log; language: Language }> = ({ log, language }) => {
+  const presentation = getLogEventPresentation(log.eventType, language);
+  return (
+    <div className="grid gap-2 border-b border-mountain-grey p-4 text-sm last:border-b-0 md:grid-cols-[1fr_auto] md:items-center">
+      <div className="min-w-0">
+        <div className="flex flex-wrap items-center gap-2">
+          <Tag tone={presentation.tone} size="sm">{presentation.label}</Tag>
+          <span className="truncate font-mono text-[0.7rem] text-ink-light opacity-70">{log.eventType}</span>
+        </div>
+        <p className="mt-2 text-xs text-ink-light">
+          {log.userAccount || (log.userId ? `#${log.userId}` : translate(language, 'logs.anonymous'))}
+          {' · '}{formatLogResource(log, language)}
+          {log.ip ? ` · ${log.ip}` : ''}
+        </p>
+      </div>
+      <time className="text-xs text-ink-light">{new Date(log.createdAt).toLocaleString(getDateLocale(language))}</time>
     </div>
-    <time className="text-xs text-ink-light">{new Date(log.createdAt).toLocaleString(getDateLocale(language))}</time>
-  </div>
-);
+  );
+};
 
 const shortDate = (value: string, language: Language) => {
   const date = new Date(`${value}T00:00:00`);

@@ -792,6 +792,21 @@
       background: var(--paper-soft);
     }
 
+    .admin-responsive-table tbody tr.log-detail-row {
+      margin-top: -0.75rem;
+      border-top: 0 !important;
+      background: var(--paper-soft);
+      padding-top: 0;
+    }
+
+    .admin-responsive-table tbody tr.log-main-row-expanded {
+      border-bottom: 0 !important;
+    }
+
+    .admin-responsive-table tbody tr.log-detail-row:hover {
+      background: var(--paper-soft);
+    }
+
     .admin-responsive-table td {
       border: 0 !important;
       padding: 0.45rem 0 !important;

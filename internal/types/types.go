@@ -439,6 +439,16 @@ type OperationLogResp struct {
 	CreatedAt    time.Time `json:"createdAt"`
 }
 
+type OperationLogListReq struct {
+	Page      int    `json:"page,optional"`
+	Size      int    `json:"size,optional"`
+	EventType string `json:"eventType,optional"`
+	Actor     string `json:"actor,optional"`
+	IP        string `json:"ip,optional"`
+	StartAt   string `json:"startAt,optional"`
+	EndAt     string `json:"endAt,optional"`
+}
+
 type ListResp[T any] struct {
 	Items []T   `json:"items"`
 	Total int64 `json:"total"`

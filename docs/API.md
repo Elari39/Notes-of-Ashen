@@ -840,7 +840,19 @@ PATCH /api/v1/admin/users/:id/role
 GET /api/v1/admin/logs
 ```
 
-权限：`admin`。支持 `page`、`size`。响应中的 `userId`、`userAccount`、`resourceId`、`metadata` 可能被省略；`userAccount` 为该操作发起者的账号（来自 `users` 表，可能因用户被删除而为空）。
+权限：`admin`。
+
+| 查询参数 | 类型 | 必填 | 说明 |
+| --- | --- | --- | --- |
+| page | int | 否 | 页码，默认 `1` |
+| size | int | 否 | 每页数量，默认 `10`，最大 `100` |
+| eventType | string | 否 | 事件代码精确匹配，例如 `article.updated` |
+| actor | string | 否 | 纯数字时精确匹配用户 ID，否则按用户账号模糊匹配 |
+| ip | string | 否 | IPv4/IPv6 精确匹配，格式无效时返回 `400` |
+| startAt | string | 否 | RFC3339 开始时间，包含该时刻 |
+| endAt | string | 否 | RFC3339 结束时间，不包含该时刻；与 `startAt` 同时存在时必须更晚 |
+
+筛选条件之间使用 AND 组合。响应中的 `userId`、`userAccount`、`resourceId`、`metadata` 可能被省略；`userAccount` 为该操作发起者的账号（来自 `users` 表，可能因用户被删除而为空）。响应结构与未筛选列表保持一致。
 
 ## PowerShell 调用示例
 

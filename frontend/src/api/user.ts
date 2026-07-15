@@ -2,6 +2,7 @@ import http from '../utils/http';
 import { BaseResp, User, Log, UserRole, UserStatus, PaginatedResp } from '../types';
 import {
   PageParams,
+  OperationLogListParams,
   UpdatePasswordReq,
   UpdateUserReq,
   UpdateUserRoleReq,
@@ -31,5 +32,5 @@ export const updateUserStatus = (id: number, status: UserStatus) =>
 export const updateUserRole = (id: number, role: UserRole) =>
   http.patch<unknown, BaseResp>(`/admin/users/${id}/role`, { role } as UpdateUserRoleReq);
 
-export const getLogs = (params?: PageParams) => 
+export const getLogs = (params?: OperationLogListParams) =>
   http.get<unknown, BaseResp<PaginatedResp<Log>>>('/admin/logs', { params });

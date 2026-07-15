@@ -65,7 +65,16 @@ func UpdateUserRoleHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 func ListLogsHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		page, size := basehandler.PageSize(r)
-		resp, err := adminlogic.ListLogs(r.Context(), svcCtx, page, size)
+		req := types.OperationLogListReq{
+			Page:      page,
+			Size:      size,
+			EventType: basehandler.Query(r, "eventType"),
+			Actor:     basehandler.Query(r, "actor"),
+			IP:        basehandler.Query(r, "ip"),
+			StartAt:   basehandler.Query(r, "startAt"),
+			EndAt:     basehandler.Query(r, "endAt"),
+		}
+		resp, err := adminlogic.ListLogs(r.Context(), svcCtx, req)
 		if err != nil {
 			response.ErrorCtx(r.Context(), w, err)
 			return
