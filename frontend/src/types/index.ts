@@ -32,56 +32,11 @@ export interface SiteSettings {
   siteDescription: string;
   siteKeywords: string;
   siteBaseUrl: string;
-  resumePageEnabled: boolean;
-  resumeNavHidden: boolean;
   projectsPageEnabled: boolean;
   projectsNavHidden: boolean;
 }
 
 export type HomeArticleLayout = 'standard' | 'alternating';
-
-export interface ResumePage {
-  title: string;
-  subtitle: string;
-  contentMarkdown: string;
-  experiences: ResumeExperience[];
-  educations: ResumeEducation[];
-  skills: ResumeSkill[];
-}
-
-export interface ResumeExperience {
-  id?: number;
-  role: string;
-  organization: string;
-  location: string;
-  startDate: string;
-  endDate: string;
-  description: string;
-  highlights: string[];
-  displayOrder: number;
-}
-
-export interface ResumeEducation {
-  id?: number;
-  school: string;
-  degree: string;
-  major: string;
-  location: string;
-  startDate: string;
-  endDate: string;
-  description: string;
-  highlights: string[];
-  displayOrder: number;
-}
-
-export interface ResumeSkill {
-  id?: number;
-  category: string;
-  name: string;
-  level: number;
-  description: string;
-  displayOrder: number;
-}
 
 export interface ProjectItem {
   id: string;

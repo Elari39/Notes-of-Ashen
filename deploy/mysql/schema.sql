@@ -50,31 +50,11 @@ VALUES ('site_base_url', '')
 ON DUPLICATE KEY UPDATE setting_value = setting_value;
 
 INSERT INTO site_settings (setting_key, setting_value)
-VALUES ('resume_page_enabled', 'false')
-ON DUPLICATE KEY UPDATE setting_value = setting_value;
-
-INSERT INTO site_settings (setting_key, setting_value)
-VALUES ('resume_nav_hidden', 'true')
-ON DUPLICATE KEY UPDATE setting_value = setting_value;
-
-INSERT INTO site_settings (setting_key, setting_value)
 VALUES ('projects_page_enabled', 'false')
 ON DUPLICATE KEY UPDATE setting_value = setting_value;
 
 INSERT INTO site_settings (setting_key, setting_value)
 VALUES ('projects_nav_hidden', 'true')
-ON DUPLICATE KEY UPDATE setting_value = setting_value;
-
-INSERT INTO site_settings (setting_key, setting_value)
-VALUES ('resume_title', '简介')
-ON DUPLICATE KEY UPDATE setting_value = setting_value;
-
-INSERT INTO site_settings (setting_key, setting_value)
-VALUES ('resume_subtitle', '')
-ON DUPLICATE KEY UPDATE setting_value = setting_value;
-
-INSERT INTO site_settings (setting_key, setting_value)
-VALUES ('resume_content_markdown', '')
 ON DUPLICATE KEY UPDATE setting_value = setting_value;
 
 INSERT INTO site_settings (setting_key, setting_value)
@@ -116,50 +96,6 @@ ON DUPLICATE KEY UPDATE setting_value = setting_value;
 INSERT INTO site_settings (setting_key, setting_value)
 VALUES ('ai_non_stream_timeout_seconds', '600')
 ON DUPLICATE KEY UPDATE setting_value = setting_value;
-
--- Structured resume
-CREATE TABLE IF NOT EXISTS resume_experiences (
-    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    role VARCHAR(120) NOT NULL,
-    organization VARCHAR(120) NOT NULL,
-    location VARCHAR(120) DEFAULT '',
-    start_date VARCHAR(32) DEFAULT '',
-    end_date VARCHAR(32) DEFAULT '',
-    description TEXT,
-    highlights JSON,
-    display_order INT NOT NULL DEFAULT 0,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    INDEX idx_resume_experiences_order (display_order, id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE utf8mb4_0900_ai_ci;
-
-CREATE TABLE IF NOT EXISTS resume_educations (
-    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    school VARCHAR(120) NOT NULL,
-    degree VARCHAR(120) DEFAULT '',
-    major VARCHAR(120) DEFAULT '',
-    location VARCHAR(120) DEFAULT '',
-    start_date VARCHAR(32) DEFAULT '',
-    end_date VARCHAR(32) DEFAULT '',
-    description TEXT,
-    highlights JSON,
-    display_order INT NOT NULL DEFAULT 0,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    INDEX idx_resume_educations_order (display_order, id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE utf8mb4_0900_ai_ci;
-
-CREATE TABLE IF NOT EXISTS resume_skills (
-    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    category VARCHAR(80) NOT NULL,
-    name VARCHAR(80) NOT NULL,
-    level INT NOT NULL DEFAULT 0,
-    description VARCHAR(255) DEFAULT '',
-    display_order INT NOT NULL DEFAULT 0,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    INDEX idx_resume_skills_order (display_order, id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE utf8mb4_0900_ai_ci;
 
 -- Categories
 CREATE TABLE IF NOT EXISTS categories (

@@ -113,62 +113,7 @@ func TestScanArticleVersionAllowsNullableTextFields(t *testing.T) {
 	}
 }
 
-func TestScanResumeAndProjectAllowsNullableTextFields(t *testing.T) {
-	experience, err := scanResumeExperience(scanFunc(func(dest ...interface{}) error {
-		*dest[0].(*uint64) = 1
-		*dest[1].(*string) = "Developer"
-		*dest[2].(*string) = "Org"
-		*dest[3].(*string) = ""
-		*dest[4].(*string) = ""
-		*dest[5].(*string) = ""
-		*dest[6].(*sql.NullString) = sql.NullString{}
-		*dest[7].(*string) = "[]"
-		*dest[8].(*int) = 1
-		return nil
-	}))
-	if err != nil {
-		t.Fatalf("scanResumeExperience() error = %v, want nil", err)
-	}
-	if experience.Description != "" {
-		t.Fatalf("experience.Description = %q, want empty string", experience.Description)
-	}
-
-	education, err := scanResumeEducation(scanFunc(func(dest ...interface{}) error {
-		*dest[0].(*uint64) = 1
-		*dest[1].(*string) = "School"
-		*dest[2].(*string) = ""
-		*dest[3].(*string) = ""
-		*dest[4].(*string) = ""
-		*dest[5].(*string) = ""
-		*dest[6].(*string) = ""
-		*dest[7].(*sql.NullString) = sql.NullString{}
-		*dest[8].(*string) = "[]"
-		*dest[9].(*int) = 1
-		return nil
-	}))
-	if err != nil {
-		t.Fatalf("scanResumeEducation() error = %v, want nil", err)
-	}
-	if education.Description != "" {
-		t.Fatalf("education.Description = %q, want empty string", education.Description)
-	}
-
-	skill, err := scanResumeSkill(scanFunc(func(dest ...interface{}) error {
-		*dest[0].(*uint64) = 1
-		*dest[1].(*string) = "Backend"
-		*dest[2].(*string) = "Go"
-		*dest[3].(*int) = 80
-		*dest[4].(*sql.NullString) = sql.NullString{}
-		*dest[5].(*int) = 1
-		return nil
-	}))
-	if err != nil {
-		t.Fatalf("scanResumeSkill() error = %v, want nil", err)
-	}
-	if skill.Description != "" {
-		t.Fatalf("skill.Description = %q, want empty string", skill.Description)
-	}
-
+func TestScanProjectAllowsNullableTextFields(t *testing.T) {
 	project, numericID, err := scanProjectItem(scanFunc(func(dest ...interface{}) error {
 		*dest[0].(*uint64) = 7
 		*dest[1].(*string) = "Project"

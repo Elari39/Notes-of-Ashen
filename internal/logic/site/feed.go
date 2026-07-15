@@ -53,18 +53,6 @@ func RSS(ctx context.Context, svcCtx *svc.ServiceContext, requestBaseURL string)
 		return nil, err
 	}
 	items := make([]rssItem, 0, len(articles))
-	if settings.ResumePageEnabled {
-		content, err := cachedResumePageContent(ctx, svcCtx)
-		if err != nil {
-			return nil, err
-		}
-		items = append(items, rssItem{
-			Title:       content.Title,
-			Link:        baseURL + "/resume",
-			GUID:        baseURL + "/resume",
-			Description: content.Subtitle,
-		})
-	}
 	if settings.ProjectsPageEnabled {
 		content, err := cachedProjectsPageContent(ctx, svcCtx)
 		if err != nil {
@@ -120,9 +108,6 @@ func Sitemap(ctx context.Context, svcCtx *svc.ServiceContext, requestBaseURL str
 		{Loc: baseURL + "/"},
 		{Loc: baseURL + "/archive"},
 		{Loc: baseURL + "/search"},
-	}
-	if settings.ResumePageEnabled {
-		urls = append(urls, sitemapURL{Loc: baseURL + "/resume"})
 	}
 	if settings.ProjectsPageEnabled {
 		urls = append(urls, sitemapURL{Loc: baseURL + "/projects"})

@@ -12,7 +12,6 @@ import (
 
 const (
 	siteSettingsCacheKey = "site:settings"
-	resumePageCacheKey   = "site:resume"
 	projectsPageCacheKey = "site:projects"
 	siteCacheTTL         = 10 * time.Minute
 )
@@ -30,23 +29,6 @@ func cachedSiteSettings(ctx context.Context, svcCtx *svc.ServiceContext) (*model
 	}
 	if err := svcCtx.Cache.Set(ctx, siteSettingsCacheKey, fresh, siteCacheTTL); err != nil {
 		logx.Errorf("site settings cache write failed: %v", err)
-	}
-	return fresh, nil
-}
-
-func cachedResumePageContent(ctx context.Context, svcCtx *svc.ServiceContext) (*model.ResumePageContent, error) {
-	var content model.ResumePageContent
-	if hit, err := svcCtx.Cache.Get(ctx, resumePageCacheKey, &content); err == nil && hit {
-		return &content, nil
-	} else if err != nil {
-		logx.Errorf("resume page cache read failed: %v", err)
-	}
-	fresh, err := svcCtx.Store.ResumePageContent(ctx)
-	if err != nil {
-		return nil, err
-	}
-	if err := svcCtx.Cache.Set(ctx, resumePageCacheKey, fresh, siteCacheTTL); err != nil {
-		logx.Errorf("resume page cache write failed: %v", err)
 	}
 	return fresh, nil
 }
@@ -71,12 +53,6 @@ func cachedProjectsPageContent(ctx context.Context, svcCtx *svc.ServiceContext) 
 func evictSiteSettingsCache(ctx context.Context, svcCtx *svc.ServiceContext) {
 	if err := svcCtx.Cache.Delete(ctx, siteSettingsCacheKey); err != nil {
 		logx.Errorf("site settings cache eviction failed: %v", err)
-	}
-}
-
-func evictResumePageCache(ctx context.Context, svcCtx *svc.ServiceContext) {
-	if err := svcCtx.Cache.Delete(ctx, resumePageCacheKey); err != nil {
-		logx.Errorf("resume page cache eviction failed: %v", err)
 	}
 }
 

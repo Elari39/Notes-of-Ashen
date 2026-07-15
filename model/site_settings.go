@@ -18,13 +18,8 @@ const (
 	SiteDescriptionKey     = "site_description"
 	SiteKeywordsKey        = "site_keywords"
 	SiteBaseURLKey         = "site_base_url"
-	ResumePageEnabledKey   = "resume_page_enabled"
-	ResumeNavHiddenKey     = "resume_nav_hidden"
 	ProjectsPageEnabledKey = "projects_page_enabled"
 	ProjectsNavHiddenKey   = "projects_nav_hidden"
-	ResumeTitleKey         = "resume_title"
-	ResumeSubtitleKey      = "resume_subtitle"
-	ResumeContentKey       = "resume_content_markdown"
 	ProjectsTitleKey       = "projects_title"
 	ProjectsSubtitleKey    = "projects_subtitle"
 	ProjectsItemsKey       = "projects_items_json"
@@ -44,7 +39,6 @@ const (
 	DefaultSiteTitle       = "Notes of Ashen"
 	DefaultSiteDescription = "A personal blog written slowly by the lamp of ink."
 	DefaultSiteKeywords    = "blog,notes,writing"
-	DefaultResumeTitle     = "简介"
 	DefaultProjectsTitle   = "项目"
 	DefaultAIAPIFormat     = AIAPIFormatOpenAI
 	DefaultAIFirstByteWait = 60
@@ -58,8 +52,6 @@ type SiteSettings struct {
 	SiteDescription     string
 	SiteKeywords        string
 	SiteBaseURL         string
-	ResumePageEnabled   bool
-	ResumeNavHidden     bool
 	ProjectsPageEnabled bool
 	ProjectsNavHidden   bool
 }
@@ -72,15 +64,6 @@ type AISettings struct {
 	Model                   string
 	FirstByteTimeoutSeconds int
 	NonStreamTimeoutSeconds int
-}
-
-type ResumePageContent struct {
-	Title           string
-	Subtitle        string
-	ContentMarkdown string
-	Experiences     []ResumeExperience
-	Educations      []ResumeEducation
-	Skills          []ResumeSkill
 }
 
 type ProjectItem struct {
@@ -144,8 +127,7 @@ func (s *Store) GetSettingsBatch(ctx context.Context, keys []string) (map[string
 func (s *Store) SiteSettings(ctx context.Context) (*SiteSettings, error) {
 	keys := []string{
 		RegistrationEnabledKey, HomeArticleLayoutKey, SiteTitleKey, SiteDescriptionKey,
-		SiteKeywordsKey, SiteBaseURLKey, ResumePageEnabledKey, ResumeNavHiddenKey,
-		ProjectsPageEnabledKey, ProjectsNavHiddenKey,
+		SiteKeywordsKey, SiteBaseURLKey, ProjectsPageEnabledKey, ProjectsNavHiddenKey,
 	}
 	values, err := s.GetSettingsBatch(ctx, keys)
 	if err != nil {
@@ -170,8 +152,6 @@ func (s *Store) SiteSettings(ctx context.Context) (*SiteSettings, error) {
 		SiteDescription:     getString(SiteDescriptionKey, DefaultSiteDescription),
 		SiteKeywords:        getString(SiteKeywordsKey, DefaultSiteKeywords),
 		SiteBaseURL:         getString(SiteBaseURLKey, ""),
-		ResumePageEnabled:   getBool(ResumePageEnabledKey, false),
-		ResumeNavHidden:     getBool(ResumeNavHiddenKey, true),
 		ProjectsPageEnabled: getBool(ProjectsPageEnabledKey, false),
 		ProjectsNavHidden:   getBool(ProjectsNavHiddenKey, true),
 	}, nil
@@ -290,7 +270,7 @@ func (s *Store) UpdateSiteSettings(ctx context.Context, settings SiteSettings) e
 	}
 	_, err := s.db.ExecContext(ctx, `
 INSERT INTO site_settings (setting_key, setting_value)
-VALUES (?, ?), (?, ?), (?, ?), (?, ?), (?, ?), (?, ?), (?, ?), (?, ?), (?, ?), (?, ?)
+VALUES (?, ?), (?, ?), (?, ?), (?, ?), (?, ?), (?, ?), (?, ?), (?, ?)
 ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)`,
 		RegistrationEnabledKey, value,
 		HomeArticleLayoutKey, NormalizeHomeArticleLayout(settings.HomeArticleLayout),
@@ -298,65 +278,9 @@ ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)`,
 		SiteDescriptionKey, settings.SiteDescription,
 		SiteKeywordsKey, settings.SiteKeywords,
 		SiteBaseURLKey, settings.SiteBaseURL,
-		ResumePageEnabledKey, boolSettingValue(settings.ResumePageEnabled),
-		ResumeNavHiddenKey, boolSettingValue(settings.ResumeNavHidden),
 		ProjectsPageEnabledKey, boolSettingValue(settings.ProjectsPageEnabled),
 		ProjectsNavHiddenKey, boolSettingValue(settings.ProjectsNavHidden))
 	return err
-}
-
-func (s *Store) ResumePageContent(ctx context.Context) (*ResumePageContent, error) {
-	values, err := s.GetSettingsBatch(ctx, []string{ResumeTitleKey, ResumeSubtitleKey, ResumeContentKey})
-	if err != nil {
-		return nil, err
-	}
-	title := values[ResumeTitleKey]
-	if title == "" {
-		title = DefaultResumeTitle
-	}
-	subtitle := values[ResumeSubtitleKey]
-	content := values[ResumeContentKey]
-	experiences, err := s.ListResumeExperiences(ctx)
-	if err != nil {
-		return nil, err
-	}
-	educations, err := s.ListResumeEducations(ctx)
-	if err != nil {
-		return nil, err
-	}
-	skills, err := s.ListResumeSkills(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return &ResumePageContent{
-		Title:           title,
-		Subtitle:        subtitle,
-		ContentMarkdown: content,
-		Experiences:     experiences,
-		Educations:      educations,
-		Skills:          skills,
-	}, nil
-}
-
-func (s *Store) UpdateResumePageContent(ctx context.Context, content ResumePageContent) error {
-	return WithTx(ctx, s.db, func(tx *sql.Tx) error {
-		if _, err := tx.ExecContext(ctx, `
-INSERT INTO site_settings (setting_key, setting_value)
-VALUES (?, ?), (?, ?), (?, ?)
-ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)`,
-			ResumeTitleKey, content.Title,
-			ResumeSubtitleKey, content.Subtitle,
-			ResumeContentKey, content.ContentMarkdown); err != nil {
-			return err
-		}
-		if err := replaceResumeExperiencesTx(ctx, tx, content.Experiences); err != nil {
-			return err
-		}
-		if err := replaceResumeEducationsTx(ctx, tx, content.Educations); err != nil {
-			return err
-		}
-		return replaceResumeSkillsTx(ctx, tx, content.Skills)
-	})
 }
 
 func (s *Store) ProjectsPageContent(ctx context.Context) (*ProjectsPageContent, error) {

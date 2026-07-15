@@ -24,7 +24,6 @@ import {
   AdminLayout,
   AdminLogs,
   AdminProjectsContent,
-  AdminResumeContent,
   AdminSettings,
   AdminTags,
   AdminUsers,
@@ -39,7 +38,6 @@ import {
   Profile,
   Projects,
   Register,
-  Resume,
   Search,
 } from './routes/lazyRoutes';
 
@@ -60,10 +58,9 @@ const withRouteSuspense = (element: ReactElement, variant: SuspenseVariant = 'pa
 
 function App() {
   const initializePreferences = usePreferenceStore((state) => state.initializePreferences);
-  const { fetchSettings: fetchSiteSettings, resumePageEnabled, projectsPageEnabled } = useSiteSettingsStore(
+  const { fetchSettings: fetchSiteSettings, projectsPageEnabled } = useSiteSettingsStore(
     useShallow((state) => ({
       fetchSettings: state.fetchSettings,
-      resumePageEnabled: state.resumePageEnabled,
       projectsPageEnabled: state.projectsPageEnabled,
     })),
   );
@@ -108,14 +105,6 @@ function App() {
           <Route path="archive" element={withRouteSuspense(<Archive />)} />
           <Route path="search" element={withRouteSuspense(<Search />)} />
           <Route
-            path="resume"
-            element={(
-              <PublicFeatureRoute enabled={resumePageEnabled}>
-                {withRouteSuspense(<Resume />)}
-              </PublicFeatureRoute>
-            )}
-          />
-          <Route
             path="projects"
             element={(
               <PublicFeatureRoute enabled={projectsPageEnabled}>
@@ -146,7 +135,6 @@ function App() {
                 <Route path="logs" element={withRouteSuspense(<AdminLogs />, 'admin')} />
                 <Route path="settings" element={withRouteSuspense(<AdminSettings />, 'admin')} />
                 <Route path="ai-settings" element={withRouteSuspense(<AdminAISettings />, 'admin')} />
-                <Route path="resume" element={withRouteSuspense(<AdminResumeContent />, 'admin')} />
                 <Route path="projects" element={withRouteSuspense(<AdminProjectsContent />, 'admin')} />
               </Route>
             </Route>
@@ -204,10 +192,9 @@ const PublicFeatureRoute = ({ enabled, children }: { enabled: boolean; children:
 const TrafficReporter = () => {
   const location = useLocation();
   const previousPublicPath = useRef('');
-  const { hasLoaded: siteSettingsLoaded, resumePageEnabled, projectsPageEnabled } = useSiteSettingsStore(
+  const { hasLoaded: siteSettingsLoaded, projectsPageEnabled } = useSiteSettingsStore(
     useShallow((state) => ({
       hasLoaded: state.hasLoaded,
-      resumePageEnabled: state.resumePageEnabled,
       projectsPageEnabled: state.projectsPageEnabled,
     })),
   );
@@ -217,7 +204,7 @@ const TrafficReporter = () => {
     if (ignoredTrafficPrefixes.some((prefix) => location.pathname === prefix || location.pathname.startsWith(`${prefix}/`))) {
       return;
     }
-    if (isDisabledFeaturePath(location.pathname, siteSettingsLoaded, resumePageEnabled, projectsPageEnabled)) {
+    if (isDisabledFeaturePath(location.pathname, siteSettingsLoaded, projectsPageEnabled)) {
       return;
     }
     const duplicateKey = `traffic:${path}`;
@@ -239,7 +226,7 @@ const TrafficReporter = () => {
       articleId: articleMatch ? Number(articleMatch[1]) : undefined,
       referrer,
     }).catch(() => undefined);
-  }, [location.pathname, location.search, projectsPageEnabled, resumePageEnabled, siteSettingsLoaded]);
+  }, [location.pathname, location.search, projectsPageEnabled, siteSettingsLoaded]);
 
   return null;
 };
@@ -247,11 +234,10 @@ const TrafficReporter = () => {
 const isDisabledFeaturePath = (
   pathname: string,
   siteSettingsLoaded: boolean,
-  resumePageEnabled: boolean,
   projectsPageEnabled: boolean,
 ) => {
   if (!siteSettingsLoaded) {
-    return pathname === '/resume' || pathname === '/projects';
+    return pathname === '/projects';
   }
-  return (pathname === '/resume' && !resumePageEnabled) || (pathname === '/projects' && !projectsPageEnabled);
+  return pathname === '/projects' && !projectsPageEnabled;
 };

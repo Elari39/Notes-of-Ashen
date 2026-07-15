@@ -74,53 +74,8 @@ export interface UpdateSiteSettingsReq {
   siteDescription?: string;
   siteKeywords?: string;
   siteBaseUrl?: string;
-  resumePageEnabled?: boolean;
-  resumeNavHidden?: boolean;
   projectsPageEnabled?: boolean;
   projectsNavHidden?: boolean;
-}
-
-export interface UpdateResumePageReq {
-  title: string;
-  subtitle?: string;
-  contentMarkdown?: string;
-  experiences?: ResumeExperienceReq[];
-  educations?: ResumeEducationReq[];
-  skills?: ResumeSkillReq[];
-}
-
-export interface ResumeExperienceReq {
-  id?: number;
-  role: string;
-  organization: string;
-  location: string;
-  startDate: string;
-  endDate: string;
-  description: string;
-  highlights: string[];
-  displayOrder: number;
-}
-
-export interface ResumeEducationReq {
-  id?: number;
-  school: string;
-  degree: string;
-  major: string;
-  location: string;
-  startDate: string;
-  endDate: string;
-  description: string;
-  highlights: string[];
-  displayOrder: number;
-}
-
-export interface ResumeSkillReq {
-  id?: number;
-  category: string;
-  name: string;
-  level: number;
-  description: string;
-  displayOrder: number;
 }
 
 export interface ArticleLikeResp {

@@ -7,7 +7,6 @@ const chunkGroups: Array<[string, string[]]> = [
   ['markdown', ['react-markdown', 'remark-gfm', 'remark-math', 'rehype-katex', 'rehype-slug', 'rehype-autolink-headings', 'katex']],
   ['syntax-highlighter', ['react-syntax-highlighter']],
   ['echarts', ['echarts']],
-  ['pdf', ['html2pdf.js', 'jspdf', 'html2canvas']],
 ]
 
 const packagePath = (packageName: string) => `/node_modules/${packageName}/`

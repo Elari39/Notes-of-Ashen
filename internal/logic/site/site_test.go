@@ -11,8 +11,6 @@ func TestSiteSettingsResp(t *testing.T) {
 	settings := &model.SiteSettings{
 		RegistrationEnabled: false,
 		HomeArticleLayout:   model.HomeArticleLayoutAlternating,
-		ResumePageEnabled:   true,
-		ResumeNavHidden:     false,
 		ProjectsPageEnabled: true,
 		ProjectsNavHidden:   true,
 	}
@@ -27,7 +25,7 @@ func TestSiteSettingsResp(t *testing.T) {
 	if resp.HomeArticleLayout != model.HomeArticleLayoutAlternating {
 		t.Fatalf("HomeArticleLayout = %q, want %q", resp.HomeArticleLayout, model.HomeArticleLayoutAlternating)
 	}
-	if !resp.ResumePageEnabled || resp.ResumeNavHidden || !resp.ProjectsPageEnabled || !resp.ProjectsNavHidden {
+	if !resp.ProjectsPageEnabled || !resp.ProjectsNavHidden {
 		t.Fatal("siteSettingsResp should expose public page visibility settings")
 	}
 
@@ -74,24 +72,6 @@ func TestRegistrationEnabledForUpdate(t *testing.T) {
 	disabled := false
 	if got := registrationEnabledForUpdate(true, &disabled); got {
 		t.Fatal("registrationEnabledForUpdate should use explicit false")
-	}
-}
-
-func TestValidateResumePageReq(t *testing.T) {
-	content, err := validateResumePageReq(types.UpdateResumePageReq{
-		Title:           " 简介 ",
-		Subtitle:        " 个人说明 ",
-		ContentMarkdown: "# Hello",
-	})
-	if err != nil {
-		t.Fatalf("validateResumePageReq returned error: %v", err)
-	}
-	if content.Title != "简介" || content.Subtitle != "个人说明" || content.ContentMarkdown != "# Hello" {
-		t.Fatalf("content = %#v, want trimmed title/subtitle and original markdown", content)
-	}
-
-	if _, err := validateResumePageReq(types.UpdateResumePageReq{Title: ""}); err == nil {
-		t.Fatal("validateResumePageReq should reject empty title")
 	}
 }
 

@@ -1,12 +1,9 @@
 package httphelper
 
 import (
-	"bytes"
 	"net/http"
 	"net/http/httptest"
 	"testing"
-
-	"notes-of-ashen/internal/types"
 )
 
 func TestMetaIgnoresForwardedHeadersByDefault(t *testing.T) {
@@ -86,54 +83,5 @@ func TestRequestBaseURLRejectsInvalidForwardedProtoAndHost(t *testing.T) {
 	got := RequestBaseURL(req, ForwardedOptions{TrustedProxyCIDRs: "172.18.0.0/16"})
 	if got != "http://api.local" {
 		t.Fatalf("RequestBaseURL() = %q, want fallback url", got)
-	}
-}
-
-func TestParseUpdateResumePageAllowsMissingItemIDs(t *testing.T) {
-	body := []byte(`{
-		"title": "简介",
-		"subtitle": "AI应用开发工程师",
-		"contentMarkdown": "- 熟练掌握 Go 与 Python",
-		"experiences": [{
-			"role": "后端开发",
-			"organization": "Example",
-			"location": "",
-			"startDate": "2025",
-			"endDate": "至今",
-			"description": "",
-			"highlights": ["RESTful API"],
-			"displayOrder": 1
-		}],
-		"educations": [{
-			"school": "Example University",
-			"degree": "",
-			"major": "CS",
-			"location": "",
-			"startDate": "",
-			"endDate": "",
-			"description": "",
-			"highlights": [],
-			"displayOrder": 1
-		}],
-		"skills": [{
-			"category": "Go",
-			"name": "Golang",
-			"level": 60,
-			"description": "",
-			"displayOrder": 1
-		}]
-	}`)
-	req := httptest.NewRequest(http.MethodPut, "/api/v1/admin/site/resume", bytes.NewReader(body))
-	req.Header.Set("Content-Type", "application/json")
-
-	var parsed types.UpdateResumePageReq
-	if err := Parse(req, &parsed); err != nil {
-		t.Fatalf("Parse(UpdateResumePageReq) returned error: %v", err)
-	}
-	if len(parsed.Experiences) != 1 || len(parsed.Educations) != 1 || len(parsed.Skills) != 1 {
-		t.Fatalf("parsed resume item counts = %d/%d/%d, want 1/1/1", len(parsed.Experiences), len(parsed.Educations), len(parsed.Skills))
-	}
-	if parsed.Experiences[0].ID != 0 || parsed.Educations[0].ID != 0 || parsed.Skills[0].ID != 0 {
-		t.Fatalf("missing ids should parse as zero values: %#v %#v %#v", parsed.Experiences[0].ID, parsed.Educations[0].ID, parsed.Skills[0].ID)
 	}
 }

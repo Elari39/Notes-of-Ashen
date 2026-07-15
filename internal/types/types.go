@@ -60,8 +60,6 @@ type SiteSettingsResp struct {
 	SiteDescription               string `json:"siteDescription"`
 	SiteKeywords                  string `json:"siteKeywords"`
 	SiteBaseURL                   string `json:"siteBaseUrl"`
-	ResumePageEnabled             bool   `json:"resumePageEnabled"`
-	ResumeNavHidden               bool   `json:"resumeNavHidden"`
 	ProjectsPageEnabled           bool   `json:"projectsPageEnabled"`
 	ProjectsNavHidden             bool   `json:"projectsNavHidden"`
 }
@@ -73,62 +71,8 @@ type UpdateSiteSettingsReq struct {
 	SiteDescription     string `json:"siteDescription,optional"`
 	SiteKeywords        string `json:"siteKeywords,optional"`
 	SiteBaseURL         string `json:"siteBaseUrl,optional"`
-	ResumePageEnabled   *bool  `json:"resumePageEnabled,optional"`
-	ResumeNavHidden     *bool  `json:"resumeNavHidden,optional"`
 	ProjectsPageEnabled *bool  `json:"projectsPageEnabled,optional"`
 	ProjectsNavHidden   *bool  `json:"projectsNavHidden,optional"`
-}
-
-type ResumePageResp struct {
-	Title           string             `json:"title"`
-	Subtitle        string             `json:"subtitle"`
-	ContentMarkdown string             `json:"contentMarkdown"`
-	Experiences     []ResumeExperience `json:"experiences"`
-	Educations      []ResumeEducation  `json:"educations"`
-	Skills          []ResumeSkill      `json:"skills"`
-}
-
-type UpdateResumePageReq struct {
-	Title           string             `json:"title"`
-	Subtitle        string             `json:"subtitle,optional"`
-	ContentMarkdown string             `json:"contentMarkdown,optional"`
-	Experiences     []ResumeExperience `json:"experiences,optional"`
-	Educations      []ResumeEducation  `json:"educations,optional"`
-	Skills          []ResumeSkill      `json:"skills,optional"`
-}
-
-type ResumeExperience struct {
-	ID           uint64   `json:"id,optional,omitempty"`
-	Role         string   `json:"role"`
-	Organization string   `json:"organization"`
-	Location     string   `json:"location"`
-	StartDate    string   `json:"startDate"`
-	EndDate      string   `json:"endDate"`
-	Description  string   `json:"description"`
-	Highlights   []string `json:"highlights"`
-	DisplayOrder int      `json:"displayOrder"`
-}
-
-type ResumeEducation struct {
-	ID           uint64   `json:"id,optional,omitempty"`
-	School       string   `json:"school"`
-	Degree       string   `json:"degree"`
-	Major        string   `json:"major"`
-	Location     string   `json:"location"`
-	StartDate    string   `json:"startDate"`
-	EndDate      string   `json:"endDate"`
-	Description  string   `json:"description"`
-	Highlights   []string `json:"highlights"`
-	DisplayOrder int      `json:"displayOrder"`
-}
-
-type ResumeSkill struct {
-	ID           uint64 `json:"id,optional,omitempty"`
-	Category     string `json:"category"`
-	Name         string `json:"name"`
-	Level        int    `json:"level"`
-	Description  string `json:"description"`
-	DisplayOrder int    `json:"displayOrder"`
 }
 
 type ProjectItem struct {

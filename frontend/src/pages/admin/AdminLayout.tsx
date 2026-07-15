@@ -6,7 +6,6 @@ import { translate, type TranslationKey } from '../../i18n';
 import { usePreferenceStore } from '../../store/preferences';
 import { useAuthStore } from '../../store/auth';
 import { useSiteSettingsStore } from '../../store/siteSettings';
-import { useShallow } from 'zustand/react/shallow';
 import { routeLoaders } from '../../routes/lazyRoutes';
 
 const navLinkClass = ({ isActive }: { isActive: boolean }) =>
@@ -28,19 +27,13 @@ const segmentLabelKey: Record<string, TranslationKey> = {
   logs: 'admin.logs',
   settings: 'admin.settings',
   'ai-settings': 'admin.aiSettings',
-  resume: 'admin.resume',
   projects: 'admin.projects',
 };
 
 const AdminLayout: React.FC = () => {
   const language = usePreferenceStore((state) => state.language);
   const user = useAuthStore((state) => state.user);
-  const { resumePageEnabled, projectsPageEnabled } = useSiteSettingsStore(
-    useShallow((state) => ({
-      resumePageEnabled: state.resumePageEnabled,
-      projectsPageEnabled: state.projectsPageEnabled,
-    })),
-  );
+  const projectsPageEnabled = useSiteSettingsStore((state) => state.projectsPageEnabled);
   const location = useLocation();
   const outlet = useOutlet();
   const shouldReduceMotion = useReducedMotion();
@@ -107,11 +100,6 @@ const AdminLayout: React.FC = () => {
               <PreloadNavLink to="/admin/ai-settings" preload={routeLoaders.adminAISettings} className={navLinkClass}>
                 {t('admin.aiSettings')}
               </PreloadNavLink>
-              {resumePageEnabled && (
-                <PreloadNavLink to="/admin/resume" preload={routeLoaders.adminResumeContent} className={navLinkClass}>
-                  {t('admin.resume')}
-                </PreloadNavLink>
-              )}
               {projectsPageEnabled && (
                 <PreloadNavLink to="/admin/projects" preload={routeLoaders.adminProjectsContent} className={navLinkClass}>
                   {t('admin.projects')}

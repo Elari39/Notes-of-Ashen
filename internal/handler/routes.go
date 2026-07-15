@@ -60,7 +60,6 @@ func RegisterHandlers(server *rest.Server, svcCtx *svc.ServiceContext) {
 		{Method: http.MethodGet, Path: "/api/v1/categories", Handler: categoryhandler.ListHandler(svcCtx)},
 		{Method: http.MethodGet, Path: "/api/v1/tags", Handler: taghandler.ListHandler(svcCtx)},
 		{Method: http.MethodGet, Path: "/api/v1/site/settings", Handler: sitehandler.SettingsHandler(svcCtx)},
-		{Method: http.MethodGet, Path: "/api/v1/site/resume", Handler: sitehandler.ResumePageHandler(svcCtx)},
 		{Method: http.MethodGet, Path: "/api/v1/site/projects", Handler: sitehandler.ProjectsPageHandler(svcCtx)},
 	})
 
@@ -99,8 +98,6 @@ func RegisterHandlers(server *rest.Server, svcCtx *svc.ServiceContext) {
 		{Method: http.MethodGet, Path: "/api/v1/admin/logs", Handler: authRequired(adminhandler.ListLogsHandler(svcCtx))},
 		{Method: http.MethodPost, Path: "/api/v1/admin/search/reindex", Handler: authRequired(searchhandler.ReindexHandler(svcCtx))},
 		{Method: http.MethodPut, Path: "/api/v1/admin/site/settings", Handler: authRequired(sitehandler.UpdateSettingsHandler(svcCtx))},
-		{Method: http.MethodGet, Path: "/api/v1/admin/site/resume", Handler: authRequired(sitehandler.AdminResumePageHandler(svcCtx))},
-		{Method: http.MethodPut, Path: "/api/v1/admin/site/resume", Handler: authRequired(sitehandler.UpdateResumePageHandler(svcCtx))},
 		{Method: http.MethodGet, Path: "/api/v1/admin/site/projects", Handler: authRequired(sitehandler.AdminProjectsPageHandler(svcCtx))},
 		{Method: http.MethodPut, Path: "/api/v1/admin/site/projects", Handler: authRequired(sitehandler.UpdateProjectsPageHandler(svcCtx))},
 	})

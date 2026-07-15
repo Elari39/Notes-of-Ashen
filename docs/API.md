@@ -550,8 +550,6 @@ GET /api/v1/site/settings
     "siteDescription": "A personal blog written slowly by the lamp of ink.",
     "siteKeywords": "blog,notes,writing",
     "siteBaseUrl": "",
-    "resumePageEnabled": false,
-    "resumeNavHidden": true,
     "projectsPageEnabled": false,
     "projectsNavHidden": true
   }
@@ -589,31 +587,10 @@ PUT /api/v1/admin/site/settings
 | siteDescription | string | 否 | 站点描述，空值表示保留当前值 |
 | siteKeywords | string | 否 | 站点关键词，空值表示保留当前值 |
 | siteBaseUrl | string | 否 | 站点公开基础 URL，非空必须为 `http://` 或 `https://` URL |
-| resumePageEnabled | bool | 否 | 是否启用 `/resume` 简介页面；不传时保留当前值 |
-| resumeNavHidden | bool | 否 | 是否在前台导航隐藏简介入口；不传时保留当前值 |
 | projectsPageEnabled | bool | 否 | 是否启用 `/projects` 项目页面；不传时保留当前值 |
 | projectsNavHidden | bool | 否 | 是否在前台导航隐藏项目入口；不传时保留当前值 |
 
 可选布尔字段只有“字段未出现在请求 JSON 中”才表示保留当前值；显式传入 `false` 会把对应开关更新为关闭。
-
-### 获取简历页面内容
-
-```text
-GET /api/v1/site/resume
-```
-
-权限：公开。仅当后台启用 `/resume` 页面时可访问，否则返回 `403 feature disabled`。
-
-响应 `data`：
-
-| 字段 | 类型 | 说明 |
-| --- | --- | --- |
-| title | string | 页面标题 |
-| subtitle | string | 页面副标题 |
-| contentMarkdown | string | 简历 Markdown 引言 / 兼容正文 |
-| experiences | object[] | 工作与实习经历时间轴 |
-| educations | object[] | 教育背景时间轴 |
-| skills | object[] | 技能树 |
 
 ### 获取项目页面内容
 
@@ -647,28 +624,6 @@ GET /api/v1/site/projects
 | repoUrl | string | 代码仓库链接，可为空 |
 | contentMarkdown | string | 项目详情 Markdown |
 | featured | bool | 是否精选 |
-
-### 更新简历页面内容
-
-```text
-GET /api/v1/admin/site/resume
-PUT /api/v1/admin/site/resume
-```
-
-权限：`admin`。后台读取不受公开页面启用状态影响。
-
-更新字段：
-
-| 字段 | 类型 | 必填 | 说明 |
-| --- | --- | --- | --- |
-| title | string | 是 | 页面标题，长度 1 到 160 |
-| subtitle | string | 否 | 页面副标题，最长 255 |
-| contentMarkdown | string | 否 | 简历 Markdown 引言 / 兼容正文，最长 200000 字符 |
-| experiences | object[] | 否 | 工作与实习经历，最多 30 条 |
-| educations | object[] | 否 | 教育背景，最多 30 条 |
-| skills | object[] | 否 | 技能项，最多 80 条，`level` 范围 0 到 100 |
-
-经历字段包括 `role`、`organization`、`location`、`startDate`、`endDate`、`description`、`highlights`、`displayOrder`。教育字段包括 `school`、`degree`、`major`、`location`、`startDate`、`endDate`、`description`、`highlights`、`displayOrder`。技能字段包括 `category`、`name`、`level`、`description`、`displayOrder`。
 
 ### 更新项目页面内容
 
@@ -711,7 +666,7 @@ GET /rss.xml
 GET /sitemap.xml
 ```
 
-权限：公开。分别返回公开文章的 RSS XML 和站点 XML Sitemap；已启用的 `/resume`、`/projects` 页面也会进入 Sitemap，RSS 中会作为静态页面条目输出。
+权限：公开。分别返回公开文章的 RSS XML 和站点 XML Sitemap；已启用的 `/projects` 页面也会进入 Sitemap，RSS 中会作为静态页面条目输出。
 
 ## 流量接口
 

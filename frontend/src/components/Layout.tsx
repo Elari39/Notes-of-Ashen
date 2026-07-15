@@ -39,10 +39,8 @@ const Layout: React.FC = () => {
       resetAccentColor: state.resetAccentColor,
     })),
   );
-  const { resumePageEnabled, resumeNavHidden, projectsPageEnabled, projectsNavHidden } = useSiteSettingsStore(
+  const { projectsPageEnabled, projectsNavHidden } = useSiteSettingsStore(
     useShallow((state) => ({
-      resumePageEnabled: state.resumePageEnabled,
-      resumeNavHidden: state.resumeNavHidden,
       projectsPageEnabled: state.projectsPageEnabled,
       projectsNavHidden: state.projectsNavHidden,
     })),
@@ -356,9 +354,6 @@ const Layout: React.FC = () => {
             {projectsPageEnabled && !projectsNavHidden && (
               <PreloadNavLink to="/projects" preload={routeLoaders.projects} className={desktopLinkClass}>{t('nav.projects')}</PreloadNavLink>
             )}
-            {resumePageEnabled && !resumeNavHidden && (
-              <PreloadNavLink to="/resume" preload={routeLoaders.resume} className={desktopLinkClass}>{t('nav.resume')}</PreloadNavLink>
-            )}
             {user ? (
               <>
                 {(user.role === 'admin' || user.role === 'editor') && (
@@ -403,9 +398,6 @@ const Layout: React.FC = () => {
             <PreloadNavLink to="/search" preload={routeLoaders.search} onClick={closeMobileMenu} className={mobileLinkClass}>{t('nav.search')}</PreloadNavLink>
             {projectsPageEnabled && !projectsNavHidden && (
               <PreloadNavLink to="/projects" preload={routeLoaders.projects} onClick={closeMobileMenu} className={mobileLinkClass}>{t('nav.projects')}</PreloadNavLink>
-            )}
-            {resumePageEnabled && !resumeNavHidden && (
-              <PreloadNavLink to="/resume" preload={routeLoaders.resume} onClick={closeMobileMenu} className={mobileLinkClass}>{t('nav.resume')}</PreloadNavLink>
             )}
             {user ? (
               <>

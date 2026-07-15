@@ -48,10 +48,10 @@ http://127.0.0.1:1270
 
 - 用户认证：注册、登录、退出、刷新 Token。
 - 文章管理：创建、编辑、删除、发布、归档、草稿预览、版本查看、版本恢复、Markdown 导入/导出、AI 一键补全文章与 SEO 信息、AI 辅助创作、置顶与显示优先级。
-- 内容展示：公开文章列表、文章详情、归档、Meilisearch 全文搜索、Markdown 渲染、代码高亮、LaTeX 数学公式、文章目录和点赞反馈。
-- 简历与作品集：结构化简历时间轴、技能树、知识图谱、前端 PDF 导出、作品集画廊和项目标签。
+- 内容展示：公开文章列表、文章详情、按年月日展开的发布归档、Meilisearch 全文搜索、Markdown 渲染、代码高亮、LaTeX 数学公式、文章目录和点赞反馈。
+- 作品集：作品集画廊和项目标签。
 - 分类与标签：公开读取，后台可创建、更新和删除。
-- 管理后台：用户管理、用户状态管理、站点设置、简历与项目管理、操作日志查看、访问趋势和来源统计。
+- 管理后台：用户管理、用户状态管理、站点设置、项目管理、操作日志查看、访问趋势和来源统计。
 - 站点能力：RSS、Sitemap、站点标题、描述、关键词、Prerender.io 预渲染配置等。
 - 流量统计：公开页面自动上报 PV、UV 与来源，后台展示最近 30 天趋势。
 - 异步日志：通过 RabbitMQ 投递操作事件，并写入 `operation_logs`。
@@ -191,7 +191,7 @@ Copy-Item .env.example .env
   1. `add_site_settings.sql` — 站点设置表
   2. `add_content_growth_features.sql` — 文章排程字段、文章版本表 `article_versions`（仅基础列）
   3. `add_article_pin_priority.sql` — 补 `article_versions.is_pinned` / `display_priority`
-  4. `add_resume_portfolio_interaction_geo.sql` — 补 `article_versions.like_count`，简历/作品集/点赞表
+  4. `add_resume_portfolio_interaction_geo.sql` — 历史脚本：补 `article_versions.like_count`、作品集/点赞表，并包含现已停用的简历表
   5. `alter_site_settings_value_text.sql` — 站点设置 value 列改 MEDIUMTEXT
   6. `add_traffic_ai_import_features.sql` — 流量/AI/导入相关字段
   7. `add_ai_settings.sql` — AI 设置表
@@ -205,6 +205,8 @@ Copy-Item .env.example .env
   15. `add_users_admin_state_index.sql` — 用户角色/状态复合索引，缩小管理员并发保护的锁定扫描范围（幂等）
   16. `add_operation_logs_filter_indexes.sql` — operation_logs 表事件/来源 IP 与时间复合索引（幂等）
   17. `add_ai_api_format_setting.sql` — 为 AI 设置补充 `apiFormat`，默认使用 `openai`（幂等，不删除旧设置键）
+
+历史增量脚本保持不变。已部署数据库中的 `resume_*` 表和相关站点设置不会被运行时代码访问，也无需为本次升级执行破坏性删除。
 
   > 注意：`article_versions` 表的 `like_count` / `is_pinned` / `display_priority` 三列分别由第 3、4 步脚本补齐，必须在 `add_content_growth_features.sql`（第 2 步）之后执行，否则 `model/article.go` 的 `articleVersionSelectFields` 查询会因缺列报 `Unknown column`。
 - 改用远程 Redis、RabbitMQ 时，确认防火墙和安全组允许 1Panel 服务器访问，避免对公网裸露。
@@ -601,7 +603,6 @@ docker compose up -d --build
 - `PUT /api/v1/tags/:id`
 - `DELETE /api/v1/tags/:id`
 - `GET /api/v1/site/settings`
-- `GET /api/v1/site/resume`
 - `GET /api/v1/site/projects`
 - `GET /api/v1/users/me`
 - `PUT /api/v1/users/me`
@@ -611,7 +612,7 @@ docker compose up -d --build
   - `POST/PUT/DELETE /api/v1/articles`、`PUT /api/v1/articles/:id`、`PATCH /api/v1/articles/:id/status`
   - `GET /api/v1/admin/articles`、`GET /api/v1/admin/stats`、`GET /api/v1/admin/logs`
   - `GET/PUT /api/v1/admin/users`、`PATCH /api/v1/admin/users/:id/status`、`PATCH /api/v1/admin/users/:id/role`
-  - `GET/PUT /api/v1/admin/site/settings`、`GET/PUT /api/v1/admin/site/resume`、`GET/PUT /api/v1/admin/site/projects`
+  - `GET/PUT /api/v1/admin/site/settings`、`GET/PUT /api/v1/admin/site/projects`
   - `GET/PUT /api/v1/admin/ai/settings`、`POST /api/v1/admin/ai/models`、`POST /api/v1/admin/ai/test`、`POST /api/v1/admin/search/reindex`
 
 完整说明见 [docs/API.md](docs/API.md)。

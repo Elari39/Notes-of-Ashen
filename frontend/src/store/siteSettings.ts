@@ -16,8 +16,6 @@ interface SiteSettingsState {
   siteDescription: string;
   siteKeywords: string;
   siteBaseUrl: string;
-  resumePageEnabled: boolean;
-  resumeNavHidden: boolean;
   projectsPageEnabled: boolean;
   projectsNavHidden: boolean;
   isLoading: boolean;
@@ -37,8 +35,6 @@ const toSiteSettingsState = (settings: SiteSettings): Partial<SiteSettingsState>
   siteDescription: settings.siteDescription || '',
   siteKeywords: settings.siteKeywords || '',
   siteBaseUrl: settings.siteBaseUrl || '',
-  resumePageEnabled: Boolean(settings.resumePageEnabled),
-  resumeNavHidden: settings.resumeNavHidden ?? true,
   projectsPageEnabled: Boolean(settings.projectsPageEnabled),
   projectsNavHidden: settings.projectsNavHidden ?? true,
 });
@@ -51,8 +47,6 @@ export const useSiteSettingsStore = create<SiteSettingsState>((set, get) => ({
   siteDescription: DEFAULT_SITE_DESCRIPTION,
   siteKeywords: 'blog,notes,writing',
   siteBaseUrl: '',
-  resumePageEnabled: false,
-  resumeNavHidden: true,
   projectsPageEnabled: false,
   projectsNavHidden: true,
   isLoading: false,

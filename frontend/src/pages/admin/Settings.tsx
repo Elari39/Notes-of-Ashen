@@ -21,8 +21,6 @@ const AdminSettings: React.FC = () => {
     siteDescription,
     siteKeywords,
     siteBaseUrl,
-    resumePageEnabled,
-    resumeNavHidden,
     projectsPageEnabled,
     projectsNavHidden,
     isLoading,
@@ -38,8 +36,6 @@ const AdminSettings: React.FC = () => {
       siteDescription: state.siteDescription,
       siteKeywords: state.siteKeywords,
       siteBaseUrl: state.siteBaseUrl,
-      resumePageEnabled: state.resumePageEnabled,
-      resumeNavHidden: state.resumeNavHidden,
       projectsPageEnabled: state.projectsPageEnabled,
       projectsNavHidden: state.projectsNavHidden,
       isLoading: state.isLoading,
@@ -55,8 +51,6 @@ const AdminSettings: React.FC = () => {
   const [draftSiteDescription, setDraftSiteDescription] = useState(siteDescription);
   const [draftSiteKeywords, setDraftSiteKeywords] = useState(siteKeywords);
   const [draftSiteBaseUrl, setDraftSiteBaseUrl] = useState(siteBaseUrl);
-  const [draftResumePageEnabled, setDraftResumePageEnabled] = useState(resumePageEnabled);
-  const [draftResumeNavHidden, setDraftResumeNavHidden] = useState(resumeNavHidden);
   const [draftProjectsPageEnabled, setDraftProjectsPageEnabled] = useState(projectsPageEnabled);
   const [draftProjectsNavHidden, setDraftProjectsNavHidden] = useState(projectsNavHidden);
   const [error, setError] = useState('');
@@ -75,11 +69,9 @@ const AdminSettings: React.FC = () => {
     setDraftSiteDescription(siteDescription);
     setDraftSiteKeywords(siteKeywords);
     setDraftSiteBaseUrl(siteBaseUrl);
-    setDraftResumePageEnabled(resumePageEnabled);
-    setDraftResumeNavHidden(resumeNavHidden);
     setDraftProjectsPageEnabled(projectsPageEnabled);
     setDraftProjectsNavHidden(projectsNavHidden);
-  }, [registrationEnabled, homeArticleLayout, siteTitle, siteDescription, siteKeywords, siteBaseUrl, resumePageEnabled, resumeNavHidden, projectsPageEnabled, projectsNavHidden]);
+  }, [registrationEnabled, homeArticleLayout, siteTitle, siteDescription, siteKeywords, siteBaseUrl, projectsPageEnabled, projectsNavHidden]);
 
   const hasChanges =
     draftRegistrationEnabled !== registrationEnabled ||
@@ -88,8 +80,6 @@ const AdminSettings: React.FC = () => {
     draftSiteDescription !== siteDescription ||
     draftSiteKeywords !== siteKeywords ||
     draftSiteBaseUrl !== siteBaseUrl ||
-    draftResumePageEnabled !== resumePageEnabled ||
-    draftResumeNavHidden !== resumeNavHidden ||
     draftProjectsPageEnabled !== projectsPageEnabled ||
     draftProjectsNavHidden !== projectsNavHidden;
 
@@ -105,8 +95,6 @@ const AdminSettings: React.FC = () => {
         siteDescription: draftSiteDescription.trim(),
         siteKeywords: draftSiteKeywords.trim(),
         siteBaseUrl: draftSiteBaseUrl.trim(),
-        resumePageEnabled: draftResumePageEnabled,
-        resumeNavHidden: draftResumeNavHidden,
         projectsPageEnabled: draftProjectsPageEnabled,
         projectsNavHidden: draftProjectsNavHidden,
       });
@@ -123,8 +111,6 @@ const AdminSettings: React.FC = () => {
     setDraftSiteDescription(siteDescription);
     setDraftSiteKeywords(siteKeywords);
     setDraftSiteBaseUrl(siteBaseUrl);
-    setDraftResumePageEnabled(resumePageEnabled);
-    setDraftResumeNavHidden(resumeNavHidden);
     setDraftProjectsPageEnabled(projectsPageEnabled);
     setDraftProjectsNavHidden(projectsNavHidden);
     setError('');
@@ -177,38 +163,7 @@ const AdminSettings: React.FC = () => {
               title={t('settings.publicPagesTitle')}
               description={t('settings.publicPagesDesc')}
             >
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <div className="border border-mountain-grey p-4">
-                  <div className="mb-4">
-                    <p className="text-sm font-bold tracking-widest text-ink">{t('settings.resumePage')}</p>
-                    <p className="mt-2 text-xs leading-relaxed text-ink-light opacity-80">{t('settings.resumePageDesc')}</p>
-                  </div>
-                  <div className="flex flex-col gap-3">
-                    <div className="flex items-center gap-3">
-                      <Switch
-                        checked={draftResumePageEnabled}
-                        onCheckedChange={setDraftResumePageEnabled}
-                        disabled={isLoading}
-                        label={t('settings.resumePage')}
-                      />
-                      <span className="text-xs tracking-widest text-ink-light">
-                        {draftResumePageEnabled ? t('settings.enabled') : t('settings.disabled')}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <Switch
-                        checked={!draftResumeNavHidden}
-                        onCheckedChange={(next) => setDraftResumeNavHidden(!next)}
-                        disabled={isLoading}
-                        label={t('settings.navVisible')}
-                      />
-                      <span className="text-xs tracking-widest text-ink-light">
-                        {draftResumeNavHidden ? t('settings.navHidden') : t('settings.navVisible')}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
+              <div className="max-w-2xl">
                 <div className="border border-mountain-grey p-4">
                   <div className="mb-4">
                     <p className="text-sm font-bold tracking-widest text-ink">{t('settings.projectsPage')}</p>
