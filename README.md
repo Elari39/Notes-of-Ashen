@@ -135,7 +135,7 @@ Copy-Item .env.example .env
 至少需要检查并替换这些值。模板中的 `<REPLACE_...>` 只用于提示，不是可用默认值；后端启动时会拒绝空值、示例占位值和过短的 JWT 密钥，请把真实密码/密钥只写入 `.env` 或部署平台环境变量。
 
 - `APP_DISPLAY_NAME`：站点对外展示名称，默认 `Notes of Ashen`（当前版本后端未读取，预留）。
-- `APP_AUTH_ACCESS_SECRET`：JWT 签名密钥，生产环境必须替换为足够长的随机字符串，建议至少 32 位。
+- `APP_AUTH_ACCESS_SECRET`：JWT 签名密钥，生产环境必须替换为足够长的随机字符串，建议至少 32 位；后台保存的 AI API Key 也会使用由它派生的独立用途密钥加密，轮换前请先阅读下方迁移说明。
 - `APP_AUTH_COOKIE_SECURE`：refreshToken Cookie 的 Secure 标志，生产 HTTPS 保持 `true`；本机 HTTP 开发需设为 `false`，否则浏览器不会保存 Cookie，刷新页面无法恢复会话。
 - `APP_MYSQL_ROOT_PASSWORD`：本地 Compose MySQL root 密码，生产或公网环境必须替换为强随机值。
 - `APP_MYSQL_DATABASE`：本地 Compose 初始化数据库名，默认 `notes_of_ashen`。
@@ -166,12 +166,6 @@ Copy-Item .env.example .env
 - `APP_EMAIL_SMTP_PASSWORD`：QQ 邮箱 SMTP 授权码，不是 QQ 登录密码。
 - `APP_EMAIL_FROM`：发件邮箱，通常和 `APP_EMAIL_SMTP_USERNAME` 一致；留空时后端会回退使用 SMTP 用户名。
 - `APP_EMAIL_FROM_NAME`：发件人名称。
-- `APP_AI_ENABLED`：是否启用文章 AI 辅助创作。
-- `APP_AI_BASE_URL`：兼容 OpenAI Chat Completions 的接口基础地址。
-- `APP_AI_API_KEY`：AI 服务 API Key，只能写入真实 `.env` 或受控环境变量。
-- `APP_AI_MODEL`：AI 辅助使用的模型名称。
-- `APP_AI_KEY_ENCRYPTION_SECRET`：后台保存 AI API Key 时使用的加密密钥，生产环境应设置为不同于 `APP_AUTH_ACCESS_SECRET` 的长随机值。迁移旧密文时必须先保留旧认证密钥，完成保存迁移后再轮换。
-- `APP_AI_TIMEOUT_SECONDS`：AI 请求兼容超时时间，默认 `600` 秒（已由 `APP_AI_FIRST_BYTE_TIMEOUT_SECONDS`/`APP_AI_STREAM_TIMEOUT_SECONDS`/`APP_AI_NON_STREAM_TIMEOUT_SECONDS` 三段细化覆盖，本项保留作兜底）。
 - `APP_TRUSTED_PROXY_CIDRS`：可信反向代理 CIDR。Compose 默认仅信任固定 Web 容器地址；本地非 Docker 启动默认留空。
 - `PRERENDER_ENABLED`：是否启用 Prerender.io crawler 预渲染，`0` 关闭，`1` 启用。
 - `PRERENDER_SERVICE_URL`：Prerender.io 服务地址，默认 `https://service.prerender.io`。
@@ -210,6 +204,7 @@ Copy-Item .env.example .env
   14. `add_operation_logs_index.sql` — operation_logs 表 created_at / user_id 索引（幂等）
   15. `add_users_admin_state_index.sql` — 用户角色/状态复合索引，缩小管理员并发保护的锁定扫描范围（幂等）
   16. `add_operation_logs_filter_indexes.sql` — operation_logs 表事件/来源 IP 与时间复合索引（幂等）
+  17. `add_ai_api_format_setting.sql` — 为 AI 设置补充 `apiFormat`，默认使用 `openai`（幂等，不删除旧设置键）
 
   > 注意：`article_versions` 表的 `like_count` / `is_pinned` / `display_priority` 三列分别由第 3、4 步脚本补齐，必须在 `add_content_growth_features.sql`（第 2 步）之后执行，否则 `model/article.go` 的 `articleVersionSelectFields` 查询会因缺列报 `Unknown column`。
 - 改用远程 Redis、RabbitMQ 时，确认防火墙和安全组允许 1Panel 服务器访问，避免对公网裸露。
@@ -239,28 +234,11 @@ docker compose up -d api
 
 ### AI 辅助创作配置
 
-后台文章编辑页提供摘要/SEO 元数据生成、纠错和润色能力。该功能默认关闭，生产启用时只在真实 `.env` 中填写密钥：
+后台文章编辑页提供摘要/SEO 元数据生成、纠错和润色能力。AI 配置不再从环境变量或 YAML 读取，统一由管理员在后台 AI 设置页填写并保存到数据库 `site_settings`。可选择 `openai` 或 `anthropic` API 格式，填写服务基础地址和 API Key 后，先获取模型列表、选择模型并测试连接，最后保存并启用。当前 AI 调用均为非流式请求，配置项只保留首字等待和请求总超时。
 
-```env
-APP_AI_ENABLED=true
-APP_AI_BASE_URL=https://api.example.com/v1
-APP_AI_API_KEY=your-ai-api-key
-APP_AI_MODEL=your-model-name
-APP_AI_KEY_ENCRYPTION_SECRET=replace-with-a-different-long-random-secret
-APP_AI_TIMEOUT_SECONDS=600
-APP_AI_FIRST_BYTE_TIMEOUT_SECONDS=60
-APP_AI_STREAM_TIMEOUT_SECONDS=300
-APP_AI_NON_STREAM_TIMEOUT_SECONDS=600
-# 可选覆盖（留空时使用默认值）：
-# APP_AI_TEMPERATURE=0.3
-# APP_AI_MAX_TOKENS=4000
-```
+`openai` 格式可填写兼容 OpenAI API 的基础地址，例如 `https://api.example.com/v1`，也可填写完整的 `/chat/completions` 地址；`anthropic` 格式使用 Messages API。出于 SSRF 防护，Base URL 必须解析到公网地址，不支持本机或内网模型服务。获取模型和测试模型接口都接受尚未保存的草稿连接配置，便于保存前验证。不要把真实 API Key 写入 README、Issue、提交记录或截图中。
 
-`APP_AI_BASE_URL` 可以填写兼容 OpenAI Chat Completions 的基础地址，例如 `https://api.example.com/v1`；如果服务商只提供完整端点，也可以填写到 `/chat/completions`。不要把真实 API Key 写入 README、Issue、提交记录或截图中。
-
-`APP_AI_TIMEOUT_SECONDS` 是兜底超时，已被 `APP_AI_FIRST_BYTE_TIMEOUT_SECONDS`（首字等待）、`APP_AI_STREAM_TIMEOUT_SECONDS`（流式总超时）、`APP_AI_NON_STREAM_TIMEOUT_SECONDS`（非流式总超时）三段细化覆盖。`APP_AI_TEMPERATURE`（留空回退默认 `0.3`）和 `APP_AI_MAX_TOKENS`（留空按 action 回退默认值）为可选覆盖项。
-
-`APP_AI_KEY_ENCRYPTION_SECRET` 只用于加密后台保存的 AI API Key。迁移旧版本密文时必须按以下顺序操作：保留原 `APP_AUTH_ACCESS_SECRET`，先配置新的 `APP_AI_KEY_ENCRYPTION_SECRET`，启动服务并由管理员重新保存 AI 设置完成 `v2:` 格式迁移；确认保存成功后，才能轮换旧 `APP_AUTH_ACCESS_SECRET`。若先轮换旧认证密钥，旧密文将无法解密和迁移。
+新保存的 API Key 使用 `v3:` 密文，密钥由 `APP_AUTH_ACCESS_SECRET` 通过独立用途派生。`v2:` 密文使用的是已移除的独立加密密钥，升级后会在设置响应中标记 `apiKeyNeedsUpdate = true`，管理员必须重新填写 API Key；无版本前缀的旧密文仍兼容读取，建议尽快重新保存以迁移到 `v3:`。由于 `v3:` 密钥依赖 `APP_AUTH_ACCESS_SECRET`，轮换认证密钥时必须同时安排重新录入 AI API Key，否则原密文将不可解密。
 
 ### 可信反向代理配置
 
@@ -632,13 +610,13 @@ docker compose up -d --build
   - `GET /api/v1/admin/articles`、`GET /api/v1/admin/stats`、`GET /api/v1/admin/logs`
   - `GET/PUT /api/v1/admin/users`、`PATCH /api/v1/admin/users/:id/status`、`PATCH /api/v1/admin/users/:id/role`
   - `GET/PUT /api/v1/admin/site/settings`、`GET/PUT /api/v1/admin/site/resume`、`GET/PUT /api/v1/admin/site/projects`
-  - `GET/PUT /api/v1/admin/ai/settings`、`POST /api/v1/admin/search/reindex`
+  - `GET/PUT /api/v1/admin/ai/settings`、`POST /api/v1/admin/ai/models`、`POST /api/v1/admin/ai/test`、`POST /api/v1/admin/search/reindex`
 
 完整说明见 [docs/API.md](docs/API.md)。
 
 ## 维护建议
 
-- 生产环境务必填写真实强随机密码替换所有 `<REPLACE_…>` 占位符，并设置 `APP_AUTH_ACCESS_SECRET` 和 `APP_AI_KEY_ENCRYPTION_SECRET`。
+- 生产环境务必填写真实强随机密码替换所有 `<REPLACE_…>` 占位符，并设置稳定、足够长的 `APP_AUTH_ACCESS_SECRET`。
 - 前端依赖管理统一使用 `pnpm`，不要混用 `npm` 或 `yarn`。
 - 不要提交 `.env`、数据库备份、日志文件或任何真实密钥；数据库备份建议放在仓库目录外。
 - 升级前先备份 MySQL 数据卷或远程 MySQL 数据，并确认 Redis、RabbitMQ 的持久化策略符合预期。

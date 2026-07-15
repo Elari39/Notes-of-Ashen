@@ -1,5 +1,6 @@
 import type { AxiosError } from 'axios';
 import { formatText, translate } from '../i18n';
+import { AI_EXACT_ERROR_MESSAGES } from './aiErrorMessages';
 
 type ErrorResponse = {
   code?: number;
@@ -47,11 +48,11 @@ const fieldNames: Record<string, LocalizedText> = {
   slug: localized('路径', 'Slug'),
   content: localized('正文', 'Content'),
   coverUrl: localized('封面 URL', 'Cover URL'),
+  apiFormat: localized('接口格式', 'API format'),
   baseUrl: localized('Base URL', 'Base URL'),
   model: localized('模型', 'Model'),
   apiKey: localized('API Key', 'API key'),
   firstByteTimeoutSeconds: localized('首字等待时间', 'First byte timeout'),
-  streamTimeoutSeconds: localized('流式输出超时', 'Streaming timeout'),
   nonStreamTimeoutSeconds: localized('非流式输出超时', 'Non-streaming timeout'),
   status: localized('状态', 'Status'),
   q: localized('搜索关键词', 'Search keyword'),
@@ -97,6 +98,7 @@ const fieldNames: Record<string, LocalizedText> = {
 };
 
 const exactMessages: Record<string, LocalizedText> = {
+  ...AI_EXACT_ERROR_MESSAGES,
   'avatarUrl format is invalid': localized('头像 URL 必须以 http:// 或 https:// 开头', 'Avatar URL must start with http:// or https://'),
   'coverUrl format is invalid': localized('封面 URL 必须以 http:// 或 https:// 开头，或留空', 'Cover URL must start with http:// or https://, or be empty'),
   'email format is invalid': localized('邮箱格式不正确', 'Email format is invalid'),
@@ -131,10 +133,9 @@ const exactMessages: Record<string, LocalizedText> = {
   'ai response is invalid': localized('AI 返回内容格式不正确，请重试。', 'The AI response format is invalid. Please try again.'),
   'baseUrl format is invalid': localized('Base URL 必须以 http:// 或 https:// 开头，或留空', 'Base URL must start with http:// or https://, or be empty'),
   'firstByteTimeoutSeconds is invalid': localized('首字等待时间必须在 1 到 1800 秒之间', 'First byte timeout must be between 1 and 1800 seconds'),
-  'streamTimeoutSeconds is invalid': localized('流式输出超时必须在 1 到 1800 秒之间', 'Streaming timeout must be between 1 and 1800 seconds'),
   'nonStreamTimeoutSeconds is invalid': localized('非流式输出超时必须在 1 到 1800 秒之间', 'Non-streaming timeout must be between 1 and 1800 seconds'),
-  'streamTimeoutSeconds must be greater than or equal to firstByteTimeoutSeconds': localized('流式输出超时不能小于首字等待时间', 'Streaming timeout cannot be lower than first byte timeout'),
   'nonStreamTimeoutSeconds must be greater than or equal to firstByteTimeoutSeconds': localized('非流式输出超时不能小于首字等待时间', 'Non-streaming timeout cannot be lower than first byte timeout'),
+  'nonStreamTimeoutSeconds must not exceed the server request timeout': localized('非流式超时不能超过服务端请求超时上限', 'Non-streaming timeout cannot exceed the server request timeout'),
   'cannot manage other user\'s article': localized('不能管理其他用户的文章', 'You cannot manage another user\'s article'),
   'content manager permission required': localized('需要编辑或管理员权限', 'Editor or administrator permission is required'),
   'admin permission required': localized('需要管理员权限', 'Administrator permission is required'),
@@ -162,7 +163,6 @@ const exactMessages: Record<string, LocalizedText> = {
   'rate limiter unavailable': localized('限流服务暂时不可用，请稍后重试', 'The rate limiter is unavailable. Please try again later.'),
   'too many likes for this article': localized('点赞过于频繁，请稍后再试', 'Too many likes for this article. Please try again later.'),
   'items id is duplicated': localized('项目 ID 不能重复', 'Item IDs must not be duplicated'),
-  'ai key encryption secret is not configured': localized('AI 密钥加密配置缺失，请联系管理员', 'The AI key encryption secret is not configured. Please contact the administrator.'),
   'role is invalid': localized('角色不合法', 'The role is invalid'),
   'action is invalid': localized('操作类型不合法', 'The action is invalid'),
   'displayPriority is invalid': localized('显示优先级不合法', 'The display priority is invalid'),

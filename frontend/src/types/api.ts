@@ -249,25 +249,49 @@ export interface AIAssistResp {
   suggestions?: string[];
 }
 
+export type AIAPIFormat = 'openai' | 'anthropic';
+
 export interface AISettingsResp {
   enabled: boolean;
+  apiFormat: AIAPIFormat;
   baseUrl: string;
   model: string;
   apiKeyConfigured: boolean;
+  apiKeyNeedsUpdate: boolean;
   firstByteTimeoutSeconds: number;
-  streamTimeoutSeconds: number;
   nonStreamTimeoutSeconds: number;
 }
 
 export interface UpdateAISettingsReq {
   enabled: boolean;
+  apiFormat?: AIAPIFormat;
   baseUrl?: string;
   apiKey?: string;
   clearApiKey?: boolean;
   model?: string;
   firstByteTimeoutSeconds?: number;
-  streamTimeoutSeconds?: number;
   nonStreamTimeoutSeconds?: number;
+}
+
+export interface AIConnectionReq {
+  apiFormat: AIAPIFormat;
+  baseUrl: string;
+  apiKey?: string;
+  firstByteTimeoutSeconds: number;
+  nonStreamTimeoutSeconds: number;
+}
+
+export interface AIModelsResp {
+  models: string[];
+}
+
+export interface AIModelTestReq extends AIConnectionReq {
+  model: string;
+}
+
+export interface AIModelTestResp {
+  model: string;
+  latencyMs: number;
 }
 
 export interface TrafficVisitReq {

@@ -7,12 +7,14 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"io"
+	"net"
 	"strings"
 
+	"notes-of-ashen/internal/aiclient"
 	"notes-of-ashen/internal/authutil"
-	"notes-of-ashen/internal/config"
 	apperrors "notes-of-ashen/internal/errors"
 	"notes-of-ashen/internal/svc"
 	"notes-of-ashen/internal/types"
@@ -26,17 +28,21 @@ const (
 	minAITimeoutSeconds  = 1
 	maxAITimeoutSeconds  = 1800
 	secretCipherV2Prefix = "v2:"
+	secretCipherV3Prefix = "v3:"
+	maxAIAPIKeyLength    = 4096
 )
+
+var errAIAPIKeyNeedsUpdate = errors.New("ai api key needs update")
 
 func Settings(ctx context.Context, svcCtx *svc.ServiceContext) (*types.AISettingsResp, error) {
 	if err := authutil.RequireAdmin(ctx); err != nil {
 		return nil, err
 	}
-	conf, configured, err := EffectiveConfig(ctx, svcCtx)
+	settings, err := svcCtx.Store.AISettings(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return aiSettingsResp(conf, configured), nil
+	return aiSettingsResp(*settings, svcCtx.Config.Auth.AccessSecret), nil
 }
 
 func UpdateSettings(ctx context.Context, svcCtx *svc.ServiceContext, req types.UpdateAISettingsReq) (*types.AISettingsResp, error) {
@@ -48,106 +54,272 @@ func UpdateSettings(ctx context.Context, svcCtx *svc.ServiceContext, req types.U
 		return nil, err
 	}
 
-	baseURL := strings.TrimRight(strings.TrimSpace(req.BaseURL), "/")
-	if err := validator.Length(baseURL, "baseUrl", 0, 255); err != nil {
-		return nil, err
+	apiFormat := current.APIFormat
+	if strings.TrimSpace(req.APIFormat) != "" {
+		apiFormat, err = normalizeAIAPIFormat(req.APIFormat)
+		if err != nil {
+			return nil, err
+		}
 	}
-	if err := validator.OptionalHTTPURL(baseURL, "baseUrl"); err != nil {
+	baseURL, err := normalizeAndValidateAIBaseURL(req.BaseURL, false)
+	if err != nil {
 		return nil, err
 	}
 	modelName := strings.TrimSpace(req.Model)
 	if err := validator.Length(modelName, "model", 0, 120); err != nil {
 		return nil, err
 	}
-	firstByteTimeout, err := normalizeAITimeout(req.FirstByteTimeoutSeconds, model.DefaultAIFirstByteWait, "firstByteTimeoutSeconds")
-	if err != nil {
-		return nil, err
-	}
-	streamTimeout, err := normalizeAITimeout(req.StreamTimeoutSeconds, model.DefaultAIStreamWait, "streamTimeoutSeconds")
-	if err != nil {
-		return nil, err
-	}
-	nonStreamTimeout, err := normalizeAITimeout(req.NonStreamTimeoutSeconds, model.DefaultAINonStreamWait, "nonStreamTimeoutSeconds")
-	if err != nil {
-		return nil, err
-	}
-	if streamTimeout < firstByteTimeout {
-		return nil, apperrors.BadRequest("streamTimeoutSeconds must be greater than or equal to firstByteTimeoutSeconds")
-	}
-	if nonStreamTimeout < firstByteTimeout {
-		return nil, apperrors.BadRequest("nonStreamTimeoutSeconds must be greater than or equal to firstByteTimeoutSeconds")
-	}
-
-	apiKeyCipher, err := apiKeyCipherForUpdate(current.APIKeyCipher, req, svcCtx.Config)
+	firstByteTimeout, nonStreamTimeout, err := validateAITimeouts(
+		req.FirstByteTimeoutSeconds,
+		req.NonStreamTimeoutSeconds,
+		svcCtx.Config.Timeout,
+	)
 	if err != nil {
 		return nil, err
 	}
 
-	if err := svcCtx.Store.UpdateAISettings(ctx, model.AISettings{
+	apiKey := strings.TrimSpace(req.APIKey)
+	if apiKey != "" && req.ClearAPIKey {
+		return nil, apperrors.BadRequest("apiKey and clearApiKey cannot be used together")
+	}
+	if err := validator.Length(apiKey, "apiKey", 0, maxAIAPIKeyLength); err != nil {
+		return nil, err
+	}
+	endpointChanged := !sameAIEndpoint(*current, apiFormat, baseURL)
+	if endpointChanged && strings.TrimSpace(current.APIKeyCipher) != "" && apiKey == "" && !req.ClearAPIKey {
+		return nil, apperrors.BadRequest("api key must be replaced or cleared when ai endpoint changes")
+	}
+
+	apiKeyCipher, err := apiKeyCipherForUpdate(current.APIKeyCipher, req, svcCtx.Config.Auth.AccessSecret)
+	if err != nil {
+		return nil, err
+	}
+	next := model.AISettings{
 		Enabled:                 req.Enabled,
+		APIFormat:               apiFormat,
 		BaseURL:                 baseURL,
 		APIKeyCipher:            apiKeyCipher,
 		Model:                   modelName,
 		FirstByteTimeoutSeconds: firstByteTimeout,
-		StreamTimeoutSeconds:    streamTimeout,
 		NonStreamTimeoutSeconds: nonStreamTimeout,
-	}); err != nil {
+	}
+	if req.Enabled {
+		if err := validateEnabledAISettings(next, svcCtx.Config.Auth.AccessSecret); err != nil {
+			return nil, err
+		}
+	}
+
+	if err := svcCtx.Store.UpdateAISettings(ctx, next); err != nil {
 		return nil, err
 	}
-	conf, configured, err := EffectiveConfig(ctx, svcCtx)
+	return aiSettingsResp(next, svcCtx.Config.Auth.AccessSecret), nil
+}
+
+func Models(ctx context.Context, svcCtx *svc.ServiceContext, req types.AIConnectionReq) (*types.AIModelsResp, error) {
+	if err := authutil.RequireAdmin(ctx); err != nil {
+		return nil, err
+	}
+	conf, err := draftConfig(ctx, svcCtx, draftConfigInput{
+		APIFormat:               req.APIFormat,
+		BaseURL:                 req.BaseURL,
+		APIKey:                  req.APIKey,
+		FirstByteTimeoutSeconds: req.FirstByteTimeoutSeconds,
+		NonStreamTimeoutSeconds: req.NonStreamTimeoutSeconds,
+	})
 	if err != nil {
 		return nil, err
 	}
-	return aiSettingsResp(conf, configured), nil
+	models, err := aiclient.ListModels(ctx, conf)
+	if err != nil {
+		return nil, mapAIProviderError(ctx, "list models", err)
+	}
+	return &types.AIModelsResp{Models: models}, nil
 }
 
-func EffectiveConfig(ctx context.Context, svcCtx *svc.ServiceContext) (config.AIConf, bool, error) {
-	conf := normalizeAIConf(svcCtx.Config.AI)
+func TestModel(ctx context.Context, svcCtx *svc.ServiceContext, req types.AIModelTestReq) (*types.AIModelTestResp, error) {
+	if err := authutil.RequireAdmin(ctx); err != nil {
+		return nil, err
+	}
+	modelName := strings.TrimSpace(req.Model)
+	if err := validator.Length(modelName, "model", 1, 120); err != nil {
+		return nil, err
+	}
+	conf, err := draftConfig(ctx, svcCtx, draftConfigInput{
+		APIFormat:               req.APIFormat,
+		BaseURL:                 req.BaseURL,
+		APIKey:                  req.APIKey,
+		Model:                   modelName,
+		FirstByteTimeoutSeconds: req.FirstByteTimeoutSeconds,
+		NonStreamTimeoutSeconds: req.NonStreamTimeoutSeconds,
+	})
+	if err != nil {
+		return nil, err
+	}
+	latency, err := aiclient.TestModel(ctx, conf)
+	if err != nil {
+		return nil, mapAIProviderError(ctx, "test model", err)
+	}
+	latencyMs := latency.Milliseconds()
+	if latencyMs < 1 {
+		latencyMs = 1
+	}
+	return &types.AIModelTestResp{Model: modelName, LatencyMs: latencyMs}, nil
+}
+
+// EffectiveConfig returns the database-backed runtime configuration. AI business
+// settings no longer fall back to YAML or environment variables.
+func EffectiveConfig(ctx context.Context, svcCtx *svc.ServiceContext) (aiclient.Config, bool, error) {
 	settings, err := svcCtx.Store.AISettings(ctx)
 	if err != nil {
-		return conf, hasAISecret(conf), err
+		return normalizeAIConf(aiclient.Config{}), false, err
 	}
-
-	if !settings.Configured {
-		return conf, hasAISecret(conf), nil
+	conf := configFromSettings(*settings)
+	configured := strings.TrimSpace(settings.APIKeyCipher) != ""
+	if !settings.Enabled || !configured {
+		return conf, configured, nil
 	}
-
-	conf.Enabled = settings.Enabled
-	conf.BaseURL = strings.TrimSpace(settings.BaseURL)
-	conf.Model = strings.TrimSpace(settings.Model)
-	conf.FirstByteTimeoutSeconds = settings.FirstByteTimeoutSeconds
-	conf.StreamTimeoutSeconds = settings.StreamTimeoutSeconds
-	conf.NonStreamTimeoutSeconds = settings.NonStreamTimeoutSeconds
-	if strings.TrimSpace(settings.APIKeyCipher) != "" {
-		apiKey, err := decryptAIAPIKey(settings.APIKeyCipher, svcCtx.Config.AI.KeyEncryptionSecret, svcCtx.Config.Auth.AccessSecret)
-		if err != nil {
-			// 旧密文（无 v2: 前缀）在缺失 KeyEncryptionSecret 时不再回退到 Auth.AccessSecret 解密，
-			// 避免 AccessSecret 轮换后旧密文不可读却被静默忽略。提示需迁移。
-			logx.WithContext(ctx).Errorf("decrypt ai api key failed (cipher may need migration): %v", err)
-			return conf, true, fmt.Errorf("decrypt ai api key: %w", err)
-		}
-		conf.APIKey = apiKey
-	} else {
-		conf.APIKey = ""
+	apiKey, err := decryptAIAPIKey(settings.APIKeyCipher, svcCtx.Config.Auth.AccessSecret)
+	if err != nil {
+		logx.WithContext(ctx).Errorf("decrypt ai api key failed: %v", err)
+		return conf, true, apperrors.BadRequest("ai api key needs update")
 	}
-	return normalizeAIConf(conf), strings.TrimSpace(settings.APIKeyCipher) != "", nil
+	conf.APIKey = apiKey
+	return conf, true, nil
 }
 
-func normalizeAIConf(conf config.AIConf) config.AIConf {
+type draftConfigInput struct {
+	APIFormat               string
+	BaseURL                 string
+	APIKey                  string
+	Model                   string
+	FirstByteTimeoutSeconds int
+	NonStreamTimeoutSeconds int
+}
+
+func draftConfig(ctx context.Context, svcCtx *svc.ServiceContext, input draftConfigInput) (aiclient.Config, error) {
+	apiFormat, err := normalizeAIAPIFormat(input.APIFormat)
+	if err != nil {
+		return aiclient.Config{}, err
+	}
+	baseURL, err := normalizeAndValidateAIBaseURL(input.BaseURL, true)
+	if err != nil {
+		return aiclient.Config{}, err
+	}
+	firstByteTimeout, nonStreamTimeout, err := validateAITimeouts(
+		input.FirstByteTimeoutSeconds,
+		input.NonStreamTimeoutSeconds,
+		svcCtx.Config.Timeout,
+	)
+	if err != nil {
+		return aiclient.Config{}, err
+	}
+	apiKey := strings.TrimSpace(input.APIKey)
+	if err := validator.Length(apiKey, "apiKey", 0, maxAIAPIKeyLength); err != nil {
+		return aiclient.Config{}, err
+	}
+	if apiKey == "" {
+		stored, err := svcCtx.Store.AISettings(ctx)
+		if err != nil {
+			return aiclient.Config{}, err
+		}
+		if !sameAIEndpoint(*stored, apiFormat, baseURL) {
+			return aiclient.Config{}, apperrors.BadRequest("api key is required for unsaved ai endpoint")
+		}
+		if strings.TrimSpace(stored.APIKeyCipher) == "" {
+			return aiclient.Config{}, apperrors.BadRequest("api key is required")
+		}
+		apiKey, err = decryptAIAPIKey(stored.APIKeyCipher, svcCtx.Config.Auth.AccessSecret)
+		if err != nil {
+			return aiclient.Config{}, apperrors.BadRequest("ai api key needs update")
+		}
+	}
+	return normalizeAIConf(aiclient.Config{
+		Enabled:                 true,
+		APIFormat:               apiFormat,
+		BaseURL:                 baseURL,
+		APIKey:                  apiKey,
+		Model:                   strings.TrimSpace(input.Model),
+		FirstByteTimeoutSeconds: firstByteTimeout,
+		NonStreamTimeoutSeconds: nonStreamTimeout,
+	}), nil
+}
+
+func configFromSettings(settings model.AISettings) aiclient.Config {
+	return normalizeAIConf(aiclient.Config{
+		Enabled:                 settings.Enabled,
+		APIFormat:               model.NormalizeAIAPIFormat(settings.APIFormat),
+		BaseURL:                 normalizeAIBaseURL(settings.BaseURL),
+		Model:                   strings.TrimSpace(settings.Model),
+		FirstByteTimeoutSeconds: settings.FirstByteTimeoutSeconds,
+		NonStreamTimeoutSeconds: settings.NonStreamTimeoutSeconds,
+	})
+}
+
+func normalizeAIConf(conf aiclient.Config) aiclient.Config {
+	conf.APIFormat = model.NormalizeAIAPIFormat(conf.APIFormat)
+	conf.BaseURL = normalizeAIBaseURL(conf.BaseURL)
+	conf.Model = strings.TrimSpace(conf.Model)
 	if conf.FirstByteTimeoutSeconds <= 0 {
 		conf.FirstByteTimeoutSeconds = model.DefaultAIFirstByteWait
 	}
-	if conf.StreamTimeoutSeconds <= 0 {
-		conf.StreamTimeoutSeconds = model.DefaultAIStreamWait
-	}
 	if conf.NonStreamTimeoutSeconds <= 0 {
-		if conf.TimeoutSeconds > 0 {
-			conf.NonStreamTimeoutSeconds = conf.TimeoutSeconds
-		} else {
-			conf.NonStreamTimeoutSeconds = model.DefaultAINonStreamWait
-		}
+		conf.NonStreamTimeoutSeconds = model.DefaultAINonStreamWait
 	}
 	return conf
+}
+
+func normalizeAIAPIFormat(value string) (string, error) {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "", model.AIAPIFormatOpenAI:
+		return model.AIAPIFormatOpenAI, nil
+	case model.AIAPIFormatAnthropic:
+		return model.AIAPIFormatAnthropic, nil
+	default:
+		return "", apperrors.BadRequest("apiFormat is invalid")
+	}
+}
+
+func normalizeAIBaseURL(value string) string {
+	return strings.TrimRight(strings.TrimSpace(value), "/")
+}
+
+func sameAIEndpoint(settings model.AISettings, apiFormat, baseURL string) bool {
+	return model.NormalizeAIAPIFormat(settings.APIFormat) == apiFormat &&
+		normalizeAIBaseURL(settings.BaseURL) == normalizeAIBaseURL(baseURL)
+}
+
+func normalizeAndValidateAIBaseURL(value string, required bool) (string, error) {
+	baseURL := normalizeAIBaseURL(value)
+	minLength := 0
+	if required {
+		minLength = 1
+	}
+	if err := validator.Length(baseURL, "baseUrl", minLength, 255); err != nil {
+		return "", err
+	}
+	if err := validator.OptionalHTTPURL(baseURL, "baseUrl"); err != nil {
+		return "", err
+	}
+	return baseURL, nil
+}
+
+func validateAITimeouts(firstByte, nonStream int, globalTimeoutMS int64) (int, int, error) {
+	var err error
+	firstByte, err = normalizeAITimeout(firstByte, model.DefaultAIFirstByteWait, "firstByteTimeoutSeconds")
+	if err != nil {
+		return 0, 0, err
+	}
+	nonStream, err = normalizeAITimeout(nonStream, model.DefaultAINonStreamWait, "nonStreamTimeoutSeconds")
+	if err != nil {
+		return 0, 0, err
+	}
+	if nonStream < firstByte {
+		return 0, 0, apperrors.BadRequest("nonStreamTimeoutSeconds must be greater than or equal to firstByteTimeoutSeconds")
+	}
+	if globalTimeoutMS > 0 && int64(nonStream)*1000 > globalTimeoutMS {
+		return 0, 0, apperrors.BadRequest("nonStreamTimeoutSeconds must not exceed the server request timeout")
+	}
+	return firstByte, nonStream, nil
 }
 
 func normalizeAITimeout(value int, fallback int, field string) (int, error) {
@@ -160,92 +332,109 @@ func normalizeAITimeout(value int, fallback int, field string) (int, error) {
 	return value, nil
 }
 
-func aiSettingsResp(conf config.AIConf, apiKeyConfigured bool) *types.AISettingsResp {
-	conf = normalizeAIConf(conf)
+func validateEnabledAISettings(settings model.AISettings, authSecret string) error {
+	if strings.TrimSpace(settings.BaseURL) == "" {
+		return apperrors.BadRequest("baseUrl is required when AI is enabled")
+	}
+	if strings.TrimSpace(settings.Model) == "" {
+		return apperrors.BadRequest("model is required when AI is enabled")
+	}
+	if strings.TrimSpace(settings.APIKeyCipher) == "" {
+		return apperrors.BadRequest("apiKey is required when AI is enabled")
+	}
+	if _, err := decryptAIAPIKey(settings.APIKeyCipher, authSecret); err != nil {
+		return apperrors.BadRequest("ai api key needs update")
+	}
+	return nil
+}
+
+func aiSettingsResp(settings model.AISettings, authSecret string) *types.AISettingsResp {
+	conf := configFromSettings(settings)
+	configured, needsUpdate := apiKeyStatus(settings.APIKeyCipher, authSecret)
 	return &types.AISettingsResp{
 		Enabled:                 conf.Enabled,
-		BaseURL:                 strings.TrimSpace(conf.BaseURL),
-		Model:                   strings.TrimSpace(conf.Model),
-		APIKeyConfigured:        apiKeyConfigured || strings.TrimSpace(conf.APIKey) != "",
+		APIFormat:               conf.APIFormat,
+		BaseURL:                 conf.BaseURL,
+		Model:                   conf.Model,
+		APIKeyConfigured:        configured,
+		APIKeyNeedsUpdate:       needsUpdate,
 		FirstByteTimeoutSeconds: conf.FirstByteTimeoutSeconds,
-		StreamTimeoutSeconds:    conf.StreamTimeoutSeconds,
 		NonStreamTimeoutSeconds: conf.NonStreamTimeoutSeconds,
 	}
 }
 
-func hasAISecret(conf config.AIConf) bool {
-	return strings.TrimSpace(conf.APIKey) != ""
+func apiKeyStatus(encoded, authSecret string) (bool, bool) {
+	encoded = strings.TrimSpace(encoded)
+	if encoded == "" {
+		return false, false
+	}
+	if strings.HasPrefix(encoded, secretCipherV2Prefix) {
+		return true, true
+	}
+	_, err := decryptAIAPIKey(encoded, authSecret)
+	return true, err != nil
 }
 
-func apiKeyCipherForUpdate(currentCipher string, req types.UpdateAISettingsReq, conf config.Config) (string, error) {
-	apiKeyCipher := currentCipher
+func apiKeyCipherForUpdate(currentCipher string, req types.UpdateAISettingsReq, authSecret string) (string, error) {
+	apiKey := strings.TrimSpace(req.APIKey)
+	if apiKey != "" && req.ClearAPIKey {
+		return "", apperrors.BadRequest("apiKey and clearApiKey cannot be used together")
+	}
 	if req.ClearAPIKey {
 		return "", nil
 	}
-	apiKey := strings.TrimSpace(req.APIKey)
 	if apiKey != "" {
-		return encryptSecret(apiKey, conf.AI.KeyEncryptionSecret)
+		return encryptSecret(apiKey, authSecret)
 	}
-	if shouldMigrateAPIKeyCipher(apiKeyCipher, conf.AI.KeyEncryptionSecret) {
-		plainText, err := decryptSecret(apiKeyCipher, conf.Auth.AccessSecret)
-		if err != nil {
-			return "", fmt.Errorf("decrypt legacy ai api key: %w", err)
+	currentCipher = strings.TrimSpace(currentCipher)
+	if currentCipher != "" && !strings.Contains(currentCipher, ":") {
+		plainText, err := decryptAIAPIKey(currentCipher, authSecret)
+		if err == nil {
+			return encryptSecret(plainText, authSecret)
 		}
-		return encryptSecret(plainText, conf.AI.KeyEncryptionSecret)
 	}
-	return apiKeyCipher, nil
+	return currentCipher, nil
 }
 
-func encryptSecret(plainText string, secret string) (string, error) {
-	secret = strings.TrimSpace(secret)
-	if secret == "" {
-		return "", apperrors.BadRequest("ai key encryption secret is not configured")
+func encryptSecret(plainText string, authSecret string) (string, error) {
+	authSecret = strings.TrimSpace(authSecret)
+	if authSecret == "" {
+		return "", apperrors.BadRequest("auth access secret is not configured")
 	}
-	encoded, err := encryptSecretPayload(plainText, secret)
+	encoded, err := encryptSecretPayload(plainText, authSecret)
 	if err != nil {
 		return "", err
 	}
-	return secretCipherV2Prefix + encoded, nil
+	return secretCipherV3Prefix + encoded, nil
 }
 
-func decryptSecret(encoded string, secret string) (string, error) {
+func decryptSecret(encoded string, authSecret string) (string, error) {
+	return decryptAIAPIKey(encoded, authSecret)
+}
+
+func encryptLegacySecret(plainText string, authSecret string) (string, error) {
+	return encryptSecretPayload(plainText, authSecret)
+}
+
+func decryptAIAPIKey(encoded, authSecret string) (string, error) {
 	encoded = strings.TrimSpace(encoded)
-	if !strings.HasPrefix(encoded, secretCipherV2Prefix) {
-		return decryptSecretPayload(encoded, secret)
+	if encoded == "" {
+		return "", errAIAPIKeyNeedsUpdate
 	}
-	secret = strings.TrimSpace(secret)
-	if secret == "" {
-		return "", apperrors.BadRequest("ai key encryption secret is not configured")
-	}
-	return decryptSecretPayload(strings.TrimPrefix(encoded, secretCipherV2Prefix), secret)
-}
-
-func encryptLegacySecret(plainText string, secret string) (string, error) {
-	return encryptSecretPayload(plainText, secret)
-}
-
-func decryptAIAPIKey(encoded, keyEncryptionSecret, legacySecret string) (string, error) {
-	encoded = strings.TrimSpace(encoded)
 	if strings.HasPrefix(encoded, secretCipherV2Prefix) {
-		return decryptSecret(encoded, keyEncryptionSecret)
+		return "", errAIAPIKeyNeedsUpdate
 	}
-	// 旧密文（无 v2: 前缀）。安全策略：仅在配置了 KeyEncryptionSecret 时兼容回退解密，
-	// 避免轮换 APP_AUTH_ACCESS_SECRET 后旧密文被静默用 legacy 密钥解密失败仍可读取的歧义；
-	// 缺失 KeyEncryptionSecret 则直接 fail-closed，要求管理员重新填写 AI Key 完成迁移。
-	if strings.TrimSpace(keyEncryptionSecret) == "" {
-		return "", fmt.Errorf("legacy ai api key ciphertext requires KeyEncryptionSecret to decrypt")
+	if strings.HasPrefix(encoded, secretCipherV3Prefix) {
+		encoded = strings.TrimPrefix(encoded, secretCipherV3Prefix)
 	}
-	// 优先尝试用 KeyEncryptionSecret 解密（兼容已迁移但前缀未更新的情形），失败再回退 legacySecret。
-	if plain, err := decryptSecretPayload(encoded, keyEncryptionSecret); err == nil {
-		return plain, nil
+	if strings.TrimSpace(authSecret) == "" {
+		return "", errAIAPIKeyNeedsUpdate
 	}
-	return decryptSecretPayload(encoded, legacySecret)
-}
-
-func shouldMigrateAPIKeyCipher(cipherText, keyEncryptionSecret string) bool {
-	return strings.TrimSpace(cipherText) != "" &&
-		!strings.HasPrefix(strings.TrimSpace(cipherText), secretCipherV2Prefix) &&
-		strings.TrimSpace(keyEncryptionSecret) != ""
+	plainText, err := decryptSecretPayload(encoded, authSecret)
+	if err != nil {
+		return "", fmt.Errorf("%w: %v", errAIAPIKeyNeedsUpdate, err)
+	}
+	return plainText, nil
 }
 
 func encryptSecretPayload(plainText string, secret string) (string, error) {
@@ -295,4 +484,13 @@ func decryptSecretPayload(encoded string, secret string) (string, error) {
 
 func aiEncryptionKey(secret string) [32]byte {
 	return sha256.Sum256([]byte("notes-of-ashen:ai-settings:" + secret))
+}
+
+func mapAIProviderError(ctx context.Context, operation string, err error) error {
+	logx.WithContext(ctx).Errorf("ai provider %s failed: %v", operation, err)
+	var netErr net.Error
+	if errors.Is(err, context.DeadlineExceeded) || (errors.As(err, &netErr) && netErr.Timeout()) {
+		return apperrors.GatewayTimeout("ai provider request timed out")
+	}
+	return apperrors.BadGateway("ai provider request failed")
 }

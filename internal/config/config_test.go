@@ -20,15 +20,6 @@ func TestApplyEnvOverridesConfig(t *testing.T) {
 	t.Setenv("APP_EMAIL_SMTP_PASSWORD", "mail-auth-code")
 	t.Setenv("APP_EMAIL_FROM", "user@qq.com")
 	t.Setenv("APP_EMAIL_FROM_NAME", "Notes of Ashen")
-	t.Setenv("APP_AI_ENABLED", "true")
-	t.Setenv("APP_AI_BASE_URL", "https://api.example.com/v1")
-	t.Setenv("APP_AI_API_KEY", "ai-key")
-	t.Setenv("APP_AI_MODEL", "chat-model")
-	t.Setenv("APP_AI_KEY_ENCRYPTION_SECRET", "ai-encryption-secret")
-	t.Setenv("APP_AI_TIMEOUT_SECONDS", "45")
-	t.Setenv("APP_AI_FIRST_BYTE_TIMEOUT_SECONDS", "60")
-	t.Setenv("APP_AI_STREAM_TIMEOUT_SECONDS", "300")
-	t.Setenv("APP_AI_NON_STREAM_TIMEOUT_SECONDS", "600")
 	t.Setenv("APP_TRUSTED_PROXY_CIDRS", "172.18.0.0/16")
 
 	if err := c.ApplyEnv(); err != nil {
@@ -58,9 +49,6 @@ func TestApplyEnvOverridesConfig(t *testing.T) {
 	}
 	if c.Email.SMTPUsername != "user@qq.com" || c.Email.SMTPPassword != "mail-auth-code" {
 		t.Fatalf("Email credentials were not overridden")
-	}
-	if !c.AI.Enabled || c.AI.BaseURL != "https://api.example.com/v1" || c.AI.APIKey != "ai-key" || c.AI.Model != "chat-model" || c.AI.KeyEncryptionSecret != "ai-encryption-secret" || c.AI.TimeoutSeconds != 45 || c.AI.FirstByteTimeoutSeconds != 60 || c.AI.StreamTimeoutSeconds != 300 || c.AI.NonStreamTimeoutSeconds != 600 {
-		t.Fatalf("AI config was not overridden: %#v", c.AI)
 	}
 	if c.Proxy.TrustedCIDRs != "172.18.0.0/16" {
 		t.Fatalf("Proxy.TrustedCIDRs = %q", c.Proxy.TrustedCIDRs)

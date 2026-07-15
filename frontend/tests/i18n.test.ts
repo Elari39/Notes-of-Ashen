@@ -25,3 +25,12 @@ test('操作日志筛选和详情文案提供完整中英文翻译', () => {
   assert.equal(translate('zh', 'logs.event.tokenMismatchLogout'), '异常令牌退出');
   assert.equal(translate('en', 'logs.event.tokenMismatchLogout'), 'Suspicious token logout');
 });
+
+test('AI 接口格式、模型探测与密钥迁移文案提供完整中英文翻译', () => {
+  assert.equal(translate('zh', 'aiSettings.apiFormat'), '接口格式');
+  assert.equal(translate('en', 'aiSettings.apiFormat'), 'API Format');
+  assert.equal(translate('zh', 'aiSettings.anthropicFormat'), 'Anthropic');
+  assert.equal(translate('en', 'aiSettings.modelsEmpty'), 'The service returned no models. You can still enter a model manually.');
+  assert.equal(translate('zh', 'aiSettings.keyNeedsUpdate'), '已保存的 API Key 需要重新录入并保存，才能迁移到 v3 加密格式。');
+  assert.equal(translate('en', 'aiSettings.testError'), 'Model connection test failed');
+});

@@ -12,41 +12,42 @@ import (
 )
 
 const (
-	RegistrationEnabledKey  = "registration_enabled"
-	HomeArticleLayoutKey    = "home_article_layout"
-	SiteTitleKey            = "site_title"
-	SiteDescriptionKey      = "site_description"
-	SiteKeywordsKey         = "site_keywords"
-	SiteBaseURLKey          = "site_base_url"
-	ResumePageEnabledKey    = "resume_page_enabled"
-	ResumeNavHiddenKey      = "resume_nav_hidden"
-	ProjectsPageEnabledKey  = "projects_page_enabled"
-	ProjectsNavHiddenKey    = "projects_nav_hidden"
-	ResumeTitleKey          = "resume_title"
-	ResumeSubtitleKey       = "resume_subtitle"
-	ResumeContentKey        = "resume_content_markdown"
-	ProjectsTitleKey        = "projects_title"
-	ProjectsSubtitleKey     = "projects_subtitle"
-	ProjectsItemsKey        = "projects_items_json"
-	AIEnabledKey            = "ai_enabled"
-	AIBaseURLKey            = "ai_base_url"
-	AIAPIKeyCipherKey       = "ai_api_key_cipher"
-	AIModelKey              = "ai_model"
-	AIFirstByteTimeoutKey   = "ai_first_byte_timeout_seconds"
-	AIStreamTimeoutKey      = "ai_stream_timeout_seconds"
-	AINonStreamTimeoutKey   = "ai_non_stream_timeout_seconds"
-	AISettingsConfiguredKey = "ai_settings_configured"
+	RegistrationEnabledKey = "registration_enabled"
+	HomeArticleLayoutKey   = "home_article_layout"
+	SiteTitleKey           = "site_title"
+	SiteDescriptionKey     = "site_description"
+	SiteKeywordsKey        = "site_keywords"
+	SiteBaseURLKey         = "site_base_url"
+	ResumePageEnabledKey   = "resume_page_enabled"
+	ResumeNavHiddenKey     = "resume_nav_hidden"
+	ProjectsPageEnabledKey = "projects_page_enabled"
+	ProjectsNavHiddenKey   = "projects_nav_hidden"
+	ResumeTitleKey         = "resume_title"
+	ResumeSubtitleKey      = "resume_subtitle"
+	ResumeContentKey       = "resume_content_markdown"
+	ProjectsTitleKey       = "projects_title"
+	ProjectsSubtitleKey    = "projects_subtitle"
+	ProjectsItemsKey       = "projects_items_json"
+	AIEnabledKey           = "ai_enabled"
+	AIAPIFormatKey         = "ai_api_format"
+	AIBaseURLKey           = "ai_base_url"
+	AIAPIKeyCipherKey      = "ai_api_key_cipher"
+	AIModelKey             = "ai_model"
+	AIFirstByteTimeoutKey  = "ai_first_byte_timeout_seconds"
+	AINonStreamTimeoutKey  = "ai_non_stream_timeout_seconds"
 
 	HomeArticleLayoutStandard    = "standard"
 	HomeArticleLayoutAlternating = "alternating"
+	AIAPIFormatOpenAI            = "openai"
+	AIAPIFormatAnthropic         = "anthropic"
 
 	DefaultSiteTitle       = "Notes of Ashen"
 	DefaultSiteDescription = "A personal blog written slowly by the lamp of ink."
 	DefaultSiteKeywords    = "blog,notes,writing"
 	DefaultResumeTitle     = "简介"
 	DefaultProjectsTitle   = "项目"
+	DefaultAIAPIFormat     = AIAPIFormatOpenAI
 	DefaultAIFirstByteWait = 60
-	DefaultAIStreamWait    = 300
 	DefaultAINonStreamWait = 600
 )
 
@@ -65,13 +66,12 @@ type SiteSettings struct {
 
 type AISettings struct {
 	Enabled                 bool
+	APIFormat               string
 	BaseURL                 string
 	APIKeyCipher            string
 	Model                   string
 	FirstByteTimeoutSeconds int
-	StreamTimeoutSeconds    int
 	NonStreamTimeoutSeconds int
-	Configured              bool
 }
 
 type ResumePageContent struct {
@@ -227,8 +227,8 @@ func (s *Store) GetIntSetting(ctx context.Context, key string, defaultValue int)
 
 func (s *Store) AISettings(ctx context.Context) (*AISettings, error) {
 	keys := []string{
-		AIEnabledKey, AIBaseURLKey, AIAPIKeyCipherKey, AIModelKey,
-		AIFirstByteTimeoutKey, AIStreamTimeoutKey, AINonStreamTimeoutKey, AISettingsConfiguredKey,
+		AIEnabledKey, AIAPIFormatKey, AIBaseURLKey, AIAPIKeyCipherKey, AIModelKey,
+		AIFirstByteTimeoutKey, AINonStreamTimeoutKey,
 	}
 	values, err := s.GetSettingsBatch(ctx, keys)
 	if err != nil {
@@ -259,29 +259,27 @@ func (s *Store) AISettings(ctx context.Context) (*AISettings, error) {
 	}
 	return &AISettings{
 		Enabled:                 getBool(AIEnabledKey, false),
+		APIFormat:               NormalizeAIAPIFormat(getString(AIAPIFormatKey, DefaultAIAPIFormat)),
 		BaseURL:                 getString(AIBaseURLKey, ""),
 		APIKeyCipher:            getString(AIAPIKeyCipherKey, ""),
 		Model:                   getString(AIModelKey, ""),
 		FirstByteTimeoutSeconds: getInt(AIFirstByteTimeoutKey, DefaultAIFirstByteWait),
-		StreamTimeoutSeconds:    getInt(AIStreamTimeoutKey, DefaultAIStreamWait),
 		NonStreamTimeoutSeconds: getInt(AINonStreamTimeoutKey, DefaultAINonStreamWait),
-		Configured:              getBool(AISettingsConfiguredKey, false),
 	}, nil
 }
 
 func (s *Store) UpdateAISettings(ctx context.Context, settings AISettings) error {
 	_, err := s.db.ExecContext(ctx, `
 INSERT INTO site_settings (setting_key, setting_value)
-VALUES (?, ?), (?, ?), (?, ?), (?, ?), (?, ?), (?, ?), (?, ?), (?, ?)
+VALUES (?, ?), (?, ?), (?, ?), (?, ?), (?, ?), (?, ?), (?, ?)
 ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)`,
 		AIEnabledKey, boolSettingValue(settings.Enabled),
+		AIAPIFormatKey, NormalizeAIAPIFormat(settings.APIFormat),
 		AIBaseURLKey, settings.BaseURL,
 		AIAPIKeyCipherKey, settings.APIKeyCipher,
 		AIModelKey, settings.Model,
 		AIFirstByteTimeoutKey, fmt.Sprintf("%d", settings.FirstByteTimeoutSeconds),
-		AIStreamTimeoutKey, fmt.Sprintf("%d", settings.StreamTimeoutSeconds),
-		AINonStreamTimeoutKey, fmt.Sprintf("%d", settings.NonStreamTimeoutSeconds),
-		AISettingsConfiguredKey, "true")
+		AINonStreamTimeoutKey, fmt.Sprintf("%d", settings.NonStreamTimeoutSeconds))
 	return err
 }
 
@@ -432,6 +430,17 @@ func NormalizeHomeArticleLayout(layout string) string {
 		return HomeArticleLayoutAlternating
 	}
 	return HomeArticleLayoutStandard
+}
+
+func NormalizeAIAPIFormat(apiFormat string) string {
+	switch strings.ToLower(strings.TrimSpace(apiFormat)) {
+	case AIAPIFormatAnthropic:
+		return AIAPIFormatAnthropic
+	case AIAPIFormatOpenAI:
+		return AIAPIFormatOpenAI
+	default:
+		return DefaultAIAPIFormat
+	}
 }
 
 func boolSettingValue(value bool) string {

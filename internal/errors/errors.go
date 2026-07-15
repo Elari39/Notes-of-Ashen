@@ -44,6 +44,14 @@ func ServiceUnavailable(message string) *CodeError {
 	return New(50300, message, http.StatusServiceUnavailable)
 }
 
+func BadGateway(message string) *CodeError {
+	return New(50200, message, http.StatusBadGateway)
+}
+
+func GatewayTimeout(message string) *CodeError {
+	return New(50400, message, http.StatusGatewayTimeout)
+}
+
 func Internal(message string) *CodeError {
 	return New(50000, message, http.StatusInternalServerError)
 }

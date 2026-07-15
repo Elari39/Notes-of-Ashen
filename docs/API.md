@@ -85,11 +85,11 @@ Authorization: Bearer <accessToken>
 2026-06-05T20:00:00+08:00
 ```
 
-`etc/notes-of-ashen.yaml` 是本地开发默认配置，敏感字段（数据库密码、Redis 密码、JWT Secret、RabbitMQ 地址、Meilisearch 配置、AI 配置等）默认留空或为占位，需通过受控配置或环境变量注入。生产环境部署前必须填入真实值，不要提交密钥到仓库。
+`etc/notes-of-ashen.yaml` 是本地开发默认配置，敏感字段（数据库密码、Redis 密码、JWT Secret、RabbitMQ 地址、Meilisearch 配置等）默认留空或为占位，需通过受控配置或环境变量注入。AI 连接配置统一由管理员保存到数据库 `site_settings`，不从 YAML 或环境变量读取。生产环境部署前必须填入真实值，不要提交密钥到仓库。
 
 默认不信任客户端传入的 `X-Forwarded-*` / `X-Real-IP`。只有 `RemoteAddr` 命中 `APP_TRUSTED_PROXY_CIDRS` 时，后端才会使用这些转发头参与限流、操作日志、流量统计和 RSS/Sitemap 基础 URL 生成。
 
-后台保存的 AI API Key 使用 `APP_AI_KEY_ENCRYPTION_SECRET` 加密。迁移旧版本使用 `APP_AUTH_ACCESS_SECRET` 派生密钥保存的密文时，必须保留原认证密钥，先配置新加密密钥并由管理员重新保存 AI 设置；确认密文迁移为 `v2:` 格式后，才能轮换旧 `APP_AUTH_ACCESS_SECRET`。
+后台新保存的 AI API Key 使用 `v3:` 密文，密钥由 `APP_AUTH_ACCESS_SECRET` 通过独立用途派生。`v2:` 密文升级后不可继续使用，设置响应会返回 `apiKeyNeedsUpdate = true`，需要管理员重新录入；无版本前缀的旧密文仍兼容读取，并会在后续保存时迁移为 `v3:`。轮换 `APP_AUTH_ACCESS_SECRET` 会使原 `v3:` 密文不可解密，必须同时安排重新录入 AI API Key。
 
 ## 健康检查
 
@@ -423,7 +423,7 @@ PATCH /api/v1/articles/:id/status
 POST /api/v1/articles/ai/assist
 ```
 
-权限：`editor` 或 `admin`。需要启用并配置 `APP_AI_ENABLED`、`APP_AI_BASE_URL`、`APP_AI_API_KEY` 和 `APP_AI_MODEL`，或在后台 AI 设置中保存等价配置。若通过后台保存 API Key，必须配置 `APP_AI_KEY_ENCRYPTION_SECRET`。接口有 IP 限流保护。
+权限：`editor` 或 `admin`。需要管理员先在后台 AI 设置中保存并启用有效的 API 格式、基础地址、API Key 和模型；运行配置只从数据库读取。接口有 IP 限流保护。
 
 | 字段 | 类型 | 必填 | 说明 |
 | --- | --- | --- | --- |
@@ -768,32 +768,91 @@ GET /api/v1/admin/ai/settings
 PUT /api/v1/admin/ai/settings
 ```
 
-权限：`admin`。用于读取和保存后台 AI 辅助创作配置。保存 API Key 时使用 `APP_AI_KEY_ENCRYPTION_SECRET` 加密；若该密钥未配置且请求传入新 API Key，会返回配置错误。读取接口不会返回明文 API Key，只返回是否已配置。旧密文迁移期间必须保留原 `APP_AUTH_ACCESS_SECRET`，配置新加密密钥并成功保存后，才能轮换旧认证密钥。
+权限：`admin`。用于读取和保存数据库中的 AI 辅助创作配置。读取接口不会返回明文 API Key，只返回是否已配置以及密文是否需要更新。保存新 API Key 时使用由 `APP_AUTH_ACCESS_SECRET` 派生的独立用途密钥生成 `v3:` 密文。
+
+升级兼容规则：`v2:` 密文不能继续解密，需管理员重新录入 API Key；无版本前缀的旧密文仍兼容读取，并会在下一次成功保存设置时迁移到 `v3:`。如果轮换 `APP_AUTH_ACCESS_SECRET`，已有 `v3:` 密文也需要重新录入。
 
 更新字段：
 
 | 字段 | 类型 | 必填 | 说明 |
 | --- | --- | --- | --- |
 | enabled | bool | 是 | 是否启用后台 AI 辅助创作 |
-| baseUrl | string | 否 | OpenAI 兼容接口基础地址，非空必须为 `http://` 或 `https://` URL |
+| apiFormat | string | 否 | API 格式：`openai` 或 `anthropic`；旧配置缺失时默认为 `openai` |
+| baseUrl | string | 否 | 上游接口基础地址，非空必须为解析到公网地址的 `http://` 或 `https://` URL |
 | apiKey | string | 否 | 新 API Key；为空表示保留已保存密钥 |
 | clearApiKey | bool | 否 | 是否清空已保存 API Key；传入新 `apiKey` 时应为 `false` |
 | model | string | 否 | 模型名称，最长 120 |
 | firstByteTimeoutSeconds | int | 否 | 首字等待超时，默认 60，范围 1 到 1800 |
-| streamTimeoutSeconds | int | 否 | 流式输出总超时，默认 300，不能小于首字等待 |
-| nonStreamTimeoutSeconds | int | 否 | 非流式输出总超时，默认 600，不能小于首字等待 |
+| nonStreamTimeoutSeconds | int | 否 | 非流式输出总超时，默认 600，范围 1 到 1800，不能小于首字等待且不能超过服务端请求超时 |
+
+切换 `apiFormat` 或 `baseUrl` 时，若原来已保存 API Key，必须同时传入新 `apiKey` 或设置 `clearApiKey = true`，避免把旧服务商密钥误发给新端点。启用 AI 时 `baseUrl`、`model` 和可正常解密的 API Key 均为必需项。
 
 响应 `data`：
 
 | 字段 | 类型 | 说明 |
 | --- | --- | --- |
 | enabled | bool | 当前是否启用 |
+| apiFormat | string | 当前 API 格式：`openai` 或 `anthropic` |
 | baseUrl | string | 当前基础地址 |
 | model | string | 当前模型 |
-| apiKeyConfigured | bool | 是否已有可用 API Key |
+| apiKeyConfigured | bool | 是否已保存 API Key 密文 |
+| apiKeyNeedsUpdate | bool | 已保存密文是否无法继续使用；为 `true` 时必须重新录入 API Key |
 | firstByteTimeoutSeconds | int | 首字等待超时 |
-| streamTimeoutSeconds | int | 流式输出总超时 |
 | nonStreamTimeoutSeconds | int | 非流式输出总超时 |
+
+### 获取 AI 模型列表
+
+```text
+POST /api/v1/admin/ai/models
+```
+
+权限：`admin`。使用请求中的草稿连接配置访问上游模型列表，无需先保存设置。若 `apiKey` 留空，仅当 `apiFormat` 和标准化后的 `baseUrl` 与已保存设置一致时才会复用已保存且可解密的 API Key；测试尚未保存的新端点时必须传入 `apiKey`。
+
+请求字段校验失败返回 `400`；上游拒绝、协议错误或无效响应统一返回 `502`，上游超时返回 `504`。不会把上游的 `401/403` 原样透传为本站认证失败，也不会回显上游响应正文或 API Key。
+
+请求字段：
+
+| 字段 | 类型 | 必填 | 说明 |
+| --- | --- | --- | --- |
+| apiFormat | string | 否 | `openai` 或 `anthropic`，留空按 `openai` 处理 |
+| baseUrl | string | 是 | 待连接的上游基础地址，必须为解析到公网地址的 `http://` 或 `https://` URL |
+| apiKey | string | 否 | 草稿 API Key；满足上述条件时可复用已保存密钥 |
+| firstByteTimeoutSeconds | int | 否 | 首字等待超时，默认 60，范围 1 到 1800 |
+| nonStreamTimeoutSeconds | int | 否 | 请求总超时，默认 600，范围 1 到 1800，不能小于首字等待且不能超过服务端请求超时 |
+
+响应 `data`：
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| models | string[] | 上游返回的模型 ID，去空、去重并按字典序排序 |
+
+### 测试 AI 模型
+
+```text
+POST /api/v1/admin/ai/test
+```
+
+权限：`admin`。使用草稿配置向指定模型发送固定的低 token JSON 探针，连接成功且响应格式有效时返回模型名称和完整请求耗时。`apiKey` 的复用规则与模型列表接口相同。
+
+失败状态码与模型列表接口一致；测试不会保存草稿配置、启用 AI 或返回模型生成正文。
+
+请求字段：
+
+| 字段 | 类型 | 必填 | 说明 |
+| --- | --- | --- | --- |
+| apiFormat | string | 否 | `openai` 或 `anthropic`，留空按 `openai` 处理 |
+| baseUrl | string | 是 | 待测试的上游基础地址，必须为解析到公网地址的 `http://` 或 `https://` URL |
+| apiKey | string | 否 | 草稿 API Key；满足复用条件时可留空 |
+| model | string | 是 | 待测试模型，长度 1 到 120 |
+| firstByteTimeoutSeconds | int | 否 | 首字等待超时，默认 60，范围 1 到 1800 |
+| nonStreamTimeoutSeconds | int | 否 | 请求总超时，默认 600，范围 1 到 1800，不能小于首字等待且不能超过服务端请求超时 |
+
+响应 `data`：
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| model | string | 已通过探针测试的模型名称 |
+| latencyMs | int64 | 完整探针请求耗时，单位毫秒，最小返回 1 |
 
 ### 重建搜索索引
 

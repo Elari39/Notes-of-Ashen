@@ -17,7 +17,6 @@ type Config struct {
 	Search   SearchConf
 	RabbitMQ RabbitMQConf
 	Email    EmailConf
-	AI       AIConf
 	Proxy    ProxyConf
 }
 
@@ -64,22 +63,6 @@ type EmailConf struct {
 	From         string
 	FromName     string
 	TLSMode      string // implicit(默认,465) | starttls(587) | none(明文,仅内网测试)
-}
-
-type AIConf struct {
-	Enabled                 bool
-	BaseURL                 string
-	APIKey                  string
-	Model                   string
-	KeyEncryptionSecret     string
-	TimeoutSeconds          int
-	FirstByteTimeoutSeconds int
-	StreamTimeoutSeconds    int
-	NonStreamTimeoutSeconds int
-	// Temperature 覆盖 AI 请求温度；<=0 时回退默认 0.3。
-	Temperature float64 `json:",optional"`
-	// MaxTokens 覆盖 AI 请求最大 token 数；<=0 时按 action 回退默认值。
-	MaxTokens int `json:",optional"`
 }
 
 type ProxyConf struct {
@@ -143,22 +126,6 @@ func (c *Config) ApplyEnv() error {
 		return nil
 	}
 
-	setFloat64 := func(key string, target *float64) error {
-		value, ok := os.LookupEnv(key)
-		if !ok {
-			return nil
-		}
-		if strings.TrimSpace(value) == "" {
-			return nil
-		}
-		parsed, err := strconv.ParseFloat(value, 64)
-		if err != nil {
-			return fmt.Errorf("invalid float env %s: %w", key, err)
-		}
-		*target = parsed
-		return nil
-	}
-
 	setString("APP_HOST", &c.Host)
 	if err := setInt("APP_PORT", &c.Port); err != nil {
 		return err
@@ -213,31 +180,6 @@ func (c *Config) ApplyEnv() error {
 	setString("APP_EMAIL_FROM", &c.Email.From)
 	setString("APP_EMAIL_FROM_NAME", &c.Email.FromName)
 	setString("APP_EMAIL_TLS_MODE", &c.Email.TLSMode)
-	if err := setBool("APP_AI_ENABLED", &c.AI.Enabled); err != nil {
-		return err
-	}
-	setString("APP_AI_BASE_URL", &c.AI.BaseURL)
-	setString("APP_AI_API_KEY", &c.AI.APIKey)
-	setString("APP_AI_MODEL", &c.AI.Model)
-	setString("APP_AI_KEY_ENCRYPTION_SECRET", &c.AI.KeyEncryptionSecret)
-	if err := setInt("APP_AI_TIMEOUT_SECONDS", &c.AI.TimeoutSeconds); err != nil {
-		return err
-	}
-	if err := setInt("APP_AI_FIRST_BYTE_TIMEOUT_SECONDS", &c.AI.FirstByteTimeoutSeconds); err != nil {
-		return err
-	}
-	if err := setInt("APP_AI_STREAM_TIMEOUT_SECONDS", &c.AI.StreamTimeoutSeconds); err != nil {
-		return err
-	}
-	if err := setInt("APP_AI_NON_STREAM_TIMEOUT_SECONDS", &c.AI.NonStreamTimeoutSeconds); err != nil {
-		return err
-	}
-	if err := setFloat64("APP_AI_TEMPERATURE", &c.AI.Temperature); err != nil {
-		return err
-	}
-	if err := setInt("APP_AI_MAX_TOKENS", &c.AI.MaxTokens); err != nil {
-		return err
-	}
 	setString("APP_TRUSTED_PROXY_CIDRS", &c.Proxy.TrustedCIDRs)
 
 	return nil
@@ -319,28 +261,6 @@ func (c Config) ValidateConfig() error {
 		}
 		if err := validateRequiredSecret("APP_EMAIL_FROM", c.Email.From, 1); err != nil {
 			return err
-		}
-	}
-	if c.AI.Enabled {
-		if err := validateRequiredSecret("APP_AI_BASE_URL", c.AI.BaseURL, 1); err != nil {
-			return err
-		}
-		if err := validateRequiredSecret("APP_AI_API_KEY", c.AI.APIKey, 1); err != nil {
-			return err
-		}
-		if err := validateRequiredSecret("APP_AI_MODEL", c.AI.Model, 1); err != nil {
-			return err
-		}
-		if err := validateRequiredSecret("APP_AI_KEY_ENCRYPTION_SECRET", c.AI.KeyEncryptionSecret, minAccessSecretLength); err != nil {
-			return err
-		}
-		// 全局 HTTP 超时（RestConf.Timeout，毫秒）不得小于 AI 流式超时，否则 go-zero 会在
-		// 流式响应完成前强制中断连接。本地 .env 若误设 APP_TIMEOUT=70000（70s）而流式需 300s
-		// 即会触发，启动期 fail-fast 暴露该配置漂移。
-		streamTimeoutMS := int64(c.AI.StreamTimeoutSeconds) * 1000
-		if c.RestConf.Timeout > 0 && streamTimeoutMS > 0 && c.RestConf.Timeout < streamTimeoutMS {
-			return fmt.Errorf("APP_TIMEOUT (%dms) must be >= AI stream timeout (%dms = APP_AI_STREAM_TIMEOUT_SECONDS %d * 1000), otherwise AI streaming responses will be truncated",
-				c.RestConf.Timeout, streamTimeoutMS, c.AI.StreamTimeoutSeconds)
 		}
 	}
 	return nil

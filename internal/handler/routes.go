@@ -89,6 +89,8 @@ func RegisterHandlers(server *rest.Server, svcCtx *svc.ServiceContext) {
 		{Method: http.MethodGet, Path: "/api/v1/admin/stats", Handler: authRequired(adminhandler.StatsHandler(svcCtx))},
 		{Method: http.MethodGet, Path: "/api/v1/admin/ai/settings", Handler: authRequired(aihandler.SettingsHandler(svcCtx))},
 		{Method: http.MethodPut, Path: "/api/v1/admin/ai/settings", Handler: authRequired(aihandler.UpdateSettingsHandler(svcCtx))},
+		{Method: http.MethodPost, Path: "/api/v1/admin/ai/models", Handler: aiRateLimit.Handle(authRequired(aihandler.ModelsHandler(svcCtx)))},
+		{Method: http.MethodPost, Path: "/api/v1/admin/ai/test", Handler: aiRateLimit.Handle(authRequired(aihandler.TestModelHandler(svcCtx)))},
 		{Method: http.MethodGet, Path: "/api/v1/admin/users", Handler: authRequired(adminhandler.ListUsersHandler(svcCtx))},
 		{Method: http.MethodPatch, Path: "/api/v1/admin/users/:id/status", Handler: authRequired(adminhandler.UpdateUserStatusHandler(svcCtx))},
 		{Method: http.MethodPatch, Path: "/api/v1/admin/users/:id/role", Handler: authRequired(adminhandler.UpdateUserRoleHandler(svcCtx))},

@@ -23,6 +23,23 @@ func TestNormalizeHomeArticleLayout(t *testing.T) {
 	}
 }
 
+func TestNormalizeAIAPIFormat(t *testing.T) {
+	tests := []struct {
+		value string
+		want  string
+	}{
+		{value: "", want: AIAPIFormatOpenAI},
+		{value: " OpenAI ", want: AIAPIFormatOpenAI},
+		{value: "ANTHROPIC", want: AIAPIFormatAnthropic},
+		{value: "unknown", want: AIAPIFormatOpenAI},
+	}
+	for _, tt := range tests {
+		if got := NormalizeAIAPIFormat(tt.value); got != tt.want {
+			t.Fatalf("NormalizeAIAPIFormat(%q) = %q, want %q", tt.value, got, tt.want)
+		}
+	}
+}
+
 func TestDecodeProjectItems(t *testing.T) {
 	items, err := DecodeProjectItems(`[
 		{

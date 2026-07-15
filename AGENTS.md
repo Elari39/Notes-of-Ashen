@@ -39,9 +39,9 @@
 
 - 首个注册用户自动成为 `admin`。
 - 当用户表为空且邮箱服务关闭时，首个管理员注册可跳过邮箱验证码；后续注册仍需要 `register` 用途邮箱验证码。
-- 邮箱、AI、Meilisearch、RabbitMQ、Prerender 均为可配置能力；修改时必须同时核对默认配置、环境变量、Docker Compose、README 和实际降级路径。
+- 邮箱、Meilisearch、RabbitMQ、Prerender 是进程配置能力；AI 连接配置只保存在数据库 `site_settings`，修改时需分别核对对应配置入口、README 和实际降级路径。
 - 站点设置更新中的可选布尔字段使用指针语义：字段缺失表示保留当前值，显式 `false` 表示关闭。
-- AI 设置中的 API Key 使用 `APP_AI_KEY_ENCRYPTION_SECRET` 加密；旧密文（无 `v2:` 前缀）仅在配置了 `APP_AI_KEY_ENCRYPTION_SECRET` 时兼容回退解密并迁移，缺失则拒绝读取（fail-closed），调整密钥轮换逻辑时必须考虑已保存密文迁移。
+- AI 设置中的 API Key 使用 `v3:` 密文保存，加密密钥由 `APP_AUTH_ACCESS_SECRET` 通过独立用途派生；`v2:` 密文必须由管理员重新录入，无版本前缀的旧密文兼容读取并在后续保存时迁移。轮换认证密钥时必须考虑已保存 AI 密文需要重新录入。
 - 默认不信任 `X-Forwarded-*` / `X-Real-IP` 请求头；只有 `RemoteAddr` 命中 `APP_TRUSTED_PROXY_CIDRS` 时，IP、限流、来源统计和链接生成才使用转发头。
 
 ## 重要目录
@@ -112,7 +112,7 @@
 - 不读取、不泄露真实 `.env` 内容。
 - 需要了解配置时优先参考 `.env.example`、`README.md`、`etc/notes-of-ashen.yaml` 和代码中的配置结构。
 - 不硬编码 API Key、Token、密码、私有模型路径或私有服务地址。
-- AI、邮箱、Meilisearch、Redis、RabbitMQ 等配置都应通过配置文件或环境变量传入。
+- 邮箱、Meilisearch、Redis、RabbitMQ 等进程配置通过配置文件或环境变量传入；AI 连接配置通过管理后台写入数据库，不得新增进程级 AI 密钥配置。
 - 修改配置项时同步检查 Docker Compose、README、后端 config 结构和实际使用点。
 
 ## 工作原则

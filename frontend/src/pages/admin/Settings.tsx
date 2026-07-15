@@ -3,6 +3,7 @@ import InlineNotice from '../../components/InlineNotice';
 import PagePendingState from '../../components/RoutePending';
 import Switch from '../../components/ui/Switch';
 import Button from '../../components/ui/Button';
+import SettingsCard, { SettingsActions } from '../../components/admin/SettingsCard';
 import { getErrorMessage } from '../../utils/error';
 import { translate } from '../../i18n';
 import { usePreferenceStore } from '../../store/preferences';
@@ -133,227 +134,218 @@ const AdminSettings: React.FC = () => {
   return (
     <div>
       <div className="mb-8 border-b border-mountain-grey pb-4">
-        <h3 className="text-2xl font-bold text-ink tracking-widest">{t('admin.settings')}</h3>
+        <h3 className="text-2xl font-bold tracking-widest text-ink">{t('admin.settings')}</h3>
       </div>
 
-      <InlineNotice message={error} className="mb-6" />
-      <InlineNotice message={notice} tone="success" className="mb-6" />
-      <InlineNotice
-        message={!hasLoaded && loadError ? t('siteSettings.loadError') : ''}
-        className="mb-6"
-        action={(
-          <Button size="sm" onClick={() => void fetchSettings()} loading={isLoading}>
-            {t('common.retry')}
-          </Button>
-        )}
-      />
-      {isLoading && <PagePendingState variant="inline" label={t('common.loading')} />}
+      {hasLoaded && <InlineNotice message={error} className="mb-6" />}
+      {hasLoaded && <InlineNotice message={notice} tone="success" className="mb-6" />}
+      {!hasLoaded && !loadError && <PagePendingState variant="admin" label={t('common.loading')} />}
+      {!hasLoaded && loadError && (
+        <InlineNotice
+          message={t('siteSettings.loadError')}
+          className="mb-6"
+          action={(
+            <Button size="sm" onClick={() => void fetchSettings()}>
+              {t('common.retry')}
+            </Button>
+          )}
+        />
+      )}
 
-      <form onSubmit={handleSubmit} className="space-y-8">
-        <fieldset disabled={controlsDisabled} className="space-y-8 disabled:opacity-60">
-        <section className="border border-mountain-grey bg-[var(--paper-soft)] p-5">
-          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-            <div>
-              <h4 className="text-base font-bold tracking-widest text-ink">{t('settings.registrationTitle')}</h4>
-              <p className="mt-2 text-sm leading-relaxed text-ink-light opacity-80">
-                {t('settings.registrationDesc')}
-              </p>
-            </div>
-            <div className="flex items-center gap-3">
-              <Switch
-                checked={draftRegistrationEnabled}
-                onCheckedChange={setDraftRegistrationEnabled}
-                disabled={isLoading}
-                label={t('settings.registrationTitle')}
-              />
-              <span className="text-xs tracking-widest text-ink-light">
-                {draftRegistrationEnabled ? t('settings.registrationEnabled') : t('settings.registrationDisabled')}
-              </span>
-            </div>
-          </div>
-        </section>
-
-        <section className="border border-mountain-grey bg-[var(--paper-soft)] p-5">
-          <div className="mb-5">
-            <h4 className="text-base font-bold tracking-widest text-ink">{t('settings.publicPagesTitle')}</h4>
-            <p className="mt-2 text-sm leading-relaxed text-ink-light opacity-80">
-              {t('settings.publicPagesDesc')}
-            </p>
-          </div>
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <div className="border border-mountain-grey p-4">
-              <div className="mb-4">
-                <p className="text-sm font-bold tracking-widest text-ink">{t('settings.resumePage')}</p>
-                <p className="mt-2 text-xs leading-relaxed text-ink-light opacity-80">{t('settings.resumePageDesc')}</p>
-              </div>
-              <div className="flex flex-col gap-3">
+      {hasLoaded && (
+        <form onSubmit={handleSubmit} className="space-y-8">
+          <fieldset disabled={controlsDisabled} className="space-y-8 disabled:opacity-60">
+            <SettingsCard
+              title={t('settings.registrationTitle')}
+              description={t('settings.registrationDesc')}
+              action={(
                 <div className="flex items-center gap-3">
                   <Switch
-                    checked={draftResumePageEnabled}
-                    onCheckedChange={setDraftResumePageEnabled}
+                    checked={draftRegistrationEnabled}
+                    onCheckedChange={setDraftRegistrationEnabled}
                     disabled={isLoading}
-                    label={t('settings.resumePage')}
+                    label={t('settings.registrationTitle')}
                   />
                   <span className="text-xs tracking-widest text-ink-light">
-                    {draftResumePageEnabled ? t('settings.enabled') : t('settings.disabled')}
+                    {draftRegistrationEnabled ? t('settings.registrationEnabled') : t('settings.registrationDisabled')}
                   </span>
                 </div>
-                <div className="flex items-center gap-3">
-                  <Switch
-                    checked={!draftResumeNavHidden}
-                    onCheckedChange={(next) => setDraftResumeNavHidden(!next)}
-                    disabled={isLoading}
-                    label={t('settings.navVisible')}
-                  />
-                  <span className="text-xs tracking-widest text-ink-light">
-                    {draftResumeNavHidden ? t('settings.navHidden') : t('settings.navVisible')}
-                  </span>
-                </div>
-              </div>
-            </div>
+              )}
+            />
 
-            <div className="border border-mountain-grey p-4">
-              <div className="mb-4">
-                <p className="text-sm font-bold tracking-widest text-ink">{t('settings.projectsPage')}</p>
-                <p className="mt-2 text-xs leading-relaxed text-ink-light opacity-80">{t('settings.projectsPageDesc')}</p>
-              </div>
-              <div className="flex flex-col gap-3">
-                <div className="flex items-center gap-3">
-                  <Switch
-                    checked={draftProjectsPageEnabled}
-                    onCheckedChange={setDraftProjectsPageEnabled}
-                    disabled={isLoading}
-                    label={t('settings.projectsPage')}
-                  />
-                  <span className="text-xs tracking-widest text-ink-light">
-                    {draftProjectsPageEnabled ? t('settings.enabled') : t('settings.disabled')}
-                  </span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <Switch
-                    checked={!draftProjectsNavHidden}
-                    onCheckedChange={(next) => setDraftProjectsNavHidden(!next)}
-                    disabled={isLoading}
-                    label={t('settings.navVisible')}
-                  />
-                  <span className="text-xs tracking-widest text-ink-light">
-                    {draftProjectsNavHidden ? t('settings.navHidden') : t('settings.navVisible')}
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section className="border border-mountain-grey bg-[var(--paper-soft)] p-5">
-          <div className="mb-5">
-            <h4 className="text-base font-bold tracking-widest text-ink">{t('settings.homeLayoutTitle')}</h4>
-            <p className="mt-2 text-sm leading-relaxed text-ink-light opacity-80">
-              {t('settings.homeLayoutDesc')}
-            </p>
-          </div>
-          <div className="grid grid-cols-1 border border-mountain-grey md:grid-cols-2">
-            <button
-              type="button"
-              disabled={isLoading}
-              onClick={() => setDraftHomeArticleLayout('standard')}
-              className={`px-4 py-4 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
-                draftHomeArticleLayout === 'standard'
-                  ? 'bg-ink text-paper'
-                  : 'text-ink-light hover:text-ochre'
-              }`}
+            <SettingsCard
+              title={t('settings.publicPagesTitle')}
+              description={t('settings.publicPagesDesc')}
             >
-              <span className="block text-sm font-bold tracking-widest">{t('settings.homeLayoutStandard')}</span>
-              <span className="mt-2 block text-xs leading-relaxed opacity-75">{t('settings.homeLayoutStandardDesc')}</span>
-            </button>
-            <button
-              type="button"
-              disabled={isLoading}
-              onClick={() => setDraftHomeArticleLayout('alternating')}
-              className={`border-t border-mountain-grey px-4 py-4 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-50 md:border-l md:border-t-0 ${
-                draftHomeArticleLayout === 'alternating'
-                  ? 'bg-ink text-paper'
-                  : 'text-ink-light hover:text-ochre'
-              }`}
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div className="border border-mountain-grey p-4">
+                  <div className="mb-4">
+                    <p className="text-sm font-bold tracking-widest text-ink">{t('settings.resumePage')}</p>
+                    <p className="mt-2 text-xs leading-relaxed text-ink-light opacity-80">{t('settings.resumePageDesc')}</p>
+                  </div>
+                  <div className="flex flex-col gap-3">
+                    <div className="flex items-center gap-3">
+                      <Switch
+                        checked={draftResumePageEnabled}
+                        onCheckedChange={setDraftResumePageEnabled}
+                        disabled={isLoading}
+                        label={t('settings.resumePage')}
+                      />
+                      <span className="text-xs tracking-widest text-ink-light">
+                        {draftResumePageEnabled ? t('settings.enabled') : t('settings.disabled')}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <Switch
+                        checked={!draftResumeNavHidden}
+                        onCheckedChange={(next) => setDraftResumeNavHidden(!next)}
+                        disabled={isLoading}
+                        label={t('settings.navVisible')}
+                      />
+                      <span className="text-xs tracking-widest text-ink-light">
+                        {draftResumeNavHidden ? t('settings.navHidden') : t('settings.navVisible')}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="border border-mountain-grey p-4">
+                  <div className="mb-4">
+                    <p className="text-sm font-bold tracking-widest text-ink">{t('settings.projectsPage')}</p>
+                    <p className="mt-2 text-xs leading-relaxed text-ink-light opacity-80">{t('settings.projectsPageDesc')}</p>
+                  </div>
+                  <div className="flex flex-col gap-3">
+                    <div className="flex items-center gap-3">
+                      <Switch
+                        checked={draftProjectsPageEnabled}
+                        onCheckedChange={setDraftProjectsPageEnabled}
+                        disabled={isLoading}
+                        label={t('settings.projectsPage')}
+                      />
+                      <span className="text-xs tracking-widest text-ink-light">
+                        {draftProjectsPageEnabled ? t('settings.enabled') : t('settings.disabled')}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <Switch
+                        checked={!draftProjectsNavHidden}
+                        onCheckedChange={(next) => setDraftProjectsNavHidden(!next)}
+                        disabled={isLoading}
+                        label={t('settings.navVisible')}
+                      />
+                      <span className="text-xs tracking-widest text-ink-light">
+                        {draftProjectsNavHidden ? t('settings.navHidden') : t('settings.navVisible')}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </SettingsCard>
+
+            <SettingsCard
+              title={t('settings.homeLayoutTitle')}
+              description={t('settings.homeLayoutDesc')}
             >
-              <span className="block text-sm font-bold tracking-widest">{t('settings.homeLayoutAlternating')}</span>
-              <span className="mt-2 block text-xs leading-relaxed opacity-75">{t('settings.homeLayoutAlternatingDesc')}</span>
-            </button>
-          </div>
-        </section>
+              <div className="grid grid-cols-1 border border-mountain-grey md:grid-cols-2">
+                <button
+                  type="button"
+                  disabled={isLoading}
+                  onClick={() => setDraftHomeArticleLayout('standard')}
+                  className={`px-4 py-4 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+                    draftHomeArticleLayout === 'standard'
+                      ? 'bg-ink text-paper'
+                      : 'text-ink-light hover:text-ochre'
+                  }`}
+                >
+                  <span className="block text-sm font-bold tracking-widest">{t('settings.homeLayoutStandard')}</span>
+                  <span className="mt-2 block text-xs leading-relaxed opacity-75">{t('settings.homeLayoutStandardDesc')}</span>
+                </button>
+                <button
+                  type="button"
+                  disabled={isLoading}
+                  onClick={() => setDraftHomeArticleLayout('alternating')}
+                  className={`border-t border-mountain-grey px-4 py-4 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-50 md:border-l md:border-t-0 ${
+                    draftHomeArticleLayout === 'alternating'
+                      ? 'bg-ink text-paper'
+                      : 'text-ink-light hover:text-ochre'
+                  }`}
+                >
+                  <span className="block text-sm font-bold tracking-widest">{t('settings.homeLayoutAlternating')}</span>
+                  <span className="mt-2 block text-xs leading-relaxed opacity-75">{t('settings.homeLayoutAlternatingDesc')}</span>
+                </button>
+              </div>
+            </SettingsCard>
 
-        <section className="border border-mountain-grey bg-[var(--paper-soft)] p-5">
-          <div className="mb-5">
-            <h4 className="text-base font-bold tracking-widest text-ink">{t('settings.seoTitle')}</h4>
-            <p className="mt-2 text-sm leading-relaxed text-ink-light opacity-80">
-              {t('settings.seoDesc')}
-            </p>
-          </div>
-          <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-            <label className="block text-sm text-ink-light">
-              <span className="mb-2 block tracking-widest">{t('settings.siteTitle')}</span>
-              <input
-                value={draftSiteTitle}
-                onChange={(event) => setDraftSiteTitle(event.target.value)}
-                disabled={isLoading}
-                className="w-full border border-mountain-grey bg-transparent px-3 py-2 text-ink outline-none focus:border-ochre disabled:cursor-not-allowed disabled:opacity-50"
-              />
-            </label>
-            <label className="block text-sm text-ink-light">
-              <span className="mb-2 block tracking-widest">{t('settings.siteBaseUrl')}</span>
-              <input
-                value={draftSiteBaseUrl}
-                onChange={(event) => setDraftSiteBaseUrl(event.target.value)}
-                disabled={isLoading}
-                placeholder="https://example.com"
-                className="w-full border border-mountain-grey bg-transparent px-3 py-2 text-ink outline-none focus:border-ochre disabled:cursor-not-allowed disabled:opacity-50"
-              />
-            </label>
-            <label className="block text-sm text-ink-light md:col-span-2">
-              <span className="mb-2 block tracking-widest">{t('settings.siteDescription')}</span>
-              <textarea
-                value={draftSiteDescription}
-                onChange={(event) => setDraftSiteDescription(event.target.value)}
-                disabled={isLoading}
-                rows={3}
-                className="w-full resize-none border border-mountain-grey bg-transparent px-3 py-2 text-ink outline-none focus:border-ochre disabled:cursor-not-allowed disabled:opacity-50"
-              />
-            </label>
-            <label className="block text-sm text-ink-light md:col-span-2">
-              <span className="mb-2 block tracking-widest">{t('settings.siteKeywords')}</span>
-              <input
-                value={draftSiteKeywords}
-                onChange={(event) => setDraftSiteKeywords(event.target.value)}
-                disabled={isLoading}
-                placeholder="blog,notes,writing"
-                className="w-full border border-mountain-grey bg-transparent px-3 py-2 text-ink outline-none focus:border-ochre disabled:cursor-not-allowed disabled:opacity-50"
-              />
-            </label>
-          </div>
-        </section>
+            <SettingsCard
+              title={t('settings.seoTitle')}
+              description={t('settings.seoDesc')}
+            >
+              <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+                <label className="block text-sm text-ink-light">
+                  <span className="mb-2 block tracking-widest">{t('settings.siteTitle')}</span>
+                  <input
+                    value={draftSiteTitle}
+                    onChange={(event) => setDraftSiteTitle(event.target.value)}
+                    disabled={isLoading}
+                    className="w-full border border-mountain-grey bg-transparent px-3 py-2 text-ink outline-none focus:border-ochre disabled:cursor-not-allowed disabled:opacity-50"
+                  />
+                </label>
+                <label className="block text-sm text-ink-light">
+                  <span className="mb-2 block tracking-widest">{t('settings.siteBaseUrl')}</span>
+                  <input
+                    value={draftSiteBaseUrl}
+                    onChange={(event) => setDraftSiteBaseUrl(event.target.value)}
+                    disabled={isLoading}
+                    placeholder="https://example.com"
+                    className="w-full border border-mountain-grey bg-transparent px-3 py-2 text-ink outline-none focus:border-ochre disabled:cursor-not-allowed disabled:opacity-50"
+                  />
+                </label>
+                <label className="block text-sm text-ink-light md:col-span-2">
+                  <span className="mb-2 block tracking-widest">{t('settings.siteDescription')}</span>
+                  <textarea
+                    value={draftSiteDescription}
+                    onChange={(event) => setDraftSiteDescription(event.target.value)}
+                    disabled={isLoading}
+                    rows={3}
+                    className="w-full resize-none border border-mountain-grey bg-transparent px-3 py-2 text-ink outline-none focus:border-ochre disabled:cursor-not-allowed disabled:opacity-50"
+                  />
+                </label>
+                <label className="block text-sm text-ink-light md:col-span-2">
+                  <span className="mb-2 block tracking-widest">{t('settings.siteKeywords')}</span>
+                  <input
+                    value={draftSiteKeywords}
+                    onChange={(event) => setDraftSiteKeywords(event.target.value)}
+                    disabled={isLoading}
+                    placeholder="blog,notes,writing"
+                    className="w-full border border-mountain-grey bg-transparent px-3 py-2 text-ink outline-none focus:border-ochre disabled:cursor-not-allowed disabled:opacity-50"
+                  />
+                </label>
+              </div>
+            </SettingsCard>
 
-        <div className="flex flex-wrap gap-3">
-          <Button
-            type="submit"
-            variant="primary"
-            size="md"
-            disabled={!hasChanges}
-            loading={isLoading}
-          >
-            {isLoading ? t('common.saving') : t('common.save')}
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="md"
-            disabled={isLoading || !hasChanges}
-            onClick={handleReset}
-          >
-            {t('common.cancel')}
-          </Button>
-        </div>
-        </fieldset>
-      </form>
+            <SettingsActions>
+              <Button
+                type="submit"
+                variant="primary"
+                size="md"
+                disabled={!hasChanges}
+                loading={isLoading}
+              >
+                {isLoading ? t('common.saving') : t('common.save')}
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="md"
+                disabled={isLoading || !hasChanges}
+                onClick={handleReset}
+              >
+                {t('common.cancel')}
+              </Button>
+            </SettingsActions>
+          </fieldset>
+        </form>
+      )}
     </div>
   );
 };

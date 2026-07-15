@@ -36,3 +36,35 @@ func UpdateSettingsHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 		response.Ok(w, resp)
 	}
 }
+
+func ModelsHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var req types.AIConnectionReq
+		if err := basehandler.Parse(r, &req); err != nil {
+			response.ErrorCtx(r.Context(), w, err)
+			return
+		}
+		resp, err := ailogic.Models(r.Context(), svcCtx, req)
+		if err != nil {
+			response.ErrorCtx(r.Context(), w, err)
+			return
+		}
+		response.Ok(w, resp)
+	}
+}
+
+func TestModelHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var req types.AIModelTestReq
+		if err := basehandler.Parse(r, &req); err != nil {
+			response.ErrorCtx(r.Context(), w, err)
+			return
+		}
+		resp, err := ailogic.TestModel(r.Context(), svcCtx, req)
+		if err != nil {
+			response.ErrorCtx(r.Context(), w, err)
+			return
+		}
+		response.Ok(w, resp)
+	}
+}

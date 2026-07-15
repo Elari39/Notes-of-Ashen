@@ -235,23 +235,50 @@ type AIAssistResp struct {
 
 type AISettingsResp struct {
 	Enabled                 bool   `json:"enabled"`
+	APIFormat               string `json:"apiFormat"`
 	BaseURL                 string `json:"baseUrl"`
 	Model                   string `json:"model"`
 	APIKeyConfigured        bool   `json:"apiKeyConfigured"`
+	APIKeyNeedsUpdate       bool   `json:"apiKeyNeedsUpdate"`
 	FirstByteTimeoutSeconds int    `json:"firstByteTimeoutSeconds"`
-	StreamTimeoutSeconds    int    `json:"streamTimeoutSeconds"`
 	NonStreamTimeoutSeconds int    `json:"nonStreamTimeoutSeconds"`
 }
 
 type UpdateAISettingsReq struct {
 	Enabled                 bool   `json:"enabled"`
+	APIFormat               string `json:"apiFormat,optional"`
 	BaseURL                 string `json:"baseUrl,optional"`
 	APIKey                  string `json:"apiKey,optional"`
 	ClearAPIKey             bool   `json:"clearApiKey,optional"`
 	Model                   string `json:"model,optional"`
 	FirstByteTimeoutSeconds int    `json:"firstByteTimeoutSeconds,optional"`
-	StreamTimeoutSeconds    int    `json:"streamTimeoutSeconds,optional"`
 	NonStreamTimeoutSeconds int    `json:"nonStreamTimeoutSeconds,optional"`
+}
+
+type AIConnectionReq struct {
+	APIFormat               string `json:"apiFormat,optional"`
+	BaseURL                 string `json:"baseUrl"`
+	APIKey                  string `json:"apiKey,optional"`
+	FirstByteTimeoutSeconds int    `json:"firstByteTimeoutSeconds,optional"`
+	NonStreamTimeoutSeconds int    `json:"nonStreamTimeoutSeconds,optional"`
+}
+
+type AIModelsResp struct {
+	Models []string `json:"models"`
+}
+
+type AIModelTestReq struct {
+	APIFormat               string `json:"apiFormat,optional"`
+	BaseURL                 string `json:"baseUrl"`
+	APIKey                  string `json:"apiKey,optional"`
+	Model                   string `json:"model"`
+	FirstByteTimeoutSeconds int    `json:"firstByteTimeoutSeconds,optional"`
+	NonStreamTimeoutSeconds int    `json:"nonStreamTimeoutSeconds,optional"`
+}
+
+type AIModelTestResp struct {
+	Model     string `json:"model"`
+	LatencyMs int64  `json:"latencyMs"`
 }
 
 type ArticleListReq struct {

@@ -1,54 +1,49 @@
 package aiclient
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
-	"net"
 	"net/http"
+	"sort"
 	"strings"
-	"sync"
 	"time"
-
-	"notes-of-ashen/internal/config"
 )
 
-// httpConnPool 复用 TCP/TLS 连接池（P4-11）：避免每次 Assist 调用都新建
-// http.Client/Transport 重新握手、旧 Transport 空闲连接未关闭导致的 fd 泄漏。
-// ResponseHeaderTimeout 设为首字节超时，单次请求总超时由 ctx 控制。
-// 首字节超时配置可热更：超时变化时在锁内重建 Client（在途请求仍持有旧指针，
-// GC 在其完成后回收旧 Transport，无竞态、无 fd 泄漏）；未变则复用同一连接池。
-var (
-	httpConnPoolMu sync.Mutex
-	httpConnPool   *http.Client
-	httpConnPoolTo time.Duration
+const (
+	APIFormatOpenAI    = "openai"
+	APIFormatAnthropic = "anthropic"
+
+	modelProbeMaxTokens = 16
 )
 
-func sharedHTTPClient(headerTimeout time.Duration) *http.Client {
-	httpConnPoolMu.Lock()
-	defer httpConnPoolMu.Unlock()
-	if httpConnPool != nil && httpConnPoolTo == headerTimeout {
-		return httpConnPool
+// Config 是 AI 客户端实际发起请求所需的运行时配置。
+// BaseURL 的公开地址校验由 logic 层强制执行；客户端仅负责协议请求。
+type Config struct {
+	Enabled                 bool
+	APIFormat               string
+	BaseURL                 string
+	APIKey                  string
+	Model                   string
+	FirstByteTimeoutSeconds int
+	NonStreamTimeoutSeconds int
+}
+
+// HTTPStatusError 表示上游 AI 服务返回了非 2xx HTTP 状态。
+// Message 已经过 API Key 脱敏，可由上层通过 errors.As 获取 StatusCode。
+type HTTPStatusError struct {
+	StatusCode int
+	Message    string
+}
+
+func (e *HTTPStatusError) Error() string {
+	if e == nil {
+		return "ai request failed"
 	}
-	httpConnPool = &http.Client{
-		Transport: &http.Transport{
-			Proxy: http.ProxyFromEnvironment,
-			DialContext: (&net.Dialer{
-				Timeout:   30 * time.Second,
-				KeepAlive: 30 * time.Second,
-			}).DialContext,
-			MaxIdleConns:          20,
-			MaxIdleConnsPerHost:   10,
-			IdleConnTimeout:       90 * time.Second,
-			TLSHandshakeTimeout:   30 * time.Second,
-			ResponseHeaderTimeout: headerTimeout,
-			ExpectContinueTimeout: 1 * time.Second,
-		},
+	if strings.TrimSpace(e.Message) == "" {
+		return fmt.Sprintf("ai request failed: status %d", e.StatusCode)
 	}
-	httpConnPoolTo = headerTimeout
-	return httpConnPool
+	return fmt.Sprintf("ai request failed: status %d: %s", e.StatusCode, e.Message)
 }
 
 type Request struct {
@@ -65,210 +60,159 @@ type Response struct {
 	Suggestions    []string `json:"suggestions"`
 }
 
-type chatRequest struct {
-	Model          string         `json:"model"`
-	Messages       []chatMessage  `json:"messages"`
-	Temperature    float64        `json:"temperature,omitempty"`
-	MaxTokens      int            `json:"max_tokens,omitempty"`
-	ResponseFormat responseFormat `json:"response_format,omitempty"`
-}
-
 type chatMessage struct {
 	Role    string `json:"role"`
 	Content string `json:"content"`
 }
 
-type responseFormat struct {
-	Type string `json:"type"`
+type providerError struct {
+	Message string `json:"message"`
 }
 
-type chatResponse struct {
-	Choices []struct {
-		Message chatMessage `json:"message"`
-	} `json:"choices"`
-	Error *struct {
-		Message string `json:"message"`
-	} `json:"error,omitempty"`
+type modelsResponse struct {
+	Data []struct {
+		ID string `json:"id"`
+	} `json:"data"`
+	Error *providerError `json:"error,omitempty"`
 }
 
-func Assist(ctx context.Context, conf config.AIConf, req Request) (*Response, error) {
-	timeout := nonStreamTimeout(conf)
-	headerTimeout := firstByteTimeout(conf)
-	ctx, cancel := context.WithTimeout(ctx, timeout)
-	defer cancel()
-
-	body, err := json.Marshal(chatRequest{
-		Model:          strings.TrimSpace(conf.Model),
-		Temperature:    assistTemperature(conf),
-		MaxTokens:      assistMaxTokens(conf, req.Action),
-		ResponseFormat: responseFormat{Type: "json_object"},
-		Messages: []chatMessage{
-			{Role: "system", Content: systemPrompt(req.Action)},
-			{Role: "user", Content: userPrompt(req)},
-		},
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	endpoint := chatCompletionsEndpoint(conf.BaseURL)
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(body))
-	if err != nil {
-		return nil, err
-	}
-	httpReq.Header.Set("Content-Type", "application/json")
-	httpReq.Header.Set("Authorization", "Bearer "+strings.TrimSpace(conf.APIKey))
-
-	httpResp, err := sharedHTTPClient(headerTimeout).Do(httpReq)
-	if err != nil {
-		return nil, err
-	}
-	defer httpResp.Body.Close()
-
-	raw, err := io.ReadAll(io.LimitReader(httpResp.Body, 1<<20))
-	if err != nil {
-		return nil, err
-	}
-	if httpResp.StatusCode < 200 || httpResp.StatusCode >= 300 {
-		return nil, fmt.Errorf("ai request failed: status %d: %s", httpResp.StatusCode, strings.TrimSpace(string(raw)))
-	}
-
-	var resp chatResponse
-	if err := json.Unmarshal(raw, &resp); err != nil {
-		return nil, err
-	}
-	if resp.Error != nil && resp.Error.Message != "" {
-		return nil, fmt.Errorf("ai request failed: %s", resp.Error.Message)
-	}
-	if len(resp.Choices) == 0 {
-		return nil, fmt.Errorf("ai response has no choices")
-	}
-	content := resp.Choices[0].Message.Content
-	parsed, err := ParseAssistantJSON(content)
-	if err != nil {
-		return nil, err
-	}
-	return parsed, nil
-}
-
-func chatCompletionsEndpoint(baseURL string) string {
-	endpoint := strings.TrimRight(strings.TrimSpace(baseURL), "/")
-	if strings.HasSuffix(endpoint, "/chat/completions") {
-		return endpoint
-	}
-	return endpoint + "/chat/completions"
-}
-
-func ParseAssistantJSON(content string) (*Response, error) {
-	content = strings.TrimSpace(content)
-	if content == "" {
-		return nil, fmt.Errorf("ai response is empty")
-	}
-	start := strings.Index(content, "{")
-	end := strings.LastIndex(content, "}")
-	if start < 0 || end < start {
-		return nil, fmt.Errorf("ai response is not json")
-	}
-	var resp Response
-	if err := json.Unmarshal([]byte(content[start:end+1]), &resp); err != nil {
-		return nil, err
-	}
-	return &resp, nil
-}
-
-func systemPrompt(action string) string {
-	switch action {
-	case "metadata":
-		return `你是博客文章 SEO 编辑助手。必须只输出 json，不要输出 Markdown。
-JSON 字段必须为 summary、seoDescription、seoKeywords。
-summary 约 100 个中文字符，提炼文章核心观点，不要写成标题；seoDescription 不超过 180 字；seoKeywords 为逗号分隔关键词。
-示例 JSON：{"summary":"本文围绕主题提炼核心内容，保留关键背景、问题与结论，方便读者快速判断是否继续阅读。","seoDescription":"文章内容摘要。","seoKeywords":"关键词一,关键词二"}`
-	case "proofread":
-		return `你是中文博客文章校对助手。必须只输出 json，不要输出 Markdown。
-JSON 字段必须为 revisedContent、suggestions。
-保留原意和 Markdown 结构，只修正错别字、病句、标点和明显语法问题。
-示例 JSON：{"revisedContent":"修订后的 Markdown 正文","suggestions":["修改说明"]}`
-	case "polish":
-		return `你是中文博客文章润色助手。必须只输出 json，不要输出 Markdown。
-JSON 字段必须为 revisedContent、suggestions。
-保留原意和 Markdown 结构，让表达更清晰自然，不要扩写事实。
-示例 JSON：{"revisedContent":"润色后的 Markdown 正文","suggestions":["修改说明"]}`
-	case "expand":
-		return `你是中文博客文章伴写助手。必须只输出 json，不要输出 Markdown。
-JSON 字段必须为 revisedContent、suggestions。
-在不虚构事实的前提下扩写用户给出的段落，让论述更完整、衔接更自然，并保留 Markdown 结构。
-示例 JSON：{"revisedContent":"扩写后的 Markdown 段落","suggestions":["扩写说明"]}`
-	case "shorten":
-		return `你是中文博客文章压缩助手。必须只输出 json，不要输出 Markdown。
-JSON 字段必须为 revisedContent、suggestions。
-保留核心信息和语气，删去冗余表达，让段落更短更清晰，并保留 Markdown 结构。
-示例 JSON：{"revisedContent":"缩写后的 Markdown 段落","suggestions":["缩写说明"]}`
-	case "translate":
-		return `你是技术博客翻译助手。必须只输出 json，不要输出 Markdown。
-JSON 字段必须为 revisedContent、suggestions。
-将用户给出的段落翻译为自然英文，保留 Markdown 结构、代码、链接和专有名词；如果原文主要是英文，则翻译为中文。
-示例 JSON：{"revisedContent":"Translated Markdown paragraph","suggestions":["翻译说明"]}`
+// NormalizeAPIFormat 规范化 AI API 格式；空值为兼容旧配置按 OpenAI 处理。
+func NormalizeAPIFormat(format string) (string, error) {
+	switch strings.ToLower(strings.TrimSpace(format)) {
+	case "", APIFormatOpenAI:
+		return APIFormatOpenAI, nil
+	case APIFormatAnthropic:
+		return APIFormatAnthropic, nil
 	default:
-		return `你是博客文章编辑助手。必须只输出 json，不要输出 Markdown。`
+		return "", fmt.Errorf("unsupported ai api format")
 	}
 }
 
-func userPrompt(req Request) string {
-	var builder strings.Builder
-	if strings.TrimSpace(req.Title) != "" {
-		builder.WriteString("标题：")
-		builder.WriteString(strings.TrimSpace(req.Title))
-		builder.WriteString("\n\n")
+func Assist(ctx context.Context, conf Config, req Request) (resp *Response, err error) {
+	defer func() {
+		err = sanitizeError(err, conf.APIKey)
+	}()
+
+	content, err := requestCompletion(
+		ctx,
+		conf,
+		systemPrompt(req.Action),
+		userPrompt(req),
+		0.3,
+		maxTokens(req.Action),
+	)
+	if err != nil {
+		return nil, err
 	}
-	builder.WriteString("正文：\n")
-	builder.WriteString(req.Content)
-	return builder.String()
+	return ParseAssistantJSON(content)
 }
 
-func maxTokens(action string) int {
-	switch action {
-	case "metadata":
-		return 800
-	case "proofread", "polish":
-		return 12000
-	case "expand", "shorten", "translate":
-		return 4000
-	default:
-		return 4000
+// ListModels 获取上游可用模型，并对模型 ID 去空、去重后按字典序排序。
+func ListModels(ctx context.Context, conf Config) (models []string, err error) {
+	defer func() {
+		err = sanitizeError(err, conf.APIKey)
+	}()
+
+	format, err := NormalizeAPIFormat(conf.APIFormat)
+	if err != nil {
+		return nil, err
 	}
+	endpoint, err := endpointFor(conf.BaseURL, format, endpointModels)
+	if err != nil {
+		return nil, err
+	}
+	if format == APIFormatAnthropic {
+		endpoint, err = anthropicModelsURL(endpoint)
+		if err != nil {
+			return nil, err
+		}
+	}
+	raw, err := doJSONRequest(ctx, conf, format, http.MethodGet, endpoint, nil)
+	if err != nil {
+		return nil, err
+	}
+	var response modelsResponse
+	if err := json.Unmarshal(raw, &response); err != nil {
+		return nil, fmt.Errorf("decode ai models response: %w", err)
+	}
+	if response.Error != nil && strings.TrimSpace(response.Error.Message) != "" {
+		return nil, fmt.Errorf("ai request failed: %s", response.Error.Message)
+	}
+	modelIDs := make([]string, 0, len(response.Data))
+	for _, item := range response.Data {
+		modelIDs = append(modelIDs, item.ID)
+	}
+	return normalizeModels(modelIDs), nil
 }
 
-// assistTemperature 取配置覆盖的温度，<=0 回退默认 0.3。
-func assistTemperature(conf config.AIConf) float64 {
-	if conf.Temperature > 0 {
-		return conf.Temperature
+// TestModel 使用固定的低 token JSON 探针测试模型，并返回完整请求耗时。
+// 即使请求失败也会返回已经消耗的时间，便于调用方诊断超时与网络错误。
+func TestModel(ctx context.Context, conf Config) (elapsed time.Duration, err error) {
+	startedAt := time.Now()
+	defer func() {
+		elapsed = time.Since(startedAt)
+		err = sanitizeError(err, conf.APIKey)
+	}()
+
+	content, err := requestCompletion(
+		ctx,
+		conf,
+		"Return only one valid JSON object and no Markdown.",
+		`Return exactly {"ok":true}.`,
+		0,
+		modelProbeMaxTokens,
+	)
+	if err != nil {
+		return 0, err
 	}
-	return 0.3
+	if err := validateProbeJSON(content); err != nil {
+		return 0, err
+	}
+	return 0, nil
 }
 
-// assistMaxTokens 取配置覆盖的最大 token 数，<=0 时按 action 回退默认值。
-func assistMaxTokens(conf config.AIConf, action string) int {
-	if conf.MaxTokens > 0 {
-		return conf.MaxTokens
+func requestCompletion(ctx context.Context, conf Config, system, user string, temperature float64, maxTokens int) (string, error) {
+	format, err := NormalizeAPIFormat(conf.APIFormat)
+	if err != nil {
+		return "", err
 	}
-	return maxTokens(action)
+	if strings.TrimSpace(conf.Model) == "" {
+		return "", fmt.Errorf("ai model is required")
+	}
+	endpoint, err := endpointFor(conf.BaseURL, format, endpointCompletion)
+	if err != nil {
+		return "", err
+	}
+
+	var payload any
+	if format == APIFormatAnthropic {
+		payload = newAnthropicRequest(conf.Model, system, user, temperature, maxTokens)
+	} else {
+		payload = newOpenAIChatRequest(conf.Model, system, user, temperature, maxTokens)
+	}
+
+	raw, err := doJSONRequest(ctx, conf, format, http.MethodPost, endpoint, payload)
+	if err != nil {
+		return "", err
+	}
+	if format == APIFormatAnthropic {
+		return parseAnthropicContent(raw)
+	}
+	return parseOpenAIContent(raw)
 }
 
-func firstByteTimeout(conf config.AIConf) time.Duration {
-	seconds := conf.FirstByteTimeoutSeconds
-	if seconds <= 0 {
-		seconds = 60
+func normalizeModels(models []string) []string {
+	unique := make(map[string]struct{}, len(models))
+	for _, model := range models {
+		model = strings.TrimSpace(model)
+		if model != "" {
+			unique[model] = struct{}{}
+		}
 	}
-	return time.Duration(seconds) * time.Second
-}
-
-func nonStreamTimeout(conf config.AIConf) time.Duration {
-	seconds := conf.NonStreamTimeoutSeconds
-	if seconds <= 0 {
-		seconds = conf.TimeoutSeconds
+	result := make([]string, 0, len(unique))
+	for model := range unique {
+		result = append(result, model)
 	}
-	if seconds <= 0 {
-		seconds = 600
-	}
-	return time.Duration(seconds) * time.Second
+	sort.Strings(result)
+	return result
 }

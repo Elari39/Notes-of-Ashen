@@ -1,46 +1,83 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import InlineNotice from '../../components/InlineNotice';
 import PagePendingState from '../../components/RoutePending';
+import SettingsCard, { SettingsActions } from '../../components/admin/SettingsCard';
 import Switch from '../../components/ui/Switch';
 import Button from '../../components/ui/Button';
-import { getAISettings, updateAISettings } from '../../api/aiSettings';
+import { getAIModels, getAISettings, testAIModel, updateAISettings } from '../../api/aiSettings';
 import { getErrorMessage } from '../../utils/error';
 import { usePreferenceStore } from '../../store/preferences';
-import { translate } from '../../i18n';
+import { formatText, translate } from '../../i18n';
+import type { AIAPIFormat, AISettingsResp } from '../../types/api';
 import { canSaveAISettings, executeAISettingsUpdate } from './editorAccessPolicy';
+import {
+  buildAIConnectionReq,
+  buildAIModelTestReq,
+  buildUpdateAISettingsReq,
+  canStartAISettingsOperation,
+  isAISettingsDirty,
+  isAISettingsTimeoutInvalid,
+  normalizeAIModels,
+  toAISettingsDraft,
+  type AISettingsDraft,
+  type AISettingsOperation,
+} from './aiSettingsPolicy';
 
 const AdminAISettings: React.FC = () => {
   const language = usePreferenceStore((state) => state.language);
   const t = (key: Parameters<typeof translate>[1]) => translate(language, key);
-  // 用 ref 持有最新 language，避免切换语言时重新拉取 AI 设置（数据与语言无关）。
   const languageRef = useRef(language);
   languageRef.current = language;
-  const [enabled, setEnabled] = useState(false);
-  const [baseUrl, setBaseUrl] = useState('');
-  const [model, setModel] = useState('');
-  const [apiKey, setApiKey] = useState('');
+  const modelListId = useId();
+  const apiKeyInputId = useId();
+
+  const [draft, setDraft] = useState<AISettingsDraft | null>(null);
+  const [baseline, setBaseline] = useState<AISettingsDraft | null>(null);
   const [apiKeyConfigured, setApiKeyConfigured] = useState(false);
-  const [clearApiKey, setClearApiKey] = useState(false);
-  const [firstByteTimeoutSeconds, setFirstByteTimeoutSeconds] = useState(60);
-  const [streamTimeoutSeconds, setStreamTimeoutSeconds] = useState(300);
-  const [nonStreamTimeoutSeconds, setNonStreamTimeoutSeconds] = useState(600);
+  const [apiKeyNeedsUpdate, setApiKeyNeedsUpdate] = useState(false);
+  const [modelOptions, setModelOptions] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [hasLoaded, setHasLoaded] = useState(false);
-  const [saving, setSaving] = useState(false);
+  const [activeOperation, setActiveOperation] = useState<AISettingsOperation | null>(null);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  const [modelsError, setModelsError] = useState('');
+  const [modelsNotice, setModelsNotice] = useState('');
+  const [testError, setTestError] = useState('');
+  const [testNotice, setTestNotice] = useState('');
   const loadRequestIdRef = useRef(0);
+  const activeOperationRef = useRef<AISettingsOperation | null>(null);
 
+  const operationBusy = activeOperation !== null;
+  const dirty = useMemo(() => (
+    draft ? isAISettingsDirty(draft, baseline) : false
+  ), [baseline, draft]);
   const timeoutInvalid = useMemo(() => (
-    firstByteTimeoutSeconds <= 0 ||
-    streamTimeoutSeconds < firstByteTimeoutSeconds ||
-    nonStreamTimeoutSeconds < firstByteTimeoutSeconds
-  ), [firstByteTimeoutSeconds, streamTimeoutSeconds, nonStreamTimeoutSeconds]);
+    draft ? isAISettingsTimeoutInvalid(draft) : false
+  ), [draft]);
+
+  const resetConnectionFeedback = useCallback(() => {
+    setModelOptions([]);
+    setModelsError('');
+    setModelsNotice('');
+    setTestError('');
+    setTestNotice('');
+  }, []);
+
+  const applyRemoteSettings = useCallback((settings: AISettingsResp) => {
+    const nextDraft = toAISettingsDraft(settings);
+    setDraft(nextDraft);
+    setBaseline(nextDraft);
+    setApiKeyConfigured(Boolean(settings.apiKeyConfigured));
+    setApiKeyNeedsUpdate(Boolean(settings.apiKeyNeedsUpdate));
+    resetConnectionFeedback();
+  }, [resetConnectionFeedback]);
 
   const loadSettings = useCallback(async () => {
     const requestId = loadRequestIdRef.current + 1;
     loadRequestIdRef.current = requestId;
     setLoading(true);
+    setHasLoaded(false);
     setError('');
     setNotice('');
     try {
@@ -48,27 +85,21 @@ const AdminAISettings: React.FC = () => {
       if (requestId !== loadRequestIdRef.current) {
         return;
       }
-      const data = res.data;
-      setEnabled(Boolean(data.enabled));
-      setBaseUrl(data.baseUrl || '');
-      setModel(data.model || '');
-      setApiKeyConfigured(Boolean(data.apiKeyConfigured));
-      setFirstByteTimeoutSeconds(data.firstByteTimeoutSeconds || 60);
-      setStreamTimeoutSeconds(data.streamTimeoutSeconds || 300);
-      setNonStreamTimeoutSeconds(data.nonStreamTimeoutSeconds || 600);
+      applyRemoteSettings(res.data);
       setHasLoaded(true);
-    } catch (e) {
+    } catch (requestError) {
       if (requestId !== loadRequestIdRef.current) {
         return;
       }
-      setHasLoaded(false);
-      setError(getErrorMessage(e, translate(languageRef.current, 'aiSettings.loadError')));
+      setDraft(null);
+      setBaseline(null);
+      setError(getErrorMessage(requestError, translate(languageRef.current, 'aiSettings.loadError')));
     } finally {
       if (requestId === loadRequestIdRef.current) {
         setLoading(false);
       }
     }
-  }, []);
+  }, [applyRemoteSettings]);
 
   useEffect(() => {
     void loadSettings();
@@ -77,11 +108,70 @@ const AdminAISettings: React.FC = () => {
     };
   }, [loadSettings]);
 
+  const updateDraft = (patch: Partial<AISettingsDraft>) => {
+    setDraft((current) => current ? { ...current, ...patch } : current);
+    setError('');
+    setNotice('');
+  };
+
+  const startOperation = (operation: AISettingsOperation): boolean => {
+    if (!canStartAISettingsOperation(activeOperationRef.current)) {
+      return false;
+    }
+    activeOperationRef.current = operation;
+    setActiveOperation(operation);
+    return true;
+  };
+
+  const finishOperation = () => {
+    activeOperationRef.current = null;
+    setActiveOperation(null);
+  };
+
+  const updateConnectionDraft = (patch: Partial<AISettingsDraft>) => {
+    updateDraft(patch);
+    resetConnectionFeedback();
+  };
+
+  const handleFormatChange = (apiFormat: AIAPIFormat) => {
+    if (!draft || draft.apiFormat === apiFormat) {
+      return;
+    }
+    updateConnectionDraft({ apiFormat });
+  };
+
+  const handleModelChange = (model: string) => {
+    updateDraft({ model });
+    setTestError('');
+    setTestNotice('');
+  };
+
+  const handleAPIKeyChange = (apiKey: string) => {
+    updateConnectionDraft({
+      apiKey,
+      clearApiKey: apiKey.trim() ? false : draft?.clearApiKey ?? false,
+    });
+  };
+
+  const handleClearAPIKeyChange = (clearApiKey: boolean) => {
+    updateConnectionDraft({ clearApiKey });
+  };
+
+  const handleCancel = () => {
+    if (!baseline || operationBusy) {
+      return;
+    }
+    setDraft({ ...baseline });
+    setError('');
+    setNotice('');
+    resetConnectionFeedback();
+  };
+
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError('');
     setNotice('');
-    if (!canSaveAISettings(hasLoaded)) {
+    if (!draft || !canSaveAISettings(hasLoaded)) {
       setError(t('aiSettings.loadError'));
       return;
     }
@@ -89,26 +179,78 @@ const AdminAISettings: React.FC = () => {
       setError(t('aiSettings.timeoutError'));
       return;
     }
-    setSaving(true);
+    if (!startOperation('save')) {
+      return;
+    }
+
     try {
-      const res = await executeAISettingsUpdate(hasLoaded, () => updateAISettings({
-        enabled,
-        baseUrl: baseUrl.trim(),
-        model: model.trim(),
-        apiKey: apiKey.trim(),
-        clearApiKey,
-        firstByteTimeoutSeconds,
-        streamTimeoutSeconds,
-        nonStreamTimeoutSeconds,
-      }));
-      setApiKey('');
-      setClearApiKey(false);
-      setApiKeyConfigured(Boolean(res.data.apiKeyConfigured));
+      const res = await executeAISettingsUpdate(hasLoaded, () => (
+        updateAISettings(buildUpdateAISettingsReq(draft))
+      ));
+      applyRemoteSettings(res.data);
       setNotice(t('aiSettings.saved'));
-    } catch (e) {
-      setError(getErrorMessage(e, t('aiSettings.saveError')));
+    } catch (requestError) {
+      setError(getErrorMessage(requestError, t('aiSettings.saveError')));
     } finally {
-      setSaving(false);
+      finishOperation();
+    }
+  };
+
+  const handleGetModels = async () => {
+    if (
+      !draft ||
+      draft.clearApiKey ||
+      !draft.baseUrl.trim() ||
+      timeoutInvalid
+    ) {
+      return;
+    }
+    if (!startOperation('models')) {
+      return;
+    }
+
+    setModelsError('');
+    setModelsNotice('');
+    try {
+      const res = await getAIModels(buildAIConnectionReq(draft));
+      const models = normalizeAIModels(res.data.models || []);
+      setModelOptions(models);
+      setModelsNotice(models.length === 0
+        ? t('aiSettings.modelsEmpty')
+        : formatText(t('aiSettings.modelsLoaded'), { count: models.length }));
+    } catch (requestError) {
+      setModelsError(getErrorMessage(requestError, t('aiSettings.modelsError')));
+    } finally {
+      finishOperation();
+    }
+  };
+
+  const handleTestModel = async () => {
+    if (
+      !draft ||
+      draft.clearApiKey ||
+      !draft.baseUrl.trim() ||
+      !draft.model.trim() ||
+      timeoutInvalid
+    ) {
+      return;
+    }
+    if (!startOperation('test')) {
+      return;
+    }
+
+    setTestError('');
+    setTestNotice('');
+    try {
+      const res = await testAIModel(buildAIModelTestReq(draft));
+      setTestNotice(formatText(t('aiSettings.testSuccess'), {
+        model: res.data.model,
+        latency: res.data.latencyMs,
+      }));
+    } catch (requestError) {
+      setTestError(getErrorMessage(requestError, t('aiSettings.testError')));
+    } finally {
+      finishOperation();
     }
   };
 
@@ -120,7 +262,6 @@ const AdminAISettings: React.FC = () => {
 
       {hasLoaded && <InlineNotice message={error} className="mb-6" />}
       {hasLoaded && <InlineNotice message={notice} tone="success" className="mb-6" />}
-
       {loading && <PagePendingState variant="admin" label={t('aiSettings.loading')} />}
       {!loading && !hasLoaded && (
         <InlineNotice
@@ -133,119 +274,230 @@ const AdminAISettings: React.FC = () => {
           )}
         />
       )}
-      {hasLoaded && (
+
+      {hasLoaded && draft && (
         <form onSubmit={handleSubmit} className="space-y-8">
-          <section className="border border-mountain-grey bg-[var(--paper-soft)] p-5">
-            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-              <div>
-                <h4 className="text-base font-bold tracking-widest text-ink">{t('aiSettings.enableTitle')}</h4>
-                <p className="mt-2 text-sm leading-relaxed text-ink-light opacity-80">{t('aiSettings.enableDesc')}</p>
-              </div>
-              <div className="flex items-center gap-3">
-                <Switch
-                  checked={enabled}
-                  onCheckedChange={setEnabled}
-                  disabled={saving}
-                  label={t('aiSettings.enableTitle')}
-                />
-                <span className="text-xs tracking-widest text-ink-light">
-                  {enabled ? t('settings.enabled') : t('settings.disabled')}
-                </span>
-              </div>
-            </div>
-          </section>
-
-          <section className="border border-mountain-grey bg-[var(--paper-soft)] p-5">
-            <div className="mb-5">
-              <h4 className="text-base font-bold tracking-widest text-ink">{t('aiSettings.providerTitle')}</h4>
-              <p className="mt-2 text-sm leading-relaxed text-ink-light opacity-80">{t('aiSettings.providerDesc')}</p>
-            </div>
-            <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-              <label className="block text-sm text-ink-light">
-                <span className="mb-2 block tracking-widest">Base URL</span>
-                <input
-                  value={baseUrl}
-                  onChange={(event) => setBaseUrl(event.target.value)}
-                  disabled={saving}
-                  placeholder="https://api.example.com/v1"
-                  className="w-full border border-mountain-grey bg-transparent px-3 py-2 text-ink outline-none focus:border-ochre disabled:cursor-not-allowed disabled:opacity-50"
-                />
-              </label>
-              <label className="block text-sm text-ink-light">
-                <span className="mb-2 block tracking-widest">Model</span>
-                <input
-                  value={model}
-                  onChange={(event) => setModel(event.target.value)}
-                  disabled={saving}
-                  placeholder="gpt-4.1-mini"
-                  className="w-full border border-mountain-grey bg-transparent px-3 py-2 text-ink outline-none focus:border-ochre disabled:cursor-not-allowed disabled:opacity-50"
-                />
-              </label>
-              <label className="block text-sm text-ink-light md:col-span-2">
-                <span className="mb-2 block tracking-widest">{t('aiSettings.apiKey')}</span>
-                <input
-                  value={apiKey}
-                  onChange={(event) => {
-                    setApiKey(event.target.value);
-                    if (event.target.value.trim()) {
-                      setClearApiKey(false);
-                    }
-                  }}
-                  disabled={saving || clearApiKey}
-                  type="password"
-                  placeholder={apiKeyConfigured ? t('aiSettings.apiKeyConfigured') : t('aiSettings.apiKeyPlaceholder')}
-                  className="w-full border border-mountain-grey bg-transparent px-3 py-2 text-ink outline-none focus:border-ochre disabled:cursor-not-allowed disabled:opacity-50"
-                />
-                <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-ink-light">
-                  <span>{apiKeyConfigured ? t('aiSettings.configured') : t('aiSettings.notConfigured')}</span>
-                  {apiKeyConfigured && (
-                    <label className="inline-flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        checked={clearApiKey}
-                        disabled={saving || Boolean(apiKey.trim())}
-                        onChange={(event) => setClearApiKey(event.target.checked)}
-                        className="h-4 w-4 accent-ochre"
-                      />
-                      <span>{t('aiSettings.clearKey')}</span>
-                    </label>
-                  )}
+          <fieldset disabled={operationBusy} className="space-y-8 disabled:opacity-60">
+            <SettingsCard
+              title={t('aiSettings.enableTitle')}
+              description={t('aiSettings.enableDesc')}
+              action={(
+                <div className="flex items-center gap-3">
+                  <Switch
+                    checked={draft.enabled}
+                    onCheckedChange={(enabled) => updateDraft({ enabled })}
+                    disabled={operationBusy}
+                    label={t('aiSettings.enableTitle')}
+                  />
+                  <span className="text-xs tracking-widest text-ink-light">
+                    {draft.enabled ? t('settings.enabled') : t('settings.disabled')}
+                  </span>
                 </div>
-              </label>
-            </div>
-          </section>
+              )}
+            />
 
-          <section className="border border-mountain-grey bg-[var(--paper-soft)] p-5">
-            <div className="mb-5">
-              <h4 className="text-base font-bold tracking-widest text-ink">{t('aiSettings.timeoutTitle')}</h4>
-              <p className="mt-2 text-sm leading-relaxed text-ink-light opacity-80">{t('aiSettings.timeoutDesc')}</p>
-            </div>
-            <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
-              <TimeoutInput label={t('aiSettings.firstByte')} value={firstByteTimeoutSeconds} disabled={saving} onChange={setFirstByteTimeoutSeconds} />
-              <TimeoutInput label={t('aiSettings.stream')} value={streamTimeoutSeconds} disabled={saving} onChange={setStreamTimeoutSeconds} />
-              <TimeoutInput label={t('aiSettings.nonStream')} value={nonStreamTimeoutSeconds} disabled={saving} onChange={setNonStreamTimeoutSeconds} />
-            </div>
-            {timeoutInvalid && (
-              <p className="mt-3 text-sm text-ochre">{t('aiSettings.timeoutError')}</p>
-            )}
-          </section>
-
-          <div className="flex flex-wrap gap-3">
-            <Button
-              type="submit"
-              variant="primary"
-              size="md"
-              disabled={timeoutInvalid}
-              loading={saving}
+            <SettingsCard
+              title={t('aiSettings.providerTitle')}
+              description={t('aiSettings.providerDesc')}
             >
-              {saving ? t('aiSettings.saving') : t('aiSettings.save')}
-            </Button>
-          </div>
+              <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+                <div className="md:col-span-2">
+                  <span className="mb-2 block text-sm tracking-widest text-ink-light">{t('aiSettings.apiFormat')}</span>
+                  <div className="grid grid-cols-1 border border-mountain-grey sm:grid-cols-2" role="radiogroup" aria-label={t('aiSettings.apiFormat')}>
+                    <FormatOption
+                      value="openai"
+                      selected={draft.apiFormat === 'openai'}
+                      disabled={operationBusy}
+                      title={t('aiSettings.openaiFormat')}
+                      description={t('aiSettings.openaiFormatDesc')}
+                      onSelect={handleFormatChange}
+                    />
+                    <FormatOption
+                      value="anthropic"
+                      selected={draft.apiFormat === 'anthropic'}
+                      disabled={operationBusy}
+                      title={t('aiSettings.anthropicFormat')}
+                      description={t('aiSettings.anthropicFormatDesc')}
+                      onSelect={handleFormatChange}
+                      className="border-t border-mountain-grey sm:border-l sm:border-t-0"
+                    />
+                  </div>
+                </div>
+
+                <label className="block text-sm text-ink-light">
+                  <span className="mb-2 block tracking-widest">Base URL</span>
+                  <input
+                    value={draft.baseUrl}
+                    onChange={(event) => updateConnectionDraft({ baseUrl: event.target.value })}
+                    disabled={operationBusy}
+                    placeholder={draft.apiFormat === 'anthropic' ? 'https://api.anthropic.com' : 'https://api.openai.com/v1'}
+                    className="w-full border border-mountain-grey bg-transparent px-3 py-2 text-ink outline-none focus:border-ochre disabled:cursor-not-allowed disabled:opacity-50"
+                  />
+                </label>
+
+                <label className="block text-sm text-ink-light">
+                  <span className="mb-2 block tracking-widest">Model</span>
+                  <input
+                    list={modelListId}
+                    value={draft.model}
+                    onChange={(event) => handleModelChange(event.target.value)}
+                    disabled={operationBusy}
+                    placeholder={t('aiSettings.modelPlaceholder')}
+                    autoComplete="off"
+                    className="w-full border border-mountain-grey bg-transparent px-3 py-2 text-ink outline-none focus:border-ochre disabled:cursor-not-allowed disabled:opacity-50"
+                  />
+                  <datalist id={modelListId}>
+                    {modelOptions.map((option) => <option key={option} value={option} />)}
+                  </datalist>
+                </label>
+
+                <div className="block text-sm text-ink-light md:col-span-2">
+                  <label htmlFor={apiKeyInputId} className="mb-2 block tracking-widest">
+                    {t('aiSettings.apiKey')}
+                  </label>
+                  <input
+                    id={apiKeyInputId}
+                    value={draft.apiKey}
+                    onChange={(event) => handleAPIKeyChange(event.target.value)}
+                    disabled={operationBusy || draft.clearApiKey}
+                    type="password"
+                    autoComplete="new-password"
+                    placeholder={apiKeyConfigured ? t('aiSettings.apiKeyConfigured') : t('aiSettings.apiKeyPlaceholder')}
+                    className="w-full border border-mountain-grey bg-transparent px-3 py-2 text-ink outline-none focus:border-ochre disabled:cursor-not-allowed disabled:opacity-50"
+                  />
+                  <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-ink-light">
+                    <span>{apiKeyConfigured ? t('aiSettings.configured') : t('aiSettings.notConfigured')}</span>
+                    {apiKeyConfigured && (
+                      <label className="inline-flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={draft.clearApiKey}
+                          disabled={operationBusy || Boolean(draft.apiKey.trim())}
+                          onChange={(event) => handleClearAPIKeyChange(event.target.checked)}
+                          className="h-4 w-4 accent-ochre"
+                        />
+                        <span>{t('aiSettings.clearKey')}</span>
+                      </label>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {apiKeyNeedsUpdate && (
+                <InlineNotice message={t('aiSettings.keyNeedsUpdate')} tone="warning" icon className="mt-5" />
+              )}
+
+              <SettingsActions className="mt-5 border-t border-mountain-grey pt-5">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="md"
+                  disabled={operationBusy || draft.clearApiKey || timeoutInvalid || !draft.baseUrl.trim()}
+                  loading={activeOperation === 'models'}
+                  onClick={() => void handleGetModels()}
+                >
+                  {activeOperation === 'models' ? t('aiSettings.modelsLoading') : t('aiSettings.getModels')}
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="md"
+                  disabled={operationBusy || draft.clearApiKey || timeoutInvalid || !draft.baseUrl.trim() || !draft.model.trim()}
+                  loading={activeOperation === 'test'}
+                  onClick={() => void handleTestModel()}
+                >
+                  {activeOperation === 'test' ? t('aiSettings.testing') : t('aiSettings.test')}
+                </Button>
+              </SettingsActions>
+              <InlineNotice message={modelsError} className="mt-4" />
+              <InlineNotice message={modelsNotice} tone={modelOptions.length > 0 ? 'success' : 'info'} icon className="mt-4" />
+              <InlineNotice message={testError} className="mt-4" />
+              <InlineNotice message={testNotice} tone="success" icon className="mt-4" />
+            </SettingsCard>
+
+            <SettingsCard
+              title={t('aiSettings.timeoutTitle')}
+              description={t('aiSettings.timeoutDesc')}
+            >
+              <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+                <TimeoutInput
+                  label={t('aiSettings.firstByte')}
+                  value={draft.firstByteTimeoutSeconds}
+                  disabled={operationBusy}
+                  onChange={(firstByteTimeoutSeconds) => updateDraft({ firstByteTimeoutSeconds })}
+                />
+                <TimeoutInput
+                  label={t('aiSettings.nonStream')}
+                  value={draft.nonStreamTimeoutSeconds}
+                  disabled={operationBusy}
+                  onChange={(nonStreamTimeoutSeconds) => updateDraft({ nonStreamTimeoutSeconds })}
+                />
+              </div>
+              {timeoutInvalid && (
+                <p className="mt-3 text-sm text-ochre">{t('aiSettings.timeoutError')}</p>
+              )}
+            </SettingsCard>
+
+            <SettingsActions>
+              <Button
+                type="submit"
+                variant="primary"
+                size="md"
+                disabled={operationBusy || timeoutInvalid || !dirty}
+                loading={activeOperation === 'save'}
+              >
+                {activeOperation === 'save' ? t('aiSettings.saving') : t('aiSettings.save')}
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="md"
+                disabled={operationBusy || !dirty}
+                onClick={handleCancel}
+              >
+                {t('common.cancel')}
+              </Button>
+            </SettingsActions>
+          </fieldset>
         </form>
       )}
     </div>
   );
 };
+
+type FormatOptionProps = {
+  value: AIAPIFormat;
+  selected: boolean;
+  disabled: boolean;
+  title: string;
+  description: string;
+  onSelect: (value: AIAPIFormat) => void;
+  className?: string;
+};
+
+const FormatOption = ({
+  value,
+  selected,
+  disabled,
+  title,
+  description,
+  onSelect,
+  className = '',
+}: FormatOptionProps) => (
+  <button
+    type="button"
+    role="radio"
+    aria-checked={selected}
+    disabled={disabled}
+    onClick={() => onSelect(value)}
+    className={`px-4 py-4 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+      selected ? 'bg-ink text-paper' : 'text-ink-light hover:text-ochre'
+    } ${className}`.trim()}
+  >
+    <span className="block text-sm font-bold tracking-widest">{title}</span>
+    <span className="mt-2 block text-xs leading-relaxed opacity-75">{description}</span>
+  </button>
+);
 
 type TimeoutInputProps = {
   label: string;
