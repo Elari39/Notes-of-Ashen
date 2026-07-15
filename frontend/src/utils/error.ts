@@ -1,6 +1,7 @@
 import type { AxiosError } from 'axios';
 import { formatText, translate } from '../i18n.ts';
 import { AI_EXACT_ERROR_MESSAGES } from './aiErrorMessages.ts';
+import { safeLocalStorage } from './storage.ts';
 
 type ErrorResponse = {
   code?: number;
@@ -116,6 +117,7 @@ const exactMessages: Record<string, LocalizedText> = {
   'captcha is expired': localized('图形验证码已过期，请重新获取', 'The captcha has expired. Please refresh it.'),
   'captcha is incorrect': localized('图形验证码不正确', 'The captcha is incorrect'),
   'email code is required': localized('请填写邮箱验证码', 'Please enter the email verification code'),
+  'email code is invalid or expired': localized('邮箱验证码无效或已过期，请重新获取', 'The email verification code is invalid or expired. Please request a new one.'),
   'email code is expired': localized('邮箱验证码已过期，请重新获取', 'The email verification code has expired. Please request a new one.'),
   'email code is incorrect': localized('邮箱验证码不正确', 'The email verification code is incorrect'),
   'verify code was sent recently': localized('验证码发送过于频繁，请稍后再试', 'A verification code was sent recently. Please try again later.'),
@@ -185,7 +187,7 @@ const exactMessages: Record<string, LocalizedText> = {
 };
 
 const readLanguage = (): Language => {
-  if (typeof localStorage !== 'undefined' && localStorage.getItem('notesOfAshen.language') === 'en') {
+  if (safeLocalStorage.getItem('notesOfAshen.language') === 'en') {
     return 'en';
   }
   if (typeof document !== 'undefined' && document.documentElement.lang.toLowerCase().startsWith('en')) {

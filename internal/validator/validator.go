@@ -53,7 +53,7 @@ func OptionalHTTPURL(value, field string) error {
 	}
 	// 先尝试直接当作 IP 解析（含 IPv6），命中即校验；否则对域名做 DNS 解析后逐一校验。
 	if ip := net.ParseIP(host); ip != nil {
-		if isBlockedHostIP(ip) {
+		if IsBlockedHostIP(ip) {
 			return apperrors.BadRequest(field + " must not point to a local address")
 		}
 		return nil
@@ -65,15 +65,16 @@ func OptionalHTTPURL(value, field string) error {
 		return nil
 	}
 	for _, ip := range ips {
-		if isBlockedHostIP(ip) {
+		if IsBlockedHostIP(ip) {
 			return apperrors.BadRequest(field + " must not point to a local address")
 		}
 	}
 	return nil
 }
 
-// isBlockedHostIP 判断 IP 是否属于本机/内网/保留/链路本地/CGNAT 等不应被用户可控 URL 访问的地址段。
-func isBlockedHostIP(ip net.IP) bool {
+// IsBlockedHostIP 判断 IP 是否属于本机、内网、文档、基准测试、保留、
+// 链路本地或 CGNAT 等不应被服务端用户可控请求访问的地址段。
+func IsBlockedHostIP(ip net.IP) bool {
 	if ip == nil {
 		return true
 	}
@@ -81,13 +82,45 @@ func isBlockedHostIP(ip net.IP) bool {
 		ip.IsMulticast() || ip.IsUnspecified() {
 		return true
 	}
-	// CGNAT 100.64.0.0/10（net.IP.IsPrivate 不覆盖）。
-	if v4 := ip.To4(); v4 != nil {
-		if v4[0] == 100 && v4[1] >= 64 && v4[1] <= 127 {
+	for _, network := range blockedHostNetworks {
+		if network.Contains(ip) {
 			return true
 		}
 	}
 	return false
+}
+
+var blockedHostNetworks = mustParseCIDRs(
+	"0.0.0.0/8",
+	"100.64.0.0/10",
+	"192.0.0.0/24",
+	"192.0.2.0/24",
+	"192.88.99.0/24",
+	"198.18.0.0/15",
+	"198.51.100.0/24",
+	"203.0.113.0/24",
+	"240.0.0.0/4",
+	"::/96",
+	"64:ff9b::/96",
+	"64:ff9b:1::/48",
+	"100::/64",
+	"2001::/23",
+	"2001:db8::/32",
+	"2002::/16",
+	"3fff::/20",
+	"5f00::/16",
+)
+
+func mustParseCIDRs(values ...string) []*net.IPNet {
+	networks := make([]*net.IPNet, 0, len(values))
+	for _, value := range values {
+		_, network, err := net.ParseCIDR(value)
+		if err != nil {
+			panic("invalid blocked host CIDR: " + value)
+		}
+		networks = append(networks, network)
+	}
+	return networks
 }
 
 func Status(value string, allowed map[string]struct{}, field string) error {

@@ -2,8 +2,8 @@ import http from '../utils/http';
 import { BaseResp, Category, PaginatedResp } from '../types';
 import { CreateCategoryReq, UpdateCategoryReq, PageParams } from '../types/api';
 
-export const getCategories = (params?: PageParams) => 
-  http.get<unknown, BaseResp<PaginatedResp<Category>>>('/categories', { params });
+export const getCategories = (params?: PageParams, signal?: AbortSignal) =>
+  http.get<unknown, BaseResp<PaginatedResp<Category>>>('/categories', { params, signal });
 
 export const createCategory = (data: CreateCategoryReq) => 
   http.post<unknown, BaseResp<Category>>('/categories', data);

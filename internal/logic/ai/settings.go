@@ -55,23 +55,39 @@ func UpdateSettings(ctx context.Context, svcCtx *svc.ServiceContext, req types.U
 	}
 
 	apiFormat := current.APIFormat
-	if strings.TrimSpace(req.APIFormat) != "" {
-		apiFormat, err = normalizeAIAPIFormat(req.APIFormat)
+	if req.APIFormat != nil && strings.TrimSpace(*req.APIFormat) != "" {
+		apiFormat, err = normalizeAIAPIFormat(*req.APIFormat)
 		if err != nil {
 			return nil, err
 		}
 	}
-	baseURL, err := normalizeAndValidateAIBaseURL(req.BaseURL, false)
+	baseURL := current.BaseURL
+	if req.BaseURL != nil {
+		baseURL = *req.BaseURL
+	}
+	baseURL, err = normalizeAndValidateAIBaseURL(baseURL, false)
 	if err != nil {
 		return nil, err
 	}
-	modelName := strings.TrimSpace(req.Model)
+	modelName := current.Model
+	if req.Model != nil {
+		modelName = *req.Model
+	}
+	modelName = strings.TrimSpace(modelName)
 	if err := validator.Length(modelName, "model", 0, 120); err != nil {
 		return nil, err
 	}
+	firstByteTimeoutInput := current.FirstByteTimeoutSeconds
+	if req.FirstByteTimeoutSeconds != nil {
+		firstByteTimeoutInput = *req.FirstByteTimeoutSeconds
+	}
+	nonStreamTimeoutInput := current.NonStreamTimeoutSeconds
+	if req.NonStreamTimeoutSeconds != nil {
+		nonStreamTimeoutInput = *req.NonStreamTimeoutSeconds
+	}
 	firstByteTimeout, nonStreamTimeout, err := validateAITimeouts(
-		req.FirstByteTimeoutSeconds,
-		req.NonStreamTimeoutSeconds,
+		firstByteTimeoutInput,
+		nonStreamTimeoutInput,
 		svcCtx.Config.Timeout,
 	)
 	if err != nil {
@@ -86,7 +102,7 @@ func UpdateSettings(ctx context.Context, svcCtx *svc.ServiceContext, req types.U
 		return nil, err
 	}
 	endpointChanged := !sameAIEndpoint(*current, apiFormat, baseURL)
-	if endpointChanged && strings.TrimSpace(current.APIKeyCipher) != "" && apiKey == "" && !req.ClearAPIKey {
+	if endpointChanged && baseURL != "" && strings.TrimSpace(current.APIKeyCipher) != "" && apiKey == "" && !req.ClearAPIKey {
 		return nil, apperrors.BadRequest("api key must be replaced or cleared when ai endpoint changes")
 	}
 
@@ -323,7 +339,7 @@ func validateAITimeouts(firstByte, nonStream int, globalTimeoutMS int64) (int, i
 }
 
 func normalizeAITimeout(value int, fallback int, field string) (int, error) {
-	if value <= 0 {
+	if value == 0 {
 		value = fallback
 	}
 	if value < minAITimeoutSeconds || value > maxAITimeoutSeconds {

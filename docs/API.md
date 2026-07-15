@@ -180,7 +180,7 @@ POST /api/v1/auth/login
 POST /api/v1/auth/password/reset
 ```
 
-权限：公开。重置成功后会撤销该用户已有 Refresh Token，需要重新登录。
+权限：公开。服务端先原子验证并消费验证码，再查询账号；无效和过期验证码统一返回 `400 email code is invalid or expired`，不会通过 `404/403/400` 差异泄露邮箱是否注册或账号状态。重置成功后会撤销该用户已有 Refresh Token，需要重新登录。
 
 | 字段 | 类型 | 必填 | 说明 |
 | --- | --- | --- | --- |
@@ -264,10 +264,10 @@ PUT /api/v1/users/me
 
 | 字段 | 类型 | 必填 | 说明 |
 | --- | --- | --- | --- |
-| email | string | 否 | 邮箱；为空时保留原邮箱 |
+| email | string | 否 | 邮箱；字段缺失或为空时保留原邮箱 |
 | emailCode | string | 条件必填 | 仅当 `email` 变更时必填 |
-| avatarUrl | string | 否 | 头像 URL；为空表示不显示头像 |
-| nickname | string | 否 | 昵称，非空时长度 1 到 64 |
+| avatarUrl | string | 否 | 字段缺失时保留原值；显式空字符串表示不显示头像 |
+| nickname | string | 否 | 字段缺失时保留原值；显式空字符串表示清空，非空时长度 1 到 64 |
 
 ### 修改密码
 
@@ -582,15 +582,15 @@ PUT /api/v1/admin/site/settings
 | 字段 | 类型 | 必填 | 说明 |
 | --- | --- | --- | --- |
 | registrationEnabled | bool | 否 | 是否允许后续用户注册；不传时保留当前值 |
-| homeArticleLayout | string | 是 | `standard` 或 `alternating` |
-| siteTitle | string | 否 | 站点标题，空值表示保留当前值 |
-| siteDescription | string | 否 | 站点描述，空值表示保留当前值 |
-| siteKeywords | string | 否 | 站点关键词，空值表示保留当前值 |
-| siteBaseUrl | string | 否 | 站点公开基础 URL，非空必须为 `http://` 或 `https://` URL |
+| homeArticleLayout | string | 否 | `standard` 或 `alternating`；字段缺失或空值时保留当前值 |
+| siteTitle | string | 否 | 站点标题；字段缺失或空值时保留当前值 |
+| siteDescription | string | 否 | 站点描述；字段缺失或空值时保留当前值 |
+| siteKeywords | string | 否 | 站点关键词；字段缺失或空值时保留当前值 |
+| siteBaseUrl | string | 否 | 字段缺失时保留当前值；显式空字符串表示清空，非空必须为 `http://` 或 `https://` URL |
 | projectsPageEnabled | bool | 否 | 是否启用 `/projects` 项目页面；不传时保留当前值 |
 | projectsNavHidden | bool | 否 | 是否在前台导航隐藏项目入口；不传时保留当前值 |
 
-可选布尔字段只有“字段未出现在请求 JSON 中”才表示保留当前值；显式传入 `false` 会把对应开关更新为关闭。
+所有可选字段缺失时均保留当前值。可选布尔字段显式传入 `false` 会把对应开关更新为关闭；仅 `siteBaseUrl` 支持用显式空字符串清空。
 
 ### 获取项目页面内容
 
@@ -666,7 +666,7 @@ GET /rss.xml
 GET /sitemap.xml
 ```
 
-权限：公开。分别返回公开文章的 RSS XML 和站点 XML Sitemap；已启用的 `/projects` 页面也会进入 Sitemap，RSS 中会作为静态页面条目输出。
+权限：公开。分别返回公开文章的 RSS XML 和站点 XML Sitemap；查询只读取标题、摘要和时间等轻量字段，不读取文章正文。RSS 按发布时间保留最近 50 篇公开文章；Sitemap 在单文件最多 50,000 个 URL 的限制内纳入全部公开文章，超出部分不在本文件中输出。已启用的 `/projects` 页面也会进入 Sitemap，RSS 中会作为静态页面条目输出。
 
 ## 流量接口
 
@@ -743,15 +743,17 @@ PUT /api/v1/admin/ai/settings
 | 字段 | 类型 | 必填 | 说明 |
 | --- | --- | --- | --- |
 | enabled | bool | 是 | 是否启用后台 AI 辅助创作 |
-| apiFormat | string | 否 | API 格式：`openai` 或 `anthropic`；旧配置缺失时默认为 `openai` |
-| baseUrl | string | 否 | 上游接口基础地址，非空必须为解析到公网地址的 `http://` 或 `https://` URL |
+| apiFormat | string | 否 | API 格式：`openai` 或 `anthropic`；字段缺失时保留当前值，旧配置缺失时默认为 `openai` |
+| baseUrl | string | 否 | 字段缺失时保留当前值；非空必须为解析到公网地址的 `http://` 或 `https://` URL，AI 关闭时可用显式空字符串清空 |
 | apiKey | string | 否 | 新 API Key；为空表示保留已保存密钥 |
 | clearApiKey | bool | 否 | 是否清空已保存 API Key；传入新 `apiKey` 时应为 `false` |
-| model | string | 否 | 模型名称，最长 120 |
-| firstByteTimeoutSeconds | int | 否 | 首字等待超时，默认 60，范围 1 到 1800 |
-| nonStreamTimeoutSeconds | int | 否 | 非流式输出总超时，默认 600，范围 1 到 1800，不能小于首字等待且不能超过服务端请求超时 |
+| model | string | 否 | 字段缺失时保留当前值；模型名称最长 120，AI 关闭时可用显式空字符串清空 |
+| firstByteTimeoutSeconds | int | 否 | 字段缺失时保留当前值；显式 `0` 恢复默认 60，其他值范围 1 到 1800 |
+| nonStreamTimeoutSeconds | int | 否 | 字段缺失时保留当前值；显式 `0` 恢复默认 600，其他值范围 1 到 1800，不能小于首字等待且不能超过服务端请求超时 |
 
-切换 `apiFormat` 或 `baseUrl` 时，若原来已保存 API Key，必须同时传入新 `apiKey` 或设置 `clearApiKey = true`，避免把旧服务商密钥误发给新端点。启用 AI 时 `baseUrl`、`model` 和可正常解密的 API Key 均为必需项。
+字段缺失一律保留当前值。切换到非空的新 `apiFormat` 或 `baseUrl` 组合时，若原来已保存 API Key，必须同时传入新 `apiKey` 或设置 `clearApiKey = true`，避免把旧服务商密钥误发给新端点；关闭 AI 并清空地址/模型时可继续保留密钥。启用 AI 时 `baseUrl`、`model` 和可正常解密的 API Key 均为必需项。
+
+AI 出站请求在每次新建连接时重新解析域名，解析结果只要包含私网、本机、链路本地、CGNAT、文档或保留地址就整体拒绝，并直接连接已校验的公网 IP；请求不使用环境 HTTP 代理，也不跟随重定向，以防 DNS 重绑定或代理端重新解析绕过校验。
 
 响应 `data`：
 

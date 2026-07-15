@@ -60,7 +60,7 @@ http://127.0.0.1:1270
 ## 技术栈
 
 - 后端：Go 1.25、go-zero REST、MySQL 8.4、Redis 7.4、Meilisearch 1.13、RabbitMQ 4、JWT、bcrypt。
-  - Docker Compose 默认启动本地 MySQL / Redis / RabbitMQ；Meilisearch 可通过 Compose 的 `search` profile 按需启动。
+  - Docker Compose 默认启动本地 MySQL / Redis / RabbitMQ 容器；快速开始的 `.env.example` 会启用 RabbitMQ 异步日志，Compose 代码自身的 `APP_RABBITMQ_ENABLED` 回退值为 `false`。Meilisearch 可通过 Compose 的 `search` profile 按需启动。
 - 前端：React 18、TypeScript、Vite 5、Tailwind CSS 3、Zustand、Axios、Framer Motion、ECharts、React Markdown。
 - 部署：Docker、Docker Compose、Nginx、1Panel。
 - 文档与脚本：API 文档位于 [docs/API.md](docs/API.md)，数据库脚本位于 [deploy/mysql](deploy/mysql)。
@@ -149,14 +149,14 @@ Copy-Item .env.example .env
 - `APP_REDIS_DB`：Redis DB 编号，默认 `0`。
 - `APP_RABBITMQ_USER`：本地 Compose RabbitMQ 用户，默认 `notes_user`。
 - `APP_RABBITMQ_PASSWORD`：本地 Compose RabbitMQ 密码，需和 `APP_RABBITMQ_URL` 中的密码保持一致。
-- `APP_RABBITMQ_ENABLED`：是否启用 RabbitMQ 异步日志，Compose 默认 `true`。
+- `APP_RABBITMQ_ENABLED`：是否启用 RabbitMQ 异步日志。快速开始模板 `.env.example` 显式设为 `true` 以使用本地 RabbitMQ；若不使用模板且未传该变量，`docker-compose.yml` 的代码回退值为 `false`。
 - `APP_RABBITMQ_URL`：RabbitMQ AMQP 地址，Compose 默认连接本地服务：`amqp://notes_user:password@rabbitmq:5672/`。
 - `APP_RABBITMQ_EXCHANGE`：RabbitMQ 交换器名，默认 `notes-of-ashen.events`，通常无需修改。
 - `APP_RABBITMQ_QUEUE`：RabbitMQ 队列名，默认 `notes-of-ashen.operation_logs`，通常无需修改。
 - `APP_RABBITMQ_ROUTING_KEY`：RabbitMQ 路由键，默认 `operation.log`，通常无需修改。
 - `APP_SEARCH_ENABLED`：是否启用 Meilisearch 全文搜索，默认 `false`，关闭时自动回退 MySQL 查询。
 - `APP_MEILISEARCH_HOST`：API 访问 Meilisearch 的地址，Docker 部署默认 `http://meilisearch:7700`。
-- `APP_MEILISEARCH_API_KEY`：Meilisearch API Key；Docker 部署时也作为 Meilisearch Master Key。启用搜索和 Compose `search` profile 时，请在 `.env` 中填写强随机字符串。
+- `APP_MEILISEARCH_API_KEY`：Meilisearch API Key；Docker 部署时也作为 Meilisearch Master Key。搜索关闭时保持为空；启用搜索和 Compose `search` profile 时，请在 `.env` 中填写强随机字符串。
 - `APP_MEILISEARCH_INDEX`：文章索引名，默认 `articles`。
 - `APP_EMAIL_ENABLED`：是否启用邮箱验证码，使用 QQ 邮箱时设置为 `true`。
 - `APP_EMAIL_SMTP_HOST`：SMTP 服务器地址，默认 `smtp.qq.com`。
@@ -179,7 +179,7 @@ Copy-Item .env.example .env
 
 ### 中间件配置
 
-当前 `docker-compose.yml` 默认启动本地 MySQL、Redis 和 RabbitMQ，API 容器通过 `.env` 中的 `mysql`、`redis`、`rabbitmq` 服务名访问它们。首次启动新的 MySQL 数据卷时会自动执行 [deploy/mysql/schema.sql](deploy/mysql/schema.sql) 初始化数据库和表结构。
+当前 `docker-compose.yml` 默认启动本地 MySQL、Redis 和 RabbitMQ 容器，API 容器通过 `.env` 中的 `mysql`、`redis`、`rabbitmq` 服务名访问它们。RabbitMQ 容器是否启动与 API 是否启用异步日志是两个概念：快速开始模板启用异步日志，而 Compose 在缺少 `APP_RABBITMQ_ENABLED` 时按 `false` 运行。首次启动新的 MySQL 数据卷时会自动执行 [deploy/mysql/schema.sql](deploy/mysql/schema.sql) 初始化数据库和表结构。
 
 如果你要改用远程 MySQL，请先完成：
 
@@ -236,7 +236,7 @@ docker compose up -d api
 
 ### AI 辅助创作配置
 
-后台文章编辑页提供文章信息一键补全、保存时自动摘要、纠错、润色、扩写、缩写和翻译能力。一键补全会生成文章标题、slug、摘要、SEO 标题、SEO 描述、SEO 关键词及分类/标签建议，只填充当前为空的文本字段；分类和标签仅展示文字建议，不会自动创建或选择。AI 配置不再从环境变量或 YAML 读取，统一由管理员在后台 AI 设置页填写并保存到数据库 `site_settings`。可选择 `openai` 或 `anthropic` API 格式，填写服务基础地址和 API Key 后，先获取模型列表、选择模型并测试连接，最后保存并启用。当前 AI 调用均为非流式请求，配置项只保留首字等待和请求总超时，默认分别为 60 秒和 600 秒；文章补全、模型列表和模型测试均由这两项服务端配置控制，不再使用前端固定 AI 超时。
+后台文章编辑页提供文章信息一键补全、保存时自动摘要、纠错、润色、扩写、缩写和翻译能力。一键补全会生成文章标题、slug、摘要、SEO 标题、SEO 描述、SEO 关键词及分类/标签建议，只填充当前为空的文本字段；分类和标签仅展示文字建议，不会自动创建或选择。AI 配置不再从环境变量或 YAML 读取，统一由管理员在后台 AI 设置页填写并保存到数据库 `site_settings`。可选择 `openai` 或 `anthropic` API 格式，填写服务基础地址和 API Key 后，先获取模型列表、选择模型并测试连接，最后保存并启用。当前 AI 调用均为非流式请求，配置项只保留首字等待和请求总超时，默认分别为 60 秒和 600 秒；文章补全、模型列表和模型测试均由这两项服务端配置控制，不再使用前端固定 AI 超时。AI Base URL 只允许解析到公网地址；每次新建连接都会重新解析并固定到已校验 IP，拒绝私网、保留地址和公私混合结果，且不使用环境 HTTP 代理、不跟随重定向。因此本机或内网模型服务不会被接受。
 
 `openai` 格式可填写兼容 OpenAI API 的基础地址，例如 `https://api.example.com/v1`，也可填写完整的 `/chat/completions` 地址；`anthropic` 格式使用 Messages API，可填写主机地址或带服务前缀的基础地址，例如 `https://api.example.com`、`https://api.example.com/anthropic`。当 Anthropic 基础地址未包含 `/v1` 且不是完整的 `/messages` 或 `/models` 端点时，后端会按标准 SDK 语义补全 `/v1/messages` 或 `/v1/models`；显式完整端点和查询参数保持不变。出于 SSRF 防护，Base URL 必须解析到公网地址，不支持本机或内网模型服务。获取模型和测试模型接口都接受尚未保存的草稿连接配置，便于保存前验证；模型测试使用固定 JSON 探针并预留 512 个输出 token，以兼容先生成思考块的模型。不要把真实 API Key 写入 README、Issue、提交记录或截图中。
 

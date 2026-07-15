@@ -46,6 +46,16 @@ type Article struct {
 	UpdatedAt       time.Time
 }
 
+// PublicArticleEntry 是 RSS 与 Sitemap 使用的轻量公开文章条目，避免读取正文等大字段。
+type PublicArticleEntry struct {
+	ID          uint64
+	Title       string
+	Summary     string
+	PublishedAt *time.Time
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
+}
+
 type ArticleCreate struct {
 	AuthorID        uint64
 	CategoryID      uint64
@@ -392,6 +402,37 @@ func (s *Store) ListPublicArticles(ctx context.Context, limit int) ([]Article, e
 			return nil, err
 		}
 		items = append(items, *item)
+	}
+	return items, rows.Err()
+}
+
+func (s *Store) ListPublicArticleEntries(ctx context.Context, limit int) ([]PublicArticleEntry, error) {
+	if limit < 1 {
+		return []PublicArticleEntry{}, nil
+	}
+	if limit > 50000 {
+		limit = 50000
+	}
+	rows, err := s.db.QueryContext(ctx, `
+SELECT id, title, summary, published_at, created_at, updated_at
+FROM articles
+WHERE status = 'published' AND (scheduled_at IS NULL OR scheduled_at <= NOW())
+ORDER BY `+articleTimeOrder+`
+LIMIT ?`, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	items := make([]PublicArticleEntry, 0)
+	for rows.Next() {
+		var item PublicArticleEntry
+		var publishedAt sql.NullTime
+		if err := rows.Scan(&item.ID, &item.Title, &item.Summary, &publishedAt, &item.CreatedAt, &item.UpdatedAt); err != nil {
+			return nil, err
+		}
+		item.PublishedAt = timeFromNull(publishedAt)
+		items = append(items, item)
 	}
 	return items, rows.Err()
 }

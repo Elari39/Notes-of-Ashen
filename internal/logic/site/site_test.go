@@ -75,6 +75,42 @@ func TestRegistrationEnabledForUpdate(t *testing.T) {
 	}
 }
 
+func TestSiteSettingsForUpdatePreservesMissingFieldsAndClearsBaseURL(t *testing.T) {
+	current := model.SiteSettings{
+		RegistrationEnabled: true,
+		HomeArticleLayout:   model.HomeArticleLayoutAlternating,
+		SiteTitle:           "Title",
+		SiteDescription:     "Description",
+		SiteKeywords:        "go,blog",
+		SiteBaseURL:         "https://example.com",
+		ProjectsPageEnabled: true,
+		ProjectsNavHidden:   false,
+	}
+	disabled := false
+	next, err := siteSettingsForUpdate(current, types.UpdateSiteSettingsReq{RegistrationEnabled: &disabled})
+	if err != nil {
+		t.Fatalf("siteSettingsForUpdate() error = %v", err)
+	}
+	if next.SiteBaseURL != current.SiteBaseURL || next.SiteTitle != current.SiteTitle || next.HomeArticleLayout != current.HomeArticleLayout {
+		t.Fatalf("missing fields were not preserved: %#v", next)
+	}
+	if next.RegistrationEnabled {
+		t.Fatal("explicit false registrationEnabled was not applied")
+	}
+
+	empty := ""
+	next, err = siteSettingsForUpdate(current, types.UpdateSiteSettingsReq{SiteBaseURL: &empty})
+	if err != nil {
+		t.Fatalf("siteSettingsForUpdate(clear base URL) error = %v", err)
+	}
+	if next.SiteBaseURL != "" {
+		t.Fatalf("SiteBaseURL = %q, want empty", next.SiteBaseURL)
+	}
+	if next.SiteTitle != current.SiteTitle {
+		t.Fatal("clearing siteBaseUrl changed unrelated fields")
+	}
+}
+
 func TestValidateProjectsPageReq(t *testing.T) {
 	content, err := validateProjectsPageReq(types.UpdateProjectsPageReq{
 		Title:    " 项目 ",

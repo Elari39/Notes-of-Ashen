@@ -1,10 +1,39 @@
 package model
 
 import (
+	"context"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/DATA-DOG/go-sqlmock"
 )
+
+func TestListPublicArticleEntriesUsesLightweightFields(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("create sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	now := time.Date(2026, 7, 15, 12, 0, 0, 0, time.UTC)
+	mock.ExpectQuery(regexp.QuoteMeta("SELECT id, title, summary, published_at, created_at, updated_at FROM articles WHERE status = 'published' AND (scheduled_at IS NULL OR scheduled_at <= NOW()) ORDER BY " + articleTimeOrder + " LIMIT ?")).
+		WithArgs(50).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "title", "summary", "published_at", "created_at", "updated_at"}).
+			AddRow(1, "Title", "Summary", now, now.Add(-time.Hour), now))
+
+	items, err := NewStore(db).ListPublicArticleEntries(context.Background(), 50)
+	if err != nil {
+		t.Fatalf("ListPublicArticleEntries() error = %v", err)
+	}
+	if len(items) != 1 || items[0].Title != "Title" || items[0].PublishedAt == nil {
+		t.Fatalf("items = %#v", items)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet SQL expectations: %v", err)
+	}
+}
 
 func TestArticleWherePublicFilters(t *testing.T) {
 	where, args := articleWhere(ArticleFilter{

@@ -8,6 +8,13 @@ import (
 	"time"
 
 	"notes-of-ashen/internal/svc"
+	"notes-of-ashen/model"
+)
+
+const (
+	rssArticleLimit = 50
+	maxSitemapURLs  = 50000
+	baseSitemapURLs = 3
 )
 
 type rssDocument struct {
@@ -48,7 +55,7 @@ func RSS(ctx context.Context, svcCtx *svc.ServiceContext, requestBaseURL string)
 		return nil, err
 	}
 	baseURL := effectiveBaseURL(settings.SiteBaseURL, requestBaseURL)
-	articles, err := svcCtx.Store.ListPublicArticles(ctx, 50)
+	articles, err := svcCtx.Store.ListPublicArticleEntries(ctx, rssArticleLimit)
 	if err != nil {
 		return nil, err
 	}
@@ -100,24 +107,15 @@ func Sitemap(ctx context.Context, svcCtx *svc.ServiceContext, requestBaseURL str
 		return nil, err
 	}
 	baseURL := effectiveBaseURL(settings.SiteBaseURL, requestBaseURL)
-	articles, err := svcCtx.Store.ListPublicArticles(ctx, 100)
+	articleLimit := maxSitemapURLs - baseSitemapURLs
+	if settings.ProjectsPageEnabled {
+		articleLimit--
+	}
+	articles, err := svcCtx.Store.ListPublicArticleEntries(ctx, articleLimit)
 	if err != nil {
 		return nil, err
 	}
-	urls := []sitemapURL{
-		{Loc: baseURL + "/"},
-		{Loc: baseURL + "/archive"},
-		{Loc: baseURL + "/search"},
-	}
-	if settings.ProjectsPageEnabled {
-		urls = append(urls, sitemapURL{Loc: baseURL + "/projects"})
-	}
-	for _, article := range articles {
-		urls = append(urls, sitemapURL{
-			Loc:     articleURL(baseURL, article.ID),
-			LastMod: article.UpdatedAt.Format("2006-01-02"),
-		})
-	}
+	urls := sitemapURLs(baseURL, settings.ProjectsPageEnabled, articles)
 	body, err := xml.MarshalIndent(sitemapURLSet{
 		XMLNS: "http://www.sitemaps.org/schemas/sitemap/0.9",
 		URLs:  urls,
@@ -126,6 +124,27 @@ func Sitemap(ctx context.Context, svcCtx *svc.ServiceContext, requestBaseURL str
 		return nil, err
 	}
 	return append([]byte(xml.Header), body...), nil
+}
+
+func sitemapURLs(baseURL string, projectsPageEnabled bool, articles []model.PublicArticleEntry) []sitemapURL {
+	urls := []sitemapURL{
+		{Loc: baseURL + "/"},
+		{Loc: baseURL + "/archive"},
+		{Loc: baseURL + "/search"},
+	}
+	if projectsPageEnabled {
+		urls = append(urls, sitemapURL{Loc: baseURL + "/projects"})
+	}
+	for _, article := range articles {
+		if len(urls) >= maxSitemapURLs {
+			break
+		}
+		urls = append(urls, sitemapURL{
+			Loc:     articleURL(baseURL, article.ID),
+			LastMod: article.UpdatedAt.Format("2006-01-02"),
+		})
+	}
+	return urls
 }
 
 func effectiveBaseURL(setting, requestBaseURL string) string {

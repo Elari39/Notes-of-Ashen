@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { getContrastingTextColor, hexToRgba, isHexColor } from '../utils/color';
+import { safeLocalStorage } from '../utils/storage';
 
 export type Language = 'zh' | 'en';
 export type ThemePreference = 'system' | 'light' | 'dark';
@@ -37,12 +38,12 @@ const resolveEffectiveTheme = (themePreference: ThemePreference): EffectiveTheme
 
 const readLanguage = (): Language => {
   if (!isBrowser()) return 'zh';
-  return localStorage.getItem(LANGUAGE_KEY) === 'en' ? 'en' : 'zh';
+  return safeLocalStorage.getItem(LANGUAGE_KEY) === 'en' ? 'en' : 'zh';
 };
 
 const readThemePreference = (): ThemePreference => {
   if (!isBrowser()) return 'system';
-  const storedTheme = localStorage.getItem(THEME_KEY);
+  const storedTheme = safeLocalStorage.getItem(THEME_KEY);
   if (storedTheme === 'light' || storedTheme === 'dark' || storedTheme === 'system') {
     return storedTheme;
   }
@@ -51,7 +52,7 @@ const readThemePreference = (): ThemePreference => {
 
 const readAccentColor = () => {
   if (!isBrowser()) return '';
-  const value = localStorage.getItem(ACCENT_KEY) || '';
+  const value = safeLocalStorage.getItem(ACCENT_KEY) || '';
   return isHexColor(value) ? value : '';
 };
 
@@ -102,7 +103,7 @@ export const usePreferenceStore = create<PreferenceState>((set, get) => ({
   accentColor: initialAccentColor,
   setLanguage: (language) => {
     if (isBrowser()) {
-      localStorage.setItem(LANGUAGE_KEY, language);
+      safeLocalStorage.setItem(LANGUAGE_KEY, language);
     }
     applyLanguage(language);
     set({ language });
@@ -113,7 +114,7 @@ export const usePreferenceStore = create<PreferenceState>((set, get) => ({
   },
   setThemePreference: (themePreference) => {
     if (isBrowser()) {
-      localStorage.setItem(THEME_KEY, themePreference);
+      safeLocalStorage.setItem(THEME_KEY, themePreference);
     }
     const effectiveTheme = resolveEffectiveTheme(themePreference);
     applyTheme(effectiveTheme);
@@ -125,9 +126,9 @@ export const usePreferenceStore = create<PreferenceState>((set, get) => ({
     const normalized = isHexColor(accentColor) ? accentColor : '';
     if (isBrowser()) {
       if (normalized) {
-        localStorage.setItem(ACCENT_KEY, normalized);
+        safeLocalStorage.setItem(ACCENT_KEY, normalized);
       } else {
-        localStorage.removeItem(ACCENT_KEY);
+        safeLocalStorage.removeItem(ACCENT_KEY);
       }
     }
     applyAccentColor(normalized);

@@ -19,6 +19,8 @@ import {
   type ArchiveMonthNode,
   type ArchiveYearNode,
 } from '../utils/archiveTree';
+import { collectPaginated } from '../utils/pagination';
+import { useSEO } from '../utils/seo';
 
 const ARCHIVE_PAGE_SIZE = 100;
 
@@ -35,6 +37,8 @@ const Archive: React.FC = () => {
   const [expandedKeys, setExpandedKeys] = useState<Set<string>>(() => new Set());
   const t = (key: Parameters<typeof translate>[1]) => translate(language, key);
   const archiveTree = useMemo(() => buildArchiveTree(articles), [articles]);
+
+  useSEO(t('nav.archive'));
 
   useEffect(() => {
     let active = true;
@@ -63,17 +67,17 @@ const Archive: React.FC = () => {
       setFiltersLoading(true);
       setFiltersError(false);
       const [categoryResult, tagResult] = await Promise.allSettled([
-        getCategories({ size: ARCHIVE_PAGE_SIZE }),
-        getTags({ size: ARCHIVE_PAGE_SIZE }),
+        collectPaginated(getCategories, { pageSize: ARCHIVE_PAGE_SIZE, signal: controller.signal }),
+        collectPaginated(getTags, { pageSize: ARCHIVE_PAGE_SIZE, signal: controller.signal }),
       ]);
       if (!active) {
         return;
       }
       if (categoryResult.status === 'fulfilled') {
-        setCategories(categoryResult.value.data.items || []);
+        setCategories(categoryResult.value);
       }
       if (tagResult.status === 'fulfilled') {
-        setTags(tagResult.value.data.items || []);
+        setTags(tagResult.value);
       }
       setFiltersError(categoryResult.status === 'rejected' || tagResult.status === 'rejected');
       setFiltersLoading(false);
@@ -452,19 +456,10 @@ const PageMarkIcon = () => (
 );
 
 const getAllPublishedArticles = async (signal: AbortSignal): Promise<Article[]> => {
-  const items: Article[] = [];
-  let page = 1;
-  let hasMore = true;
-  while (hasMore) {
-    const response = await getArticles({ page, size: ARCHIVE_PAGE_SIZE, status: 'published' }, signal);
-    const pageItems = response.data.items || [];
-    items.push(...pageItems);
-    hasMore = pageItems.length === ARCHIVE_PAGE_SIZE && page * ARCHIVE_PAGE_SIZE < response.data.total;
-    if (hasMore) {
-      page += 1;
-    }
-  }
-  return items;
+  return collectPaginated(
+    (params, requestSignal) => getArticles({ ...params, status: 'published' }, requestSignal),
+    { pageSize: ARCHIVE_PAGE_SIZE, signal },
+  );
 };
 
 const formatArchiveYear = (year: number, language: Language) => language === 'zh' ? `${year} 年` : String(year);

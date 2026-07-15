@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -411,6 +412,76 @@ func TestHTTPStatusErrorRedactsAPIKey(t *testing.T) {
 	}
 }
 
+func TestPublicDialRejectsPrivateAndMixedDNSResults(t *testing.T) {
+	privateLookup := func(context.Context, string, string) ([]net.IP, error) {
+		return []net.IP{net.ParseIP("10.0.0.8")}, nil
+	}
+	mixedLookup := func(context.Context, string, string) ([]net.IP, error) {
+		return []net.IP{net.ParseIP("1.1.1.1"), net.ParseIP("127.0.0.1")}, nil
+	}
+	dialCalled := false
+	dial := func(context.Context, string, string) (net.Conn, error) {
+		dialCalled = true
+		return nil, errors.New("unexpected dial")
+	}
+	for name, lookup := range map[string]lookupIPFunc{"private": privateLookup, "mixed": mixedLookup} {
+		t.Run(name, func(t *testing.T) {
+			dialCalled = false
+			_, err := newPublicDialContext(lookup, dial)(context.Background(), "tcp", "provider.example:443")
+			if err == nil || !strings.Contains(err.Error(), "blocked address") {
+				t.Fatalf("dial error = %v", err)
+			}
+			if dialCalled {
+				t.Fatal("network dial was called for blocked DNS result")
+			}
+		})
+	}
+}
+
+func TestPublicDialPinsValidatedIPAndRechecksDNS(t *testing.T) {
+	lookupCalls := 0
+	lookup := func(context.Context, string, string) ([]net.IP, error) {
+		lookupCalls++
+		if lookupCalls == 1 {
+			return []net.IP{net.ParseIP("1.1.1.1")}, nil
+		}
+		return []net.IP{net.ParseIP("127.0.0.1")}, nil
+	}
+	dialAddresses := make([]string, 0, 1)
+	dial := func(_ context.Context, _, address string) (net.Conn, error) {
+		dialAddresses = append(dialAddresses, address)
+		return stubConn{}, nil
+	}
+	secureDial := newPublicDialContext(lookup, dial)
+	conn, err := secureDial(context.Background(), "tcp", "provider.example:443")
+	if err != nil {
+		t.Fatalf("first dial error = %v", err)
+	}
+	_ = conn.Close()
+	if len(dialAddresses) != 1 || dialAddresses[0] != "1.1.1.1:443" {
+		t.Fatalf("dial addresses = %v", dialAddresses)
+	}
+	if _, err := secureDial(context.Background(), "tcp", "provider.example:443"); err == nil {
+		t.Fatal("second dial accepted rebound private address")
+	}
+}
+
+type stubConn struct{}
+
+func (stubConn) Read([]byte) (int, error)         { return 0, errors.New("not implemented") }
+func (stubConn) Write(p []byte) (int, error)      { return len(p), nil }
+func (stubConn) Close() error                     { return nil }
+func (stubConn) LocalAddr() net.Addr              { return stubAddr("local") }
+func (stubConn) RemoteAddr() net.Addr             { return stubAddr("remote") }
+func (stubConn) SetDeadline(time.Time) error      { return nil }
+func (stubConn) SetReadDeadline(time.Time) error  { return nil }
+func (stubConn) SetWriteDeadline(time.Time) error { return nil }
+
+type stubAddr string
+
+func (a stubAddr) Network() string { return string(a) }
+func (a stubAddr) String() string  { return string(a) }
+
 func TestTimeoutDefaults(t *testing.T) {
 	conf := Config{}
 	if got := firstByteTimeout(conf); got != 60*time.Second {
@@ -462,5 +533,8 @@ func testConfig(baseURL, format string) Config {
 		Model:                   "test-model",
 		FirstByteTimeoutSeconds: 2,
 		NonStreamTimeoutSeconds: 2,
+		httpClient: &http.Client{CheckRedirect: func(_ *http.Request, _ []*http.Request) error {
+			return http.ErrUseLastResponse
+		}},
 	}
 }

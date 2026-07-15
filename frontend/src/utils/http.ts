@@ -13,6 +13,7 @@ import { notifyFromError } from './notify';
 import { refreshAccessToken } from './refresh';
 import { resolveDefaultTimeout } from './timeoutPolicy';
 import { getVisitorId } from './visitor';
+import { safeLocalStorage } from './storage';
 
 const http = axios.create({
   baseURL: '/api/v1',
@@ -188,11 +189,7 @@ const stableStringify = (val: unknown): string => {
 };
 
 const isDedupeDisabled = () => {
-  try {
-    return typeof localStorage !== 'undefined' && localStorage.getItem('NOA_DEDUPE') === 'off';
-  } catch {
-    return false;
-  }
+  return safeLocalStorage.getItem('NOA_DEDUPE') === 'off';
 };
 
 const getAuthorizationHeader = (headers: AxiosRequestConfig['headers']): string => {

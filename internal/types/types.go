@@ -65,14 +65,14 @@ type SiteSettingsResp struct {
 }
 
 type UpdateSiteSettingsReq struct {
-	RegistrationEnabled *bool  `json:"registrationEnabled,optional"`
-	HomeArticleLayout   string `json:"homeArticleLayout,optional"`
-	SiteTitle           string `json:"siteTitle,optional"`
-	SiteDescription     string `json:"siteDescription,optional"`
-	SiteKeywords        string `json:"siteKeywords,optional"`
-	SiteBaseURL         string `json:"siteBaseUrl,optional"`
-	ProjectsPageEnabled *bool  `json:"projectsPageEnabled,optional"`
-	ProjectsNavHidden   *bool  `json:"projectsNavHidden,optional"`
+	RegistrationEnabled *bool   `json:"registrationEnabled,optional"`
+	HomeArticleLayout   *string `json:"homeArticleLayout,optional"`
+	SiteTitle           *string `json:"siteTitle,optional"`
+	SiteDescription     *string `json:"siteDescription,optional"`
+	SiteKeywords        *string `json:"siteKeywords,optional"`
+	SiteBaseURL         *string `json:"siteBaseUrl,optional"`
+	ProjectsPageEnabled *bool   `json:"projectsPageEnabled,optional"`
+	ProjectsNavHidden   *bool   `json:"projectsNavHidden,optional"`
 }
 
 type ProjectItem struct {
@@ -123,10 +123,10 @@ type UserResp struct {
 }
 
 type UpdateMeReq struct {
-	Email     string `json:"email,optional"`
-	EmailCode string `json:"emailCode,optional"`
-	AvatarURL string `json:"avatarUrl,optional"`
-	Nickname  string `json:"nickname,optional"`
+	Email     *string `json:"email,optional"`
+	EmailCode string  `json:"emailCode,optional"`
+	AvatarURL *string `json:"avatarUrl,optional"`
+	Nickname  *string `json:"nickname,optional"`
 }
 
 type ChangePasswordReq struct {
@@ -194,14 +194,14 @@ type AISettingsResp struct {
 }
 
 type UpdateAISettingsReq struct {
-	Enabled                 bool   `json:"enabled"`
-	APIFormat               string `json:"apiFormat,optional"`
-	BaseURL                 string `json:"baseUrl,optional"`
-	APIKey                  string `json:"apiKey,optional"`
-	ClearAPIKey             bool   `json:"clearApiKey,optional"`
-	Model                   string `json:"model,optional"`
-	FirstByteTimeoutSeconds int    `json:"firstByteTimeoutSeconds,optional"`
-	NonStreamTimeoutSeconds int    `json:"nonStreamTimeoutSeconds,optional"`
+	Enabled                 bool    `json:"enabled"`
+	APIFormat               *string `json:"apiFormat,optional"`
+	BaseURL                 *string `json:"baseUrl,optional"`
+	APIKey                  string  `json:"apiKey,optional"`
+	ClearAPIKey             bool    `json:"clearApiKey,optional"`
+	Model                   *string `json:"model,optional"`
+	FirstByteTimeoutSeconds *int    `json:"firstByteTimeoutSeconds,optional"`
+	NonStreamTimeoutSeconds *int    `json:"nonStreamTimeoutSeconds,optional"`
 }
 
 type AIConnectionReq struct {

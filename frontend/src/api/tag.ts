@@ -2,8 +2,8 @@ import http from '../utils/http';
 import { BaseResp, Tag, PaginatedResp } from '../types';
 import { CreateTagReq, UpdateTagReq, PageParams } from '../types/api';
 
-export const getTags = (params?: PageParams) => 
-  http.get<unknown, BaseResp<PaginatedResp<Tag>>>('/tags', { params });
+export const getTags = (params?: PageParams, signal?: AbortSignal) =>
+  http.get<unknown, BaseResp<PaginatedResp<Tag>>>('/tags', { params, signal });
 
 export const createTag = (data: CreateTagReq) => 
   http.post<unknown, BaseResp<Tag>>('/tags', data);

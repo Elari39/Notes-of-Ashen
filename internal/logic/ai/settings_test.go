@@ -113,6 +113,9 @@ func TestNormalizeAIAPIFormat(t *testing.T) {
 }
 
 func TestValidateAITimeouts(t *testing.T) {
+	if _, _, err := validateAITimeouts(-1, 600, 610000); err == nil {
+		t.Fatal("negative first byte timeout should fail")
+	}
 	if _, _, err := validateAITimeouts(int((31 * time.Minute).Seconds()), 600, 610000); err == nil {
 		t.Fatal("out-of-range first byte timeout should fail")
 	}
@@ -239,6 +242,77 @@ func TestDraftConfigUsesTemporaryKeyWithoutReadingSettings(t *testing.T) {
 	}
 	if conf.APIKey != "temporary-key" || conf.Model != "claude-model" {
 		t.Fatalf("unexpected config: %#v", conf)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestUpdateSettingsPreservesOmittedConnectionFields(t *testing.T) {
+	svcCtx, mock, closeDB := newAISettingsMockContext(t)
+	defer closeDB()
+	mock.ExpectQuery("SELECT setting_key, setting_value FROM site_settings").
+		WillReturnRows(aiSettingsRows("cipher-text", "https://api.example.com/v1", model.AIAPIFormatOpenAI))
+	mock.ExpectExec("INSERT INTO site_settings").
+		WithArgs(
+			model.AIEnabledKey, "false",
+			model.AIAPIFormatKey, model.AIAPIFormatOpenAI,
+			model.AIBaseURLKey, "https://api.example.com/v1",
+			model.AIAPIKeyCipherKey, "cipher-text",
+			model.AIModelKey, "model",
+			model.AIFirstByteTimeoutKey, "60",
+			model.AINonStreamTimeoutKey, "600",
+		).
+		WillReturnResult(sqlmock.NewResult(0, 7))
+
+	ctx := authutil.WithUser(context.Background(), 1, authutil.RoleAdmin)
+	resp, err := UpdateSettings(ctx, svcCtx, types.UpdateAISettingsReq{Enabled: false})
+	if err != nil {
+		t.Fatalf("UpdateSettings() error = %v", err)
+	}
+	if resp.BaseURL != "https://api.example.com/v1" || resp.Model != "model" || resp.FirstByteTimeoutSeconds != 60 || resp.NonStreamTimeoutSeconds != 600 {
+		t.Fatalf("omitted fields were not preserved: %#v", resp)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestUpdateSettingsCanClearDisabledEndpointAndResetTimeouts(t *testing.T) {
+	svcCtx, mock, closeDB := newAISettingsMockContext(t)
+	defer closeDB()
+	mock.ExpectQuery("SELECT setting_key, setting_value FROM site_settings").
+		WillReturnRows(aiSettingsRows("cipher-text", "https://api.example.com/v1", model.AIAPIFormatOpenAI))
+	mock.ExpectExec("INSERT INTO site_settings").
+		WithArgs(
+			model.AIEnabledKey, "false",
+			model.AIAPIFormatKey, model.AIAPIFormatOpenAI,
+			model.AIBaseURLKey, "",
+			model.AIAPIKeyCipherKey, "cipher-text",
+			model.AIModelKey, "",
+			model.AIFirstByteTimeoutKey, "60",
+			model.AINonStreamTimeoutKey, "600",
+		).
+		WillReturnResult(sqlmock.NewResult(0, 7))
+
+	empty := ""
+	zero := 0
+	ctx := authutil.WithUser(context.Background(), 1, authutil.RoleAdmin)
+	resp, err := UpdateSettings(ctx, svcCtx, types.UpdateAISettingsReq{
+		Enabled:                 false,
+		BaseURL:                 &empty,
+		Model:                   &empty,
+		FirstByteTimeoutSeconds: &zero,
+		NonStreamTimeoutSeconds: &zero,
+	})
+	if err != nil {
+		t.Fatalf("UpdateSettings() error = %v", err)
+	}
+	if resp.BaseURL != "" || resp.Model != "" || resp.FirstByteTimeoutSeconds != 60 || resp.NonStreamTimeoutSeconds != 600 {
+		t.Fatalf("explicit clear/default fields were not applied: %#v", resp)
+	}
+	if !resp.APIKeyConfigured {
+		t.Fatal("clearing a disabled endpoint should preserve the existing API key")
 	}
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Fatal(err)

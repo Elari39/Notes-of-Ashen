@@ -29,6 +29,7 @@ import {
   readAITaxonomySuggestions,
   type AITaxonomySuggestions,
 } from './articleAICompletionPolicy';
+import { safeLocalStorage } from '../../utils/storage';
 
 type TaxonomyOption = {
   id: number;
@@ -1316,7 +1317,7 @@ const editorDraftKey = (id?: string | number | false) => `article-editor:draft:$
 
 const readEditorDraft = (key: string): EditorDraft | null => {
   try {
-    const raw = localStorage.getItem(key);
+    const raw = safeLocalStorage.getItem(key);
     if (!raw) {
       return null;
     }
@@ -1331,19 +1332,11 @@ const readEditorDraft = (key: string): EditorDraft | null => {
 };
 
 const writeEditorDraft = (key: string, draft: EditorDraft) => {
-  try {
-    localStorage.setItem(key, JSON.stringify(draft));
-  } catch {
-    // localStorage may be unavailable or full; autosave failure should not block editing.
-  }
+  safeLocalStorage.setItem(key, JSON.stringify(draft));
 };
 
 const removeEditorDraft = (key: string) => {
-  try {
-    localStorage.removeItem(key);
-  } catch {
-    // ignore storage failures
-  }
+  safeLocalStorage.removeItem(key);
 };
 
 const applyEditorDraft = (draft: EditorDraft, setters: DraftSetters) => {

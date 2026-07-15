@@ -16,11 +16,35 @@ import (
 	"notes-of-ashen/internal/authutil"
 	apperrors "notes-of-ashen/internal/errors"
 	"notes-of-ashen/internal/svc"
+	"notes-of-ashen/internal/types"
 	"notes-of-ashen/model"
 
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/redis/go-redis/v9"
 )
+
+type evalResultHook struct {
+	result int64
+}
+
+func (h evalResultHook) DialHook(next redis.DialHook) redis.DialHook {
+	return next
+}
+
+func (h evalResultHook) ProcessHook(redis.ProcessHook) redis.ProcessHook {
+	return func(_ context.Context, cmd redis.Cmder) error {
+		result, ok := cmd.(*redis.Cmd)
+		if !ok {
+			return fmt.Errorf("unexpected redis command %T", cmd)
+		}
+		result.SetVal(h.result)
+		return nil
+	}
+}
+
+func (h evalResultHook) ProcessPipelineHook(next redis.ProcessPipelineHook) redis.ProcessPipelineHook {
+	return next
+}
 
 var recordingDriverSequence atomic.Uint64
 
@@ -153,6 +177,38 @@ func TestShouldSendResetPasswordCodeHidesAccountState(t *testing.T) {
 			}
 			if (err != nil) != tt.wantErr {
 				t.Fatalf("err = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestResetPasswordRejectsInvalidCodeBeforeLookingUpAccount(t *testing.T) {
+	for name, result := range map[string]int64{"expired": 0, "incorrect": -1} {
+		t.Run(name, func(t *testing.T) {
+			db, mock, err := sqlmock.New()
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer db.Close()
+
+			redisClient := redis.NewClient(&redis.Options{Addr: "unused:6379"})
+			redisClient.AddHook(evalResultHook{result: result})
+			defer redisClient.Close()
+
+			err = ResetPassword(context.Background(), &svc.ServiceContext{
+				Store: model.NewStore(db),
+				Redis: redisClient,
+			}, types.ResetPasswordReq{
+				Email:       "missing@example.com",
+				EmailCode:   "123456",
+				NewPassword: "new-password",
+			}, types.RequestMeta{})
+			var codeErr *apperrors.CodeError
+			if !errors.As(err, &codeErr) || codeErr.StatusCode != 400 || codeErr.Message != "email code is invalid or expired" {
+				t.Fatalf("ResetPassword() error = %#v", err)
+			}
+			if err := mock.ExpectationsWereMet(); err != nil {
+				t.Fatalf("password reset queried account before code validation: %v", err)
 			}
 		})
 	}

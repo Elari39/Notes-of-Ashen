@@ -42,51 +42,11 @@ func UpdateSettings(ctx context.Context, svcCtx *svc.ServiceContext, req types.U
 	if err != nil {
 		return nil, err
 	}
-	layout := req.HomeArticleLayout
-	if layout == "" {
-		layout = currentSettings.HomeArticleLayout
-	}
-	if !isValidHomeArticleLayout(layout) {
-		return nil, errors.BadRequest("homeArticleLayout is invalid")
-	}
-	siteTitle := strings.TrimSpace(req.SiteTitle)
-	if siteTitle == "" {
-		siteTitle = currentSettings.SiteTitle
-	}
-	if err := validator.Length(siteTitle, "siteTitle", 1, 160); err != nil {
+	nextSettings, err := siteSettingsForUpdate(*currentSettings, req)
+	if err != nil {
 		return nil, err
 	}
-	siteDescription := strings.TrimSpace(req.SiteDescription)
-	if siteDescription == "" {
-		siteDescription = currentSettings.SiteDescription
-	}
-	if err := validator.Length(siteDescription, "siteDescription", 1, 255); err != nil {
-		return nil, err
-	}
-	siteKeywords := strings.TrimSpace(req.SiteKeywords)
-	if siteKeywords == "" {
-		siteKeywords = currentSettings.SiteKeywords
-	}
-	if err := validator.Length(siteKeywords, "siteKeywords", 1, 255); err != nil {
-		return nil, err
-	}
-	siteBaseURL := strings.TrimRight(strings.TrimSpace(req.SiteBaseURL), "/")
-	if err := validator.OptionalHTTPURL(siteBaseURL, "siteBaseUrl"); err != nil {
-		return nil, err
-	}
-	registrationEnabled := registrationEnabledForUpdate(currentSettings.RegistrationEnabled, req.RegistrationEnabled)
-	projectsPageEnabled := boolForUpdate(currentSettings.ProjectsPageEnabled, req.ProjectsPageEnabled)
-	projectsNavHidden := boolForUpdate(currentSettings.ProjectsNavHidden, req.ProjectsNavHidden)
-	if err := svcCtx.Store.UpdateSiteSettings(ctx, model.SiteSettings{
-		RegistrationEnabled: registrationEnabled,
-		HomeArticleLayout:   layout,
-		SiteTitle:           siteTitle,
-		SiteDescription:     siteDescription,
-		SiteKeywords:        siteKeywords,
-		SiteBaseURL:         siteBaseURL,
-		ProjectsPageEnabled: projectsPageEnabled,
-		ProjectsNavHidden:   projectsNavHidden,
-	}); err != nil {
+	if err := svcCtx.Store.UpdateSiteSettings(ctx, nextSettings); err != nil {
 		return nil, err
 	}
 	evictSiteSettingsCache(ctx, svcCtx)
@@ -100,6 +60,57 @@ func UpdateSettings(ctx context.Context, svcCtx *svc.ServiceContext, req types.U
 	}
 	isFirstUser := total == 0
 	return siteSettingsResp(settings, isFirstUser, logicutil.RegistrationEmailCodeRequired(isFirstUser, svcCtx.Config.Email.Enabled)), nil
+}
+
+func siteSettingsForUpdate(currentSettings model.SiteSettings, req types.UpdateSiteSettingsReq) (model.SiteSettings, error) {
+	layout := currentSettings.HomeArticleLayout
+	if req.HomeArticleLayout != nil && strings.TrimSpace(*req.HomeArticleLayout) != "" {
+		layout = strings.TrimSpace(*req.HomeArticleLayout)
+	}
+	if !isValidHomeArticleLayout(layout) {
+		return model.SiteSettings{}, errors.BadRequest("homeArticleLayout is invalid")
+	}
+	siteTitle := currentSettings.SiteTitle
+	if req.SiteTitle != nil && strings.TrimSpace(*req.SiteTitle) != "" {
+		siteTitle = strings.TrimSpace(*req.SiteTitle)
+	}
+	if err := validator.Length(siteTitle, "siteTitle", 1, 160); err != nil {
+		return model.SiteSettings{}, err
+	}
+	siteDescription := currentSettings.SiteDescription
+	if req.SiteDescription != nil && strings.TrimSpace(*req.SiteDescription) != "" {
+		siteDescription = strings.TrimSpace(*req.SiteDescription)
+	}
+	if err := validator.Length(siteDescription, "siteDescription", 1, 255); err != nil {
+		return model.SiteSettings{}, err
+	}
+	siteKeywords := currentSettings.SiteKeywords
+	if req.SiteKeywords != nil && strings.TrimSpace(*req.SiteKeywords) != "" {
+		siteKeywords = strings.TrimSpace(*req.SiteKeywords)
+	}
+	if err := validator.Length(siteKeywords, "siteKeywords", 1, 255); err != nil {
+		return model.SiteSettings{}, err
+	}
+	siteBaseURL := currentSettings.SiteBaseURL
+	if req.SiteBaseURL != nil {
+		siteBaseURL = strings.TrimRight(strings.TrimSpace(*req.SiteBaseURL), "/")
+	}
+	if err := validator.OptionalHTTPURL(siteBaseURL, "siteBaseUrl"); err != nil {
+		return model.SiteSettings{}, err
+	}
+	registrationEnabled := registrationEnabledForUpdate(currentSettings.RegistrationEnabled, req.RegistrationEnabled)
+	projectsPageEnabled := boolForUpdate(currentSettings.ProjectsPageEnabled, req.ProjectsPageEnabled)
+	projectsNavHidden := boolForUpdate(currentSettings.ProjectsNavHidden, req.ProjectsNavHidden)
+	return model.SiteSettings{
+		RegistrationEnabled: registrationEnabled,
+		HomeArticleLayout:   layout,
+		SiteTitle:           siteTitle,
+		SiteDescription:     siteDescription,
+		SiteKeywords:        siteKeywords,
+		SiteBaseURL:         siteBaseURL,
+		ProjectsPageEnabled: projectsPageEnabled,
+		ProjectsNavHidden:   projectsNavHidden,
+	}, nil
 }
 
 func ProjectsPage(ctx context.Context, svcCtx *svc.ServiceContext) (*types.ProjectsPageResp, error) {

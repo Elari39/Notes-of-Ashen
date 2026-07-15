@@ -16,6 +16,7 @@ import Button from './components/ui/Button';
 import { reportVisit } from './api/traffic';
 import { translate } from './i18n';
 import { resolvePublicFeatureRoute } from './store/siteSettingsPolicy';
+import { safeSessionStorage } from './utils/storage';
 import {
   AdminAISettings,
   AdminArticles,
@@ -208,11 +209,11 @@ const TrafficReporter = () => {
       return;
     }
     const duplicateKey = `traffic:${path}`;
-    const lastReported = Number(sessionStorage.getItem(duplicateKey) || 0);
+    const lastReported = Number(safeSessionStorage.getItem(duplicateKey) || 0);
     if (Date.now() - lastReported < 5000) {
       return;
     }
-    sessionStorage.setItem(duplicateKey, String(Date.now()));
+    safeSessionStorage.setItem(duplicateKey, String(Date.now()));
 
     const articleMatch = location.pathname.match(/^\/article\/(\d+)/);
     const referrer = previousPublicPath.current

@@ -51,3 +51,10 @@ test('未知错误重复转换时使用页面提供的场景化兜底文案', ()
   assert.equal(getErrorMessage(first, 'AI 辅助失败'), 'AI 辅助失败');
   assert.equal(first.sourceMessage, 'unexpected upstream failure');
 });
+
+test('无效和过期邮箱验证码使用统一提示', () => {
+  assert.equal(
+    getErrorMessage(new AppError('email code is invalid or expired')),
+    '邮箱验证码无效或已过期，请重新获取',
+  );
+});

@@ -252,15 +252,17 @@ func ResetPassword(ctx context.Context, svcCtx *svc.ServiceContext, req types.Re
 		return err
 	}
 
+	// 先原子消费验证码，再查询账户。无效请求不会因 404/403/400 差异泄露
+	// 邮箱是否注册或账户是否被禁用；只有持有有效验证码的请求才进入账户查询。
+	if err := security.ConsumeEmailCode(ctx, svcCtx.Redis, "reset_password", req.Email, req.EmailCode); err != nil {
+		return err
+	}
 	user, err := svcCtx.Store.FindUserByEmail(ctx, req.Email)
 	if err != nil {
 		return logicutil.MapError(err)
 	}
 	if user.Status != "active" {
 		return apperrors.Forbidden("user is disabled")
-	}
-	if err := security.ConsumeEmailCode(ctx, svcCtx.Redis, "reset_password", req.Email, req.EmailCode); err != nil {
-		return err
 	}
 	hash, err := bcrypt.GenerateFromPassword([]byte(req.NewPassword), bcrypt.DefaultCost)
 	if err != nil {

@@ -1,6 +1,9 @@
 package validator
 
-import "testing"
+import (
+	"net"
+	"testing"
+)
 
 func TestOptionalHTTPURL(t *testing.T) {
 	tests := []struct {
@@ -53,5 +56,33 @@ func TestEmailRequiresPlainAddress(t *testing.T) {
 				t.Fatalf("expected nil error, got %v", err)
 			}
 		})
+	}
+}
+
+func TestIsBlockedHostIP(t *testing.T) {
+	for _, value := range []string{
+		"127.0.0.1",
+		"10.0.0.1",
+		"100.64.0.1",
+		"169.254.169.254",
+		"192.0.2.1",
+		"198.18.0.1",
+		"203.0.113.1",
+		"::1",
+		"64:ff9b::10.0.0.1",
+		"fc00::1",
+		"fe80::1",
+		"2001:2::1",
+		"2001:db8::1",
+		"2002:0a00:0001::1",
+	} {
+		if !IsBlockedHostIP(net.ParseIP(value)) {
+			t.Errorf("IsBlockedHostIP(%q) = false, want true", value)
+		}
+	}
+	for _, value := range []string{"1.1.1.1", "8.8.8.8", "2606:4700:4700::1111"} {
+		if IsBlockedHostIP(net.ParseIP(value)) {
+			t.Errorf("IsBlockedHostIP(%q) = true, want false", value)
+		}
 	}
 }

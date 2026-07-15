@@ -15,6 +15,7 @@ import { formatText, translate } from '../i18n';
 import { useSEO } from '../utils/seo';
 import { routeLoaders } from '../routes/lazyRoutes';
 import { trapFocus } from '../utils/focusTrap';
+import { routeUsesOwnSEO } from '../utils/routeSeo';
 
 const Layout: React.FC = () => {
   const { user, logout } = useAuthStore(useShallow((state) => ({ user: state.user, logout: state.logout })));
@@ -71,7 +72,7 @@ const Layout: React.FC = () => {
     ? `${t('preferences.themeSystem')} / ${effectiveTheme === 'dark' ? t('preferences.themeDark') : t('preferences.themeLight')}`
     : (effectiveTheme === 'dark' ? t('preferences.themeDark') : t('preferences.themeLight'));
   const pageTransitionKey = location.pathname.startsWith('/admin') ? 'admin' : location.pathname;
-  const usesRouteSEO = location.pathname.startsWith('/article/') || location.pathname.startsWith('/admin/preview/');
+  const usesRouteSEO = routeUsesOwnSEO(location.pathname);
   const pageTransition = shouldReduceMotion
     ? { duration: 0.01 }
     : { duration: 0.24, ease: [0.22, 1, 0.36, 1] };

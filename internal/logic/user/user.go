@@ -43,34 +43,40 @@ func UpdateMe(ctx context.Context, svcCtx *svc.ServiceContext, req types.UpdateM
 	}
 
 	currentEmail := security.NormalizeEmail(current.Email)
-	req.Email = security.NormalizeEmail(req.Email)
 	req.EmailCode = strings.TrimSpace(req.EmailCode)
-	req.AvatarURL = strings.TrimSpace(req.AvatarURL)
-	req.Nickname = strings.TrimSpace(req.Nickname)
-	if req.Email == "" {
-		req.Email = currentEmail
+	email := currentEmail
+	if req.Email != nil && security.NormalizeEmail(*req.Email) != "" {
+		email = security.NormalizeEmail(*req.Email)
 	}
-	if err := validator.Email(req.Email); err != nil {
+	avatarURL := current.AvatarURL
+	if req.AvatarURL != nil {
+		avatarURL = strings.TrimSpace(*req.AvatarURL)
+	}
+	nickname := current.Nickname
+	if req.Nickname != nil {
+		nickname = strings.TrimSpace(*req.Nickname)
+	}
+	if err := validator.Email(email); err != nil {
 		return nil, err
 	}
-	if req.Nickname != "" {
-		if err := validator.Length(req.Nickname, "nickname", 1, 64); err != nil {
+	if nickname != "" {
+		if err := validator.Length(nickname, "nickname", 1, 64); err != nil {
 			return nil, err
 		}
 	}
-	if err := validator.OptionalHTTPURL(req.AvatarURL, "avatarUrl"); err != nil {
+	if err := validator.OptionalHTTPURL(avatarURL, "avatarUrl"); err != nil {
 		return nil, err
 	}
-	if req.Email != currentEmail {
-		if err := security.ConsumeEmailCode(ctx, svcCtx.Redis, "update_email", req.Email, req.EmailCode); err != nil {
+	if email != currentEmail {
+		if err := security.ConsumeEmailCode(ctx, svcCtx.Redis, "update_email", email, req.EmailCode); err != nil {
 			return nil, err
 		}
 	}
 
 	if err := svcCtx.Store.UpdateUserProfile(ctx, userID, model.UserUpdate{
-		Email:     req.Email,
-		AvatarURL: req.AvatarURL,
-		Nickname:  req.Nickname,
+		Email:     email,
+		AvatarURL: avatarURL,
+		Nickname:  nickname,
 	}); err != nil {
 		if logicutil.IsDuplicate(err) {
 			return nil, apperrors.Conflict("email already exists")

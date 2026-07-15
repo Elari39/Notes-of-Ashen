@@ -27,6 +27,7 @@ type Config struct {
 	Model                   string
 	FirstByteTimeoutSeconds int
 	NonStreamTimeoutSeconds int
+	httpClient              *http.Client
 }
 
 // HTTPStatusError 表示上游 AI 服务返回了非 2xx HTTP 状态。

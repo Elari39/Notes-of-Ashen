@@ -17,6 +17,7 @@ import { normalizeCoverUrl } from '../utils/cover';
 import { extractMarkdownHeadings, type MarkdownHeading } from '../utils/markdownHeadings';
 import type { Article, ArticleContext } from '../types';
 import { routeLoaders } from '../routes/lazyRoutes';
+import { safeLocalStorage } from '../utils/storage';
 
 type ArticleDetailData = Article & { content: string };
 
@@ -79,7 +80,7 @@ const ArticleDetail: React.FC = () => {
         }
         setArticle({ ...res.data, content: res.data.content || '' });
         setLikeCount(res.data.likeCount || 0);
-        setHasLiked(localStorage.getItem(articleLikeStorageKey(res.data.id)) === '1');
+        setHasLiked(safeLocalStorage.getItem(articleLikeStorageKey(res.data.id)) === '1');
 
         try {
           const contextRes = await getArticleContext(id, controller.signal);
@@ -194,7 +195,7 @@ const ArticleDetail: React.FC = () => {
       const liked = res.data.liked ?? true;
       setHasLiked(liked);
       if (liked) {
-        localStorage.setItem(articleLikeStorageKey(article.id), '1');
+        safeLocalStorage.setItem(articleLikeStorageKey(article.id), '1');
       }
     } catch (err) {
       setLikeError(getErrorMessage(err, t('articleDetail.likeError')));

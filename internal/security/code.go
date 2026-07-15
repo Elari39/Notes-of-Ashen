@@ -23,6 +23,22 @@ const (
 	CaptchaTTL        = 5 * time.Minute
 )
 
+const consumeCodeScript = `
+local current = redis.call("GET", KEYS[1])
+if not current then
+  return 0
+end
+if current ~= ARGV[1] then
+  return -1
+end
+redis.call("DEL", KEYS[1])
+return 1
+`
+
+type redisScriptEvaluator interface {
+	Eval(ctx context.Context, script string, keys []string, args ...interface{}) *redis.Cmd
+}
+
 type CaptchaChallenge struct {
 	ID        string
 	ImageData string
@@ -72,18 +88,18 @@ func VerifyCaptcha(ctx context.Context, redisClient *redis.Client, purpose, id, 
 		return apperrors.BadRequest("captcha is required")
 	}
 
-	key := CaptchaKey(purpose, id)
-	stored, err := redisClient.Get(ctx, key).Result()
+	result, err := consumeCode(ctx, redisClient, CaptchaKey(purpose, id), code)
 	if err != nil {
-		if errors.Is(err, redis.Nil) {
-			return apperrors.BadRequest("captcha is expired")
-		}
 		return err
 	}
-	if !strings.EqualFold(stored, code) {
+	switch result {
+	case 0:
+		return apperrors.BadRequest("captcha is expired")
+	case -1:
 		return apperrors.BadRequest("captcha is incorrect")
+	default:
+		return nil
 	}
-	return redisClient.Del(ctx, key).Err()
 }
 
 func StoreEmailCode(ctx context.Context, redisClient *redis.Client, purpose, email, code string) error {
@@ -127,18 +143,30 @@ func ConsumeEmailCode(ctx context.Context, redisClient *redis.Client, purpose, e
 		return apperrors.BadRequest("email code is required")
 	}
 
-	key := EmailCodeKey(purpose, email)
-	stored, err := redisClient.Get(ctx, key).Result()
+	result, err := consumeCode(ctx, redisClient, EmailCodeKey(purpose, email), code)
 	if err != nil {
-		if errors.Is(err, redis.Nil) {
-			return apperrors.BadRequest("email code is expired")
-		}
 		return err
 	}
-	if stored != code {
-		return apperrors.BadRequest("email code is incorrect")
+	if result != 1 {
+		// 对不存在和不匹配统一返回相同错误，避免公开流程通过错误差异
+		// 判断某个邮箱是否已经生成过验证码。
+		return apperrors.BadRequest("email code is invalid or expired")
 	}
-	return redisClient.Del(ctx, key).Err()
+	return nil
+}
+
+func consumeCode(ctx context.Context, redisClient redisScriptEvaluator, key, expected string) (int64, error) {
+	if redisClient == nil {
+		return 0, errors.New("redis client is nil")
+	}
+	result, err := redisClient.Eval(ctx, consumeCodeScript, []string{key}, expected).Int64()
+	if err != nil {
+		return 0, err
+	}
+	if result != -1 && result != 0 && result != 1 {
+		return 0, fmt.Errorf("unexpected code consume result: %d", result)
+	}
+	return result, nil
 }
 
 func RandomDigits(length int) (string, error) {

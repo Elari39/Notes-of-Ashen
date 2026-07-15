@@ -17,6 +17,7 @@ import { Article } from '../types';
 import { formatText, getDateLocale, translate } from '../i18n';
 import { usePreferenceStore } from '../store/preferences';
 import { routeLoaders } from '../routes/lazyRoutes';
+import { useSEO } from '../utils/seo';
 
 const Search: React.FC = () => {
   const language = usePreferenceStore((state) => state.language);
@@ -35,6 +36,8 @@ const Search: React.FC = () => {
   const categoryId = parsePositiveInt(searchParams.get('categoryId'), 0);
   const tagId = parsePositiveInt(searchParams.get('tagId'), 0);
   const hasSearchScope = Boolean(query || categoryId || tagId);
+
+  useSEO(t('search.title'));
 
   useEffect(() => {
     setKeyword(query);

@@ -13,6 +13,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"notes-of-ashen/internal/validator"
 )
 
 const (
@@ -41,13 +43,16 @@ func sharedHTTPClient(headerTimeout time.Duration) *http.Client {
 	if httpConnPool != nil {
 		httpConnPool.CloseIdleConnections()
 	}
+	dialer := &net.Dialer{
+		Timeout:   30 * time.Second,
+		KeepAlive: 30 * time.Second,
+	}
 	httpConnPool = &http.Client{
 		Transport: &http.Transport{
-			Proxy: http.ProxyFromEnvironment,
-			DialContext: (&net.Dialer{
-				Timeout:   30 * time.Second,
-				KeepAlive: 30 * time.Second,
-			}).DialContext,
+			// AI 出站请求不继承环境代理。通用 HTTP 代理会在代理端再次解析目标域名，
+			// 使本进程无法保证连接落到已校验的公网 IP。
+			Proxy:                 nil,
+			DialContext:           newPublicDialContext(net.DefaultResolver.LookupIP, dialer.DialContext),
 			MaxIdleConns:          20,
 			MaxIdleConnsPerHost:   10,
 			IdleConnTimeout:       90 * time.Second,
@@ -93,7 +98,11 @@ func doJSONRequest(ctx context.Context, conf Config, format, method, endpoint st
 		httpReq.Header.Set("Authorization", "Bearer "+apiKey)
 	}
 
-	httpResp, err := sharedHTTPClient(firstByteTimeout(conf)).Do(httpReq)
+	client := conf.httpClient
+	if client == nil {
+		client = sharedHTTPClient(firstByteTimeout(conf))
+	}
+	httpResp, err := client.Do(httpReq)
 	if err != nil {
 		return nil, fmt.Errorf("send ai request: %w", err)
 	}
@@ -116,6 +125,49 @@ func doJSONRequest(ctx context.Context, conf Config, format, method, endpoint st
 		return nil, readErr
 	}
 	return raw, nil
+}
+
+type lookupIPFunc func(context.Context, string, string) ([]net.IP, error)
+type dialContextFunc func(context.Context, string, string) (net.Conn, error)
+
+// newPublicDialContext 在每次新建 TCP 连接前重新解析目标，并直接连接已校验的
+// 公网 IP。解析结果只要包含一个受限地址就整体拒绝，避免攻击者借助公私混合记录
+// 或 DNS rebinding 让后续连接落到内网。
+func newPublicDialContext(lookup lookupIPFunc, dial dialContextFunc) dialContextFunc {
+	return func(ctx context.Context, network, address string) (net.Conn, error) {
+		host, port, err := net.SplitHostPort(address)
+		if err != nil {
+			return nil, fmt.Errorf("parse ai endpoint address: %w", err)
+		}
+
+		var ips []net.IP
+		if literal := net.ParseIP(host); literal != nil {
+			ips = []net.IP{literal}
+		} else {
+			ips, err = lookup(ctx, "ip", host)
+			if err != nil {
+				return nil, fmt.Errorf("resolve ai endpoint: %w", err)
+			}
+		}
+		if len(ips) == 0 {
+			return nil, fmt.Errorf("resolve ai endpoint: no addresses")
+		}
+		for _, ip := range ips {
+			if validator.IsBlockedHostIP(ip) {
+				return nil, fmt.Errorf("ai endpoint resolved to a blocked address")
+			}
+		}
+
+		var lastErr error
+		for _, ip := range ips {
+			conn, dialErr := dial(ctx, network, net.JoinHostPort(ip.String(), port))
+			if dialErr == nil {
+				return conn, nil
+			}
+			lastErr = dialErr
+		}
+		return nil, fmt.Errorf("dial ai endpoint: %w", lastErr)
+	}
 }
 
 func readResponseBody(body io.Reader) ([]byte, error) {

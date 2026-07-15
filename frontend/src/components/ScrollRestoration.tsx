@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef } from 'react';
 import { useLocation, useNavigationType } from 'react-router-dom';
+import { safeSessionStorage } from '../utils/storage';
 
 type ScrollPosition = {
   x: number;
@@ -21,7 +22,7 @@ const isScrollPosition = (value: unknown): value is ScrollPosition => {
 
 const readScrollPositions = (): ScrollPositions => {
   try {
-    const value = window.sessionStorage.getItem(storageKey);
+    const value = safeSessionStorage.getItem(storageKey);
     if (!value) {
       return {};
     }
@@ -45,11 +46,7 @@ const readScrollPositions = (): ScrollPositions => {
 const persistScrollPosition = (positions: ScrollPositions, key: string) => {
   positions[key] = { x: window.scrollX, y: window.scrollY };
 
-  try {
-    window.sessionStorage.setItem(storageKey, JSON.stringify(positions));
-  } catch {
-    // 隐私模式或存储空间不足时，当前会话仍保留内存中的恢复能力。
-  }
+  safeSessionStorage.setItem(storageKey, JSON.stringify(positions));
 };
 
 const scrollToHash = (hash: string) => {

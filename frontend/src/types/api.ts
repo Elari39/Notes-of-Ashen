@@ -165,14 +165,13 @@ export interface CreateArticleReq {
   tagIds?: number[];
 }
 
-// 后端创建与更新共用同一类型；更新接口要求完整字段，但为兼容前端局部更新场景，
-// 这里显式展开为全部可选字段，与后端 logic 的「空值回退当前值」语义对齐。
+// 更新接口的 title、slug、content 为后端实际必填字段，其余字段按接口定义可选。
 export interface UpdateArticleReq {
   categoryId?: number;
-  title?: string;
-  slug?: string;
+  title: string;
+  slug: string;
   summary?: string;
-  content?: string;
+  content: string;
   coverUrl?: string;
   status?: ArticleStatus;
   scheduledAt?: string;
@@ -269,8 +268,8 @@ export interface CreateCategoryReq {
 }
 
 export interface UpdateCategoryReq {
-  name?: string;
-  slug?: string;
+  name: string;
+  slug: string;
   description?: string;
 }
 
@@ -282,7 +281,7 @@ export interface CreateTagReq {
 }
 
 export interface UpdateTagReq {
-  name?: string;
-  slug?: string;
+  name: string;
+  slug: string;
   description?: string;
 }
