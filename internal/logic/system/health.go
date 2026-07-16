@@ -2,6 +2,7 @@ package system
 
 import (
 	"context"
+	"errors"
 	"os"
 	"sync"
 	"time"
@@ -13,6 +14,13 @@ import (
 )
 
 const healthCacheTTL = 30 * time.Second
+
+const backupSchemaMigrationHealthMessage = "数据库结构未升级，请执行媒体与内容分析迁移后重试"
+
+var (
+	errBackupSchemaMigrationRequired = errors.New("backup schema migration is required")
+	errBackupSchemaCheckUnavailable  = errors.New("backup schema check is unavailable")
+)
 
 var healthCache struct {
 	sync.Mutex
@@ -39,7 +47,7 @@ func Health(ctx context.Context, svcCtx *svc.ServiceContext, force bool) (*types
 		index int
 		check types.DependencyCheckResp
 	}
-	results := make(chan result, 6)
+	results := make(chan result, 7)
 	run := func(index int, name string, enabled bool, probe func(context.Context) error) {
 		go func() {
 			if !enabled {
@@ -52,7 +60,7 @@ func Health(ctx context.Context, svcCtx *svc.ServiceContext, force bool) (*types
 			check := types.DependencyCheckResp{Name: name, Status: "up"}
 			if err := probe(probeCtx); err != nil {
 				check.Status = "down"
-				check.Message = "探测失败"
+				check.Message = dependencyCheckFailureMessage(err)
 			} else {
 				check.Message = "正常"
 			}
@@ -81,8 +89,9 @@ func Health(ctx context.Context, svcCtx *svc.ServiceContext, force bool) (*types
 		}
 		return os.Remove(name)
 	})
+	run(6, "backup_schema", true, func(ctx context.Context) error { return backupSchemaHealthProbe(ctx, svcCtx) })
 
-	checks := make([]types.DependencyCheckResp, 6)
+	checks := make([]types.DependencyCheckResp, 7)
 	status := "healthy"
 	for range checks {
 		item := <-results
@@ -97,4 +106,25 @@ func Health(ctx context.Context, svcCtx *svc.ServiceContext, force bool) (*types
 	healthCache.report = report
 	healthCache.Unlock()
 	return report, nil
+}
+
+func backupSchemaHealthProbe(ctx context.Context, svcCtx *svc.ServiceContext) error {
+	if svcCtx == nil || svcCtx.Store == nil {
+		return errBackupSchemaCheckUnavailable
+	}
+	ready, err := svcCtx.Store.BackupSchemaReady(ctx)
+	if err != nil {
+		return err
+	}
+	if !ready {
+		return errBackupSchemaMigrationRequired
+	}
+	return nil
+}
+
+func dependencyCheckFailureMessage(err error) string {
+	if errors.Is(err, errBackupSchemaMigrationRequired) {
+		return backupSchemaMigrationHealthMessage
+	}
+	return "探测失败"
 }

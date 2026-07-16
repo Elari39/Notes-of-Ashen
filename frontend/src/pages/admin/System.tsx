@@ -16,9 +16,28 @@ import {
   canStartBackupExport,
   canStartBackupRestore,
   countBackupPassphraseCharacters,
-  hasValidBackupCredentials,
+  getBackupExportBlockerReason,
+  getBackupRestoreBlockerReason,
   isBackupPassphraseValid,
+  type BackupBlockerReason,
 } from './backupPolicy';
+
+const backupBlockerMessageKey: Record<BackupBlockerReason, Parameters<typeof translate>[1]> = {
+  busy: 'backup.blocker.busy',
+  currentPasswordMissing: 'backup.blocker.currentPasswordMissing',
+  passphraseMissing: 'backup.blocker.passphraseMissing',
+  passphraseTooShort: 'backup.blocker.passphraseTooShort',
+  passphraseTooLong: 'backup.blocker.passphraseTooLong',
+  fileMissing: 'backup.blocker.fileMissing',
+  confirmationMissing: 'backup.blocker.confirmationMissing',
+  confirmationMismatch: 'backup.blocker.confirmationMismatch',
+};
+
+const DownloadIcon: React.FC = () => (
+  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+    <path d="M8 2.5V10M8 10L5 7M8 10L11 7M3 12.5H13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
 
 const AdminSystem: React.FC = () => {
   const language = usePreferenceStore((state) => state.language);
@@ -33,8 +52,10 @@ const AdminSystem: React.FC = () => {
   const [passphrase, setPassphrase] = useState('');
   const [confirmation, setConfirmation] = useState('');
   const [backupFile, setBackupFile] = useState<File | null>(null);
+  const [backupFileError, setBackupFileError] = useState('');
   const [busy, setBusy] = useState<'export' | 'restore' | null>(null);
   const busyRef = useRef<'export' | 'restore' | null>(null);
+  const backupFileInputRef = useRef<HTMLInputElement>(null);
 
   const loadHealth = useCallback(async (refresh = false) => {
     setLoading(true);
@@ -62,15 +83,30 @@ const AdminSystem: React.FC = () => {
   const credentials = { currentPassword, passphrase };
   const passphraseLength = countBackupPassphraseCharacters(passphrase);
   const passphraseValid = isBackupPassphraseValid(passphrase);
-  const validCredentials = hasValidBackupCredentials(credentials);
   const isBusy = busy !== null;
-  const exportAvailable = canStartBackupExport({ credentials, busy: isBusy });
-  const restoreAvailable = canStartBackupRestore({
+  const exportState = { credentials, busy: isBusy };
+  const restoreState = {
     credentials,
     file: backupFile,
     confirmation,
     busy: isBusy,
-  });
+  };
+  const exportBlockerReason = getBackupExportBlockerReason(exportState);
+  const restoreBlockerReason = getBackupRestoreBlockerReason(restoreState);
+  const exportAvailable = canStartBackupExport(exportState);
+  const restoreAvailable = canStartBackupRestore(restoreState);
+
+  const getBlockerMessage = (reason: BackupBlockerReason | null): string => {
+    if (!reason) return '';
+    const message = t(backupBlockerMessageKey[reason]);
+    if (reason === 'passphraseTooShort') {
+      return formatText(message, { min: BACKUP_PASSPHRASE_MIN_LENGTH });
+    }
+    if (reason === 'passphraseTooLong') {
+      return formatText(message, { max: BACKUP_PASSPHRASE_MAX_LENGTH });
+    }
+    return message;
+  };
 
   const beginBackupOperation = (operation: 'export' | 'restore'): boolean => {
     if (busyRef.current !== null) return false;
@@ -86,7 +122,7 @@ const AdminSystem: React.FC = () => {
   };
 
   const handleExport = async () => {
-    if (!exportAvailable || !beginBackupOperation('export')) return;
+    if (getBackupExportBlockerReason({ credentials, busy: busyRef.current !== null }) || !beginBackupOperation('export')) return;
     setBackupError('');
     try {
       const response = await exportBackup({ currentPassword, passphrase });
@@ -108,22 +144,25 @@ const AdminSystem: React.FC = () => {
   };
 
   const handleRestore = async () => {
-    if (busyRef.current !== null) return;
-    if (!backupFile) {
-      setBackupError(t('backup.file'));
-      return;
-    }
-    if (confirmation !== 'REPLACE') {
-      setBackupError(t('backup.confirmationError'));
-      return;
-    }
-    if (!validCredentials) return;
+    if (getBackupRestoreBlockerReason({
+      credentials,
+      file: backupFile,
+      confirmation,
+      busy: busyRef.current !== null,
+    })) return;
+    if (!backupFile) return;
     const accepted = await confirm({
       title: t('backup.confirm'),
       description: t('backup.warning'),
       tone: 'danger',
     });
     if (!accepted) return;
+    if (getBackupRestoreBlockerReason({
+      credentials,
+      file: backupFile,
+      confirmation,
+      busy: busyRef.current !== null,
+    })) return;
     if (!beginBackupOperation('restore')) return;
     setBackupError('');
     try {
@@ -139,18 +178,30 @@ const AdminSystem: React.FC = () => {
 
   const handleBackupFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0] ?? null;
-    if (!file) {
-      setBackupFile(null);
-      return;
-    }
+    if (!file) return;
     if (!file.name.toLowerCase().endsWith('.noa-backup')) {
       event.target.value = '';
       setBackupFile(null);
-      setBackupError(t('backup.fileInvalid'));
+      setBackupFileError(t('backup.fileInvalid'));
       return;
     }
     setBackupFile(file);
-    setBackupError('');
+    setBackupFileError('');
+  };
+
+  const openBackupFilePicker = () => {
+    if (isBusy) return;
+    if (backupFileInputRef.current) {
+      backupFileInputRef.current.value = '';
+      backupFileInputRef.current.click();
+    }
+  };
+
+  const removeBackupFile = () => {
+    if (isBusy) return;
+    setBackupFile(null);
+    setBackupFileError('');
+    if (backupFileInputRef.current) backupFileInputRef.current.value = '';
   };
 
   const passphraseError = passphraseLength > 0 && !passphraseValid
@@ -158,6 +209,9 @@ const AdminSystem: React.FC = () => {
       ? formatText(t('backup.passphraseTooShort'), { min: BACKUP_PASSPHRASE_MIN_LENGTH })
       : formatText(t('backup.passphraseTooLong'), { max: BACKUP_PASSPHRASE_MAX_LENGTH })
     : '';
+  const confirmationInvalid = confirmation.length > 0 && confirmation !== 'REPLACE';
+  const exportBlockerMessage = getBlockerMessage(exportBlockerReason);
+  const restoreBlockerMessage = getBlockerMessage(restoreBlockerReason);
 
   return (
     <div>
@@ -213,7 +267,12 @@ const AdminSystem: React.FC = () => {
           <li>{t('backup.warningAI')}</li>
           <li>{t('backup.warningLogout')}</li>
         </ul>
-        <InlineNotice message={backupError} className="mt-4" />
+        <InlineNotice
+          message={backupError}
+          icon
+          onDismiss={() => setBackupError('')}
+          className="mt-4"
+        />
 
         <div className="mt-5 grid gap-4 md:grid-cols-2">
           <div>
@@ -229,7 +288,6 @@ const AdminSystem: React.FC = () => {
               aria-describedby="backup-current-password-hint"
               onChange={(event) => {
                 setCurrentPassword(event.target.value);
-                setBackupError('');
               }}
             />
             <p id="backup-current-password-hint" className="mt-2 text-xs text-muted">
@@ -250,7 +308,6 @@ const AdminSystem: React.FC = () => {
               aria-describedby="backup-passphrase-hint"
               onChange={(event) => {
                 setPassphrase(event.target.value);
-                setBackupError('');
               }}
             />
             <p
@@ -267,49 +324,115 @@ const AdminSystem: React.FC = () => {
             </p>
           </div>
         </div>
-        <div className="mt-4 max-w-md">
-          <label htmlFor="backup-confirmation" className="mb-2 block text-sm font-medium text-ink">
-            {t('backup.confirmation')}
-          </label>
-          <TextField
-            id="backup-confirmation"
-            value={confirmation}
-            disabled={isBusy}
-            onChange={(event) => {
-              setConfirmation(event.target.value);
-              setBackupError('');
-            }}
-          />
-        </div>
+        <div className="mt-6 grid gap-4 lg:grid-cols-2">
+          <article className="flex flex-col rounded-lg border border-hairline bg-surface-card p-5">
+            <div>
+              <h5 className="text-base font-semibold text-ink">{t('backup.exportCardTitle')}</h5>
+              <p className="mt-1 text-sm leading-6 text-muted">{t('backup.exportCardDescription')}</p>
+            </div>
+            <div className="mt-5 flex flex-1 flex-col justify-end gap-3">
+              <Button
+                variant="primary"
+                size="lg"
+                fullWidth
+                iconBefore={<DownloadIcon />}
+                loading={busy === 'export'}
+                disabled={!exportAvailable}
+                aria-describedby={exportBlockerReason ? 'backup-export-blocker' : undefined}
+                onClick={() => void handleExport()}
+              >
+                {busy === 'export' ? t('backup.exporting') : t('backup.export')}
+              </Button>
+              {exportBlockerReason && (
+                <p id="backup-export-blocker" role="status" aria-live="polite" className="text-xs leading-5 text-muted">
+                  {exportBlockerMessage}
+                </p>
+              )}
+            </div>
+          </article>
 
-        <div className="mt-5 flex flex-wrap items-center gap-3">
-          <Button loading={busy === 'export'} disabled={!exportAvailable} onClick={() => void handleExport()}>
-            {busy === 'export' ? t('backup.exporting') : t('backup.export')}
-          </Button>
-          <div>
-            <label htmlFor="backup-file" className="mb-1 block text-sm text-muted">{t('backup.file')}</label>
-            <input
-              id="backup-file"
-              type="file"
-              accept=".noa-backup"
-              disabled={isBusy}
-              className="max-w-full text-sm text-muted disabled:cursor-not-allowed disabled:opacity-50"
-              onChange={handleBackupFileChange}
-            />
-            {backupFile && (
-              <p className="mt-1 max-w-sm truncate text-xs text-muted" title={backupFile.name}>
-                {formatText(t('backup.fileSelected'), { name: backupFile.name })}
+          <article className="rounded-lg border border-ember/35 bg-[var(--ember-soft)] p-5">
+            <div>
+              <h5 className="text-base font-semibold text-ember">{t('backup.restoreCardTitle')}</h5>
+              <p className="mt-1 text-sm leading-6 text-muted">{t('backup.restoreCardDescription')}</p>
+            </div>
+
+            <div className="mt-5">
+              <input
+                ref={backupFileInputRef}
+                id="backup-file"
+                type="file"
+                accept=".noa-backup"
+                disabled={isBusy}
+                className="sr-only"
+                aria-label={t('backup.file')}
+                aria-describedby="backup-file-status"
+                onChange={handleBackupFileChange}
+              />
+              <div className="flex flex-wrap items-center gap-2">
+                <Button variant="ghost" size="sm" disabled={isBusy} aria-controls="backup-file" onClick={openBackupFilePicker}>
+                  {backupFile ? t('backup.replaceFile') : t('backup.chooseFile')}
+                </Button>
+                {backupFile && (
+                  <Button variant="subtle" size="sm" disabled={isBusy} onClick={removeBackupFile}>
+                    {t('backup.removeFile')}
+                  </Button>
+                )}
+              </div>
+              <p
+                id="backup-file-status"
+                aria-live="polite"
+                className={`mt-2 max-w-full truncate text-xs ${backupFileError ? 'text-ember' : 'text-muted'}`}
+                title={backupFile?.name}
+              >
+                {backupFileError || (backupFile
+                  ? formatText(t('backup.fileSelected'), { name: backupFile.name })
+                  : t('backup.noFileSelected'))}
               </p>
-            )}
-          </div>
-          <Button
-            variant="danger"
-            loading={busy === 'restore'}
-            disabled={!restoreAvailable}
-            onClick={() => void handleRestore()}
-          >
-            {busy === 'restore' ? t('backup.restoring') : t('backup.restore')}
-          </Button>
+            </div>
+
+            <div className="mt-4">
+              <label htmlFor="backup-confirmation" className="mb-2 block text-sm font-medium text-ink">
+                {t('backup.confirmation')}
+              </label>
+              <TextField
+                id="backup-confirmation"
+                value={confirmation}
+                disabled={isBusy}
+                invalid={confirmationInvalid}
+                aria-describedby="backup-confirmation-hint"
+                onChange={(event) => {
+                  setConfirmation(event.target.value);
+                }}
+              />
+              <p
+                id="backup-confirmation-hint"
+                aria-live="polite"
+                className={`mt-2 text-xs ${confirmationInvalid ? 'text-ember' : 'text-muted'}`}
+              >
+                {confirmationInvalid ? t('backup.confirmationError') : t('backup.confirmationHint')}
+              </p>
+            </div>
+
+            <div className="mt-5 space-y-3">
+              <Button
+                variant="danger"
+                size="lg"
+                fullWidth
+                loading={busy === 'restore'}
+                disabled={!restoreAvailable}
+                aria-describedby={restoreBlockerReason ? 'backup-restore-blocker' : undefined}
+                onClick={() => void handleRestore()}
+              >
+                {busy === 'restore' ? t('backup.restoring') : t('backup.restore')}
+              </Button>
+              {restoreBlockerReason && (
+                <p id="backup-restore-blocker" role="status" aria-live="polite" className="text-xs leading-5 text-ember">
+                  {restoreBlockerMessage}
+                </p>
+              )}
+            </div>
+          </article>
         </div>
       </section>
     </div>

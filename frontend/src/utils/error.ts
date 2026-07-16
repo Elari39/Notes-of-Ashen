@@ -175,6 +175,7 @@ const exactMessages: Record<string, LocalizedText> = {
   'cannot downgrade yourself': localized('不能降低自己的管理员权限', 'You cannot downgrade your own administrator role'),
   'at least one active admin is required': localized('至少需要保留一个可用管理员', 'At least one active administrator is required'),
   'current password is incorrect': localized('当前管理员密码不正确', 'The current administrator password is incorrect'),
+  'database schema migration is required': localized('数据库结构未升级，请执行媒体与内容分析迁移后重试。', 'The database schema is not up to date. Apply the media and content analytics migration, then try again.'),
   'backup passphrase length is invalid': localized('归档密码长度必须在 12 到 128 个字符之间', 'The archive passphrase must contain 12 to 128 characters'),
   'backup passphrase is invalid': localized('归档密码无效', 'The archive passphrase is invalid'),
   'backup passphrase or file is invalid': localized('归档密码错误或备份文件无效', 'The archive passphrase is incorrect or the backup file is invalid'),

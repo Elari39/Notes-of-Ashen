@@ -787,7 +787,7 @@ GET /api/v1/admin/system/health
 GET /api/v1/admin/system/health?refresh=true
 ```
 
-权限：`admin`。并发探测 MySQL、Redis、Meilisearch、RabbitMQ、SMTP 和媒体目录。每项返回 `up`、`down` 或 `disabled`、耗时及脱敏说明；关闭的可选依赖不降低总体状态。结果缓存 30 秒，`refresh=true` 强制刷新。SMTP 仅建连、TLS、认证和 `NOOP`，不会发送邮件。
+权限：`admin`。并发探测 MySQL、Redis、Meilisearch、RabbitMQ、SMTP、媒体目录和 `backup_schema`。`backup_schema` 验证 `media_assets` 及内容分析聚合表是否已完成迁移，异常时备份导出与恢复会在读取请求体前拒绝请求。每项返回 `up`、`down` 或 `disabled`、耗时及脱敏说明；关闭的可选依赖不降低总体状态。结果缓存 30 秒，`refresh=true` 强制刷新。SMTP 仅建连、TLS、认证和 `NOOP`，不会发送邮件。
 
 ### 加密备份与整站恢复
 
@@ -796,7 +796,7 @@ POST /api/v1/admin/backups/export
 POST /api/v1/admin/backups/restore
 ```
 
-权限：`admin`。两项操作都要求重新提交当前账户密码；归档口令长度为 12 到 128 个 Unicode 字符，不保存、不记录日志。导出请求为 JSON：
+权限：`admin`。两项操作都要求重新提交当前账户密码；归档口令长度为 12 到 128 个 Unicode 字符，不保存、不记录日志。备份依赖 `backup_schema` 健康项；旧数据库若收到“数据库结构未升级”错误，应先执行 `deploy/mysql/add_media_content_analytics.sql`。导出请求为 JSON：
 
 ```json
 {

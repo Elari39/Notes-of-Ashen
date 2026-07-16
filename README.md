@@ -289,7 +289,7 @@ Docker Compose 使用 `goblog_media_data` 同时挂载到 API 的 `/data/media`�
 
 “内容分析”从 `traffic_content_daily_stats` 新表部署后开始累计页面和文章级 PV/UV，无法从旧的文章总浏览量可靠回填。用于 UV 去重的访客哈希明细会定期清理，每日聚合长期保留；不采集设备、浏览器和地域信息。
 
-“系统工具”仅管理员可访问，提供依赖健康探测以及 `.noa-backup` 加密导出/恢复。备份口令不会持久化；归档不包含 AI API Key、Token、日志、流量明细、搜索索引和访客点赞哈希。恢复是破坏性的整站替换，会清空目标会话、日志、流量统计和 AI Key，并强制退出当前登录。执行恢复前仍应保留数据库/媒体卷的基础设施快照，并先在独立实例演练。
+“系统工具”仅管理员可访问，提供依赖健康探测以及 `.noa-backup` 加密导出/恢复。健康页的 `backup_schema` 项会校验媒体与内容分析表是否齐全；旧 MySQL 数据卷若显示异常，先在备份后执行 [deploy/mysql/add_media_content_analytics.sql](deploy/mysql/add_media_content_analytics.sql)。备份口令不会持久化；归档不包含 AI API Key、Token、日志、流量明细、搜索索引和访客点赞哈希。恢复是破坏性的整站替换，会清空目标会话、日志、流量统计和 AI Key，并强制退出当前登录。执行恢复前仍应保留数据库/媒体卷的基础设施快照，并先在独立实例演练。
 
 ### 预渲染配置
 

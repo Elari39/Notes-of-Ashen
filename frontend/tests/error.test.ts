@@ -59,6 +59,13 @@ test('无效和过期邮箱验证码使用统一提示', () => {
   );
 });
 
+test('备份依赖的数据库迁移缺失会给出可操作提示', () => {
+  assert.equal(
+    getErrorMessage(new AppError('database schema migration is required')),
+    '数据库结构未升级，请执行媒体与内容分析迁移后重试。',
+  );
+});
+
 test('下载接口的 JSON Blob 错误会恢复为统一错误结构', async () => {
   const blob = new Blob([JSON.stringify({ code: 40123, message: 'current password is incorrect' })], {
     type: 'application/json; charset=utf-8',

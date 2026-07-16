@@ -5,6 +5,8 @@ import {
   canStartBackupRestore,
   canStartBackupExport,
   countBackupPassphraseCharacters,
+  getBackupExportBlockerReason,
+  getBackupRestoreBlockerReason,
   hasValidBackupCredentials,
   isBackupPassphraseValid,
 } from '../src/pages/admin/backupPolicy.ts';
@@ -31,4 +33,49 @@ test('恢复只在凭据、文件、确认词和空闲状态均满足时可开�
   assert.equal(canStartBackupRestore({ credentials, file, confirmation: '', busy: false }), false);
   assert.equal(canStartBackupRestore({ credentials, file, confirmation: 'REPLACE', busy: true }), false);
   assert.equal(canStartBackupRestore({ credentials, file, confirmation: 'REPLACE', busy: false }), true);
+});
+
+test('备份阻断原因遵循固定优先级', () => {
+  const validCredentials = { currentPassword: 'current-password', passphrase: 'archive-pass1' };
+  const file = {} as File;
+
+  assert.equal(getBackupExportBlockerReason({
+    credentials: { currentPassword: '', passphrase: '' },
+    busy: true,
+  }), 'busy');
+  assert.equal(getBackupExportBlockerReason({
+    credentials: { currentPassword: '', passphrase: 'archive-pass1' },
+    busy: false,
+  }), 'currentPasswordMissing');
+  assert.equal(getBackupExportBlockerReason({
+    credentials: { currentPassword: 'current-password', passphrase: '' },
+    busy: false,
+  }), 'passphraseMissing');
+  assert.equal(getBackupExportBlockerReason({
+    credentials: { currentPassword: 'current-password', passphrase: 'x'.repeat(11) },
+    busy: false,
+  }), 'passphraseTooShort');
+  assert.equal(getBackupExportBlockerReason({
+    credentials: { currentPassword: 'current-password', passphrase: 'x'.repeat(129) },
+    busy: false,
+  }), 'passphraseTooLong');
+
+  assert.equal(getBackupRestoreBlockerReason({
+    credentials: validCredentials,
+    file: null,
+    confirmation: 'REPLACE',
+    busy: false,
+  }), 'fileMissing');
+  assert.equal(getBackupRestoreBlockerReason({
+    credentials: validCredentials,
+    file,
+    confirmation: '',
+    busy: false,
+  }), 'confirmationMissing');
+  assert.equal(getBackupRestoreBlockerReason({
+    credentials: validCredentials,
+    file,
+    confirmation: 'replace',
+    busy: false,
+  }), 'confirmationMismatch');
 });

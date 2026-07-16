@@ -62,6 +62,9 @@ func Export(ctx context.Context, svcCtx *svc.ServiceContext, req types.BackupExp
 	if err := authorize(ctx, svcCtx, req.CurrentPassword, req.Passphrase); err != nil {
 		return "", err
 	}
+	if err := EnsureSchemaReady(ctx, svcCtx); err != nil {
+		return "", err
+	}
 	snapshot, err := svcCtx.Store.ExportBackup(ctx)
 	if err != nil {
 		return "", err
@@ -183,6 +186,9 @@ func Restore(ctx context.Context, svcCtx *svc.ServiceContext, currentPassword, p
 		return nil, apperrors.BadRequest("restore confirmation is invalid")
 	}
 	if err := authorize(ctx, svcCtx, currentPassword, passphrase); err != nil {
+		return nil, err
+	}
+	if err := EnsureSchemaReady(ctx, svcCtx); err != nil {
 		return nil, err
 	}
 	if !security.TryStartRestore() {
