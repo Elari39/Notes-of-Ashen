@@ -16,32 +16,22 @@
 
 # 前端依赖
 node_modules/
-frontend/node_modules/
 .pnpm-store/
-frontend/.pnpm-store/
 
 # 前端构建与缓存
 dist/
-frontend/dist/
-frontend/dist-ssr/
+dist-ssr/
 .vite/
-frontend/.vite/
 .vite-inspect/
-frontend/.vite-inspect/
 .cache/
-frontend/.cache/
 .eslintcache
-frontend/.eslintcache
 .stylelintcache
-frontend/.stylelintcache
 *.tsbuildinfo
 storybook-static/
-frontend/storybook-static/
 playwright-report/
-frontend/playwright-report/
 test-results/
-frontend/test-results/
 coverage-final.json
+*.lcov
 
 # Go 构建与测试产物
 bin/
@@ -60,7 +50,7 @@ __debug_bin*
 .air/
 .gocache/
 .gopath/
-frontend/.turbo/
+.turbo/
 vendor/
 
 # 本地数据库、备份与转储
@@ -87,10 +77,10 @@ data/
 *.mmdb
 GeoLite2-*.tar.gz
 GeoIP2-*.tar.gz
+*.noa-backup
 
 # 日志
 logs/
-frontend/logs/
 *.log
 npm-debug.log*
 pnpm-debug.log*
@@ -120,6 +110,7 @@ Icon?
 *.sln
 *.sw?
 *.code-workspace
+*.iml
 
 # 临时文件
 tmp/
