@@ -7,7 +7,7 @@ import axios, {
 } from 'axios';
 import { useAuthStore } from '../store/auth';
 import { useUIStore } from '../store/ui';
-import { AppError, ERROR_KEYS, toAppError } from './error';
+import { AppError, ERROR_KEYS, isCurrentPasswordRejection, parseJSONBlobError, toAppError } from './error';
 import { fixVisibleMojibakeDeep } from './mojibake';
 import { notifyFromError } from './notify';
 import { refreshAccessToken } from './refresh';
@@ -127,6 +127,10 @@ http.interceptors.response.use(
     }
 
     if (error.response?.data) {
+      error.response.data = await parseJSONBlobError(
+        error.response.data,
+        responseContentType(error.response.headers),
+      );
       error.response.data = fixVisibleMojibakeDeep(error.response.data);
     }
 
@@ -134,7 +138,12 @@ http.interceptors.response.use(
       return Promise.reject(toAppError(error));
     }
 
-    if (error.response?.status === 401 && originalRequest && !originalRequest._retry) {
+    if (
+      error.response?.status === 401 &&
+      originalRequest &&
+      !originalRequest._retry &&
+      !isCurrentPasswordRejection(error.response.data)
+    ) {
       originalRequest._retry = true;
       // 旋转竞态修复：后端 refresh 即旋转 token。若本请求所用旧 token 与 store 中最新
       // token 不一致，说明 refresh 已被其他并发 401 触发完成，直接换 header 用最新 token
@@ -190,6 +199,15 @@ const stableStringify = (val: unknown): string => {
 
 const isDedupeDisabled = () => {
   return safeLocalStorage.getItem('NOA_DEDUPE') === 'off';
+};
+
+const responseContentType = (headers: unknown): string | undefined => {
+  if (!headers || typeof headers !== 'object') return undefined;
+  const typedHeaders = headers as { get?: (name: string) => unknown; [key: string]: unknown };
+  const viaGet = typedHeaders.get?.('content-type');
+  if (typeof viaGet === 'string') return viaGet;
+  const direct = typedHeaders['content-type'] ?? typedHeaders['Content-Type'];
+  return typeof direct === 'string' ? direct : undefined;
 };
 
 const getAuthorizationHeader = (headers: AxiosRequestConfig['headers']): string => {

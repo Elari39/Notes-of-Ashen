@@ -34,7 +34,9 @@ import (
 )
 
 const (
-	archiveVersion = 1
+	archiveVersion          = 1
+	maxBackupArchiveEntries = 100000
+	maxBackupManifestBytes  = int64(8 << 20)
 )
 
 var (
@@ -64,9 +66,16 @@ func Export(ctx context.Context, svcCtx *svc.ServiceContext, req types.BackupExp
 	if err != nil {
 		return "", err
 	}
+	if err := validateExportArchiveLimits(len(snapshot.MediaAssets), 0); err != nil {
+		return "", err
+	}
 	data, err := json.Marshal(snapshot)
 	if err != nil {
 		return "", err
+	}
+	maxBytes := svcCtx.Config.Backup.EffectiveMaxUploadBytes()
+	if exceedsBackupSizeLimit(0, int64(len(data)), maxBytes) {
+		return "", apperrors.BadRequest("backup exceeds configured size limit")
 	}
 	dataHash := sha256.Sum256(data)
 	manifest := Manifest{
@@ -99,15 +108,22 @@ func Export(ctx context.Context, svcCtx *svc.ServiceContext, req types.BackupExp
 		if hash != asset.SHA256 {
 			return "", fmt.Errorf("media checksum mismatch")
 		}
-		total += info.Size()
-		if total > svcCtx.Config.Backup.EffectiveMaxUploadBytes() {
+		if exceedsBackupSizeLimit(total, info.Size(), maxBytes) {
 			return "", apperrors.BadRequest("backup exceeds configured size limit")
 		}
+		total += info.Size()
 		manifest.Files = append(manifest.Files, ManifestFile{Path: "media/" + asset.StorageKey, SHA256: hash, Size: info.Size()})
 	}
 	manifestData, err := json.Marshal(manifest)
 	if err != nil {
 		return "", err
+	}
+	if err := validateExportArchiveLimits(len(snapshot.MediaAssets), int64(len(manifestData))); err != nil {
+		return "", err
+	}
+	// 恢复时 manifest.json 也计入解压后的大小，导出端必须使用相同边界。
+	if exceedsBackupSizeLimit(total, int64(len(manifestData)), maxBytes) {
+		return "", apperrors.BadRequest("backup exceeds configured size limit")
 	}
 	tmp, err := os.CreateTemp("", "notes-of-ashen-*.noa-backup")
 	if err != nil {
@@ -150,6 +166,14 @@ func Export(ctx context.Context, svcCtx *svc.ServiceContext, req types.BackupExp
 	if err := tmp.Close(); err != nil {
 		return "", err
 	}
+	info, err := os.Stat(tmpPath)
+	if err != nil {
+		return "", err
+	}
+	// 上传入口限制的是最终的加密文件；不能返回本服务自身无法重新接收的归档。
+	if exceedsBackupSizeLimit(0, info.Size(), maxBytes) {
+		return "", apperrors.BadRequest("backup exceeds configured size limit")
+	}
 	cleanup = false
 	return tmpPath, nil
 }
@@ -165,14 +189,18 @@ func Restore(ctx context.Context, svcCtx *svc.ServiceContext, currentPassword, p
 		return nil, apperrors.Conflict("another restore is running")
 	}
 	defer security.EndRestore()
-	locked, err := svcCtx.Redis.SetNX(ctx, security.RestoreMaintenanceKey, "1", 30*time.Minute).Result()
+	lease, restoreCtx, err := security.AcquireRestoreLease(ctx, svcCtx.Redis)
 	if err != nil {
+		if errors.Is(err, security.ErrRestoreLeaseHeld) {
+			return nil, apperrors.Conflict("another restore is running")
+		}
 		return nil, apperrors.ServiceUnavailable("restore lock is unavailable")
 	}
-	if !locked {
-		return nil, apperrors.Conflict("another restore is running")
-	}
-	defer svcCtx.Redis.Del(context.Background(), security.RestoreMaintenanceKey)
+	defer func() {
+		if releaseErr := lease.Release(); releaseErr != nil {
+			logx.Errorf("release restore lease failed: %v", releaseErr)
+		}
+	}()
 
 	identity, err := age.NewScryptIdentity(passphrase)
 	if err != nil {
@@ -212,17 +240,30 @@ func Restore(ctx context.Context, svcCtx *svc.ServiceContext, currentPassword, p
 	if err := validateSnapshot(snapshot, manifest); err != nil {
 		return nil, err
 	}
-	if err := restoreArchiveMedia(svcCtx, &reader.Reader, manifest); err != nil {
+	if err := requireRestoreLease(lease); err != nil {
 		return nil, err
 	}
-	if err := svcCtx.Store.RestoreBackup(ctx, *snapshot); err != nil {
+	if err := restoreArchiveMedia(svcCtx, &reader.Reader, manifest, func() error {
+		return requireLocalRestoreLease(lease)
+	}); err != nil {
+		return nil, err
+	}
+	if err := requireRestoreLease(lease); err != nil {
+		return nil, err
+	}
+	if err := svcCtx.Store.RestoreBackup(restoreCtx, *snapshot); err != nil {
 		return nil, err
 	}
 	warnings := make([]string, 0)
-	clearApplicationCache(ctx, svcCtx.Redis)
+	postRestoreCtx, cancelPostRestore := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancelPostRestore()
+	if err := clearApplicationCache(postRestoreCtx, svcCtx.Redis); err != nil {
+		warnings = append(warnings, "应用缓存清理失败")
+		logx.Errorf("clear application cache after restore failed: %v", err)
+	}
 	tokenCutoff := time.Now().Unix()
 	security.SetAccessTokensNotBefore(tokenCutoff)
-	if err := svcCtx.Redis.Set(ctx, security.AccessTokensNotBeforeKey, tokenCutoff, 0).Err(); err != nil {
+	if err := svcCtx.Redis.Set(postRestoreCtx, security.AccessTokensNotBeforeKey, tokenCutoff, 0).Err(); err != nil {
 		warnings = append(warnings, "访问令牌失效标记写入失败")
 	}
 	if _, err := articlelogic.ReindexSearch(ctx, svcCtx); err != nil {
@@ -257,11 +298,44 @@ func authorize(ctx context.Context, svcCtx *svc.ServiceContext, password, passph
 	return nil
 }
 
+func exceedsBackupSizeLimit(current, addition, limit int64) bool {
+	return current < 0 || addition < 0 || limit < 0 || current > limit || addition > limit-current
+}
+
+func validateExportArchiveLimits(mediaCount int, manifestSize int64) error {
+	// manifest.json 和 data.json 也占用两个 ZIP entry，导出端必须保持在恢复端的总入口上限内。
+	if mediaCount < 0 || mediaCount > maxBackupArchiveEntries-2 {
+		return apperrors.BadRequest("backup has too many files")
+	}
+	if manifestSize < 0 || manifestSize > maxBackupManifestBytes {
+		return apperrors.BadRequest("backup manifest exceeds size limit")
+	}
+	return nil
+}
+
+func requireRestoreLease(lease *security.RestoreLease) error {
+	return normalizeRestoreLeaseError(lease.Check())
+}
+
+func requireLocalRestoreLease(lease *security.RestoreLease) error {
+	return normalizeRestoreLeaseError(lease.CheckLocal())
+}
+
+func normalizeRestoreLeaseError(err error) error {
+	if err != nil {
+		if errors.Is(err, security.ErrRestoreLeaseLost) {
+			return apperrors.ServiceUnavailable("restore lock is unavailable")
+		}
+		return err
+	}
+	return nil
+}
+
 func readArchive(reader *zip.Reader, maxBytes int64) (*Manifest, *model.BackupSnapshot, error) {
 	if maxBytes <= 0 {
 		return nil, nil, apperrors.BadRequest("backup size limit is invalid")
 	}
-	if len(reader.File) > 100000 {
+	if len(reader.File) > maxBackupArchiveEntries {
 		return nil, nil, apperrors.BadRequest("backup has too many files")
 	}
 	entries := make(map[string]*zip.File, len(reader.File))
@@ -280,7 +354,7 @@ func readArchive(reader *zip.Reader, maxBytes int64) (*Manifest, *model.BackupSn
 		total += file.UncompressedSize64
 		entries[name] = file
 	}
-	manifestData, err := readZipEntry(entries["manifest.json"], 8<<20)
+	manifestData, err := readZipEntry(entries["manifest.json"], maxBackupManifestBytes)
 	if err != nil {
 		return nil, nil, apperrors.BadRequest("backup manifest is missing")
 	}
@@ -322,12 +396,17 @@ func readArchive(reader *zip.Reader, maxBytes int64) (*Manifest, *model.BackupSn
 	return &manifest, &snapshot, nil
 }
 
-func restoreArchiveMedia(svcCtx *svc.ServiceContext, reader *zip.Reader, manifest *Manifest) error {
+func restoreArchiveMedia(svcCtx *svc.ServiceContext, reader *zip.Reader, manifest *Manifest, canContinue func() error) error {
 	entries := make(map[string]*zip.File, len(reader.File))
 	for _, file := range reader.File {
 		entries[file.Name] = file
 	}
 	for _, item := range manifest.Files {
+		if canContinue != nil {
+			if err := canContinue(); err != nil {
+				return err
+			}
+		}
 		file := entries[item.Path]
 		if file == nil {
 			return apperrors.BadRequest("backup media file is missing")
@@ -668,17 +747,30 @@ func hashFile(filePath string) (string, error) {
 	return hex.EncodeToString(hash.Sum(nil)), nil
 }
 
-func clearApplicationCache(ctx context.Context, client *redis.Client) {
-	patterns := []string{"site:*", "article:*", "auth:*", "notes-of-ashen:*", "captcha:*", "traffic:*"}
+type cacheRedis interface {
+	Scan(ctx context.Context, cursor uint64, match string, count int64) *redis.ScanCmd
+	Del(ctx context.Context, keys ...string) *redis.IntCmd
+}
+
+func clearApplicationCache(ctx context.Context, client cacheRedis) error {
+	if client == nil {
+		return errors.New("cache redis client is nil")
+	}
+	patterns := []string{
+		"site:*", "article:*", "auth:*", "notes-of-ashen:*", "captcha:*",
+		"verify_code:*", "verify_code_cooldown:*", "traffic:*",
+	}
 	for _, pattern := range patterns {
 		var cursor uint64
 		for {
 			keys, next, err := client.Scan(ctx, cursor, pattern, 200).Result()
 			if err != nil {
-				return
+				return err
 			}
 			if len(keys) > 0 {
-				client.Del(ctx, keys...)
+				if err := client.Del(ctx, keys...).Err(); err != nil {
+					return err
+				}
 			}
 			cursor = next
 			if cursor == 0 {
@@ -686,6 +778,7 @@ func clearApplicationCache(ctx context.Context, client *redis.Client) {
 			}
 		}
 	}
+	return nil
 }
 func pruneMedia(svcCtx *svc.ServiceContext, assets []model.MediaAsset) error {
 	root, err := medialogic.Root(svcCtx)

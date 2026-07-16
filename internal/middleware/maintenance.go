@@ -18,7 +18,7 @@ func NewMaintenanceMiddleware(client *redis.Client) *MaintenanceMiddleware {
 
 func (m *MaintenanceMiddleware) Handle(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == http.MethodGet || r.Method == http.MethodHead || r.Method == http.MethodOptions || r.URL.Path == "/api/v1/admin/backups/restore" {
+		if r.Method == http.MethodGet || r.Method == http.MethodHead || r.Method == http.MethodOptions {
 			next(w, r)
 			return
 		}

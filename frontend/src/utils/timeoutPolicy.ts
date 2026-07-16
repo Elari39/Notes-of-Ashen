@@ -13,6 +13,7 @@ const LONG_RUNNING_PATTERNS: RegExp[] = [
   /\/articles\/import\b/,
   /\/articles\/[^/]+\/export\b/,
   /\/admin\/search\/reindex\b/,
+  /\/admin\/backups\/(?:export|restore)\b/,
 ];
 
 export const resolveDefaultTimeout = (config: AxiosRequestConfig): number => {

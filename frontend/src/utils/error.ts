@@ -8,6 +8,34 @@ type ErrorResponse = {
   message?: string;
 };
 
+const isJSONContentType = (value?: string): boolean => {
+  const normalized = value?.toLowerCase() ?? '';
+  return normalized.includes('application/json') || normalized.includes('+json');
+};
+
+/**
+ * 下载接口设置 responseType=blob 后，服务端错误响应也会被 Axios 包装为 Blob。
+ * 仅在明确 JSON 时解码，避免误读真实二进制错误体或改变其原有回退行为。
+ */
+export const parseJSONBlobError = async (data: unknown, contentType?: string): Promise<unknown> => {
+  if (typeof Blob === 'undefined' || !(data instanceof Blob)) return data;
+  if (!isJSONContentType(contentType) && !isJSONContentType(data.type)) return data;
+  try {
+    const parsed: unknown = JSON.parse(await data.text());
+    return typeof parsed === 'object' && parsed !== null ? parsed : data;
+  } catch {
+    return data;
+  }
+};
+
+/** 重新验证当前密码失败不表示 access token 失效，不能自动刷新并重放破坏性请求。 */
+export const isCurrentPasswordRejection = (data: unknown): boolean => (
+  typeof data === 'object' &&
+  data !== null &&
+  'message' in data &&
+  (data as { message?: unknown }).message === 'current password is incorrect'
+);
+
 type Language = 'zh' | 'en';
 type LocalizedText = Record<Language, string>;
 
@@ -146,6 +174,20 @@ const exactMessages: Record<string, LocalizedText> = {
   'cannot disable yourself': localized('不能禁用自己的账号', 'You cannot disable your own account'),
   'cannot downgrade yourself': localized('不能降低自己的管理员权限', 'You cannot downgrade your own administrator role'),
   'at least one active admin is required': localized('至少需要保留一个可用管理员', 'At least one active administrator is required'),
+  'current password is incorrect': localized('当前管理员密码不正确', 'The current administrator password is incorrect'),
+  'backup passphrase length is invalid': localized('归档密码长度必须在 12 到 128 个字符之间', 'The archive passphrase must contain 12 to 128 characters'),
+  'backup passphrase is invalid': localized('归档密码无效', 'The archive passphrase is invalid'),
+  'backup passphrase or file is invalid': localized('归档密码错误或备份文件无效', 'The archive passphrase is incorrect or the backup file is invalid'),
+  'backup file is required': localized('请选择备份文件', 'Choose a backup file'),
+  'backup upload is invalid': localized('备份上传无效', 'The backup upload is invalid'),
+  'backup exceeds configured size limit': localized('备份超过允许的大小限制', 'The backup exceeds the configured size limit'),
+  'backup expanded size exceeds limit': localized('备份解压后的内容超过允许的大小限制', 'The expanded backup content exceeds the configured size limit'),
+  'backup archive is invalid': localized('备份归档无效', 'The backup archive is invalid'),
+  'backup has too many files': localized('备份包含的文件数量超过允许上限', 'The backup contains too many files'),
+  'backup manifest exceeds size limit': localized('备份清单超过允许的大小限制', 'The backup manifest exceeds the configured size limit'),
+  'restore confirmation is invalid': localized('整站替换确认无效', 'The restore confirmation is invalid'),
+  'another restore is running': localized('已有整站恢复正在执行', 'Another full-site restore is already running'),
+  'restore lock is unavailable': localized('恢复锁暂时不可用，请稍后重试', 'The restore lock is unavailable. Try again later'),
   'email is unchanged': localized('新邮箱不能与当前邮箱相同', 'The new email cannot be the same as the current email'),
   'internal server error': localized('服务暂时不可用，请稍后重试', 'The service is temporarily unavailable. Please try again later.'),
   'invalid id': localized('ID 不合法', 'The ID is invalid'),

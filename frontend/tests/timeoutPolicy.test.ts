@@ -16,6 +16,8 @@ test('AI 设置读写仍使用普通请求超时', () => {
 
 test('非 AI 长任务和普通请求保持原有分级策略', () => {
   assert.equal(resolveDefaultTimeout({ method: 'post', url: '/articles/import' }), 600_000);
+  assert.equal(resolveDefaultTimeout({ method: 'post', url: '/admin/backups/export' }), 600_000);
+  assert.equal(resolveDefaultTimeout({ method: 'post', url: '/admin/backups/restore' }), 600_000);
   assert.equal(resolveDefaultTimeout({ method: 'get', url: '/articles' }), 10_000);
   assert.equal(resolveDefaultTimeout({ method: 'post', url: '/articles' }), 30_000);
 });

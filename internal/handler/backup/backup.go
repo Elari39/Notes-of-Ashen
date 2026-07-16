@@ -7,6 +7,7 @@ import (
 	"os"
 	"time"
 
+	"notes-of-ashen/internal/authutil"
 	apperrors "notes-of-ashen/internal/errors"
 	basehandler "notes-of-ashen/internal/httphelper"
 	backuplogic "notes-of-ashen/internal/logic/backup"
@@ -17,6 +18,10 @@ import (
 
 func ExportHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		if err := authutil.RequireAdmin(r.Context()); err != nil {
+			response.ErrorCtx(r.Context(), w, err)
+			return
+		}
 		var req types.BackupExportReq
 		if err := basehandler.Parse(r, &req); err != nil {
 			response.ErrorCtx(r.Context(), w, err)
@@ -46,6 +51,11 @@ func ExportHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 
 func RestoreHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		// 必须在解析 multipart 之前完成角色校验，避免普通登录用户借大文件上传占用临时磁盘。
+		if err := authutil.RequireAdmin(r.Context()); err != nil {
+			response.ErrorCtx(r.Context(), w, err)
+			return
+		}
 		maxBytes := svcCtx.Config.Backup.EffectiveMaxUploadBytes()
 		r.Body = http.MaxBytesReader(w, r.Body, maxBytes+1<<20)
 		if err := r.ParseMultipartForm(1 << 20); err != nil {

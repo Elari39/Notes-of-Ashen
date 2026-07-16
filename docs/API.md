@@ -796,7 +796,7 @@ POST /api/v1/admin/backups/export
 POST /api/v1/admin/backups/restore
 ```
 
-权限：`admin`。两项操作都要求重新提交当前账户密码；归档口令长度 12 到 128 字符，不保存、不记录日志。导出请求为 JSON：
+权限：`admin`。两项操作都要求重新提交当前账户密码；归档口令长度为 12 到 128 个 Unicode 字符，不保存、不记录日志。导出请求为 JSON：
 
 ```json
 {
@@ -807,7 +807,7 @@ POST /api/v1/admin/backups/restore
 
 导出返回 `application/octet-stream` 的 `.noa-backup` 文件。归档使用 age scrypt 口令加密，包含用户资料与 bcrypt 密码哈希、文章及版本、分类、标签、作品、站点设置中的非密钥配置、媒体元数据和原文件，以及文章累计浏览和点赞数。
 
-恢复使用 `multipart/form-data`：`file`、`currentPassword`、`passphrase` 必填，`confirmation` 必须为 `REPLACE`。恢复前完整校验版本、路径、展开总量、清单、SHA-256、数据计数、唯一约束、关联关系和至少一个启用管理员；默认上传上限 1 GiB。
+恢复使用 `multipart/form-data`：`file`、`currentPassword`、`passphrase` 必填，`confirmation` 必须为 `REPLACE`。恢复前完整校验版本、路径、展开总量、清单、SHA-256、数据计数、唯一约束、关联关系和至少一个启用管理员；默认上限为 1 GiB，同时约束最终加密 `.noa-backup` 文件和解压后的归档内容，超限备份不会被导出或恢复。
 
 归档明确排除 Refresh Token、验证码、缓存、AI API Key 密文、环境变量、审计日志、流量明细、搜索索引和访客点赞哈希。恢复会整站替换目标内容，清空会话、日志、流量和访客去重数据，强制关闭 AI 并使旧 Access Token 失效；管理员必须重新登录、重新录入 AI API Key。数据库提交后会清缓存并重建 Meilisearch，索引重建或旧媒体清理失败只作为警告返回。
 

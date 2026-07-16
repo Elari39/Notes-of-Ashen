@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { getAIExactErrorMessage } from '../src/utils/aiErrorMessages.ts';
-import { AppError, getErrorMessage, toAppError } from '../src/utils/error.ts';
+import { AppError, getErrorMessage, isCurrentPasswordRejection, parseJSONBlobError, toAppError } from '../src/utils/error.ts';
 
 test('AI 设置连接错误会映射为稳定中英文提示', () => {
   assert.equal(
@@ -57,4 +57,25 @@ test('无效和过期邮箱验证码使用统一提示', () => {
     getErrorMessage(new AppError('email code is invalid or expired')),
     '邮箱验证码无效或已过期，请重新获取',
   );
+});
+
+test('下载接口的 JSON Blob 错误会恢复为统一错误结构', async () => {
+  const blob = new Blob([JSON.stringify({ code: 40123, message: 'current password is incorrect' })], {
+    type: 'application/json; charset=utf-8',
+  });
+  const parsed = await parseJSONBlobError(blob, 'application/json');
+
+  assert.deepEqual(parsed, { code: 40123, message: 'current password is incorrect' });
+  assert.equal(isCurrentPasswordRejection(parsed), true);
+  const error = Object.assign(new Error('request failed'), {
+    config: { method: 'post' },
+    response: { status: 401, data: parsed },
+  });
+  assert.equal(getErrorMessage(error), '当前管理员密码不正确');
+});
+
+test('非 JSON Blob 错误保持原始数据供既有回退处理', async () => {
+  const blob = new Blob(['not-json'], { type: 'application/octet-stream' });
+
+  assert.equal(await parseJSONBlobError(blob, 'application/octet-stream'), blob);
 });
