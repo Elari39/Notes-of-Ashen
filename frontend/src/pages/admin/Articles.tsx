@@ -215,7 +215,7 @@ const AdminArticles: React.FC = () => {
           >
             {importing ? t('articleAdmin.importing') : t('articleAdmin.import')}
           </button>
-          <button onClick={() => navigate('/admin/editor/new')} className="px-4 py-2 border border-ink text-ink hover:bg-ink hover:text-paper tracking-widest text-sm transition-colors">
+          <button data-testid="admin-articles-new" onClick={() => navigate('/admin/editor/new')} className="px-4 py-2 border border-ink text-ink hover:bg-ink hover:text-paper tracking-widest text-sm transition-colors">
             {t('adminArticles.new')}
           </button>
         </div>

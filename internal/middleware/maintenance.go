@@ -1,7 +1,9 @@
 package middleware
 
 import (
+	"context"
 	"net/http"
+	"time"
 
 	apperrors "notes-of-ashen/internal/errors"
 	"notes-of-ashen/internal/response"
@@ -9,6 +11,10 @@ import (
 
 	"github.com/redis/go-redis/v9"
 )
+
+// maintenanceRedisTimeout 限制跨进程恢复标记的可选查询时长。
+// Redis 故障不能把敏感路由（尤其是 fail-closed 限流）拖到完整 HTTP 请求超时。
+const maintenanceRedisTimeout = 200 * time.Millisecond
 
 type MaintenanceMiddleware struct{ redis *redis.Client }
 
@@ -27,7 +33,9 @@ func (m *MaintenanceMiddleware) Handle(next http.HandlerFunc) http.HandlerFunc {
 			return
 		}
 		if m.redis != nil {
-			active, err := m.redis.Exists(r.Context(), security.RestoreMaintenanceKey).Result()
+			checkCtx, cancel := context.WithTimeout(r.Context(), maintenanceRedisTimeout)
+			active, err := m.redis.Exists(checkCtx, security.RestoreMaintenanceKey).Result()
+			cancel()
 			if err == nil && active > 0 {
 				response.ErrorCtx(r.Context(), w, apperrors.ServiceUnavailable("site restore is in progress"))
 				return

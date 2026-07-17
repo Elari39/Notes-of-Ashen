@@ -188,6 +188,7 @@ const Register: React.FC = () => {
               />
               <div className="flex items-end gap-3">
                 <input
+                  data-testid="register-email-code"
                   type="text"
                   inputMode="numeric"
                   placeholder={t('auth.emailCode')}

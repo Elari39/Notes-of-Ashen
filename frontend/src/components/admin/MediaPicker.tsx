@@ -81,6 +81,7 @@ const MediaPicker: React.FC<Props> = ({ open, onOpenChange, onSelect }) => {
           <TextField value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t('media.search')} />
         </div>
         <input
+          data-testid="media-picker-upload-input"
           ref={inputRef}
           className="sr-only"
           type="file"
@@ -101,6 +102,7 @@ const MediaPicker: React.FC<Props> = ({ open, onOpenChange, onSelect }) => {
         <div className="grid max-h-[55vh] grid-cols-2 gap-3 overflow-y-auto pr-1 sm:grid-cols-3">
           {items.map((item) => (
             <button
+              data-testid={`media-picker-item-${item.id}`}
               key={item.id}
               type="button"
               onClick={() => {

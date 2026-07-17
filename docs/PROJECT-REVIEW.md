@@ -17,7 +17,7 @@
 - [x] P2-04：`X-Request-Id` 已限制为最多 128 位的安全 ASCII 格式，并记录来源。
 - [x] P2-05：备份恢复改为媒体卷内暂存、持久 journal、可回滚发布与启动恢复。
 - [x] P2-06：Refresh Token Cookie 示例和后台用户管理路由文档已修正。
-- [ ] P3-01：尚未建设完整 HTTP、真实数据库/Compose 与前端 E2E 集成测试套件。
+- [x] P3-01：真实 HTTP、Compose 和 Chromium E2E 测试编排已完成，core 与 extended 已在干净 Docker 环境中完整通过。
 - [x] P3-02：已补 `type-check`、前端 CI 和 Tailwind 3.4 现状说明；Tailwind 4 升级按本轮范围明确不做。
 
 ### 1.1 总体评价
@@ -365,7 +365,7 @@ P2。当前更可能造成磁盘残留，不会直接覆盖不同 hash 的媒体
 
 P2。不会影响前端同源浏览器主流程，但会影响 API 使用者和运维排查。
 
-### [ ] P3-01：测试覆盖偏重纯函数和边界逻辑，真实 HTTP/数据库/Compose 集成覆盖不足
+### [x] P3-01：真实 HTTP/数据库/Compose 集成覆盖已补齐
 
 ### 现状证据
 
@@ -391,6 +391,15 @@ P2。不会影响前端同源浏览器主流程，但会影响 API 使用者和�
 - 使用临时 MySQL/Redis 或 Docker Compose 测试 profile 验证真实 SQL、迁移和健康检查。
 - 增加前端关键路径 E2E：首次注册、登录刷新、文章编辑、媒体插入、后台权限。
 - 对备份恢复、并发注册、Refresh Token 旋转和限流故障增加故障注入测试。
+
+### 当前实施
+
+- 新增 `scripts/test-integration.ps1 -Suite core|extended`，每个 HTTP、浏览器和扩展阶段均使用新的随机 Compose 项目、卷、凭据、网络与 loopback 端口，且不读取开发 `.env`。
+- 新增测试 Compose 覆盖，仅启动 Web、API、MySQL 与 Redis；测试环境关闭邮件、RabbitMQ、Meilisearch 与 Prerender，并只在该环境关闭 Refresh Cookie 的 Secure 属性。
+- `core` 覆盖真实 HTTP/数据库链路和 Chromium E2E；`extended` 在独立生命周期中覆盖并发、Redis 故障及恢复失败注入。详细命令见 `docs/TESTING.md`。
+- GitHub Actions 在 push/PR 运行 core，并在每日上海时间 02:00 与手动触发时运行 extended；失败时保存 Compose 与 Playwright 产物。
+
+`core` 与 `extended` 已在干净 Docker 环境中完整通过；测试项目、卷、镜像和临时凭据均已清理。
 
 ### 优先级
 

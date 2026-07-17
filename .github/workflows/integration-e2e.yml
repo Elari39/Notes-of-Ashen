@@ -1,0 +1,99 @@
+name: Integration E2E
+
+on:
+  push:
+  pull_request:
+  schedule:
+    # GitHub Actions cron 使用 UTC；18:00 UTC 即 Asia/Shanghai 次日 02:00。
+    - cron: '0 18 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  core:
+    name: core integration
+    if: github.event_name == 'push' || github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+      - name: Install frontend dependencies
+        run: pnpm --dir frontend install --frozen-lockfile
+      - name: Check frontend
+        run: |
+          pnpm --dir frontend lint
+          pnpm --dir frontend type-check
+          pnpm --dir frontend test
+          pnpm --dir frontend build
+      - name: Check Go unit tests
+        run: go test ./...
+      - name: Install Chromium
+        run: pnpm --dir frontend exec playwright install --with-deps chromium
+      - name: Run core integration suite
+        id: integration
+        shell: pwsh
+        env:
+          E2E_SKIP_BROWSER_INSTALL: '1'
+        run: ./scripts/test-integration.ps1 -Suite core
+      - name: Upload failure artifacts
+        if: failure() && steps.integration.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: core-integration-artifacts
+          if-no-files-found: ignore
+          path: |
+            ${{ steps.integration.outputs.artifact_dir }}
+            frontend/playwright-report
+            frontend/test-results
+
+  extended:
+    name: extended integration
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+      - name: Install frontend dependencies
+        run: pnpm --dir frontend install --frozen-lockfile
+      - name: Install Chromium
+        run: pnpm --dir frontend exec playwright install --with-deps chromium
+      - name: Run extended integration suite
+        id: integration
+        shell: pwsh
+        env:
+          E2E_SKIP_BROWSER_INSTALL: '1'
+        run: ./scripts/test-integration.ps1 -Suite extended
+      - name: Upload failure artifacts
+        if: failure() && steps.integration.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: extended-integration-artifacts
+          if-no-files-found: ignore
+          path: |
+            ${{ steps.integration.outputs.artifact_dir }}
+            frontend/playwright-report
+            frontend/test-results

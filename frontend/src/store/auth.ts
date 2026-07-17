@@ -4,6 +4,10 @@ import { getCurrentUser } from '../api/user';
 import { refreshAccessToken } from '../utils/refresh';
 import { executeFetchUser, type FetchUserMode } from './authPolicy';
 
+// React StrictMode 会在开发环境重复执行挂载 effect。静默刷新会旋转 HttpOnly Cookie，
+// 因此同一时刻只能保留一个初始化任务，避免两个 refresh 请求竞争同一旧 token。
+let initializeAuthTask: Promise<void> | null = null;
+
 interface AuthState {
   user: User | null;
   accessToken: string | null;
@@ -56,20 +60,32 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       set({ isFetching: false });
     }
   },
-  initializeAuth: async () => {
-    const { accessToken, user, fetchUser } = get();
-    if (accessToken && user) {
-      set({ isInitialized: true });
-      return;
+  initializeAuth: () => {
+    if (initializeAuthTask) {
+      return initializeAuthTask;
     }
-    // 无内存 token 时尝试通过 HttpOnly Cookie 静默刷新恢复会话；
-    // Cookie 不存在或已过期则保持未登录态。
-    try {
-      const token = await refreshAccessToken();
-      set({ accessToken: token, isInitialized: true });
-      await fetchUser();
-    } catch {
-      set({ user: null, accessToken: null, isInitialized: true });
-    }
+
+    const task = (async () => {
+      const { accessToken, user, fetchUser } = get();
+      if (accessToken && user) {
+        set({ isInitialized: true });
+        return;
+      }
+      // 无内存 token 时尝试通过 HttpOnly Cookie 静默刷新恢复会话；
+      // Cookie 不存在或已过期则保持未登录态。
+      try {
+        const token = await refreshAccessToken();
+        set({ accessToken: token, isInitialized: true });
+        await fetchUser();
+      } catch {
+        set({ user: null, accessToken: null, isInitialized: true });
+      }
+    })();
+
+    const sharedTask = task.finally(() => {
+      initializeAuthTask = null;
+    });
+    initializeAuthTask = sharedTask;
+    return sharedTask;
   },
 }));

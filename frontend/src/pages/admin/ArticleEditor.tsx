@@ -945,7 +945,7 @@ const ArticleEditor: React.FC = () => {
               </div>
             )}
           </div>
-          <button onClick={handleSave} disabled={submitting} className="px-6 py-2 bg-ink text-paper tracking-widest text-sm hover:bg-opacity-80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+          <button data-testid="article-editor-save" onClick={handleSave} disabled={submitting} className="px-6 py-2 bg-ink text-paper tracking-widest text-sm hover:bg-opacity-80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
             {submitting ? t('common.saving') : t('articleEditor.save')}
           </button>
         </div>
@@ -1030,10 +1030,12 @@ const ArticleEditor: React.FC = () => {
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
         <input
+          data-testid="article-editor-title"
           type="text" placeholder={t('articleEditor.titlePlaceholder')} value={title} onChange={e => setTitle(e.target.value)}
           className="w-full bg-transparent border-b border-mountain-grey py-2 text-ink focus:outline-none focus:border-ochre text-lg font-bold"
         />
         <input
+          data-testid="article-editor-slug"
           type="text" placeholder={t('articleEditor.slugPlaceholder')} value={slug} onChange={e => setSlug(e.target.value)}
           className="w-full bg-transparent border-b border-mountain-grey py-2 text-ink focus:outline-none focus:border-ochre"
         />
@@ -1050,6 +1052,7 @@ const ArticleEditor: React.FC = () => {
           </Button>
         </div>
         <select
+          data-testid="article-editor-status"
           value={status} onChange={e => setStatus(e.target.value as ArticleStatus)}
           className="w-full bg-transparent border-b border-mountain-grey py-2 text-ink focus:outline-none focus:border-ochre"
         >
@@ -1192,11 +1195,12 @@ const ArticleEditor: React.FC = () => {
               {' · '}
               {formatText(t('common.byteUsage'), { used: contentByteLength, limit: MAX_ARTICLE_CONTENT_BYTES })}
             </span>
-            <Button type="button" size="sm" variant="subtle" onClick={() => setMediaPickerMode('content')}>
+            <Button type="button" size="sm" variant="subtle" onClick={() => setMediaPickerMode('content')} data-testid="article-editor-media-insert">
               {t('media.insert')}
             </Button>
           </div>
           <textarea
+            data-testid="article-editor-content"
             ref={textareaRef}
             value={content}
             onChange={e => setContent(e.target.value)}

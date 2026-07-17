@@ -1,0 +1,39 @@
+# 仅供 scripts/test-integration.ps1 使用的 Compose 覆盖文件。
+# 不要直接以此文件启动服务：脚本会生成隔离环境变量、项目名和端口映射。
+services:
+  web:
+    restart: "no"
+    environment:
+      PRERENDER_ENABLED: "0"
+      PRERENDER_TOKEN: ""
+
+  api:
+    restart: "no"
+    environment:
+      # 本地 E2E 需要浏览器在 HTTP 下保存 refresh Cookie；生产配置保持默认 true。
+      APP_AUTH_COOKIE_SECURE: "false"
+      # 集成测试不启动外部可选依赖，避免网络与真实服务副作用。
+      APP_EMAIL_ENABLED: "false"
+      APP_RABBITMQ_ENABLED: "false"
+      APP_SEARCH_ENABLED: "false"
+    ports:
+      - "127.0.0.1:${E2E_API_PORT}:19000"
+
+  mysql:
+    restart: "no"
+    ports:
+      - "127.0.0.1:${E2E_MYSQL_PORT}:3306"
+
+  redis:
+    restart: "no"
+    ports:
+      - "127.0.0.1:${E2E_REDIS_PORT}:6379"
+
+  # 这些服务不是集成测试依赖；profile 确保误执行无服务名的 up 时也不会启动。
+  rabbitmq:
+    profiles: ["disabled"]
+    restart: "no"
+
+  meilisearch:
+    profiles: ["disabled"]
+    restart: "no"

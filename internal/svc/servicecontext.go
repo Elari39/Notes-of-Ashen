@@ -43,18 +43,21 @@ func NewServiceContext(c config.Config) *ServiceContext {
 
 	store := model.NewStore(db)
 	redisClient := redis.NewClient(&redis.Options{
-		Addr:            c.Redis.Addr,
-		Password:        c.Redis.Password,
-		DB:              c.Redis.DB,
-		DialTimeout:     startupRedisTimeout,
-		ReadTimeout:     1 * time.Second,
-		WriteTimeout:    1 * time.Second,
-		PoolTimeout:     2 * time.Second,
-		PoolSize:        20,
-		MinIdleConns:    3,
-		MaxRetries:      2,
-		MinRetryBackoff: 50 * time.Millisecond,
-		MaxRetryBackoff: 300 * time.Millisecond,
+		Addr:         c.Redis.Addr,
+		Password:     c.Redis.Password,
+		DB:           c.Redis.DB,
+		DialTimeout:  startupRedisTimeout,
+		ReadTimeout:  1 * time.Second,
+		WriteTimeout: 1 * time.Second,
+		// 让调用方传入的 context deadline 生效。敏感接口的限流中间件依赖
+		// 短超时在 Redis 不可用时 fail-closed，而不是被客户端重试拖延。
+		ContextTimeoutEnabled: true,
+		PoolTimeout:           2 * time.Second,
+		PoolSize:              20,
+		MinIdleConns:          3,
+		MaxRetries:            2,
+		MinRetryBackoff:       50 * time.Millisecond,
+		MaxRetryBackoff:       300 * time.Millisecond,
 	})
 	// Redis 是限流、缓存、refresh token 的关键依赖，启动时 PING 校验，失败 fail-fast。
 	// 打印实际使用的 Addr（host:port，不含密码），便于确认 APP_REDIS_ADDR 是否注入正确。
