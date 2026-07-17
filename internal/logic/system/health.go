@@ -112,7 +112,7 @@ func backupSchemaHealthProbe(ctx context.Context, svcCtx *svc.ServiceContext) er
 	if svcCtx == nil || svcCtx.Store == nil {
 		return errBackupSchemaCheckUnavailable
 	}
-	ready, err := svcCtx.Store.BackupSchemaReady(ctx)
+	ready, err := svcCtx.Store.SchemaReady(ctx)
 	if err != nil {
 		return err
 	}

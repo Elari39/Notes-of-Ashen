@@ -59,6 +59,15 @@ func TestEmailRequiresPlainAddress(t *testing.T) {
 	}
 }
 
+func TestByteLengthUsesUTF8Bytes(t *testing.T) {
+	if err := ByteLength("你好", "content", 0, 6); err != nil {
+		t.Fatalf("ByteLength() error = %v, want nil", err)
+	}
+	if err := ByteLength("你好", "content", 0, 5); err == nil {
+		t.Fatal("ByteLength() error = nil, want UTF-8 byte limit error")
+	}
+}
+
 func TestIsBlockedHostIP(t *testing.T) {
 	for _, value := range []string{
 		"127.0.0.1",

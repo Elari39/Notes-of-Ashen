@@ -41,12 +41,13 @@ func (m *AccessLogMiddleware) Handle(next http.HandlerFunc) http.HandlerFunc {
 			path = "/"
 		}
 		message := fmt.Sprintf(
-			"[HTTP] %d - %s %s - %s - request_id=%s - duration=%s",
+			"[HTTP] %d - %s %s - %s - request_id=%s - request_id_source=%s - duration=%s",
 			loggedWriter.statusCode,
 			r.Method,
 			path,
 			basehandler.Meta(r, m.forwarded).IP,
 			response.RequestIDFromContext(r.Context()),
+			response.RequestIDSourceFromContext(r.Context()),
 			time.Since(startedAt).Round(time.Microsecond),
 		)
 		logger := logx.WithContext(r.Context())

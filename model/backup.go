@@ -4,9 +4,16 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"strconv"
 	"time"
 )
+
+// BackupRestoreMarkerKey is written in the same transaction as a restored
+// snapshot. It lets startup complete the corresponding media directory switch
+// after a process interruption without exposing the internal marker in exports.
+const BackupRestoreMarkerKey = "__backup_restore_marker"
 
 type BackupSetting struct {
 	Key   string `json:"key"`
@@ -84,7 +91,7 @@ func backupUsers(ctx context.Context, tx *sql.Tx) ([]User, error) {
 }
 
 func backupSettings(ctx context.Context, tx *sql.Tx) ([]BackupSetting, error) {
-	rows, err := tx.QueryContext(ctx, `SELECT setting_key, setting_value FROM site_settings WHERE setting_key <> 'ai_api_key_cipher' ORDER BY setting_key`)
+	rows, err := tx.QueryContext(ctx, `SELECT setting_key, setting_value FROM site_settings WHERE setting_key NOT IN (?, ?) ORDER BY setting_key`, "ai_api_key_cipher", BackupRestoreMarkerKey)
 	if err != nil {
 		return nil, err
 	}
@@ -245,6 +252,20 @@ func backupMedia(ctx context.Context, tx *sql.Tx) ([]MediaAsset, error) {
 }
 
 func (s *Store) RestoreBackup(ctx context.Context, snapshot BackupSnapshot) error {
+	return s.restoreBackup(ctx, snapshot, "")
+}
+
+// RestoreBackupWithMarker replaces the snapshot and records the media restore
+// transaction ID in the same SQL transaction. Callers must only clear the
+// marker after the staged media directory has been published.
+func (s *Store) RestoreBackupWithMarker(ctx context.Context, snapshot BackupSnapshot, restoreMarker string) error {
+	if restoreMarker == "" {
+		return errors.New("backup restore marker is empty")
+	}
+	return s.restoreBackup(ctx, snapshot, restoreMarker)
+}
+
+func (s *Store) restoreBackup(ctx context.Context, snapshot BackupSnapshot, restoreMarker string) error {
 	tx, err := s.db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelSerializable})
 	if err != nil {
 		return err
@@ -312,7 +333,7 @@ func (s *Store) RestoreBackup(ctx context.Context, snapshot BackupSnapshot) erro
 	}
 	settings := make(map[string]string, len(snapshot.Settings)+2)
 	for _, item := range snapshot.Settings {
-		if item.Key != "ai_api_key_cipher" {
+		if item.Key != "ai_api_key_cipher" && item.Key != BackupRestoreMarkerKey {
 			settings[item.Key] = item.Value
 		}
 	}
@@ -324,5 +345,50 @@ func (s *Store) RestoreBackup(ctx context.Context, snapshot BackupSnapshot) erro
 			return err
 		}
 	}
+	if restoreMarker != "" {
+		if err := insertBackupRestoreMarker(ctx, tx, restoreMarker, now); err != nil {
+			return err
+		}
+	}
 	return tx.Commit()
+}
+
+func insertBackupRestoreMarker(ctx context.Context, tx *sql.Tx, marker string, now time.Time) error {
+	_, err := tx.ExecContext(ctx, `INSERT INTO site_settings(setting_key,setting_value,created_at,updated_at) VALUES(?,?,?,?)`, BackupRestoreMarkerKey, marker, now, now)
+	return err
+}
+
+// BackupRestoreMarker returns the marker left by a committed restore whose
+// media publication or cleanup has not finished yet.
+func (s *Store) BackupRestoreMarker(ctx context.Context) (string, error) {
+	var marker string
+	err := s.db.QueryRowContext(ctx, `SELECT setting_value FROM site_settings WHERE setting_key = ? LIMIT 1`, BackupRestoreMarkerKey).Scan(&marker)
+	if errors.Is(scanErr(err), ErrNotFound) {
+		return "", nil
+	}
+	if err != nil {
+		return "", err
+	}
+	if marker == "" {
+		return "", fmt.Errorf("backup restore marker is empty")
+	}
+	return marker, nil
+}
+
+// ClearBackupRestoreMarker only clears the marker written by the matching
+// restore. A mismatch means recovery must stop rather than finalize a different
+// restore transaction.
+func (s *Store) ClearBackupRestoreMarker(ctx context.Context, marker string) error {
+	result, err := s.db.ExecContext(ctx, `DELETE FROM site_settings WHERE setting_key = ? AND setting_value = ?`, BackupRestoreMarkerKey, marker)
+	if err != nil {
+		return err
+	}
+	updated, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if updated != 1 {
+		return fmt.Errorf("backup restore marker changed")
+	}
+	return nil
 }

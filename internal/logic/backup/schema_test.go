@@ -22,17 +22,15 @@ func TestEnsureSchemaReady(t *testing.T) {
 		{
 			name: "migration is required",
 			configure: func(mock sqlmock.Sqlmock) {
-				mock.ExpectQuery(regexp.QuoteMeta(`SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name IN (?, ?, ?)`)).
-					WithArgs("media_assets", "traffic_content_daily_stats", "traffic_content_daily_visitors").
-					WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(2))
+				mock.ExpectQuery(regexp.QuoteMeta(`SELECT table_name, column_name FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name IN (`)).
+					WillReturnRows(sqlmock.NewRows([]string{"table_name", "column_name"}))
 			},
 			wantMessage: backupSchemaMigrationRequiredMessage,
 		},
 		{
 			name: "schema check is unavailable",
 			configure: func(mock sqlmock.Sqlmock) {
-				mock.ExpectQuery(regexp.QuoteMeta(`SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name IN (?, ?, ?)`)).
-					WithArgs("media_assets", "traffic_content_daily_stats", "traffic_content_daily_visitors").
+				mock.ExpectQuery(regexp.QuoteMeta(`SELECT table_name, column_name FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name IN (`)).
 					WillReturnError(stderrors.New("database query failed"))
 			},
 			wantMessage: backupSchemaCheckUnavailableMessage,

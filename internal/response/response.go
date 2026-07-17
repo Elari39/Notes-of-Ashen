@@ -73,6 +73,7 @@ func logError(ctx context.Context, err error, statusCode int) {
 // --- request id & request meta context ---
 
 type requestIDKey struct{}
+type requestIDSourceKey struct{}
 type requestMetaKeyMethod struct{}
 type requestMetaKeyPath struct{}
 
@@ -84,6 +85,19 @@ func WithRequestID(ctx context.Context, id string) context.Context {
 // RequestIDFromContext 取出 request id，缺失返回空串。
 func RequestIDFromContext(ctx context.Context) string {
 	if v, ok := ctx.Value(requestIDKey{}).(string); ok {
+		return v
+	}
+	return ""
+}
+
+// WithRequestIDSource 标记请求 ID 是客户端透传还是服务端生成，供访问审计区分。
+func WithRequestIDSource(ctx context.Context, source string) context.Context {
+	return context.WithValue(ctx, requestIDSourceKey{}, source)
+}
+
+// RequestIDSourceFromContext 返回 request ID 来源，缺失时返回空串。
+func RequestIDSourceFromContext(ctx context.Context) string {
+	if v, ok := ctx.Value(requestIDSourceKey{}).(string); ok {
 		return v
 	}
 	return ""

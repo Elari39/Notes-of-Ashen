@@ -59,6 +59,7 @@ func TestAccessLogDoesNotLeakRequestSecrets(t *testing.T) {
 		"502",
 		"198.51.100.20",
 		requestID,
+		"request_id_source=client",
 		"duration=",
 	} {
 		if !strings.Contains(output, expected) {

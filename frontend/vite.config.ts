@@ -18,7 +18,7 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [react()],
     build: {
-      sourcemap: 'hidden',
+      sourcemap: false,
       chunkSizeWarningLimit: 1000,
       rollupOptions: {
         output: {

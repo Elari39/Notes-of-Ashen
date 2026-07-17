@@ -25,6 +25,16 @@ func Length(value, field string, min, max int) error {
 	return nil
 }
 
+// ByteLength 按 UTF-8 编码后的字节数校验文本长度。数据库 TEXT/MEDIUMTEXT
+// 的容量以字节计，不能仅使用 RuneCountInString 作为写入边界。
+func ByteLength(value, field string, min, max int) error {
+	n := len(value)
+	if n < min || n > max {
+		return apperrors.BadRequest(field + " size is invalid")
+	}
+	return nil
+}
+
 func Email(value string) error {
 	value = strings.TrimSpace(value)
 	parsed, err := mail.ParseAddress(value)

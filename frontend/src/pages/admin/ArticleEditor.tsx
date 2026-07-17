@@ -32,6 +32,7 @@ import {
 import { safeLocalStorage } from '../../utils/storage';
 import MediaPicker from '../../components/admin/MediaPicker';
 import { getReadingStats } from '../../utils/readingStats';
+import { MAX_ARTICLE_CONTENT_BYTES, MAX_TEXT_FIELD_BYTES, utf8ByteLength } from '../../utils/utf8';
 
 type TaxonomyOption = {
   id: number;
@@ -354,6 +355,8 @@ const ArticleEditor: React.FC = () => {
   const [tagIds, setTagIds] = useState<number[]>([]);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const liveReadingStats = useMemo(() => getReadingStats(content), [content]);
+  const contentByteLength = useMemo(() => utf8ByteLength(content), [content]);
+  const summaryByteLength = useMemo(() => utf8ByteLength(summary.trim()), [summary]);
   const [isEditorReady, setIsEditorReady] = useState(false);
   const [draftRecovery, setDraftRecovery] = useState<EditorDraft | null>(null);
   const draftRecoveryRef = useRef<EditorDraft | null>(null);
@@ -716,6 +719,14 @@ const ArticleEditor: React.FC = () => {
     }
     if (!slug.trim()) {
       setError(t('articleEditor.slugRequired'));
+      return;
+    }
+    if (contentByteLength > MAX_ARTICLE_CONTENT_BYTES) {
+      setError(formatText(t('articleEditor.contentTooLarge'), { limit: MAX_ARTICLE_CONTENT_BYTES }));
+      return;
+    }
+    if (summaryByteLength > MAX_TEXT_FIELD_BYTES) {
+      setError(formatText(t('articleEditor.summaryTooLarge'), { limit: MAX_TEXT_FIELD_BYTES }));
       return;
     }
     const trimmedCoverUrl = coverUrl.trim();
@@ -1150,10 +1161,15 @@ const ArticleEditor: React.FC = () => {
         />
       </div>
 
-      <input
-        type="text" placeholder={t('articleEditor.summary')} value={summary} onChange={e => handleSummaryChange(e.target.value)}
-        className="w-full bg-transparent border-b border-mountain-grey py-2 text-ink focus:outline-none focus:border-ochre mb-6"
-      />
+      <div className="mb-6">
+        <input
+          type="text" placeholder={t('articleEditor.summary')} value={summary} onChange={e => handleSummaryChange(e.target.value)}
+          className="w-full bg-transparent border-b border-mountain-grey py-2 text-ink focus:outline-none focus:border-ochre"
+        />
+        <p className="mt-1 text-right text-xs text-ink-light" aria-live="polite">
+          {formatText(t('common.byteUsage'), { used: summaryByteLength, limit: MAX_TEXT_FIELD_BYTES })}
+        </p>
+      </div>
 
       <label className="mb-6 flex flex-wrap items-center gap-3 border border-mountain-grey bg-[var(--paper-soft)] px-3 py-2 text-sm text-ink-light">
         <input
@@ -1173,6 +1189,8 @@ const ArticleEditor: React.FC = () => {
               {formatText(t('reading.words'), { count: liveReadingStats.wordCount })}
               {' · '}
               {formatText(t('reading.minutes'), { count: liveReadingStats.readingTimeMinutes })}
+              {' · '}
+              {formatText(t('common.byteUsage'), { used: contentByteLength, limit: MAX_ARTICLE_CONTENT_BYTES })}
             </span>
             <Button type="button" size="sm" variant="subtle" onClick={() => setMediaPickerMode('content')}>
               {t('media.insert')}

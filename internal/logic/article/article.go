@@ -32,6 +32,11 @@ var statuses = map[string]struct{}{
 // articleLikePerHourLimit 限制单篇文章每小时不同 visitor 的点赞数，防刷赞。
 const articleLikePerHourLimit int64 = 500
 
+const (
+	maxArticleContentBytes = 5 << 20
+	maxArticleSummaryBytes = 65535
+)
+
 var listStatuses = map[string]struct{}{
 	model.ArticleStatusDraft:     {},
 	model.ArticleStatusPublished: {},
@@ -597,6 +602,12 @@ func validateArticle(ctx context.Context, svcCtx *svc.ServiceContext, req types.
 		return err
 	}
 	if err := validator.Required(req.Content, "content"); err != nil {
+		return err
+	}
+	if err := validator.ByteLength(req.Content, "content", 1, maxArticleContentBytes); err != nil {
+		return err
+	}
+	if err := validator.ByteLength(strings.TrimSpace(req.Summary), "summary", 0, maxArticleSummaryBytes); err != nil {
 		return err
 	}
 	if err := validator.OptionalImageURL(req.CoverURL, "coverUrl"); err != nil {

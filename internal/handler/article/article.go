@@ -21,7 +21,10 @@ func forwardedOptions(svcCtx *svc.ServiceContext) basehandler.ForwardedOptions {
 	return basehandler.ForwardedOptions{TrustedProxyCIDRs: svcCtx.Config.Proxy.TrustedCIDRs}
 }
 
-const maxMarkdownUploadBytes = 2 << 20
+const (
+	maxMarkdownUploadBytes    = 2 << 20
+	maxArticleRequestBodySize = 6 << 20
+)
 
 func ListHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -142,7 +145,7 @@ func LikeHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 func CreateHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req types.ArticleReq
-		if err := basehandler.Parse(r, &req); err != nil {
+		if err := basehandler.ParseLimited(w, r, &req, maxArticleRequestBodySize); err != nil {
 			response.ErrorCtx(r.Context(), w, err)
 			return
 		}
@@ -163,7 +166,7 @@ func UpdateHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 			return
 		}
 		var req types.ArticleReq
-		if err := basehandler.Parse(r, &req); err != nil {
+		if err := basehandler.ParseLimited(w, r, &req, maxArticleRequestBodySize); err != nil {
 			response.ErrorCtx(r.Context(), w, err)
 			return
 		}

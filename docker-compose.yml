@@ -121,7 +121,7 @@ services:
     environment:
       TZ: Asia/Shanghai
       MYSQL_ROOT_PASSWORD: "${APP_MYSQL_ROOT_PASSWORD:?set APP_MYSQL_ROOT_PASSWORD in .env}"
-      MYSQL_DATABASE: "${APP_MYSQL_DATABASE:-notes_of_ashen}"
+      MYSQL_DATABASE: "notes_of_ashen"
       MYSQL_USER: "${APP_MYSQL_USER:-notes_user}"
       MYSQL_PASSWORD: "${APP_MYSQL_PASSWORD:?set APP_MYSQL_PASSWORD in .env}"
     command:

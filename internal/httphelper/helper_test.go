@@ -1,10 +1,48 @@
 package httphelper
 
 import (
+	"bytes"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"notes-of-ashen/internal/logicutil"
 )
+
+func TestPageSizeBoundsPageAndSize(t *testing.T) {
+	tests := []struct {
+		url      string
+		wantPage int
+		wantSize int
+	}{
+		{url: "/?page=1&size=10", wantPage: 1, wantSize: 10},
+		{url: "/?page=1001&size=101", wantPage: logicutil.MaxPage, wantSize: 100},
+		{url: "/?page=-1&size=-1", wantPage: 1, wantSize: 10},
+		{url: "/?page=999999999999999999999&size=10", wantPage: 1, wantSize: 10},
+	}
+	for _, tt := range tests {
+		t.Run(tt.url, func(t *testing.T) {
+			page, size := PageSize(httptest.NewRequest(http.MethodGet, tt.url, nil))
+			if page != tt.wantPage || size != tt.wantSize {
+				t.Fatalf("PageSize() = %d/%d, want %d/%d", page, size, tt.wantPage, tt.wantSize)
+			}
+		})
+	}
+}
+
+func TestParseLimitedRejectsOversizedBody(t *testing.T) {
+	body := append([]byte(`{"value":"`), bytes.Repeat([]byte("x"), 32)...)
+	body = append(body, []byte(`"}`)...)
+	req := httptest.NewRequest(http.MethodPost, "/", bytes.NewReader(body))
+	req.ContentLength = -1 // 覆盖 chunked 请求，确保由 MaxBytesReader 兜底。
+	req.Header.Set("Content-Type", "application/json")
+	var payload struct {
+		Value string `json:"value"`
+	}
+	if err := ParseLimited(httptest.NewRecorder(), req, &payload, 16); err == nil {
+		t.Fatal("ParseLimited() error = nil, want oversized body error")
+	}
+}
 
 func TestMetaIgnoresForwardedHeadersByDefault(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/traffic/visit", nil)

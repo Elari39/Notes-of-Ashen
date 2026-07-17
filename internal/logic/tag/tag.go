@@ -15,6 +15,8 @@ import (
 	"notes-of-ashen/model"
 )
 
+const maxTagDescriptionBytes = 65535
+
 func List(ctx context.Context, svcCtx *svc.ServiceContext, page, size int) (*types.ListResp[types.TagResp], error) {
 	page, size = logicutil.Page(page, size)
 	items, total, err := svcCtx.Store.ListTags(ctx, page, size, true)
@@ -120,6 +122,9 @@ func validate(req types.TaxonomyReq) error {
 		return err
 	}
 	if err := validator.Length(logicutil.NormalizeSlug(req.Slug), "slug", 1, 96); err != nil {
+		return err
+	}
+	if err := validator.ByteLength(strings.TrimSpace(req.Description), "description", 0, maxTagDescriptionBytes); err != nil {
 		return err
 	}
 	return nil

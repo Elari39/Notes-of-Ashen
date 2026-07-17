@@ -2,12 +2,14 @@ package httphelper
 
 import (
 	"crypto/tls"
+	"errors"
 	"net"
 	"net/http"
 	"strconv"
 	"strings"
 
 	apperrors "notes-of-ashen/internal/errors"
+	"notes-of-ashen/internal/logicutil"
 	"notes-of-ashen/internal/types"
 
 	"github.com/zeromicro/go-zero/rest/httpx"
@@ -61,16 +63,7 @@ func RequestBaseURL(r *http.Request, options ...ForwardedOptions) string {
 func PageSize(r *http.Request) (int, int) {
 	page := queryInt(r, "page", 1)
 	size := queryInt(r, "size", 10)
-	if page < 1 {
-		page = 1
-	}
-	if size < 1 {
-		size = 10
-	}
-	if size > 100 {
-		size = 100
-	}
-	return page, size
+	return logicutil.Page(page, size)
 }
 
 func Query(r *http.Request, key string) string {
@@ -95,6 +88,25 @@ func QueryUint64(r *http.Request, key string) (uint64, error) {
 
 func Parse(r *http.Request, v interface{}) error {
 	if err := httpx.Parse(r, v); err != nil {
+		return apperrors.BadRequest("invalid request body or parameters")
+	}
+	return nil
+}
+
+// ParseLimited 为 JSON/表单类小请求提供统一的读取上限，避免在绑定结构体前
+// 接收超出业务容量的大请求体。
+func ParseLimited(w http.ResponseWriter, r *http.Request, v interface{}, maxBytes int64) error {
+	if maxBytes > 0 {
+		if r.ContentLength > maxBytes {
+			return apperrors.BadRequest("request body is too large")
+		}
+		r.Body = http.MaxBytesReader(w, r.Body, maxBytes)
+	}
+	if err := httpx.Parse(r, v); err != nil {
+		var maxBytesErr *http.MaxBytesError
+		if errors.As(err, &maxBytesErr) {
+			return apperrors.BadRequest("request body is too large")
+		}
 		return apperrors.BadRequest("invalid request body or parameters")
 	}
 	return nil

@@ -193,6 +193,16 @@ func Delete(ctx context.Context, svcCtx *svc.ServiceContext, id uint64) error {
 
 func Root(svcCtx *svc.ServiceContext) (string, error) { return mediaRoot(svcCtx) }
 
+// RootPath resolves the configured media root without creating it. Recovery
+// uses this form because a crash may have already moved the root aside and an
+// eager MkdirAll would obscure the journal's publication state.
+func RootPath(svcCtx *svc.ServiceContext) (string, error) {
+	if svcCtx == nil {
+		return "", fmt.Errorf("media service context is nil")
+	}
+	return mediaRootPath(svcCtx.Config.Media.EffectiveRootDir())
+}
+
 func RestoreFile(svcCtx *svc.ServiceContext, key string, data []byte) error {
 	return RestoreReader(svcCtx, key, bytes.NewReader(data), int64(len(data)))
 }
@@ -209,10 +219,18 @@ func RestoreReader(svcCtx *svc.ServiceContext, key string, reader io.Reader, siz
 }
 
 func mediaRoot(svcCtx *svc.ServiceContext) (string, error) {
-	root, err := filepath.Abs(svcCtx.Config.Media.EffectiveRootDir())
+	root, err := mediaRootPath(svcCtx.Config.Media.EffectiveRootDir())
 	if err != nil {
 		return "", err
 	}
+	return ensureMediaRoot(root)
+}
+
+func mediaRootPath(root string) (string, error) {
+	return filepath.Abs(root)
+}
+
+func ensureMediaRoot(root string) (string, error) {
 	if err := os.MkdirAll(root, 0755); err != nil {
 		return "", fmt.Errorf("create media directory: %w", err)
 	}

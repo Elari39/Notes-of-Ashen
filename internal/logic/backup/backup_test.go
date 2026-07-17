@@ -8,12 +8,18 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
+	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/redis/go-redis/v9"
 	"golang.org/x/crypto/bcrypt"
 
+	"notes-of-ashen/internal/config"
+	medialogic "notes-of-ashen/internal/logic/media"
+	"notes-of-ashen/internal/svc"
 	"notes-of-ashen/model"
 )
 
@@ -123,6 +129,74 @@ func TestExportArchiveLimitsMatchRestoreLimits(t *testing.T) {
 	}
 	if err := validateExportArchiveLimits(0, maxBackupManifestBytes+1); err == nil {
 		t.Fatal("validateExportArchiveLimits() accepted manifest that exceeds the restore limit")
+	}
+}
+
+func TestValidateSnapshotRejectsInternalRestoreMarker(t *testing.T) {
+	snapshot, manifest := minimalBackup(t)
+	snapshot.Settings = []model.BackupSetting{{Key: model.BackupRestoreMarkerKey, Value: "restore-transaction"}}
+	manifest.Counts = backupCounts(snapshot)
+	if err := validateSnapshot(&snapshot, &manifest); err == nil {
+		t.Fatal("validateSnapshot() accepted internal restore marker setting")
+	}
+}
+
+func TestRecoverPendingRestorePublishesCommittedMedia(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "media")
+	if err := os.MkdirAll(root, 0755); err != nil {
+		t.Fatal(err)
+	}
+	oldData := []byte("old media")
+	oldSum := sha256.Sum256(oldData)
+	oldKey := hex.EncodeToString(oldSum[:]) + ".png"
+	if err := os.WriteFile(filepath.Join(root, oldKey), oldData, 0644); err != nil {
+		t.Fatal(err)
+	}
+	const restoreID = "restore-transaction"
+	mediaRestore, err := medialogic.BeginRestore(root, restoreID)
+	if err != nil {
+		t.Fatalf("BeginRestore() error = %v", err)
+	}
+	data := []byte("restored media")
+	sum := sha256.Sum256(data)
+	key := hex.EncodeToString(sum[:]) + ".png"
+	if err := mediaRestore.RestoreReader(key, bytes.NewReader(data), int64(len(data))); err != nil {
+		t.Fatalf("RestoreReader() error = %v", err)
+	}
+	if err := mediaRestore.Seal([]string{key}); err != nil {
+		t.Fatalf("Seal() error = %v", err)
+	}
+
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock.New() error = %v", err)
+	}
+	defer db.Close()
+	mock.ExpectQuery(`SELECT setting_value FROM site_settings WHERE setting_key = \? LIMIT 1`).
+		WithArgs(model.BackupRestoreMarkerKey).
+		WillReturnRows(sqlmock.NewRows([]string{"setting_value"}).AddRow(restoreID))
+	mock.ExpectExec(`DELETE FROM site_settings WHERE setting_key = \? AND setting_value = \?`).
+		WithArgs(model.BackupRestoreMarkerKey, restoreID).
+		WillReturnResult(sqlmock.NewResult(0, 1))
+	service := &svc.ServiceContext{
+		Config: config.Config{Media: config.MediaConf{RootDir: root}},
+		Store:  model.NewStore(db),
+	}
+	if err := RecoverPendingRestore(context.Background(), service); err != nil {
+		t.Fatalf("RecoverPendingRestore() error = %v", err)
+	}
+	got, err := os.ReadFile(filepath.Join(root, key))
+	if err != nil {
+		t.Fatalf("read recovered media: %v", err)
+	}
+	if !bytes.Equal(got, data) {
+		t.Fatalf("recovered media = %q, want %q", got, data)
+	}
+	if _, err := os.Stat(filepath.Join(root, oldKey)); !os.IsNotExist(err) {
+		t.Fatalf("old media remained after recovery, stat error = %v", err)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatal(err)
 	}
 }
 

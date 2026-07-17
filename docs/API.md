@@ -91,7 +91,9 @@ Authorization: Bearer <accessToken>
 
 后台新保存的 AI API Key 使用 `v3:` 密文，密钥由 `APP_AUTH_ACCESS_SECRET` 通过独立用途派生。`v2:` 密文升级后不可继续使用，设置响应会返回 `apiKeyNeedsUpdate = true`，需要管理员重新录入；无版本前缀的旧密文仍兼容读取，并会在后续保存时迁移为 `v3:`。轮换 `APP_AUTH_ACCESS_SECRET` 会使原 `v3:` 密文不可解密，必须同时安排重新录入 AI API Key。
 
-API 访问日志仅记录方法、路径、状态码、耗时、可信客户端 IP 和 Request ID，不记录查询串、请求头、Cookie 或请求正文。上游 AI 错误在写入诊断日志前会对当前 API Key 脱敏，且不会向调用方透传上游响应正文。
+API 访问日志仅记录方法、路径、状态码、耗时、可信客户端 IP 和 Request ID，不记录查询串、请求头、Cookie 或请求正文。`X-Request-Id` 仅在长度不超过 128、且由 ASCII 字母、数字、`-`、`_` 组成时透传；其他值会由服务端重新生成。上游 AI 错误在写入诊断日志前会对当前 API Key 脱敏，且不会向调用方透传上游响应正文。
+
+所有支持 `page`、`size` 的列表接口都会将页码归一化到 `1..1000`、每页数量归一化到 `1..100`，不会因过大页码触发深 offset 查询或整数溢出。
 
 ## 健康检查
 
@@ -101,7 +103,7 @@ API 访问日志仅记录方法、路径、状态码、耗时、可信客户端 
 GET /healthz
 ```
 
-无需鉴权。返回 JSON 格式的健康报告，`Content-Type: application/json`。全部依赖正常时返回 `200 OK`，响应体 `{"status":"ok","checks":{"db":{"status":"up"},"redis":{"status":"up"},...}}`；存在依赖不可用时返回 `503 Service Unavailable`，`status` 为 `"degraded"`，对应 `checks` 条目中 `status` 为 `"down"` 并附带 `error` 字段。用于容器 healthcheck / 负载均衡探活。注意 `/healthz` 为手写 handler，不使用统一 `{ code, message, data }` 响应封装，也未在 `api/notes-of-ashen.api` 中声明（详见该文件头注释）。
+无需鉴权。返回 JSON 格式的健康报告，`Content-Type: application/json`。全部依赖与运行时数据库结构正常时返回 `200 OK`，响应体 `{"status":"ok","checks":{"db":{"status":"up"},"redis":{"status":"up"},"schema":{"status":"up"},...}}`；存在依赖不可用或表/字段迁移缺失时返回 `503 Service Unavailable`，`status` 为 `"degraded"`，对应 `checks` 条目中 `status` 为 `"down"` 并附带 `error` 字段。用于容器 healthcheck / 负载均衡 readiness 探活。注意 `/healthz` 为手写 handler，不使用统一 `{ code, message, data }` 响应封装，也未在 `api/notes-of-ashen.api` 中声明（详见该文件头注释）。
 
 ## 认证接口
 
@@ -373,8 +375,8 @@ POST /api/v1/articles
 | categoryId | uint64 | 否 | 分类 ID，传入时必须存在 |
 | title | string | 是 | 标题，长度 1 到 160 |
 | slug | string | 是 | 唯一路径，长度 1 到 180，会转为小写并去除首尾空格 |
-| summary | string | 否 | 摘要 |
-| content | string | 是 | Markdown 内容 |
+| summary | string | 否 | 摘要，最多 65,535 个 UTF-8 字节 |
+| content | string | 是 | Markdown 内容，最多 5 MiB UTF-8 字节 |
 | coverUrl | string | 否 | 封面 URL，非空必须为 `http://` 或 `https://` URL |
 | status | string | 否 | `draft`、`published`、`archived`，默认 `draft` |
 | scheduledAt | string | 否 | 定时发布时间；配合 `published` 且时间在未来时表现为定时发布 |
@@ -384,6 +386,8 @@ POST /api/v1/articles
 | seoDescription | string | 否 | SEO 描述，非空时最长 255 |
 | seoKeywords | string | 否 | SEO 关键词，非空时最长 255 |
 | tagIds | uint64[] | 否 | 标签 ID 列表，传入时必须存在 |
+
+文章创建和更新的整个 JSON 请求体最多 6 MiB；超过限制会返回 `400 Bad Request`。
 
 ### 更新文章
 
@@ -514,7 +518,7 @@ DELETE /api/v1/categories/:id
 | --- | --- | --- | --- |
 | name | string | 是 | 名称，长度 1 到 64 |
 | slug | string | 是 | 唯一路径，长度 1 到 96 |
-| description | string | 否 | 描述 |
+| description | string | 否 | 描述，最多 65,535 个 UTF-8 字节；创建和更新请求体最多 256 KiB |
 
 若分类仍被文章引用，删除可能失败。
 
@@ -925,19 +929,52 @@ POST /api/v1/admin/search/reindex
 
 ### 用户管理
 
+权限：`admin`。
+
+#### 查询用户列表
+
 ```text
 GET /api/v1/admin/users
-PATCH /api/v1/admin/users/:id/status
-PATCH /api/v1/admin/users/:id/role
 ```
 
-权限：`admin`。用户列表支持 `page`、`size`。
+查询参数：
+
+| 参数 | 类型 | 必填 | 说明 |
+| --- | --- | --- | --- |
+| page | int | 否 | 页码 |
+| size | int | 否 | 每页数量 |
+
+响应 `data` 包含 `items`、`total`、`page`、`size`；`items` 中每项为用户信息。
+
+#### 修改用户状态
+
+```text
+PATCH /api/v1/admin/users/:id/status
+```
+
+路径参数：
+
+| 参数 | 类型 | 必填 | 说明 |
+| --- | --- | --- | --- |
+| id | uint64 | 是 | 用户 ID |
 
 修改用户状态：
 
 | 字段 | 类型 | 必填 | 说明 |
 | --- | --- | --- | --- |
 | status | string | 是 | `active` 或 `disabled` |
+
+#### 修改用户角色
+
+```text
+PATCH /api/v1/admin/users/:id/role
+```
+
+路径参数：
+
+| 参数 | 类型 | 必填 | 说明 |
+| --- | --- | --- | --- |
+| id | uint64 | 是 | 用户 ID |
 
 修改用户角色：
 
@@ -972,6 +1009,8 @@ GET /api/v1/admin/logs
 注册前先获取验证码并发送邮箱验证码，下面示例只展示最终注册请求体结构。若当前没有任何用户且邮箱服务未启用，首个管理员注册可省略 `emailCode`。
 
 ```powershell
+$session = New-Object Microsoft.PowerShell.Commands.WebRequestSession
+
 $body = @{
   account = "admin"
   password = "Password123!"
@@ -984,10 +1023,17 @@ $body = @{
 $register = Invoke-RestMethod -Method Post `
   -Uri "http://127.0.0.1:19000/api/v1/auth/register" `
   -ContentType "application/json" `
+  -WebSession $session `
   -Body $body
 
 $accessToken = $register.data.accessToken
-$refreshToken = $register.data.refreshToken
+
+# Refresh Token 仅由服务端写入 HttpOnly Cookie，响应中的 refreshToken 始终为空。
+$refresh = Invoke-RestMethod -Method Post `
+  -Uri "http://127.0.0.1:19000/api/v1/auth/refresh" `
+  -WebSession $session
+
+$accessToken = $refresh.data.accessToken
 ```
 
 访问受保护接口：

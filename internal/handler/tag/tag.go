@@ -10,6 +10,8 @@ import (
 	"notes-of-ashen/internal/types"
 )
 
+const maxTaxonomyRequestBodySize = 256 << 10
+
 func ListHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		page, size := basehandler.PageSize(r)
@@ -37,7 +39,7 @@ func AdminListHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 func CreateHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req types.TaxonomyReq
-		if err := basehandler.Parse(r, &req); err != nil {
+		if err := basehandler.ParseLimited(w, r, &req, maxTaxonomyRequestBodySize); err != nil {
 			response.ErrorCtx(r.Context(), w, err)
 			return
 		}
@@ -58,7 +60,7 @@ func UpdateHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 			return
 		}
 		var req types.TaxonomyReq
-		if err := basehandler.Parse(r, &req); err != nil {
+		if err := basehandler.ParseLimited(w, r, &req, maxTaxonomyRequestBodySize); err != nil {
 			response.ErrorCtx(r.Context(), w, err)
 			return
 		}

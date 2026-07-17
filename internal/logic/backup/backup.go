@@ -3,6 +3,7 @@ package backup
 import (
 	"archive/zip"
 	"context"
+	cryptorand "crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -207,6 +208,9 @@ func Restore(ctx context.Context, svcCtx *svc.ServiceContext, currentPassword, p
 			logx.Errorf("release restore lease failed: %v", releaseErr)
 		}
 	}()
+	if err := RecoverPendingRestore(restoreCtx, svcCtx); err != nil {
+		return nil, fmt.Errorf("recover pending restore: %w", err)
+	}
 
 	identity, err := age.NewScryptIdentity(passphrase)
 	if err != nil {
@@ -249,7 +253,29 @@ func Restore(ctx context.Context, svcCtx *svc.ServiceContext, currentPassword, p
 	if err := requireRestoreLease(lease); err != nil {
 		return nil, err
 	}
-	if err := restoreArchiveMedia(svcCtx, &reader.Reader, manifest, func() error {
+	root, err := medialogic.Root(svcCtx)
+	if err != nil {
+		return nil, err
+	}
+	restoreID, err := newRestoreID()
+	if err != nil {
+		return nil, err
+	}
+	mediaRestore, err := medialogic.BeginRestore(root, restoreID)
+	if err != nil {
+		return nil, err
+	}
+	databaseAttempted := false
+	databaseCommitted := false
+	defer func() {
+		if databaseCommitted || databaseAttempted {
+			return
+		}
+		if rollbackErr := mediaRestore.Rollback(); rollbackErr != nil {
+			logx.Errorf("rollback staged restore media failed: %v", rollbackErr)
+		}
+	}()
+	if err := restoreArchiveMedia(mediaRestore, &reader.Reader, manifest, func() error {
 		return requireLocalRestoreLease(lease)
 	}); err != nil {
 		return nil, err
@@ -257,10 +283,39 @@ func Restore(ctx context.Context, svcCtx *svc.ServiceContext, currentPassword, p
 	if err := requireRestoreLease(lease); err != nil {
 		return nil, err
 	}
-	if err := svcCtx.Store.RestoreBackup(restoreCtx, *snapshot); err != nil {
+	databaseAttempted = true
+	if restoreErr := svcCtx.Store.RestoreBackupWithMarker(restoreCtx, *snapshot, restoreID); restoreErr != nil {
+		marker, markerErr := svcCtx.Store.BackupRestoreMarker(context.Background())
+		if markerErr == nil && marker == "" {
+			databaseAttempted = false
+			return nil, restoreErr
+		}
+		if markerErr != nil {
+			logx.Errorf("check backup restore marker after database error failed: %v", markerErr)
+			return nil, restoreErr
+		}
+		if marker != restoreID {
+			return nil, restoreErr
+		}
+		// Commit may have reached MySQL even when the client lost its response.
+		// The marker is the durable commit acknowledgement in that ambiguous case.
+		logx.Errorf("restore transaction returned an error after its marker was committed; completing media publication: %v", restoreErr)
+	}
+	databaseCommitted = true
+	if err := requireRestoreLease(lease); err != nil {
 		return nil, err
 	}
+	if err := mediaRestore.Publish(); err != nil {
+		return nil, fmt.Errorf("publish restored media: %w", err)
+	}
 	warnings := make([]string, 0)
+	if err := svcCtx.Store.ClearBackupRestoreMarker(context.Background(), restoreID); err != nil {
+		return nil, fmt.Errorf("clear backup restore marker: %w", err)
+	}
+	if err := mediaRestore.Finalize(); err != nil {
+		warnings = append(warnings, "旧媒体目录清理失败")
+		logx.Errorf("finalize restored media failed: %v", err)
+	}
 	postRestoreCtx, cancelPostRestore := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancelPostRestore()
 	if err := clearApplicationCache(postRestoreCtx, svcCtx.Redis); err != nil {
@@ -276,11 +331,55 @@ func Restore(ctx context.Context, svcCtx *svc.ServiceContext, currentPassword, p
 		warnings = append(warnings, "搜索索引重建失败，已保留 MySQL 搜索降级")
 		logx.Errorf("reindex after restore failed: %v", err)
 	}
-	if err := pruneMedia(svcCtx, snapshot.MediaAssets); err != nil {
-		warnings = append(warnings, "旧媒体文件清理失败")
-		logx.Errorf("prune media after restore failed: %v", err)
-	}
 	return &types.BackupRestoreResp{Users: len(snapshot.Users), Articles: len(snapshot.Articles), Media: len(snapshot.MediaAssets), Warnings: warnings}, nil
+}
+
+// RecoverPendingRestore completes a media directory switch that has already
+// committed its matching database snapshot, or removes stale staging left
+// before a database commit. It is safe to call during process startup and while
+// the restore maintenance lease is held.
+func RecoverPendingRestore(ctx context.Context, svcCtx *svc.ServiceContext) error {
+	if svcCtx == nil || svcCtx.Store == nil {
+		return errors.New("backup restore service context is unavailable")
+	}
+	root, err := medialogic.RootPath(svcCtx)
+	if err != nil {
+		return err
+	}
+	marker, err := svcCtx.Store.BackupRestoreMarker(ctx)
+	if err != nil {
+		return err
+	}
+	mediaRestore, err := medialogic.RecoverRestore(root, marker)
+	if err != nil {
+		return err
+	}
+	if marker == "" {
+		if mediaRestore != nil {
+			if err := mediaRestore.Finalize(); err != nil {
+				logx.Errorf("clean completed restore media journal failed: %v", err)
+			}
+		}
+		return nil
+	}
+	if mediaRestore == nil {
+		return errors.New("committed backup restore has no media transaction")
+	}
+	if err := svcCtx.Store.ClearBackupRestoreMarker(ctx, marker); err != nil {
+		return err
+	}
+	if err := mediaRestore.Finalize(); err != nil {
+		logx.Errorf("finalize recovered media restore failed: %v", err)
+	}
+	return nil
+}
+
+func newRestoreID() (string, error) {
+	var id [16]byte
+	if _, err := cryptorand.Read(id[:]); err != nil {
+		return "", fmt.Errorf("generate backup restore id: %w", err)
+	}
+	return hex.EncodeToString(id[:]), nil
 }
 
 func authorize(ctx context.Context, svcCtx *svc.ServiceContext, password, passphrase string) error {
@@ -402,11 +501,15 @@ func readArchive(reader *zip.Reader, maxBytes int64) (*Manifest, *model.BackupSn
 	return &manifest, &snapshot, nil
 }
 
-func restoreArchiveMedia(svcCtx *svc.ServiceContext, reader *zip.Reader, manifest *Manifest, canContinue func() error) error {
+func restoreArchiveMedia(mediaRestore *medialogic.RestoreTransaction, reader *zip.Reader, manifest *Manifest, canContinue func() error) error {
+	if mediaRestore == nil {
+		return errors.New("media restore transaction is unavailable")
+	}
 	entries := make(map[string]*zip.File, len(reader.File))
 	for _, file := range reader.File {
 		entries[file.Name] = file
 	}
+	keys := make([]string, 0, len(manifest.Files))
 	for _, item := range manifest.Files {
 		if canContinue != nil {
 			if err := canContinue(); err != nil {
@@ -422,7 +525,7 @@ func restoreArchiveMedia(svcCtx *svc.ServiceContext, reader *zip.Reader, manifes
 			return err
 		}
 		key := strings.TrimPrefix(item.Path, "media/")
-		restoreErr := medialogic.RestoreReader(svcCtx, key, entry, item.Size)
+		restoreErr := mediaRestore.RestoreReader(key, entry, item.Size)
 		closeErr := entry.Close()
 		if restoreErr != nil {
 			return restoreErr
@@ -430,8 +533,9 @@ func restoreArchiveMedia(svcCtx *svc.ServiceContext, reader *zip.Reader, manifes
 		if closeErr != nil {
 			return closeErr
 		}
+		keys = append(keys, key)
 	}
-	return nil
+	return mediaRestore.Seal(keys)
 }
 
 func validateSnapshot(snapshot *model.BackupSnapshot, manifest *Manifest) error {
@@ -488,7 +592,7 @@ func validateSnapshot(snapshot *model.BackupSnapshot, manifest *Manifest) error 
 	}
 	settingKeys := map[string]struct{}{}
 	for _, setting := range snapshot.Settings {
-		if setting.Key == "" || len(setting.Key) > 64 || setting.Key == "ai_api_key_cipher" {
+		if setting.Key == "" || len(setting.Key) > 64 || setting.Key == "ai_api_key_cipher" || setting.Key == model.BackupRestoreMarkerKey {
 			return apperrors.BadRequest("backup setting is invalid")
 		}
 		if _, exists := settingKeys[setting.Key]; exists {

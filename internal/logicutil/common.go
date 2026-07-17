@@ -13,9 +13,14 @@ import (
 	"github.com/go-sql-driver/mysql"
 )
 
+const MaxPage = 1000
+
 func Page(page, size int) (int, int) {
 	if page < 1 {
 		page = 1
+	}
+	if page > MaxPage {
+		page = MaxPage
 	}
 	if size < 1 {
 		size = 10

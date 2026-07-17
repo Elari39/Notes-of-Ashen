@@ -22,10 +22,11 @@ type HealthReport struct {
 
 const healthCheckTimeout = 2 * time.Second
 
-// Health 探测 DB、Redis 等关键依赖的存活状态。
+const schemaMigrationRequiredMessage = "database schema migration is required"
+
+// Health 探测 DB、Redis 与应用数据库结构等关键依赖的存活状态。
 // MQ 与 Search 仅报告其启用状态，不做真实探测（无轻量 ping 接口，避免增加复杂度）。
-// 任一必需依赖 down 时整体为 "degraded"，但接口本身始终返回 200，便于探针读取明细；
-// 调用方可根据 checks 判定。
+// 任一必需依赖 down 时整体为 "degraded"，调用方据此返回 503，供部署探针判定。
 func Health(ctx context.Context, svcCtx *svc.ServiceContext) *HealthReport {
 	checks := make(map[string]HealthStatus)
 	allUp := true
@@ -37,6 +38,11 @@ func Health(ctx context.Context, svcCtx *svc.ServiceContext) *HealthReport {
 
 	checks["redis"] = pingRedis(ctx, svcCtx)
 	if checks["redis"].Status != "up" {
+		allUp = false
+	}
+
+	checks["schema"] = pingSchema(ctx, svcCtx)
+	if checks["schema"].Status != "up" {
 		allUp = false
 	}
 
@@ -67,6 +73,22 @@ func pingRedis(ctx context.Context, svcCtx *svc.ServiceContext) HealthStatus {
 	defer cancel()
 	if err := svcCtx.Redis.Ping(checkCtx).Err(); err != nil {
 		return HealthStatus{Status: "down", Error: err.Error()}
+	}
+	return HealthStatus{Status: "up"}
+}
+
+func pingSchema(ctx context.Context, svcCtx *svc.ServiceContext) HealthStatus {
+	if svcCtx == nil || svcCtx.Store == nil {
+		return HealthStatus{Status: "down", Error: "db not initialized"}
+	}
+	checkCtx, cancel := context.WithTimeout(ctx, healthCheckTimeout)
+	defer cancel()
+	ready, err := svcCtx.Store.SchemaReady(checkCtx)
+	if err != nil {
+		return HealthStatus{Status: "down", Error: err.Error()}
+	}
+	if !ready {
+		return HealthStatus{Status: "down", Error: schemaMigrationRequiredMessage}
 	}
 	return HealthStatus{Status: "up"}
 }

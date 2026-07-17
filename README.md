@@ -62,7 +62,7 @@ http://127.0.0.1:1270
 
 - 后端：Go 1.25、go-zero REST、MySQL 8.4、Redis 7.4、Meilisearch 1.13、RabbitMQ 4、JWT、bcrypt。
   - Docker Compose 默认启动本地 MySQL / Redis / RabbitMQ / Meilisearch 容器；快速开始的 `.env.example` 会启用 RabbitMQ 异步日志，Compose 代码自身的 `APP_RABBITMQ_ENABLED` 回退值为 `false`。搜索功能默认关闭，关闭时 API 回退到 MySQL 查询。
-- 前端：React 18、TypeScript、Vite 5、Tailwind CSS 3、Zustand、Axios、Framer Motion、ECharts、React Markdown。
+- 前端：React 18、TypeScript、Vite 5、Tailwind CSS 3.4、Zustand、Axios、Framer Motion、ECharts、React Markdown。
 - 部署：Docker、Docker Compose、Nginx、1Panel。
 - 文档与脚本：API 文档位于 [docs/API.md](docs/API.md)，数据库脚本位于 [deploy/mysql](deploy/mysql)。
 
@@ -139,10 +139,9 @@ Copy-Item .env.example .env
 - `APP_AUTH_ACCESS_SECRET`：JWT 签名密钥，生产环境必须替换为足够长的随机字符串，建议至少 32 位；后台保存的 AI API Key 也会使用由它派生的独立用途密钥加密，轮换前请先阅读下方迁移说明。
 - `APP_AUTH_COOKIE_SECURE`：refreshToken Cookie 的 Secure 标志，生产 HTTPS 保持 `true`；本机 HTTP 开发需设为 `false`，否则浏览器不会保存 Cookie，刷新页面无法恢复会话。
 - `APP_MYSQL_ROOT_PASSWORD`：本地 Compose MySQL root 密码，生产或公网环境必须替换为强随机值。
-- `APP_MYSQL_DATABASE`：本地 Compose 初始化数据库名，默认 `notes_of_ashen`。
 - `APP_MYSQL_USER`：本地 Compose MySQL 应用用户，默认 `notes_user`。
 - `APP_MYSQL_PASSWORD`：本地 Compose MySQL 应用用户密码，需和 `APP_DATABASE_DSN` 中的密码保持一致。
-- `APP_DATABASE_DSN`：API 使用的 MySQL 连接串，Compose 默认连接本地服务：`notes_user:password@tcp(mysql:3306)/notes_of_ashen?charset=utf8mb4&parseTime=true&loc=Local`。如需固定 MySQL 会话时区，可追加 `&time_zone='%2B08:00'`（URL 转义后为 `%27%2B08%3A00%27`）。
+- `APP_DATABASE_DSN`：API 使用的 MySQL 连接串，Compose 默认连接本地服务：`notes_user:password@tcp(mysql:3306)/notes_of_ashen?charset=utf8mb4&parseTime=true&loc=Local`。Compose 初始化库固定为 `notes_of_ashen`，此连接串在 Compose 部署中也必须指向该库。如需固定 MySQL 会话时区，可追加 `&time_zone='%2B08:00'`（URL 转义后为 `%27%2B08%3A00%27`）。
 - `APP_DATABASE_MAX_OPEN_CONNS`：MySQL 最大打开连接数。
 - `APP_DATABASE_MAX_IDLE_CONNS`：MySQL 最大空闲连接数。
 - `APP_REDIS_ADDR`：Redis 地址，Compose 默认 `redis:6379`。
@@ -463,10 +462,11 @@ pnpm lint
 
 前端类型检查与生产构建：
 
-项目当前没有单独的 `type-check` 脚本，`pnpm build` 会先执行 `tsc`，再执行 Vite 生产构建。
+项目提供独立的 `type-check` 脚本；`pnpm build` 会依次执行 lint、类型检查和 Vite 生产构建。
 
 ```bash
 cd frontend
+pnpm type-check
 pnpm build
 ```
 
@@ -628,7 +628,7 @@ docker compose up -d --build
 - 管理后台（需管理员鉴权）：
   - `POST/PUT/DELETE /api/v1/articles`、`PUT /api/v1/articles/:id`、`PATCH /api/v1/articles/:id/status`
   - `GET /api/v1/admin/articles`、`GET /api/v1/admin/stats`、`GET /api/v1/admin/logs`
-  - `GET/PUT /api/v1/admin/users`、`PATCH /api/v1/admin/users/:id/status`、`PATCH /api/v1/admin/users/:id/role`
+  - `GET /api/v1/admin/users`、`PATCH /api/v1/admin/users/:id/status`、`PATCH /api/v1/admin/users/:id/role`
   - `GET/PUT /api/v1/admin/site/settings`、`GET/PUT /api/v1/admin/site/projects`
   - `GET/PUT /api/v1/admin/ai/settings`、`POST /api/v1/admin/ai/models`、`POST /api/v1/admin/ai/test`、`POST /api/v1/admin/search/reindex`
 
@@ -648,6 +648,7 @@ docker compose up -d --build
   go build ./...
   cd frontend
   pnpm lint
+  pnpm type-check
   pnpm build
   docker compose config --quiet
   ```
