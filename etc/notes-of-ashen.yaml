@@ -19,7 +19,7 @@ Database:
 Auth:
   # 必须通过 .env 或真实环境变量 APP_AUTH_ACCESS_SECRET 注入；该值也用于派生 AI API Key 加密密钥。
   AccessSecret: ""
-  AccessExpire: 7200
+  AccessExpire: 1800
   RefreshExpire: 604800
   # refreshToken 通过 HttpOnly+SameSite=Strict Cookie 下发；生产 HTTPS 保持 true，
   # 本机 dev（HTTP）需在 .env 设 APP_AUTH_COOKIE_SECURE=false，否则浏览器不会保存 Cookie。

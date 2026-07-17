@@ -142,7 +142,8 @@
 
 ```powershell
 go test ./...
-go build ./cmd/notes-of-ashen
+New-Item -ItemType Directory -Force bin | Out-Null
+go build -o bin/notes-of-ashen.exe ./cmd/notes-of-ashen
 go run ./cmd/notes-of-ashen -f etc/notes-of-ashen.yaml
 ```
 

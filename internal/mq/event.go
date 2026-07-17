@@ -9,6 +9,7 @@ import (
 	"net"
 	"sync"
 	"time"
+	"unicode/utf8"
 
 	"notes-of-ashen/internal/config"
 
@@ -25,6 +26,21 @@ type Event struct {
 	IP           string            `json:"ip,omitempty"`
 	UserAgent    string            `json:"userAgent,omitempty"`
 	CreatedAt    time.Time         `json:"createdAt"`
+}
+
+const maxUserAgentBytes = 512
+
+// truncateUserAgent 将审计日志中的 User-Agent 限制为最大字节数，且不截断 UTF-8 字符。
+func truncateUserAgent(userAgent string) string {
+	if len(userAgent) <= maxUserAgentBytes {
+		return userAgent
+	}
+
+	limit := maxUserAgentBytes
+	for limit > 0 && !utf8.RuneStart(userAgent[limit]) {
+		limit--
+	}
+	return userAgent[:limit]
 }
 
 type Publisher struct {
@@ -77,6 +93,8 @@ func (p *Publisher) connect() error {
 }
 
 func (p *Publisher) Publish(ctx context.Context, event Event) {
+	event.UserAgent = truncateUserAgent(event.UserAgent)
+
 	if !p.conf.Enabled {
 		// MQ 未启用时，audit / 操作事件必须同步落库，否则 /admin/logs 永远为空。
 		if p.db == nil {
@@ -270,6 +288,8 @@ func writeOperationLogMessage(db *sql.DB, msg amqp.Delivery) {
 // writeOperationLogEvent 将单个操作事件写入 operation_logs 表。
 // 消费端（MQ 启用）与禁用兜底（MQ 关闭）共用此函数，确保审计日志在任何情况下都不丢失。
 func writeOperationLogEvent(db *sql.DB, event Event) error {
+	event.UserAgent = truncateUserAgent(event.UserAgent)
+
 	if event.CreatedAt.IsZero() {
 		event.CreatedAt = time.Now()
 	}
