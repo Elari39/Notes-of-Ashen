@@ -17,6 +17,47 @@ func TestAIActionsIncludeWritingActions(t *testing.T) {
 	}
 }
 
+func TestValidateAIAssistContentUsesActionSpecificLimits(t *testing.T) {
+	tests := []struct {
+		name    string
+		action  string
+		content string
+		wantErr bool
+	}{
+		{
+			name:    "complete accepts exact UTF-8 byte limit",
+			action:  "complete",
+			content: strings.Repeat("你", maxAIFullArticleContentBytes/3) + "a",
+		},
+		{
+			name:    "metadata rejects one byte over UTF-8 limit",
+			action:  "metadata",
+			content: strings.Repeat("你", maxAIFullArticleContentBytes/3) + "ab",
+			wantErr: true,
+		},
+		{
+			name:    "rewrite keeps character limit",
+			action:  "proofread",
+			content: strings.Repeat("你", maxAIRewriteContentRunes),
+		},
+		{
+			name:    "rewrite rejects one character over limit",
+			action:  "proofread",
+			content: strings.Repeat("你", maxAIRewriteContentRunes+1),
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateAIAssistContent(tt.action, tt.content)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("validateAIAssistContent() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
 func TestNormalizeGeneratedSlug(t *testing.T) {
 	tests := map[string]string{
 		" Go 1.25 / AI Assist ": "go-1-25-ai-assist",

@@ -6,6 +6,7 @@ import PagePendingState from '../../components/RoutePending';
 import Tag from '../../components/ui/Tag';
 import { getArticleStatusLabel, getDateLocale, translate } from '../../i18n';
 import { usePreferenceStore, type Language } from '../../store/preferences';
+import { getChartThemeColors } from '../../utils/chartTheme';
 import { loadECharts, type ECharts } from '../../utils/loadECharts';
 import { getErrorMessage } from '../../utils/error';
 import type { AdminStats, Article, Log, RefererStat, TrafficTrendPoint } from '../../types';
@@ -131,10 +132,15 @@ const TrafficOverview: React.FC<{
   language: Language;
 }> = ({ trend, referers, todayPv, todayUv, language }) => {
   const t = (key: Parameters<typeof translate>[1]) => translate(language, key);
+  const effectiveTheme = usePreferenceStore((state) => state.effectiveTheme);
+  const accentColor = usePreferenceStore((state) => state.accentColor);
   const sourceTotal = referers.reduce((sum, item) => sum + item.pv, 0);
   const chartRef = useRef<HTMLDivElement>(null);
   const chartInstance = useRef<ECharts | null>(null);
   const resizeHandler = useRef<(() => void) | null>(null);
+  const [highlightedSeries, setHighlightedSeries] = useState<'pv' | 'uv' | null>(null);
+  const pvLabel = t('analytics.pv');
+  const uvLabel = t('analytics.uv');
 
   // 仅在图表区域已有数据时下载并初始化 ECharts，避免后台入口在首帧解析大图表模块。
   useEffect(() => {
@@ -155,13 +161,53 @@ const TrafficOverview: React.FC<{
         resizeHandler.current = resize;
         window.addEventListener('resize', resize);
       }
+      const colors = getChartThemeColors();
+      const seriesOption = (key: 'pv' | 'uv', label: string, values: number[], color: string) => {
+        const isHighlighted = highlightedSeries === key;
+        const isMuted = highlightedSeries !== null && !isHighlighted;
+        return {
+          name: label,
+          type: 'line' as const,
+          smooth: true,
+          showSymbol: true,
+          symbol: 'circle',
+          symbolSize: isHighlighted ? 6 : 5,
+          data: values,
+          z: isHighlighted ? 3 : 2,
+          lineStyle: {
+            width: isHighlighted ? 3.5 : 2.5,
+            color,
+            opacity: isMuted ? 0.34 : 1,
+          },
+          itemStyle: {
+            color,
+            borderColor: colors.canvas,
+            borderWidth: 1.5,
+            opacity: isMuted ? 0.42 : 1,
+          },
+          emphasis: {
+            focus: 'series' as const,
+            lineStyle: { width: 4, color, opacity: 1 },
+            itemStyle: { color, borderColor: colors.canvas, borderWidth: 2.5, opacity: 1 },
+          },
+        };
+      };
       chart.setOption({
+        animationDurationUpdate: 180,
         tooltip: {
           trigger: 'axis',
-          backgroundColor: 'var(--paper)',
-          borderColor: 'var(--mountain-grey)',
+          confine: true,
+          backgroundColor: colors.canvas,
+          borderColor: colors.hairline,
           borderWidth: 1,
-          textStyle: { color: 'var(--ink)' },
+          padding: [8, 10],
+          extraCssText: 'box-shadow: 0 8px 24px rgba(20, 20, 19, 0.14); border-radius: 8px;',
+          textStyle: { color: colors.ink },
+          axisPointer: {
+            type: 'line',
+            lineStyle: { color: colors.hairline, type: 'dashed', width: 1 },
+            label: { backgroundColor: colors.ink, color: colors.canvas },
+          },
           formatter: (params: { axisValue: string; marker: string; seriesName: string; value: number }[]) => {
             const title = fullDate(String(params[0]?.axisValue ?? ''), language);
             const lines = params
@@ -170,48 +216,28 @@ const TrafficOverview: React.FC<{
             return `${title}<br/>${lines}`;
           },
         },
-        legend: {
-          data: ['PV', 'UV'],
-          textStyle: { color: 'var(--ink-light)', fontSize: 11 },
-          top: 0,
-        },
-        grid: { top: 32, right: 16, bottom: 8, left: 36, containLabel: true },
+        grid: { top: 14, right: 16, bottom: 8, left: 36, containLabel: true },
         xAxis: {
           type: 'category',
           boundaryGap: false,
           data: trend.map((p) => p.date),
           axisLabel: {
-            color: 'var(--ink-light)',
+            color: colors.muted,
             fontSize: 11,
             formatter: (value: string) => shortDate(value, language),
           },
-          axisLine: { lineStyle: { color: 'var(--mountain-grey)' } },
+          axisLine: { lineStyle: { color: colors.hairline } },
+          axisTick: { lineStyle: { color: colors.hairline } },
         },
         yAxis: {
           type: 'value',
           minInterval: 1,
-          axisLabel: { color: 'var(--ink-light)', fontSize: 11 },
-          splitLine: { lineStyle: { color: 'var(--mountain-grey)', type: 'dashed' } },
+          axisLabel: { color: colors.muted, fontSize: 11 },
+          splitLine: { lineStyle: { color: colors.hairline, type: 'dashed' } },
         },
         series: [
-          {
-            name: 'PV',
-            type: 'line',
-            smooth: true,
-            showSymbol: false,
-            data: trend.map((p) => p.pv),
-            lineStyle: { width: 2, color: 'var(--ochre)' },
-            itemStyle: { color: 'var(--ochre)' },
-          },
-          {
-            name: 'UV',
-            type: 'line',
-            smooth: true,
-            showSymbol: false,
-            data: trend.map((p) => p.uv),
-            lineStyle: { width: 2, color: 'var(--code-blue)' },
-            itemStyle: { color: 'var(--code-blue)' },
-          },
+          seriesOption('pv', pvLabel, trend.map((p) => p.pv), colors.pv),
+          seriesOption('uv', uvLabel, trend.map((p) => p.uv), colors.uv),
         ],
       }, true);
     }).catch(() => undefined);
@@ -219,7 +245,7 @@ const TrafficOverview: React.FC<{
     return () => {
       active = false;
     };
-  }, [trend, language]);
+  }, [trend, language, effectiveTheme, accentColor, highlightedSeries, pvLabel, uvLabel]);
 
   // 卸载清理：dispose 实例并移除 resize 监听。实例在数据 effect 中懒创建，
   // 故通过 ref 在卸载时取最新 handler，仅依赖 [] 保证组件卸载时执行一次。
@@ -254,7 +280,34 @@ const TrafficOverview: React.FC<{
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(16rem,1fr)]">
-        <div ref={chartRef} className="h-72 rounded-lg bg-paper p-3 shadow-xs" />
+        <div className="rounded-lg bg-paper p-3 shadow-xs">
+          <div className="mb-3 flex flex-wrap items-center gap-2" role="group" aria-label={t('dashboard.trafficLegend')}>
+            {([
+              ['pv', pvLabel, 'bg-[var(--ochre)]'],
+              ['uv', uvLabel, 'bg-[var(--accent-teal)]'],
+            ] as const).map(([key, label, dotClass]) => {
+              const isHighlighted = highlightedSeries === key;
+              const isMuted = highlightedSeries !== null && !isHighlighted;
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  aria-pressed={isHighlighted}
+                  title={t('dashboard.trafficLegendHelp')}
+                  onClick={() => setHighlightedSeries((current) => (current === key ? null : key))}
+                  style={isHighlighted ? { borderColor: key === 'pv' ? 'var(--ochre)' : 'var(--accent-teal)' } : undefined}
+                  className={`inline-flex min-h-8 items-center gap-2 rounded-md border px-2.5 py-1 text-xs transition-opacity ${
+                    isHighlighted ? 'bg-[var(--inline-code-bg)] text-ink' : 'border-hairline bg-paper text-ink-light'
+                  } ${isMuted ? 'opacity-40' : 'opacity-100'}`}
+                >
+                  <span aria-hidden="true" className={`h-2.5 w-2.5 rounded-full ${dotClass}`} />
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+          <div ref={chartRef} role="img" className="h-64 w-full" aria-label={t('dashboard.trafficTitle')} />
+        </div>
 
         <div className="rounded-lg bg-paper p-5 shadow-xs">
           <h5 className="mb-4 text-xs font-bold tracking-widest text-ink">{t('dashboard.referers')}</h5>

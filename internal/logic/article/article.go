@@ -33,8 +33,10 @@ var statuses = map[string]struct{}{
 const articleLikePerHourLimit int64 = 500
 
 const (
-	maxArticleContentBytes = 5 << 20
-	maxArticleSummaryBytes = 65535
+	maxArticleContentBytes       = 5 << 20
+	maxArticleSummaryBytes       = 65535
+	maxAIFullArticleContentBytes = 64 << 10
+	maxAIRewriteContentRunes     = 30000
 )
 
 var listStatuses = map[string]struct{}{
@@ -471,7 +473,7 @@ func AIAssist(ctx context.Context, svcCtx *svc.ServiceContext, req types.AIAssis
 	if _, ok := aiActions[req.Action]; !ok {
 		return nil, apperrors.BadRequest("action is invalid")
 	}
-	if err := validator.Length(strings.TrimSpace(req.Content), "content", 1, 30000); err != nil {
+	if err := validateAIAssistContent(req.Action, req.Content); err != nil {
 		return nil, err
 	}
 	if err := validatorOptionalLength(req.Title, "title", 0, 160); err != nil {
@@ -501,6 +503,16 @@ func AIAssist(ctx context.Context, svcCtx *svc.ServiceContext, req types.AIAssis
 		}
 	}
 	return out, nil
+}
+
+// validateAIAssistContent 区分全文补全与局部改写：前者按 UTF-8 字节控制，
+// 后者继续按字符数控制，避免整篇改写的模型输出被不必要地放大。
+func validateAIAssistContent(action, content string) error {
+	content = strings.TrimSpace(content)
+	if action == "complete" || action == "metadata" {
+		return validator.ByteLength(content, "content", 1, maxAIFullArticleContentBytes)
+	}
+	return validator.Length(content, "content", 1, maxAIRewriteContentRunes)
 }
 
 func normalizeAIAssistResponse(resp *aiclient.Response) *types.AIAssistResp {

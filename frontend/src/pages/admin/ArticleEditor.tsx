@@ -29,10 +29,16 @@ import {
   readAITaxonomySuggestions,
   type AITaxonomySuggestions,
 } from './articleAICompletionPolicy';
+import { exceedsFullArticleAIContentLimit } from './articleAIContentPolicy';
 import { safeLocalStorage } from '../../utils/storage';
 import MediaPicker from '../../components/admin/MediaPicker';
 import { getReadingStats } from '../../utils/readingStats';
-import { MAX_ARTICLE_CONTENT_BYTES, MAX_TEXT_FIELD_BYTES, utf8ByteLength } from '../../utils/utf8';
+import {
+  MAX_AI_FULL_ARTICLE_CONTENT_BYTES,
+  MAX_ARTICLE_CONTENT_BYTES,
+  MAX_TEXT_FIELD_BYTES,
+  utf8ByteLength,
+} from '../../utils/utf8';
 
 type TaxonomyOption = {
   id: number;
@@ -644,7 +650,7 @@ const ArticleEditor: React.FC = () => {
       let nextSummary = summary;
       let nextSeoDescription = seoDescription;
       let nextSeoKeywords = seoKeywords;
-      if (generateSummaryOnSave && content.trim()) {
+      if (generateSummaryOnSave && content.trim() && !exceedsFullArticleAIContentLimit('metadata', content)) {
         try {
           const aiRes = await executeArticleEditorOperation(
             Boolean(isEdit),
@@ -669,6 +675,8 @@ const ArticleEditor: React.FC = () => {
           // 自动摘要只是保存时的辅助能力，失败不应阻断文章保存。
           notifyFromError(e, 'toast.summaryFailed');
         }
+      } else if (generateSummaryOnSave && content.trim()) {
+        setAiNotice(formatText(t('common.textTooLarge'), { limit: MAX_AI_FULL_ARTICLE_CONTENT_BYTES }));
       }
 
       const payload = {
@@ -748,6 +756,11 @@ const ArticleEditor: React.FC = () => {
       : getActiveMarkdownRange(textareaRef.current, content);
     if (!target.text.trim()) {
       setError(t('articleEditor.aiContentRequired'));
+      setAiMenuOpen(false);
+      return;
+    }
+    if (exceedsFullArticleAIContentLimit(action, target.text)) {
+      setError(formatText(t('common.textTooLarge'), { limit: MAX_AI_FULL_ARTICLE_CONTENT_BYTES }));
       setAiMenuOpen(false);
       return;
     }
@@ -891,7 +904,7 @@ const ArticleEditor: React.FC = () => {
 
   if (articleEditorAccess !== 'editor') {
     return (
-      <div className="flex h-[80vh] flex-col">
+      <div className="flex min-h-[24rem] min-w-0 flex-col">
         {articleEditorAccess === 'loading' ? (
           <PagePendingState variant="admin" label={t('common.loading')} />
         ) : (
@@ -909,7 +922,7 @@ const ArticleEditor: React.FC = () => {
   }
 
   return (
-    <div className="flex flex-col h-[80vh]">
+    <div className="flex min-w-0 flex-col">
       <div className="flex justify-between items-center mb-6 pb-4 border-b border-mountain-grey">
         <h3 className="text-2xl font-bold text-ink tracking-widest">{isEdit ? t('articleEditor.editTitle') : t('articleEditor.newTitle')}</h3>
         <div className="flex items-center gap-3">
@@ -1169,9 +1182,6 @@ const ArticleEditor: React.FC = () => {
           type="text" placeholder={t('articleEditor.summary')} value={summary} onChange={e => handleSummaryChange(e.target.value)}
           className="w-full bg-transparent border-b border-mountain-grey py-2 text-ink focus:outline-hidden focus:border-ochre"
         />
-        <p className="mt-1 text-right text-xs text-ink-light" aria-live="polite">
-          {formatText(t('common.byteUsage'), { used: summaryByteLength, limit: MAX_TEXT_FIELD_BYTES })}
-        </p>
       </div>
 
       <label className="mb-6 flex flex-wrap items-center gap-3 border border-mountain-grey bg-[var(--paper-soft)] px-3 py-2 text-sm text-ink-light">
@@ -1185,8 +1195,8 @@ const ArticleEditor: React.FC = () => {
         <span className="text-xs">{t('articleEditor.generateSummaryHint')}</span>
       </label>
 
-      <div className="flex-grow flex flex-col md:flex-row gap-6 overflow-hidden">
-        <div className="w-full md:w-1/2 flex flex-col border border-mountain-grey p-4">
+      <div className="grid min-w-0 grid-cols-1 gap-6 lg:grid-cols-2">
+        <div className="flex h-[clamp(28rem,60vh,46rem)] min-w-0 flex-col border border-mountain-grey p-4">
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2 border-b border-hairline pb-3 text-xs text-muted">
             <span>
               {formatText(t('reading.words'), { count: liveReadingStats.wordCount })}
@@ -1204,13 +1214,15 @@ const ArticleEditor: React.FC = () => {
             ref={textareaRef}
             value={content}
             onChange={e => setContent(e.target.value)}
-            className="w-full h-full bg-transparent resize-none focus:outline-hidden text-ink-light font-serif leading-relaxed"
+            className="min-h-0 w-full flex-1 resize-none overflow-auto bg-transparent font-serif leading-relaxed text-ink-light focus:outline-hidden"
             placeholder={t('articleEditor.content')}
           ></textarea>
         </div>
-<div className="w-full md:w-1/2 border border-mountain-grey p-4 overflow-y-auto bg-[var(--paper-soft)]">
-  <DeferredMarkdownRenderer content={debouncedPreviewContent} />
-</div>
+        <div className="h-[clamp(28rem,60vh,46rem)] min-w-0 overflow-auto border border-mountain-grey bg-[var(--paper-soft)] p-4">
+          <div className="min-w-0 break-words">
+            <DeferredMarkdownRenderer content={debouncedPreviewContent} />
+          </div>
+        </div>
       </div>
       <MediaPicker
         open={mediaPickerMode !== null}

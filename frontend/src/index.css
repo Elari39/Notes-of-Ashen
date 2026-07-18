@@ -15,6 +15,7 @@
     --on-dark: #faf9f5;
     --on-dark-soft: #a09d96;
     --on-accent: #141413;
+    --accent-teal: #5db8a6;
     --paper: var(--canvas);
     --ink: #141413;
     --ink-light: var(--body);
@@ -86,6 +87,7 @@
     --hairline: #3b3833;
     --on-dark: #faf9f5;
     --on-dark-soft: #a09d96;
+    --accent-teal: #5db8a6;
     --paper: var(--canvas);
     --ink: #faf9f5;
     --ink-light: var(--body);

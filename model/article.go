@@ -280,6 +280,9 @@ func (s *Store) DeleteArticle(ctx context.Context, id uint64) error {
 		if _, err := tx.ExecContext(ctx, "DELETE FROM article_likes WHERE article_id = ?", id); err != nil {
 			return err
 		}
+		if _, err := tx.ExecContext(ctx, "DELETE FROM article_versions WHERE article_id = ?", id); err != nil {
+			return err
+		}
 		res, err := tx.ExecContext(ctx, "DELETE FROM articles WHERE id = ?", id)
 		if err != nil {
 			return err

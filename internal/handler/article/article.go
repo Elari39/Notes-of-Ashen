@@ -22,8 +22,9 @@ func forwardedOptions(svcCtx *svc.ServiceContext) basehandler.ForwardedOptions {
 }
 
 const (
-	maxMarkdownUploadBytes    = 2 << 20
-	maxArticleRequestBodySize = 6 << 20
+	maxMarkdownUploadBytes     = 2 << 20
+	maxArticleRequestBodySize  = 6 << 20
+	maxAIAssistRequestBodySize = 128 << 10
 )
 
 func ListHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
@@ -277,7 +278,7 @@ func UpdateStatusHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 func AIAssistHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req types.AIAssistReq
-		if err := basehandler.ParseLimited(w, r, &req, basehandler.StandardJSONBodyLimit); err != nil {
+		if err := basehandler.ParseLimited(w, r, &req, maxAIAssistRequestBodySize); err != nil {
 			response.ErrorCtx(r.Context(), w, err)
 			return
 		}

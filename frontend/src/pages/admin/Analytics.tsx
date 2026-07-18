@@ -8,6 +8,7 @@ import type { AnalyticsOverview, ArticleAnalytics, ArticleAnalyticsDetail } from
 import { usePreferenceStore } from '../../store/preferences';
 import { formatText, translate } from '../../i18n';
 import { getErrorMessage } from '../../utils/error';
+import { getChartThemeColors } from '../../utils/chartTheme';
 import { loadECharts, type ECharts } from '../../utils/loadECharts';
 import InlineNotice from '../../components/InlineNotice';
 import PagePendingState from '../../components/RoutePending';
@@ -121,7 +122,7 @@ const AdminAnalytics: React.FC = () => {
               {overview.topPages.map((item) => (
                 <div key={`${item.path}-${item.articleId || 0}`} className="flex justify-between gap-4 border-b border-hairline py-3 text-sm">
                   <span className="truncate text-ink">{item.title || item.path}</span>
-                  <span className="shrink-0 text-muted">{item.pv} PV · {item.uv} UV</span>
+                  <span className="shrink-0 text-muted">{item.pv} {t('analytics.pv')} · {item.uv} {t('analytics.uv')}</span>
                 </div>
               ))}
             </Panel>
@@ -129,7 +130,7 @@ const AdminAnalytics: React.FC = () => {
               {overview.topReferers.map((item) => (
                 <div key={`${item.sourceType}-${item.sourceName}`} className="flex justify-between gap-4 border-b border-hairline py-3 text-sm">
                   <span className="truncate text-ink">{item.sourceName}</span>
-                  <span className="shrink-0 text-muted">{item.pv} PV</span>
+                  <span className="shrink-0 text-muted">{item.pv} {t('analytics.pv')}</span>
                 </div>
               ))}
             </Panel>
@@ -141,8 +142,8 @@ const AdminAnalytics: React.FC = () => {
                 <thead>
                   <tr className="border-b border-hairline text-muted">
                     <th className="py-3">{t('adminArticles.title')}</th>
-                    <th>PV</th>
-                    <th>UV</th>
+                    <th>{t('analytics.pv')}</th>
+                    <th>{t('analytics.uv')}</th>
                     <th>{t('analytics.likes')}</th>
                   </tr>
                 </thead>
@@ -172,7 +173,7 @@ const AdminAnalytics: React.FC = () => {
                 {detail.referers.map((item) => (
                   <div key={`${item.sourceType}-${item.sourceName}`} className="flex justify-between border-b border-hairline py-2 text-sm">
                     <span>{item.sourceName}</span>
-                    <span className="text-muted">{item.pv} PV</span>
+                    <span className="text-muted">{item.pv} {t('analytics.pv')}</span>
                   </div>
                 ))}
               </div>
@@ -210,8 +211,15 @@ const Panel = ({ title, children }: { title: string; children: React.ReactNode }
 );
 
 const TrendChart = ({ data }: { data: Array<{ date: string; pv: number; uv: number }> }) => {
+  const language = usePreferenceStore((state) => state.language);
+  const effectiveTheme = usePreferenceStore((state) => state.effectiveTheme);
+  const accentColor = usePreferenceStore((state) => state.accentColor);
+  const t = (key: Parameters<typeof translate>[1]) => translate(language, key);
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<ECharts | null>(null);
+  const [highlightedSeries, setHighlightedSeries] = useState<'pv' | 'uv' | null>(null);
+  const pvLabel = t('analytics.pv');
+  const uvLabel = t('analytics.uv');
 
   useEffect(() => {
     if (!containerRef.current || data.length === 0) {
@@ -225,15 +233,67 @@ const TrendChart = ({ data }: { data: Array<{ date: string; pv: number; uv: numb
         return;
       }
       chartRef.current ??= init(containerRef.current);
+      const colors = getChartThemeColors();
+      const seriesOption = (key: 'pv' | 'uv', label: string, values: number[], color: string) => {
+        const isHighlighted = highlightedSeries === key;
+        const isMuted = highlightedSeries !== null && !isHighlighted;
+        return {
+          name: label,
+          type: 'line' as const,
+          smooth: true,
+          showSymbol: true,
+          symbol: 'circle',
+          symbolSize: isHighlighted ? 6 : 5,
+          data: values,
+          z: isHighlighted ? 3 : 2,
+          lineStyle: { width: isHighlighted ? 3.5 : 2.5, color, opacity: isMuted ? 0.34 : 1 },
+          itemStyle: {
+            color,
+            borderColor: colors.canvas,
+            borderWidth: 1.5,
+            opacity: isMuted ? 0.42 : 1,
+          },
+          emphasis: {
+            focus: 'series' as const,
+            lineStyle: { width: 4, color, opacity: 1 },
+            itemStyle: { color, borderColor: colors.canvas, borderWidth: 2.5, opacity: 1 },
+          },
+        };
+      };
       chartRef.current.setOption({
-        tooltip: { trigger: 'axis' },
-        legend: { data: ['PV', 'UV'] },
-        grid: { left: 44, right: 18, top: 40, bottom: 32 },
-        xAxis: { type: 'category', data: data.map((point) => point.date) },
-        yAxis: { type: 'value', minInterval: 1 },
+        animationDurationUpdate: 180,
+        tooltip: {
+          trigger: 'axis',
+          confine: true,
+          backgroundColor: colors.canvas,
+          borderColor: colors.hairline,
+          borderWidth: 1,
+          padding: [8, 10],
+          extraCssText: 'box-shadow: 0 8px 24px rgba(20, 20, 19, 0.14); border-radius: 8px;',
+          textStyle: { color: colors.ink },
+          axisPointer: {
+            type: 'line',
+            lineStyle: { color: colors.hairline, type: 'dashed', width: 1 },
+            label: { backgroundColor: colors.ink, color: colors.canvas },
+          },
+        },
+        grid: { left: 44, right: 18, top: 12, bottom: 32 },
+        xAxis: {
+          type: 'category',
+          data: data.map((point) => point.date),
+          axisLabel: { color: colors.muted, fontSize: 11 },
+          axisLine: { lineStyle: { color: colors.hairline } },
+          axisTick: { lineStyle: { color: colors.hairline } },
+        },
+        yAxis: {
+          type: 'value',
+          minInterval: 1,
+          axisLabel: { color: colors.muted, fontSize: 11 },
+          splitLine: { lineStyle: { color: colors.hairline, type: 'dashed' } },
+        },
         series: [
-          { name: 'PV', type: 'line', smooth: true, data: data.map((point) => point.pv) },
-          { name: 'UV', type: 'line', smooth: true, data: data.map((point) => point.uv) },
+          seriesOption('pv', pvLabel, data.map((point) => point.pv), colors.pv),
+          seriesOption('uv', uvLabel, data.map((point) => point.uv), colors.uv),
         ],
       });
       resize = () => chartRef.current?.resize();
@@ -245,14 +305,43 @@ const TrendChart = ({ data }: { data: Array<{ date: string; pv: number; uv: numb
         window.removeEventListener('resize', resize);
       }
     };
-  }, [data]);
+  }, [data, effectiveTheme, accentColor, highlightedSeries, pvLabel, uvLabel]);
 
   useEffect(() => () => {
     chartRef.current?.dispose();
     chartRef.current = null;
   }, []);
 
-  return <div ref={containerRef} className="h-72 w-full" />;
+  return (
+    <div className="w-full">
+      <div className="mb-3 flex flex-wrap items-center gap-2" role="group" aria-label={t('dashboard.trafficLegend')}>
+        {([
+          ['pv', pvLabel, 'bg-[var(--ochre)]'],
+          ['uv', uvLabel, 'bg-[var(--accent-teal)]'],
+        ] as const).map(([key, label, dotClass]) => {
+          const isHighlighted = highlightedSeries === key;
+          const isMuted = highlightedSeries !== null && !isHighlighted;
+          return (
+            <button
+              key={key}
+              type="button"
+              aria-pressed={isHighlighted}
+              title={t('dashboard.trafficLegendHelp')}
+              onClick={() => setHighlightedSeries((current) => (current === key ? null : key))}
+              style={isHighlighted ? { borderColor: key === 'pv' ? 'var(--ochre)' : 'var(--accent-teal)' } : undefined}
+              className={`inline-flex min-h-8 items-center gap-2 rounded-md border px-2.5 py-1 text-xs transition-opacity ${
+                isHighlighted ? 'bg-[var(--inline-code-bg)] text-ink' : 'border-hairline bg-paper text-ink-light'
+              } ${isMuted ? 'opacity-40' : 'opacity-100'}`}
+            >
+              <span aria-hidden="true" className={`h-2.5 w-2.5 rounded-full ${dotClass}`} />
+              {label}
+            </button>
+          );
+        })}
+      </div>
+      <div ref={containerRef} role="img" className="h-64 w-full" aria-label={t('analytics.title')} />
+    </div>
+  );
 };
 
 export default AdminAnalytics;

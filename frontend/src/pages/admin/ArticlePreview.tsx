@@ -62,14 +62,16 @@ const ArticlePreview: React.FC = () => {
   }
 
   return (
-    <article className="mx-auto max-w-3xl">
+    <article className="mx-auto min-w-0 max-w-3xl">
       <div className="mb-8 flex flex-wrap items-center justify-between gap-3 border border-ochre px-4 py-3 text-sm text-ochre">
         <span>{t('articlePreview.notice')}</span>
         <Link to={`/admin/editor/${article.id}`} className="hover:text-ink">{t('articlePreview.backToEditor')}</Link>
       </div>
       <h1 className="mb-4 text-4xl font-bold text-ink">{article.title}</h1>
       <p className="mb-10 text-ink-light">{article.summary}</p>
-      <DeferredMarkdownRenderer content={article.content || ''} />
+      <div className="min-w-0 overflow-x-hidden">
+        <DeferredMarkdownRenderer content={article.content || ''} />
+      </div>
     </article>
   );
 };

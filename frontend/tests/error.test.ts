@@ -66,6 +66,13 @@ test('备份依赖的数据库迁移缺失会给出可操作提示', () => {
   );
 });
 
+test('媒体仍被引用时给出可操作提示', () => {
+  assert.equal(
+    getErrorMessage(new AppError('media asset is still referenced')),
+    '图片仍被文章、历史版本、作品或头像引用，移除引用后再删除',
+  );
+});
+
 test('下载接口的 JSON Blob 错误会恢复为统一错误结构', async () => {
   const blob = new Blob([JSON.stringify({ code: 40123, message: 'current password is incorrect' })], {
     type: 'application/json; charset=utf-8',

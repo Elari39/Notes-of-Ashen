@@ -115,7 +115,7 @@ func (s *Store) MediaURLReferenced(ctx context.Context, mediaURL string) (bool, 
 		args  []interface{}
 	}{
 		{"SELECT EXISTS(SELECT 1 FROM articles WHERE cover_url = ? OR content LIKE ?)", []interface{}{mediaURL, like}},
-		{"SELECT EXISTS(SELECT 1 FROM article_versions WHERE cover_url = ? OR content LIKE ?)", []interface{}{mediaURL, like}},
+		{"SELECT EXISTS(SELECT 1 FROM article_versions INNER JOIN articles ON articles.id = article_versions.article_id WHERE article_versions.cover_url = ? OR article_versions.content LIKE ?)", []interface{}{mediaURL, like}},
 		{"SELECT EXISTS(SELECT 1 FROM projects WHERE cover_url = ? OR content_markdown LIKE ?)", []interface{}{mediaURL, like}},
 		{"SELECT EXISTS(SELECT 1 FROM users WHERE avatar_url = ?)", []interface{}{mediaURL}},
 	}

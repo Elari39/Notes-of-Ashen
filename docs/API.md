@@ -110,7 +110,7 @@ Docker Web 入口同样公开 `/healthz` 并精确代理到上述 API 探针；`
 ## JSON 请求体上限
 
 - 认证、用户资料/改密、管理员用户状态与角色、流量、媒体 Alt、文章状态和备份导出：16 KiB。
-- AI 设置/连接/测试、文章 AI 辅助和站点基础设置：64 KiB。
+- AI 设置/连接/测试和站点基础设置：64 KiB；文章 AI 辅助：128 KiB。
 - 项目页面更新：12 MiB；文章创建/更新与 taxonomy 上限见对应章节。
 
 无论请求是否携带 `Content-Length`，超过上限均返回 `400 Bad Request`。
@@ -447,7 +447,7 @@ POST /api/v1/articles/ai/assist
 | --- | --- | --- | --- |
 | action | string | 是 | `complete`、`metadata`、`proofread`、`polish`、`expand`、`shorten` 或 `translate` |
 | title | string | 否 | 文章标题，最长 160 |
-| content | string | 是 | Markdown 正文，最长 30000 |
+| content | string | 是 | `complete` 与 `metadata` 最多 64 KiB UTF-8 字节；`proofread`、`polish`、`expand`、`shorten`、`translate` 最多 30,000 个字符 |
 
 响应字段：
 

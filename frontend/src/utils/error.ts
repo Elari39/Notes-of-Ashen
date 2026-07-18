@@ -160,6 +160,7 @@ const exactMessages: Record<string, LocalizedText> = {
   'category already exists': localized('分类名称或路径已存在', 'The category name or slug already exists'),
   'tag already exists': localized('标签名称或路径已存在', 'The tag name or slug already exists'),
   'tag not found': localized('标签不存在', 'Tag not found'),
+  'media asset is still referenced': localized('图片仍被文章、历史版本、作品或头像引用，移除引用后再删除', 'This media asset is still referenced by an article, version, project, or avatar. Remove the reference before deleting it.'),
   'ai assistant is disabled': localized('AI 辅助未启用，请先在后台 AI 配置中启用。', 'AI assistance is disabled. Enable it in AI Settings first.'),
   'ai assistant is not configured': localized('AI 辅助尚未配置，请检查 Base URL、API Key 和模型。', 'AI assistance is not configured. Check Base URL, API key, and model.'),
   'ai response is invalid': localized('AI 返回内容格式不正确，请重试。', 'The AI response format is invalid. Please try again.'),
