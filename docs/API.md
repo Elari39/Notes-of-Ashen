@@ -843,7 +843,7 @@ PUT /api/v1/admin/ai/settings
 
 字段缺失一律保留当前值。切换到非空的新 `apiFormat` 或 `baseUrl` 组合时，若原来已保存 API Key，必须同时传入新 `apiKey` 或设置 `clearApiKey = true`，避免把旧服务商密钥误发给新端点；关闭 AI 并清空地址/模型时可继续保留密钥。启用 AI 时 `baseUrl`、`model` 和可正常解密的 API Key 均为必需项。
 
-AI 出站请求在每次新建连接时重新解析域名，解析结果只要包含私网、本机、链路本地、CGNAT、文档或保留地址就整体拒绝，并直接连接已校验的公网 IP；请求不使用环境 HTTP 代理，也不跟随重定向，以防 DNS 重绑定或代理端重新解析绕过校验。
+AI 出站请求在每次新建连接时重新解析域名，解析结果只要包含私网、本机、链路本地、CGNAT、文档或保留地址就整体拒绝，并直接连接已校验的公网 IP；请求不使用环境 HTTP 代理，也不跟随重定向，以防 DNS 重绑定或代理端重新解析绕过校验。若 HTTPS 默认端口 `443` 的域名仅被本机透明代理解析到 `198.18.0.0/15` Fake-IP，则保留原域名交给透明代理连接；直接填写该网段 IP 或使用其他端口仍会拒绝。
 
 响应 `data`：
 
@@ -875,7 +875,7 @@ POST /api/v1/admin/ai/models
 | 字段 | 类型 | 必填 | 说明 |
 | --- | --- | --- | --- |
 | apiFormat | string | 否 | `openai` 或 `anthropic`，留空按 `openai` 处理 |
-| baseUrl | string | 是 | 待连接的上游基础地址，必须为解析到公网地址的 `http://` 或 `https://` URL |
+| baseUrl | string | 是 | 待连接的上游基础地址，必须为 `http://` 或 `https://` URL；实际连接只允许公网地址，或 HTTPS 默认端口 `443` 下透明代理生成的 `198.18.0.0/15` Fake-IP |
 | apiKey | string | 否 | 草稿 API Key；满足上述条件时可复用已保存密钥 |
 | firstByteTimeoutSeconds | int | 否 | 首字等待超时，默认 60，范围 1 到 1800 |
 | nonStreamTimeoutSeconds | int | 否 | 请求总超时，默认 600，范围 1 到 1800，不能小于首字等待且不能超过服务端请求超时 |

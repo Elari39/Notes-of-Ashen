@@ -56,30 +56,25 @@ func OptionalHTTPURL(value, field string) error {
 	if parsed.Scheme != "http" && parsed.Scheme != "https" {
 		return apperrors.BadRequest(field + " format is invalid")
 	}
-	// 阻止 SSRF / 内网地址：avatarUrl/coverUrl/projects 等用户可控 URL 不得指向本机或保留地址段。
+	// 保存表单时只校验显式主机，不对域名做 DNS 解析。域名可能被本机代理解析为
+	// 198.18.0.0/15 Fake-IP，保存阶段解析会把正常公网 HTTPS URL 误判为本地地址。
+	// 真正由服务端发起的请求必须在建连时重新解析并执行 SSRF 校验。
 	host := parsed.Hostname()
-	if host == "localhost" {
+	if isLocalHostname(host) {
 		return apperrors.BadRequest(field + " must not point to a local address")
 	}
-	// 先尝试直接当作 IP 解析（含 IPv6），命中即校验；否则对域名做 DNS 解析后逐一校验。
+	// 显式 IP（含 IPv6）仍在保存阶段拦截，避免直接写入本机、私网或保留地址。
 	if ip := net.ParseIP(host); ip != nil {
-		if IsBlockedHostIP(ip) {
-			return apperrors.BadRequest(field + " must not point to a local address")
-		}
-		return nil
-	}
-	// 域名场景：解析所有 A/AAAA 记录，任一命中内网/保留段即拒绝（防御 DNS rebinding）。
-	ips, lookupErr := net.LookupIP(host)
-	if lookupErr != nil {
-		// 解析失败不在此拦截（可能是离线/临时错误），留给实际请求处理，但记录为可疑。
-		return nil
-	}
-	for _, ip := range ips {
 		if IsBlockedHostIP(ip) {
 			return apperrors.BadRequest(field + " must not point to a local address")
 		}
 	}
 	return nil
+}
+
+func isLocalHostname(host string) bool {
+	host = strings.TrimSuffix(strings.ToLower(strings.TrimSpace(host)), ".")
+	return host == "localhost" || strings.HasSuffix(host, ".localhost")
 }
 
 func OptionalImageURL(value, field string) error {
@@ -123,6 +118,15 @@ func IsBlockedHostIP(ip net.IP) bool {
 	}
 	return false
 }
+
+// IsProxyFakeIP 判断 IP 是否属于常被 Clash 等透明代理用于 Fake-IP DNS 的
+// 基准测试网段。该网段本身仍属于受限地址，只允许 AI 客户端在域名解析全部落入
+// 此范围时保留原域名交给透明代理连接；显式 IP 地址始终拒绝。
+func IsProxyFakeIP(ip net.IP) bool {
+	return ip != nil && proxyFakeIPNetwork.Contains(ip)
+}
+
+var proxyFakeIPNetwork = mustParseCIDRs("198.18.0.0/15")[0]
 
 var blockedHostNetworks = mustParseCIDRs(
 	"0.0.0.0/8",

@@ -132,7 +132,9 @@ type dialContextFunc func(context.Context, string, string) (net.Conn, error)
 
 // newPublicDialContext 在每次新建 TCP 连接前重新解析目标，并直接连接已校验的
 // 公网 IP。解析结果只要包含一个受限地址就整体拒绝，避免攻击者借助公私混合记录
-// 或 DNS rebinding 让后续连接落到内网。
+// 或 DNS rebinding 让后续连接落到内网。若 443 端口的域名仅解析到
+// 198.18.0.0/15，则视为透明代理的 Fake-IP，保留原域名交给系统拨号；显式填写
+// 该网段的 IP 或使用其他端口仍会拒绝。
 func newPublicDialContext(lookup lookupIPFunc, dial dialContextFunc) dialContextFunc {
 	return func(ctx context.Context, network, address string) (net.Conn, error) {
 		host, port, err := net.SplitHostPort(address)
@@ -142,6 +144,9 @@ func newPublicDialContext(lookup lookupIPFunc, dial dialContextFunc) dialContext
 
 		var ips []net.IP
 		if literal := net.ParseIP(host); literal != nil {
+			if validator.IsBlockedHostIP(literal) {
+				return nil, fmt.Errorf("ai endpoint resolved to a blocked address")
+			}
 			ips = []net.IP{literal}
 		} else {
 			ips, err = lookup(ctx, "ip", host)
@@ -152,11 +157,29 @@ func newPublicDialContext(lookup lookupIPFunc, dial dialContextFunc) dialContext
 		if len(ips) == 0 {
 			return nil, fmt.Errorf("resolve ai endpoint: no addresses")
 		}
+		publicIPs := make([]net.IP, 0, len(ips))
+		fakeIPCount := 0
 		for _, ip := range ips {
+			if validator.IsProxyFakeIP(ip) {
+				fakeIPCount++
+				continue
+			}
 			if validator.IsBlockedHostIP(ip) {
 				return nil, fmt.Errorf("ai endpoint resolved to a blocked address")
 			}
+			publicIPs = append(publicIPs, ip)
 		}
+		if len(publicIPs) == 0 && fakeIPCount > 0 {
+			if port != "443" {
+				return nil, fmt.Errorf("ai endpoint resolved to a blocked address")
+			}
+			conn, dialErr := dial(ctx, network, address)
+			if dialErr != nil {
+				return nil, fmt.Errorf("dial ai endpoint through fake-ip proxy: %w", dialErr)
+			}
+			return conn, nil
+		}
+		ips = publicIPs
 
 		var lastErr error
 		for _, ip := range ips {

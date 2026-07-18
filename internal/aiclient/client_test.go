@@ -466,6 +466,66 @@ func TestPublicDialPinsValidatedIPAndRechecksDNS(t *testing.T) {
 	}
 }
 
+func TestPublicDialSupportsProxyFakeIPForHostname(t *testing.T) {
+	lookup := func(context.Context, string, string) ([]net.IP, error) {
+		return []net.IP{net.ParseIP("198.18.0.42")}, nil
+	}
+	dialAddresses := make([]string, 0, 1)
+	dial := func(_ context.Context, _, address string) (net.Conn, error) {
+		dialAddresses = append(dialAddresses, address)
+		return stubConn{}, nil
+	}
+
+	conn, err := newPublicDialContext(lookup, dial)(context.Background(), "tcp", "api.deepseek.com:443")
+	if err != nil {
+		t.Fatalf("fake-ip hostname dial error = %v", err)
+	}
+	_ = conn.Close()
+	if len(dialAddresses) != 1 || dialAddresses[0] != "api.deepseek.com:443" {
+		t.Fatalf("dial addresses = %v, want original hostname", dialAddresses)
+	}
+}
+
+func TestPublicDialRejectsLiteralProxyFakeIP(t *testing.T) {
+	lookupCalled := false
+	lookup := func(context.Context, string, string) ([]net.IP, error) {
+		lookupCalled = true
+		return nil, errors.New("unexpected lookup")
+	}
+	dialCalled := false
+	dial := func(context.Context, string, string) (net.Conn, error) {
+		dialCalled = true
+		return nil, errors.New("unexpected dial")
+	}
+
+	_, err := newPublicDialContext(lookup, dial)(context.Background(), "tcp", "198.18.0.42:443")
+	if err == nil || !strings.Contains(err.Error(), "blocked address") {
+		t.Fatalf("dial error = %v", err)
+	}
+	if lookupCalled || dialCalled {
+		t.Fatal("literal fake-ip triggered DNS lookup or network dial")
+	}
+}
+
+func TestPublicDialRejectsProxyFakeIPOnNonHTTPSPort(t *testing.T) {
+	lookup := func(context.Context, string, string) ([]net.IP, error) {
+		return []net.IP{net.ParseIP("198.18.0.42")}, nil
+	}
+	dialCalled := false
+	dial := func(context.Context, string, string) (net.Conn, error) {
+		dialCalled = true
+		return nil, errors.New("unexpected dial")
+	}
+
+	_, err := newPublicDialContext(lookup, dial)(context.Background(), "tcp", "api.deepseek.com:80")
+	if err == nil || !strings.Contains(err.Error(), "blocked address") {
+		t.Fatalf("dial error = %v", err)
+	}
+	if dialCalled {
+		t.Fatal("non-HTTPS fake-ip triggered network dial")
+	}
+}
+
 type stubConn struct{}
 
 func (stubConn) Read([]byte) (int, error)         { return 0, errors.New("not implemented") }

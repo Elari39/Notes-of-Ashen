@@ -15,6 +15,11 @@ func TestOptionalHTTPURL(t *testing.T) {
 		{name: "space is allowed", value: "   ", wantErr: false},
 		{name: "https url is allowed", value: "https://1.1.1.1/a.png", wantErr: false},
 		{name: "http url is allowed", value: "http://1.1.1.1/a.png", wantErr: false},
+		{name: "public hostname is allowed without dns dependency", value: "https://api.deepseek.com/v1", wantErr: false},
+		{name: "localhost is rejected case insensitively", value: "https://LOCALHOST/a.png", wantErr: true},
+		{name: "localhost subdomain is rejected", value: "https://preview.localhost./a.png", wantErr: true},
+		{name: "private literal is rejected", value: "https://192.168.1.10/a.png", wantErr: true},
+		{name: "fake ip literal is rejected", value: "https://198.18.0.10/a.png", wantErr: true},
 		{name: "account is rejected", value: "Elari39", wantErr: true},
 		{name: "anonymous text is rejected", value: "匿名", wantErr: true},
 		{name: "missing scheme is rejected", value: "example.com/a.png", wantErr: true},
@@ -31,6 +36,12 @@ func TestOptionalHTTPURL(t *testing.T) {
 				t.Fatalf("expected nil error, got %v", err)
 			}
 		})
+	}
+}
+
+func TestOptionalImageURLAllowsPublicHTTPSHostname(t *testing.T) {
+	if err := OptionalImageURL("https://images.example.com/cover.png", "coverUrl"); err != nil {
+		t.Fatalf("OptionalImageURL() error = %v, want nil", err)
 	}
 }
 
@@ -93,5 +104,14 @@ func TestIsBlockedHostIP(t *testing.T) {
 		if IsBlockedHostIP(net.ParseIP(value)) {
 			t.Errorf("IsBlockedHostIP(%q) = true, want false", value)
 		}
+	}
+}
+
+func TestIsProxyFakeIP(t *testing.T) {
+	if !IsProxyFakeIP(net.ParseIP("198.18.0.1")) {
+		t.Fatal("IsProxyFakeIP() = false, want true for Clash fake-ip range")
+	}
+	if IsProxyFakeIP(net.ParseIP("192.168.1.1")) || IsProxyFakeIP(net.ParseIP("1.1.1.1")) {
+		t.Fatal("IsProxyFakeIP() accepted a non fake-ip address")
 	}
 }
