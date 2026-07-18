@@ -1,8 +1,4 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { LineChart } from 'echarts/charts';
-import { GridComponent, LegendComponent, TooltipComponent } from 'echarts/components';
-import { init, use, type ECharts } from 'echarts/core';
-import { CanvasRenderer } from 'echarts/renderers';
 import {
   getAnalyticsOverview,
   getArticleAnalytics,
@@ -12,12 +8,11 @@ import type { AnalyticsOverview, ArticleAnalytics, ArticleAnalyticsDetail } from
 import { usePreferenceStore } from '../../store/preferences';
 import { formatText, translate } from '../../i18n';
 import { getErrorMessage } from '../../utils/error';
+import { loadECharts, type ECharts } from '../../utils/loadECharts';
 import InlineNotice from '../../components/InlineNotice';
 import PagePendingState from '../../components/RoutePending';
 import Button from '../../components/ui/Button';
 import TextField from '../../components/ui/TextField';
-
-use([LineChart, GridComponent, LegendComponent, TooltipComponent, CanvasRenderer]);
 
 const isoDate = (date: Date) =>
   `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
@@ -219,22 +214,37 @@ const TrendChart = ({ data }: { data: Array<{ date: string; pv: number; uv: numb
   const chartRef = useRef<ECharts | null>(null);
 
   useEffect(() => {
-    if (!containerRef.current) return;
-    chartRef.current ??= init(containerRef.current);
-    chartRef.current.setOption({
-      tooltip: { trigger: 'axis' },
-      legend: { data: ['PV', 'UV'] },
-      grid: { left: 44, right: 18, top: 40, bottom: 32 },
-      xAxis: { type: 'category', data: data.map((point) => point.date) },
-      yAxis: { type: 'value', minInterval: 1 },
-      series: [
-        { name: 'PV', type: 'line', smooth: true, data: data.map((point) => point.pv) },
-        { name: 'UV', type: 'line', smooth: true, data: data.map((point) => point.uv) },
-      ],
-    });
-    const resize = () => chartRef.current?.resize();
-    window.addEventListener('resize', resize);
-    return () => window.removeEventListener('resize', resize);
+    if (!containerRef.current || data.length === 0) {
+      chartRef.current?.clear();
+      return;
+    }
+    let active = true;
+    let resize: (() => void) | undefined;
+    void loadECharts().then(({ init }) => {
+      if (!active || !containerRef.current) {
+        return;
+      }
+      chartRef.current ??= init(containerRef.current);
+      chartRef.current.setOption({
+        tooltip: { trigger: 'axis' },
+        legend: { data: ['PV', 'UV'] },
+        grid: { left: 44, right: 18, top: 40, bottom: 32 },
+        xAxis: { type: 'category', data: data.map((point) => point.date) },
+        yAxis: { type: 'value', minInterval: 1 },
+        series: [
+          { name: 'PV', type: 'line', smooth: true, data: data.map((point) => point.pv) },
+          { name: 'UV', type: 'line', smooth: true, data: data.map((point) => point.uv) },
+        ],
+      });
+      resize = () => chartRef.current?.resize();
+      window.addEventListener('resize', resize);
+    }).catch(() => undefined);
+    return () => {
+      active = false;
+      if (resize) {
+        window.removeEventListener('resize', resize);
+      }
+    };
   }, [data]);
 
   useEffect(() => () => {

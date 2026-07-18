@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import MarkdownRenderer from './MarkdownRenderer';
+import DeferredMarkdownRenderer from './DeferredMarkdownRenderer';
 import { usePreferenceStore } from '../store/preferences';
 import { translate } from '../i18n';
 import { trapFocus } from '../utils/focusTrap';
@@ -194,7 +194,7 @@ const ProjectPreviewModal: React.FC<ProjectPreviewModalProps> = ({ project, onCl
           )}
 
           {hasContent ? (
-            <MarkdownRenderer
+            <DeferredMarkdownRenderer
               content={project.contentMarkdown}
               headingIdPrefix={HEADING_ID_PREFIX}
               className="prose-lg"

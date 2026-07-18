@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom';
 import ImageLightbox, { LightboxImage } from '../components/ImageLightbox';
 import InlineNotice from '../components/InlineNotice';
-import MarkdownRenderer from '../components/MarkdownRenderer';
+import DeferredMarkdownRenderer from '../components/DeferredMarkdownRenderer';
 import PagePendingState, { RoutePendingIndicator } from '../components/RoutePending';
 import ArticleDetailSkeleton from '../components/ArticleDetailSkeleton';
 import { PreloadLink } from '../components/PreloadLink';
@@ -340,7 +340,7 @@ const ArticleDetail: React.FC = () => {
             />
           )}
 
-          <MarkdownRenderer content={article.content} headings={headings} className="prose-lg mx-auto" />
+          <DeferredMarkdownRenderer content={article.content} headings={headings} className="prose-lg mx-auto" />
 
           <div className="mt-16 rounded-xl bg-surface-soft px-6 py-8 text-center">
             <button

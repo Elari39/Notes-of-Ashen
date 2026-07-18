@@ -116,7 +116,7 @@ services:
       - app
 
   mysql:
-    image: mysql:8.4
+    image: mysql:8.4@sha256:c592c15aaf4a1961e15d82eb31ea5987dda862d1c4b1e93424438c0e91dc1f8d
     restart: unless-stopped
     environment:
       TZ: Asia/Shanghai
@@ -154,7 +154,7 @@ services:
       - app
 
   redis:
-    image: redis:7.4-alpine
+    image: redis:7.4-alpine@sha256:6ab0b6e7381779332f97b8ca76193e45b0756f38d4c0dcda72dbb3c32061ab99
     restart: unless-stopped
     command: ["redis-server", "--appendonly", "yes"]
     volumes:
@@ -182,12 +182,14 @@ services:
       - app
 
   rabbitmq:
-    image: rabbitmq:4-management-alpine
+    image: rabbitmq:4-management-alpine@sha256:0753b75ce99094c385483d89449d532a0544fb85e4942a478b21cc497ab66d33
+    profiles: ["messaging"]
     restart: unless-stopped
     environment:
       TZ: Asia/Shanghai
       RABBITMQ_DEFAULT_USER: "${APP_RABBITMQ_USER:-notes_user}"
-      RABBITMQ_DEFAULT_PASS: "${APP_RABBITMQ_PASSWORD:?set APP_RABBITMQ_PASSWORD in .env}"
+      # 留空仅允许默认 profile 跳过可选服务；启用 messaging 前必须在 .env 配置强密码。
+      RABBITMQ_DEFAULT_PASS: "${APP_RABBITMQ_PASSWORD:-}"
     volumes:
       - goblog_rabbitmq_data:/var/lib/rabbitmq
     expose:
@@ -214,7 +216,8 @@ services:
       - app
 
   meilisearch:
-    image: getmeili/meilisearch:v1.13
+    image: getmeili/meilisearch:v1.13@sha256:bed3fb650e62da53145777204891159242f6ea4ce69e215b36223af4aa64a0ae
+    profiles: ["search"]
     restart: unless-stopped
     environment:
       MEILI_ENV: "${MEILI_ENV:-development}"

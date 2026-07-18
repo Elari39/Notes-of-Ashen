@@ -321,6 +321,24 @@ docker compose config --quiet
 docker compose up -d --build
 ```
 
+默认仅启动 Web、API、MySQL 和 Redis。RabbitMQ 与 Meilisearch 是可选服务：启用前在 `.env` 中配置对应能力与凭据，并设置 `COMPOSE_PROFILES`：
+
+```env
+# 异步操作日志
+COMPOSE_PROFILES=messaging
+APP_RABBITMQ_ENABLED=true
+APP_RABBITMQ_PASSWORD=<strong-random-password>
+APP_RABBITMQ_URL=amqp://notes_user:<strong-random-password>@rabbitmq:5672/
+
+# 搜索；与 messaging 同时启用时写为 messaging,search
+# COMPOSE_PROFILES=search
+# APP_SEARCH_ENABLED=true
+# APP_MEILISEARCH_API_KEY=<strong-random-key>
+# MEILI_ENV=production
+```
+
+也可临时使用 `docker compose --profile messaging up -d --build` 或 `docker compose --profile search up -d --build`；能力开关和凭据仍须在 `.env` 中显式配置。
+
 查看容器状态：
 
 ```bash
@@ -340,10 +358,10 @@ docker compose logs -f web
 - API：容器内部 `api:19000`（仅 Docker 内部网络可达）
 - MySQL：容器内部 `mysql:3306`（仅 Docker 内部网络可达）
 - Redis：容器内部 `redis:6379`（仅 Docker 内部网络可达）
-- RabbitMQ：容器内部 `rabbitmq:5672`，管理端 `rabbitmq:15672`（均仅 Docker 内部网络可达）
-- Meilisearch：容器内部 `meilisearch:7700`（仅 Docker 内部网络可达）
+- RabbitMQ：启用 `messaging` profile 后，容器内部 `rabbitmq:5672`，管理端 `rabbitmq:15672`（均仅 Docker 内部网络可达）
+- Meilisearch：启用 `search` profile 后，容器内部 `meilisearch:7700`（仅 Docker 内部网络可达）
 
-MySQL、Redis、RabbitMQ 默认由 `docker-compose.yml` 在内部网络启动，不会映射端口到宿主机。Web 通过 Nginx 反向代理访问 API。
+MySQL 与 Redis 默认由 `docker-compose.yml` 在内部网络启动，不会映射端口到宿主机。Web 通过 Nginx 反向代理访问 API；RabbitMQ 和 Meilisearch 仅在对应 profile 启用后启动。
 
 Compose 中 API 容器端口固定为 `19000`，`.env` 的 `APP_PORT` 仅影响本地非 Docker 启动。默认专用网络为 `172.30.127.0/24`，如有冲突请按“可信反向代理配置”一节同时调整子网、Web 固定地址、网桥网关可信代理 `/32` 与后端可信代理 `/32`。
 
@@ -388,7 +406,7 @@ http://127.0.0.1:1270/api/v1/articles?page=1&size=10
 
 2. 在 1Panel 中创建 Docker Compose 项目，选择从 Git 源码构建。
 3. Compose 文件选择仓库根目录的 `docker-compose.yml`。
-4. 在 1Panel 项目目录创建 `.env`，内容可从 `.env.example` 复制后修改。
+4. 在 1Panel 项目目录创建 `.env`，内容可从 `.env.example` 复制后修改。需要 RabbitMQ 或 Meilisearch 时，将 `COMPOSE_PROFILES` 设为 `messaging`、`search` 或 `messaging,search`，并同步打开对应能力开关、填写凭据。
 5. 启动 Compose 项目。
 6. 在 1Panel 网站反向代理中配置：
 
@@ -400,11 +418,11 @@ http://127.0.0.1:1270/api/v1/articles?page=1&size=10
 
 1Panel 作为宿主机上的直接上游时，Web 容器默认只信任 Compose `app` 网桥网关 `172.30.127.1/32` 提供的 `X-Forwarded-For`。若修改 `APP_DOCKER_SUBNET`，必须同步把 `WEB_TRUSTED_PROXY_CIDR` 改为新子网网桥网关的 `/32`；禁止配置 `0.0.0.0/0` 等宽泛公网网段。
 
-项目默认使用 Compose 内部 MySQL/Redis/RabbitMQ，不会在宿主机映射 `3306`/`6379`/`5672`/`15672` 端口，因此不会与 1Panel 已有中间件端口冲突。Go 后端通过 `.env` 中的 DSN/URL 连接这些内部服务。
+项目默认使用 Compose 内部 MySQL/Redis；启用 profile 后 RabbitMQ/Meilisearch 也仅在内部网络可达，不会映射 `3306`/`6379`/`5672`/`15672` 端口，因此不会与 1Panel 已有中间件端口冲突。Go 后端通过 `.env` 中的 DSN/URL 连接这些内部服务。
 
 ## 本地非 Docker 开发
 
-非 Docker 开发时，需要你自己准备 MySQL、Redis 和 RabbitMQ，并根据 [etc/notes-of-ashen.yaml](etc/notes-of-ashen.yaml) 修改连接信息，或通过环境变量覆盖配置。
+非 Docker 开发时，需要自行准备 MySQL 和 Redis；仅在启用异步日志或搜索时再准备 RabbitMQ 或 Meilisearch，并根据 [etc/notes-of-ashen.yaml](etc/notes-of-ashen.yaml) 修改连接信息，或通过环境变量覆盖配置。
 
 ### 启动后端
 
@@ -492,8 +510,8 @@ Docker 部署会为本地中间件使用独立 volume：
 
 - `notes-of-ashen_goblog_mysql_data`
 - `notes-of-ashen_goblog_redis_data`
-- `notes-of-ashen_goblog_rabbitmq_data`
-- `notes-of-ashen_goblog_meili_data`
+- `notes-of-ashen_goblog_rabbitmq_data`（启用 `messaging` profile 时创建）
+- `notes-of-ashen_goblog_meili_data`（启用 `search` profile 时创建）
 - `notes-of-ashen_goblog_media_data`
 
 MySQL 的数据卷首次创建时会自动执行 [deploy/mysql/schema.sql](deploy/mysql/schema.sql) 初始化数据库和表结构。后续增量 SQL 需要按版本变更手动执行或通过迁移流程处理。
@@ -559,6 +577,8 @@ docker compose logs -f api
 ```
 
 确认 `.env` 中的 `APP_RABBITMQ_URL` 指向 `rabbitmq:5672`，且账号密码与 `APP_RABBITMQ_USER`、`APP_RABBITMQ_PASSWORD` 一致。
+
+还要确认 `.env` 的 `COMPOSE_PROFILES` 包含 `messaging`；既有部署升级到当前 Compose 文件后，若继续启用 RabbitMQ，必须补充该 profile。
 
 如果只想临时关闭异步日志队列，可以在 `.env` 中设置：
 

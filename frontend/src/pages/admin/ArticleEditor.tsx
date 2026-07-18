@@ -6,7 +6,7 @@ import { createTag, getTags } from '../../api/tag';
 import type { Article, ArticleStatus, Category, Tag, MediaAsset } from '../../types';
 import type { AIAssistAction } from '../../types/api';
 import InlineNotice from '../../components/InlineNotice';
-import MarkdownRenderer from '../../components/MarkdownRenderer';
+import DeferredMarkdownRenderer from '../../components/DeferredMarkdownRenderer';
 import PagePendingState from '../../components/RoutePending';
 import Button from '../../components/ui/Button';
 import { getErrorMessage } from '../../utils/error';
@@ -1209,7 +1209,7 @@ const ArticleEditor: React.FC = () => {
           ></textarea>
         </div>
 <div className="w-full md:w-1/2 border border-mountain-grey p-4 overflow-y-auto bg-[var(--paper-soft)]">
-  <MarkdownRenderer content={debouncedPreviewContent} />
+  <DeferredMarkdownRenderer content={debouncedPreviewContent} />
 </div>
       </div>
       <MediaPicker

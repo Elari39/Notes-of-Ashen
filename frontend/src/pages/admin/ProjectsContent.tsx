@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import InlineNotice from '../../components/InlineNotice';
-import MarkdownRenderer from '../../components/MarkdownRenderer';
+import DeferredMarkdownRenderer from '../../components/DeferredMarkdownRenderer';
 import PagePendingState from '../../components/RoutePending';
 import { getAdminProjectsPage, updateAdminProjectsPage } from '../../api/siteSettings';
 import { getTags } from '../../api/tag';
@@ -446,7 +446,7 @@ const ProjectEditor: React.FC<ProjectEditorProps> = ({
           <section className="min-h-[20rem] overflow-y-auto border border-mountain-grey bg-paper p-4">
             <div className="mb-3 text-sm font-bold tracking-widest text-ink">{t('projectAdmin.preview')}</div>
             {project.contentMarkdown.trim() ? (
-              <MarkdownRenderer content={project.contentMarkdown} />
+              <DeferredMarkdownRenderer content={project.contentMarkdown} />
             ) : (
               <p className="py-12 text-center text-sm tracking-[0.2em] text-ink-light">{t('projectAdmin.emptyPreview')}</p>
             )}

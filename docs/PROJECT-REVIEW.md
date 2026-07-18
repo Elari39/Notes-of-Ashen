@@ -2,27 +2,27 @@
 
 > 评审日期：2026-07-18
 >
-> 修复版本：`1f8f450`（`fix: 修复项目评审中的 P2 问题`）
+> 修复版本：本次 P3 修复提交（`fix: 完成项目评审 P3 项`）
 >
 > 部署地址：`http://127.0.0.1:1270`
 >
-> 报告性质：全量评审后的 P2 修复复核；P2 结论按修复提交和本轮真实验证结果更新。
+> 报告性质：全量评审后的 P2/P3 修复复核；结论按修复提交和本轮真实验证结果更新。
 > 改动边界：未直接修改当前运行中的用户数据库或 Docker 数据卷；旧库升级需要显式执行新增增量 SQL。
 
 ## 1. 执行摘要
 
-当前版本已完成 P2-01 至 P2-08 的修复。后端、前端、静态配置检查以及 core/extended 隔离集成套件均通过；Web 入口 `/healthz` 已返回后端 readiness，`/livez` 独立表示 Nginx 存活。
+当前版本已完成 P2-01 至 P2-08 和 P3-01 至 P3-06 的修复。后端、前端、静态配置检查以及 core 隔离集成套件均通过；Web 入口 `/healthz` 已返回后端 readiness，`/livez` 独立表示 Nginx 存活。
 
-本轮未发现可直接造成权限绕过、敏感信息泄露、数据破坏或生产无法启动的 P0/P1 问题。原报告确认的 8 项 P2 已全部关闭；剩余事项为镜像可复现性、可选基础设施、测试覆盖、JWT 加固、未使用代码和前端拆包等 P3 风险。
+本轮未发现可直接造成权限绕过、敏感信息泄露、数据破坏或生产无法启动的 P0/P1 问题。原报告确认的 8 项 P2 和 6 项 P3 已全部关闭；镜像可复现性、可选基础设施、定向测试覆盖、JWT 算法约束、死代码和前端拆包均已有可验证实现。
 
 | 优先级 | 数量 | 结论 |
 | --- | ---: | --- |
 | P0 | 0 | 未发现安全灾难、数据破坏或完全权限绕过 |
 | P1 | 0 | 默认部署、注册登录、文章发布、构建与核心测试均可用 |
 | P2 | 0 | 原 P2-01 至 P2-08 已在 `1f8f450` 修复并完成验证 |
-| P3 | 6 | 可复现性、资源、覆盖率、加固和维护性风险 |
+| P3 | 0 | 原 P3-01 至 P3-06 已完成修复并纳入构建/CI 门禁 |
 
-问题状态统计：未解决 P0/P1/P2 均为 0，保留 P3 风险 6 项；本轮未发现已修复问题回归。
+问题状态统计：未解决 P0/P1/P2/P3 均为 0；本轮未发现已修复问题回归。
 
 ## 2. 评审范围、方法与限制
 
@@ -107,49 +107,42 @@ Browser
 | P2-07 | 已修复 | 项目写入只接受 `tagIds`，非空旧 `tags` 返回 400；事务内从标签表生成名称并同步 JSON 快照、实体和关系 |
 | P2-08 | 已修复 | 项目逐行插入并读取各自 `LastInsertId`，非连续 ID 的 Model 测试通过 |
 
-## 4.3 P3 风险与维护项
+## 4.3 P3 修复记录
 
 ### P3-01 构建镜像和 GitHub Actions 未固定到不可变摘要
 
-- 状态：**新增风险提示**
-- 证据：`Dockerfile.api:3,18`、`Dockerfile.web:3,16` 使用版本标签；`docker-compose.yml:119,157,185,217` 使用标签镜像；`.github/workflows/*.yml` 使用 `actions/*@v4/v5`。
-- 风险：同一 Git commit 在未来重建时可能解析到不同基础镜像或 Action 内容，影响可复现性和供应链审计。
-- 建议：生产构建按周期更新并固定镜像 digest；关键 Actions 固定完整 commit SHA，并由依赖更新机器人维护。
+- 状态：**已修复**
+- 证据：Dockerfile 语法镜像、Go/Node/Alpine/Nginx 基础镜像，以及 Compose 的 MySQL、Redis、RabbitMQ、Meilisearch 均保留可读 tag 并固定 manifest digest；所有 workflow Action 已固定完整 commit SHA。
+- 防回归：新增 `.github/dependabot.yml`，每周检查 `docker` 与 `github-actions` 更新。
 
 ### P3-02 默认 Compose 总是启动可选 RabbitMQ 与 Meilisearch
 
-- 状态：**新增风险提示**
-- 证据：`docker-compose.yml:72-80` 默认关闭搜索和 RabbitMQ 能力，但 `docker-compose.yml:184-236` 无条件定义并启动两项服务。
-- 风险：即使功能关闭，仍占用镜像下载、内存、健康检查和运维面；本轮 RabbitMQ 在 API 重启时出现 `client unexpectedly closed` 重连告警，管理指标还包含上游弃用提示。
-- 建议：使用 Compose profiles 将可选服务分组；启用能力时再启动对应服务，并在 README/1Panel 部署说明中给出组合命令。
+- 状态：**已修复**
+- 证据：`rabbitmq` 使用 `messaging` profile，`meilisearch` 使用 `search` profile；默认 `docker compose config --services` 仅列出 Web、API、MySQL、Redis。
+- 兼容性：README、1Panel 说明和 `.env.example` 使用 `COMPOSE_PROFILES=messaging,search`；已有启用部署需要同步声明对应 profile。
 
 ### P3-03 自动化覆盖率仍集中在工具层，且 CI 未单独执行 go vet
 
-- 状态：**遗留**
-- 证据：本轮覆盖率中 `aiclient` 78.6%、`config` 70.7%、`middleware` 62.6%，但 `auth logic` 10.0%、`system logic` 12.0%、`mq` 10.5%、`model` 22.4%，多数 Handler 为 0%；`.github/workflows/integration-e2e.yml` 执行 `go test ./...`，未执行 `go vet ./...`。
-- 风险：认证失效、系统健康、消息降级、Model 错误和 HTTP 参数映射的回归更依赖集成测试发现，定位成本较高。
-- 建议：继续提高认证、Model 和 Handler 的直接覆盖率，并把 `go vet ./...` 加入核心 CI。
+- 状态：**已修复（高风险定向覆盖）**
+- 证据：push/PR 核心 CI 新增 `go vet ./...`；新增 JWT 解析、Refresh Cookie 回退和 `UserTokenVersion` 成功/未找到/数据库失败的直接测试。
+- 边界：不设置脆弱的全局覆盖率百分比门槛；后续新增高风险分支继续要求包内直接测试。
 
 ### P3-04 JWT 解析未显式限定 HS256
 
-- 状态：**新增风险提示**
-- 证据：`internal/authutil/token.go:51` 使用 HS256 签发；`internal/authutil/token.go:54-63` 解析时直接返回 secret，没有显式检查 `token.Method == jwt.SigningMethodHS256` 或使用 valid methods 选项。
-- 风险：当前 `[]byte` key 类型会阻止已知非 HMAC 方法使用，未发现可利用的算法混淆；但未来库升级或解析逻辑修改时缺少显式不变量。
-- 建议：解析回调检查具体算法，或配置 `WithValidMethods([]string{"HS256"})`，并增加错误算法拒绝测试。
+- 状态：**已修复**
+- 证据：`ParseAccessToken` 使用 `jwt.WithValidMethods([]string{"HS256"})`；HS256 正常解析、HS384 和 `none` 算法拒绝测试均已覆盖。
 
 ### P3-05 存在未使用的维护代码和常量
 
-- 状态：**新增风险提示**
-- 证据：`internal/logic/backup/backup.go:893` 的 `pruneMedia` 没有调用点；`internal/logic/site/site.go:18` 的 `maxPageContentLength` 没有使用点。
-- 风险：读者可能误判媒体清理和页面长度限制已生效，后续修改也可能维护无效路径。
-- 建议：确认设计意图后删除死代码，或接入真实调用并添加测试；避免用未执行的常量表达安全边界。
+- 状态：**已修复**
+- 证据：删除未调用的 `pruneMedia`；媒体恢复继续由事务化 staging/journal 发布与旧目录 finalize 完成清理。删除未生效的 `maxPageContentLength`，不再以死常量表达页面限制。
 
 ### P3-06 前端大模块仍有首访性能压力
 
-- 状态：**遗留风险提示**
-- 证据：`frontend/vite.config.ts:22-26` 关闭 source map 并将 chunk 告警阈值设为 1000 kB；本轮构建主要 chunk 为 ECharts 512.21 kB、Markdown 430.80 kB、入口 290.48 kB。
-- 风险：构建通过，但慢网、低端设备和首次访问管理页时解析/执行成本较高；提高告警阈值不会降低实际体积。
-- 建议：继续按路由延迟加载，确保 ECharts、编辑器/Markdown 管理能力不进入公开首页关键路径；以真实 bundle analyzer 和 Web Vitals 决定是否拆包。
+- 状态：**已修复（构建体积门禁）**
+- 证据：Markdown 渲染器在实际内容出现后加载，语法高亮仅在代码块出现后加载，ECharts 在图表区域有数据时动态加载；Vite 告警阈值降为 550 KiB。
+- 防回归：`pnpm build` 自动执行无依赖体积检查，限制初始入口并要求 Markdown、语法高亮、ECharts 保持独立、不得写入 `index.html` 初始资源。当前检查值为入口 294.57 KiB、Markdown 423.48 KiB、语法高亮 95.69 KiB、ECharts 500.81 KiB。
+- 边界：本轮未采集真实用户 Web Vitals，避免增加用户性能数据收集与存储范围。
 
 ## 5. 安全审计结论
 
@@ -172,7 +165,7 @@ Browser
 
 - 用户级 Access Token 已通过 `token_version` 支持立即撤销；改密后当前及其他会话均退出。
 - 结构化写接口已增加端点级请求体限制，chunked 请求也由 `MaxBytesReader` 约束。
-- JWT 算法应显式固定，见 P3-04。
+- JWT 解析已显式限定 HS256，并由错误算法拒绝测试保护，见 P3-04。
 - 外部 readiness 和 Web liveness 已分离；后续仍应按实际部署环境配置监控来源和告警策略。
 
 ## 6. 旧报告问题重新验证
@@ -237,7 +230,7 @@ Browser
 | `internal/mq` | 10.5% |
 | `model` | 22.4% |
 
-多数 Handler 为 0%，原因是关键 HTTP 路径主要由集成/E2E 覆盖，而非包内单元测试；这仍是 P3-03 所述定位和回归风险。
+多数 Handler 的深度路径仍主要由集成/E2E 覆盖；本轮针对认证、Refresh Cookie 和用户令牌版本补充直接测试，后续新增高风险分支继续采用定向包内测试策略。
 
 ### 8.2 前端
 
@@ -246,7 +239,7 @@ Browser
 | `pnpm test` | 通过 | 73 项测试通过 |
 | `pnpm lint` | 通过 | 无 lint 错误 |
 | `pnpm type-check` | 通过 | TypeScript 类型检查通过 |
-| `pnpm build` | 通过 | 生产构建成功，主要 chunk 见 P3-06 |
+| `pnpm build` | 通过 | 生产构建成功，并通过入口/Markdown/高亮/ECharts 体积门禁 |
 
 ### 8.3 集成测试
 
@@ -259,8 +252,8 @@ Browser
 ### 8.4 CI 审计
 
 - Frontend CI 使用 pnpm 锁文件安装并运行前端测试与构建。
-- Integration E2E 在 push/PR 运行前端 lint/type-check/test/build、Go test 和 core 集成套件；extended 在计划任务或手动触发时运行。
-- 主要缺口：未把 `go vet` 作为 CI 门禁；Action 引用使用大版本标签而非不可变 SHA，见 P3-01、P3-03。
+- Integration E2E 在 push/PR 运行前端 lint/type-check/test/build、Go test、`go vet` 和 core 集成套件；extended 在计划任务或手动触发时运行。
+- Action 已固定完整 SHA，Docker/Action 更新由 Dependabot 每周创建审查请求，见 P3-01、P3-03。
 
 ## 9. Docker 部署与运行核验
 
@@ -289,14 +282,14 @@ Browser
 
 ## 10. 后续路线图
 
-P2 修复阶段已完成。后续工作保持在 P3 范围：
+P2/P3 修复阶段已完成。后续维护按常规工程节奏进行：
 
-1. 将 `go vet ./...` 纳入 CI 门禁，并继续提高认证、Model 和 Handler 的直接覆盖率。
-2. 固定关键镜像 digest 和 Actions SHA，使用 Compose profiles 管理可选服务。
-3. 显式限定 JWT 算法，清理未使用代码，并以实际性能数据继续拆分大 chunk。
+1. 审查 Dependabot 提交的镜像和 GitHub Action 更新，按发布流程更新固定摘要。
+2. 新增认证、数据写入和 Handler 高风险分支时同步补充直接测试。
+3. 保持 `pnpm build` 体积门禁；若未来确有性能运营需求，再单独评估 Web Vitals 数据采集与隐私边界。
 
 ## 11. 最终结论
 
 `1f8f450` 已关闭原报告 P2-01 至 P2-08：会话失效、Markdown 事务、媒体补偿、请求体上限、PWA 缓存、公开 readiness、项目标签契约和非连续自增 ID 均已有实现及验证证据。
 
-上线旧数据库前必须先执行 `deploy/mysql/add_user_token_version.sql`。未迁移数据库会由 readiness 的 schema 检查判定为未就绪，避免在缺失 `users.token_version` 时继续提供服务。剩余风险均为第 4.3 节列出的 P3 维护项。
+上线旧数据库前必须先执行 `deploy/mysql/add_user_token_version.sql`。未迁移数据库会由 readiness 的 schema 检查判定为未就绪，避免在缺失 `users.token_version` 时继续提供服务。第 4.3 节原 P3 项均已关闭，后续按常规依赖更新、定向测试和构建体积门禁维护。

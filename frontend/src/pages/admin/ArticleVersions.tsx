@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { getArticleVersion, getArticleVersions, restoreArticleVersion } from '../../api/article';
 import InlineNotice from '../../components/InlineNotice';
-import MarkdownRenderer from '../../components/MarkdownRenderer';
+import DeferredMarkdownRenderer from '../../components/DeferredMarkdownRenderer';
 import Pagination from '../../components/Pagination';
 import TableSkeleton from '../../components/ui/TableSkeleton';
 import { getArticleStatusLabel, formatText, getDateLocale, translate } from '../../i18n';
@@ -218,7 +218,7 @@ const ArticleVersions: React.FC = () => {
           </div>
 
           <div className="prose prose-stone mt-6 max-w-none border-t border-mountain-grey pt-5 font-serif">
-            <MarkdownRenderer content={selectedVersion.content || ''} />
+            <DeferredMarkdownRenderer content={selectedVersion.content || ''} />
           </div>
         </section>
       )}

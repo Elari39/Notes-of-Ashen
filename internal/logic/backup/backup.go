@@ -890,28 +890,3 @@ func clearApplicationCache(ctx context.Context, client cacheRedis) error {
 	}
 	return nil
 }
-func pruneMedia(svcCtx *svc.ServiceContext, assets []model.MediaAsset) error {
-	root, err := medialogic.Root(svcCtx)
-	if err != nil {
-		return err
-	}
-	keep := map[string]struct{}{}
-	for _, asset := range assets {
-		keep[asset.StorageKey] = struct{}{}
-	}
-	entries, err := os.ReadDir(root)
-	if err != nil {
-		return err
-	}
-	for _, entry := range entries {
-		if entry.IsDir() || !mediaKeyPattern.MatchString(entry.Name()) {
-			continue
-		}
-		if _, ok := keep[entry.Name()]; !ok {
-			if err := os.Remove(filepath.Join(root, entry.Name())); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
-}

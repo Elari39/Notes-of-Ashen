@@ -1,21 +1,15 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { LineChart } from 'echarts/charts';
-import { GridComponent, LegendComponent, TooltipComponent } from 'echarts/components';
-import { init, use } from 'echarts/core';
-import { CanvasRenderer } from 'echarts/renderers';
-import type { ECharts } from 'echarts/core';
 import { getAdminStats } from '../../api/admin';
 import InlineNotice from '../../components/InlineNotice';
 import PagePendingState from '../../components/RoutePending';
 import Tag from '../../components/ui/Tag';
 import { getArticleStatusLabel, getDateLocale, translate } from '../../i18n';
 import { usePreferenceStore, type Language } from '../../store/preferences';
+import { loadECharts, type ECharts } from '../../utils/loadECharts';
 import { getErrorMessage } from '../../utils/error';
 import type { AdminStats, Article, Log, RefererStat, TrafficTrendPoint } from '../../types';
 import { formatLogResource, getLogEventPresentation } from './logPresentation';
-
-use([LineChart, GridComponent, TooltipComponent, LegendComponent, CanvasRenderer]);
 
 const statItems = [
   'articleTotal',
@@ -142,80 +136,89 @@ const TrafficOverview: React.FC<{
   const chartInstance = useRef<ECharts | null>(null);
   const resizeHandler = useRef<(() => void) | null>(null);
 
-  // 数据 effect：确保实例存在并应用 option。每次 trend/language 变化或挂载后都重跑，
-  // 避免原「init effect 依赖 [] + setOption effect 依赖 [trend,language]」在 StrictMode
-  // 重挂载后新实例拿不到 option 导致图表空白。实例为空时懒初始化并注册 resize 监听。
+  // 仅在图表区域已有数据时下载并初始化 ECharts，避免后台入口在首帧解析大图表模块。
   useEffect(() => {
-    if (!chartRef.current) {
+    if (!chartRef.current || trend.length === 0) {
+      chartInstance.current?.clear();
       return;
     }
-    let chart = chartInstance.current;
-    if (!chart) {
-      chart = init(chartRef.current, undefined, { renderer: 'canvas' });
-      chartInstance.current = chart;
-      const resize = () => chart?.resize();
-      resizeHandler.current = resize;
-      window.addEventListener('resize', resize);
-    }
-    chart.setOption({
-      tooltip: {
-        trigger: 'axis',
-        backgroundColor: 'var(--paper)',
-        borderColor: 'var(--mountain-grey)',
-        borderWidth: 1,
-        textStyle: { color: 'var(--ink)' },
-        formatter: (params: { axisValue: string; marker: string; seriesName: string; value: number }[]) => {
-          const title = fullDate(String(params[0]?.axisValue ?? ''), language);
-          const lines = params
-            .map((p) => `${p.marker} ${p.seriesName}: ${p.value}`)
-            .join('<br/>');
-          return `${title}<br/>${lines}`;
+    let active = true;
+    void loadECharts().then(({ init }) => {
+      if (!active || !chartRef.current) {
+        return;
+      }
+      let chart = chartInstance.current;
+      if (!chart) {
+        chart = init(chartRef.current, undefined, { renderer: 'canvas' });
+        chartInstance.current = chart;
+        const resize = () => chart?.resize();
+        resizeHandler.current = resize;
+        window.addEventListener('resize', resize);
+      }
+      chart.setOption({
+        tooltip: {
+          trigger: 'axis',
+          backgroundColor: 'var(--paper)',
+          borderColor: 'var(--mountain-grey)',
+          borderWidth: 1,
+          textStyle: { color: 'var(--ink)' },
+          formatter: (params: { axisValue: string; marker: string; seriesName: string; value: number }[]) => {
+            const title = fullDate(String(params[0]?.axisValue ?? ''), language);
+            const lines = params
+              .map((p) => `${p.marker} ${p.seriesName}: ${p.value}`)
+              .join('<br/>');
+            return `${title}<br/>${lines}`;
+          },
         },
-      },
-      legend: {
-        data: ['PV', 'UV'],
-        textStyle: { color: 'var(--ink-light)', fontSize: 11 },
-        top: 0,
-      },
-      grid: { top: 32, right: 16, bottom: 8, left: 36, containLabel: true },
-      xAxis: {
-        type: 'category',
-        boundaryGap: false,
-        data: trend.map((p) => p.date),
-        axisLabel: {
-          color: 'var(--ink-light)',
-          fontSize: 11,
-          formatter: (value: string) => shortDate(value, language),
+        legend: {
+          data: ['PV', 'UV'],
+          textStyle: { color: 'var(--ink-light)', fontSize: 11 },
+          top: 0,
         },
-        axisLine: { lineStyle: { color: 'var(--mountain-grey)' } },
-      },
-      yAxis: {
-        type: 'value',
-        minInterval: 1,
-        axisLabel: { color: 'var(--ink-light)', fontSize: 11 },
-        splitLine: { lineStyle: { color: 'var(--mountain-grey)', type: 'dashed' } },
-      },
-      series: [
-        {
-          name: 'PV',
-          type: 'line',
-          smooth: true,
-          showSymbol: false,
-          data: trend.map((p) => p.pv),
-          lineStyle: { width: 2, color: 'var(--ochre)' },
-          itemStyle: { color: 'var(--ochre)' },
+        grid: { top: 32, right: 16, bottom: 8, left: 36, containLabel: true },
+        xAxis: {
+          type: 'category',
+          boundaryGap: false,
+          data: trend.map((p) => p.date),
+          axisLabel: {
+            color: 'var(--ink-light)',
+            fontSize: 11,
+            formatter: (value: string) => shortDate(value, language),
+          },
+          axisLine: { lineStyle: { color: 'var(--mountain-grey)' } },
         },
-        {
-          name: 'UV',
-          type: 'line',
-          smooth: true,
-          showSymbol: false,
-          data: trend.map((p) => p.uv),
-          lineStyle: { width: 2, color: 'var(--code-blue)' },
-          itemStyle: { color: 'var(--code-blue)' },
+        yAxis: {
+          type: 'value',
+          minInterval: 1,
+          axisLabel: { color: 'var(--ink-light)', fontSize: 11 },
+          splitLine: { lineStyle: { color: 'var(--mountain-grey)', type: 'dashed' } },
         },
-      ],
-    }, true);
+        series: [
+          {
+            name: 'PV',
+            type: 'line',
+            smooth: true,
+            showSymbol: false,
+            data: trend.map((p) => p.pv),
+            lineStyle: { width: 2, color: 'var(--ochre)' },
+            itemStyle: { color: 'var(--ochre)' },
+          },
+          {
+            name: 'UV',
+            type: 'line',
+            smooth: true,
+            showSymbol: false,
+            data: trend.map((p) => p.uv),
+            lineStyle: { width: 2, color: 'var(--code-blue)' },
+            itemStyle: { color: 'var(--code-blue)' },
+          },
+        ],
+      }, true);
+    }).catch(() => undefined);
+
+    return () => {
+      active = false;
+    };
   }, [trend, language]);
 
   // 卸载清理：dispose 实例并移除 resize 监听。实例在数据 effect 中懒创建，

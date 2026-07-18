@@ -2,6 +2,7 @@ package model
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"regexp"
 	"testing"
@@ -131,5 +132,62 @@ func TestUpdateUserStatusSafelyCommitsNormalUpdate(t *testing.T) {
 	}
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestUserTokenVersion(t *testing.T) {
+	databaseErr := errors.New("database unavailable")
+	tests := []struct {
+		name    string
+		prepare func(sqlmock.Sqlmock)
+		want    uint64
+		wantErr error
+	}{
+		{
+			name: "success",
+			prepare: func(mock sqlmock.Sqlmock) {
+				mock.ExpectQuery(regexp.QuoteMeta("SELECT token_version FROM users WHERE id = ?")).
+					WithArgs(uint64(7)).
+					WillReturnRows(sqlmock.NewRows([]string{"token_version"}).AddRow(uint64(5)))
+			},
+			want: 5,
+		},
+		{
+			name: "not found",
+			prepare: func(mock sqlmock.Sqlmock) {
+				mock.ExpectQuery(regexp.QuoteMeta("SELECT token_version FROM users WHERE id = ?")).
+					WithArgs(uint64(7)).
+					WillReturnError(sql.ErrNoRows)
+			},
+			wantErr: ErrNotFound,
+		},
+		{
+			name: "database error",
+			prepare: func(mock sqlmock.Sqlmock) {
+				mock.ExpectQuery(regexp.QuoteMeta("SELECT token_version FROM users WHERE id = ?")).
+					WithArgs(uint64(7)).
+					WillReturnError(databaseErr)
+			},
+			wantErr: databaseErr,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			store, mock := newUserSQLMockStore(t)
+			tt.prepare(mock)
+
+			version, err := store.UserTokenVersion(context.Background(), 7)
+			if tt.wantErr != nil {
+				if !errors.Is(err, tt.wantErr) {
+					t.Fatalf("UserTokenVersion() error = %v, want %v", err, tt.wantErr)
+				}
+			} else if err != nil || version != tt.want {
+				t.Fatalf("UserTokenVersion() = (%d, %v), want (%d, nil)", version, err, tt.want)
+			}
+			if err := mock.ExpectationsWereMet(); err != nil {
+				t.Fatal(err)
+			}
+		})
 	}
 }

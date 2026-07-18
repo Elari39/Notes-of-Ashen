@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { getArticlePreview } from '../../api/article';
 import InlineNotice from '../../components/InlineNotice';
-import MarkdownRenderer from '../../components/MarkdownRenderer';
+import DeferredMarkdownRenderer from '../../components/DeferredMarkdownRenderer';
 import PagePendingState from '../../components/RoutePending';
 import { getErrorMessage } from '../../utils/error';
 import { usePreferenceStore } from '../../store/preferences';
@@ -69,7 +69,7 @@ const ArticlePreview: React.FC = () => {
       </div>
       <h1 className="mb-4 text-4xl font-bold text-ink">{article.title}</h1>
       <p className="mb-10 text-ink-light">{article.summary}</p>
-      <MarkdownRenderer content={article.content || ''} />
+      <DeferredMarkdownRenderer content={article.content || ''} />
     </article>
   );
 };

@@ -8,7 +8,7 @@ import ImageLightbox, { LightboxImage } from './ImageLightbox';
 import { createMarkdownComponents } from './MarkdownCode';
 import { extractMarkdownHeadings, type MarkdownHeading } from '../utils/markdownHeadings';
 
-type MarkdownRendererProps = {
+export type MarkdownRendererProps = {
   content: string;
   className?: string;
   headingIdPrefix?: string;

@@ -15,7 +15,6 @@ import (
 )
 
 const (
-	maxPageContentLength    = 200000
 	maxProjectsCount        = 50
 	maxProjectContentLength = 50000
 )
