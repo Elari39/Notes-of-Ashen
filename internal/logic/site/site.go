@@ -99,11 +99,13 @@ func siteSettingsForUpdate(currentSettings model.SiteSettings, req types.UpdateS
 		return model.SiteSettings{}, err
 	}
 	registrationEnabled := registrationEnabledForUpdate(currentSettings.RegistrationEnabled, req.RegistrationEnabled)
+	homeCTAHidden := boolForUpdate(currentSettings.HomeCTAHidden, req.HomeCtaHidden)
 	projectsPageEnabled := boolForUpdate(currentSettings.ProjectsPageEnabled, req.ProjectsPageEnabled)
 	projectsNavHidden := boolForUpdate(currentSettings.ProjectsNavHidden, req.ProjectsNavHidden)
 	return model.SiteSettings{
 		RegistrationEnabled: registrationEnabled,
 		HomeArticleLayout:   layout,
+		HomeCTAHidden:       homeCTAHidden,
 		SiteTitle:           siteTitle,
 		SiteDescription:     siteDescription,
 		SiteKeywords:        siteKeywords,
@@ -180,6 +182,7 @@ func siteSettingsResp(settings *model.SiteSettings, forceRegistrationEnabled boo
 		RegistrationEnabled:           forceRegistrationEnabled || settings.RegistrationEnabled,
 		RegistrationEmailCodeRequired: registrationEmailCodeRequired,
 		HomeArticleLayout:             settings.HomeArticleLayout,
+		HomeCtaHidden:                 settings.HomeCTAHidden,
 		SiteTitle:                     settings.SiteTitle,
 		SiteDescription:               settings.SiteDescription,
 		SiteKeywords:                  settings.SiteKeywords,

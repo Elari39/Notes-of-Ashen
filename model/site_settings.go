@@ -14,6 +14,7 @@ import (
 const (
 	RegistrationEnabledKey = "registration_enabled"
 	HomeArticleLayoutKey   = "home_article_layout"
+	HomeCTAHiddenKey       = "home_cta_hidden"
 	SiteTitleKey           = "site_title"
 	SiteDescriptionKey     = "site_description"
 	SiteKeywordsKey        = "site_keywords"
@@ -48,6 +49,7 @@ const (
 type SiteSettings struct {
 	RegistrationEnabled bool
 	HomeArticleLayout   string
+	HomeCTAHidden       bool
 	SiteTitle           string
 	SiteDescription     string
 	SiteKeywords        string
@@ -126,7 +128,7 @@ func (s *Store) GetSettingsBatch(ctx context.Context, keys []string) (map[string
 
 func (s *Store) SiteSettings(ctx context.Context) (*SiteSettings, error) {
 	keys := []string{
-		RegistrationEnabledKey, HomeArticleLayoutKey, SiteTitleKey, SiteDescriptionKey,
+		RegistrationEnabledKey, HomeArticleLayoutKey, HomeCTAHiddenKey, SiteTitleKey, SiteDescriptionKey,
 		SiteKeywordsKey, SiteBaseURLKey, ProjectsPageEnabledKey, ProjectsNavHiddenKey,
 	}
 	values, err := s.GetSettingsBatch(ctx, keys)
@@ -148,6 +150,7 @@ func (s *Store) SiteSettings(ctx context.Context) (*SiteSettings, error) {
 	return &SiteSettings{
 		RegistrationEnabled: getBool(RegistrationEnabledKey, true),
 		HomeArticleLayout:   NormalizeHomeArticleLayout(getString(HomeArticleLayoutKey, HomeArticleLayoutStandard)),
+		HomeCTAHidden:       getBool(HomeCTAHiddenKey, false),
 		SiteTitle:           getString(SiteTitleKey, DefaultSiteTitle),
 		SiteDescription:     getString(SiteDescriptionKey, DefaultSiteDescription),
 		SiteKeywords:        getString(SiteKeywordsKey, DefaultSiteKeywords),
@@ -270,10 +273,11 @@ func (s *Store) UpdateSiteSettings(ctx context.Context, settings SiteSettings) e
 	}
 	_, err := s.db.ExecContext(ctx, `
 INSERT INTO site_settings (setting_key, setting_value)
-VALUES (?, ?), (?, ?), (?, ?), (?, ?), (?, ?), (?, ?), (?, ?), (?, ?)
+VALUES (?, ?), (?, ?), (?, ?), (?, ?), (?, ?), (?, ?), (?, ?), (?, ?), (?, ?)
 ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)`,
 		RegistrationEnabledKey, value,
 		HomeArticleLayoutKey, NormalizeHomeArticleLayout(settings.HomeArticleLayout),
+		HomeCTAHiddenKey, boolSettingValue(settings.HomeCTAHidden),
 		SiteTitleKey, settings.SiteTitle,
 		SiteDescriptionKey, settings.SiteDescription,
 		SiteKeywordsKey, settings.SiteKeywords,

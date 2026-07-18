@@ -24,6 +24,7 @@ import { routeLoaders } from '../routes/lazyRoutes';
 const Home: React.FC = () => {
   const language = usePreferenceStore((state) => state.language);
   const homeArticleLayout = useSiteSettingsStore((state) => state.homeArticleLayout);
+  const homeCtaHidden = useSiteSettingsStore((state) => state.homeCtaHidden);
   const siteTitle = useSiteSettingsStore((state) => state.siteTitle);
   const siteDescription = useSiteSettingsStore((state) => state.siteDescription);
   const [searchParams, setSearchParams] = useSearchParams();
@@ -380,7 +381,7 @@ const Home: React.FC = () => {
       </section>
       )}
 
-      {!loading && !error && articles.length > 0 && (
+      {!homeCtaHidden && !loading && !error && articles.length > 0 && (
         <section aria-labelledby="home-cta-title" className="rounded-lg bg-ochre px-6 py-10 text-on-accent md:px-12 md:py-14 lg:px-16 lg:py-16">
           <div className="grid gap-8 lg:grid-cols-[1fr_auto] lg:items-end">
             <div>

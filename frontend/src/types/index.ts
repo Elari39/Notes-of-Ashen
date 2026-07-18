@@ -28,6 +28,7 @@ export interface SiteSettings {
   registrationEnabled: boolean;
   registrationEmailCodeRequired: boolean;
   homeArticleLayout: HomeArticleLayout;
+  homeCtaHidden: boolean;
   siteTitle: string;
   siteDescription: string;
   siteKeywords: string;

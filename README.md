@@ -210,6 +210,7 @@ Copy-Item .env.example .env
   16. `add_operation_logs_filter_indexes.sql` — operation_logs 表事件/来源 IP 与时间复合索引（幂等）
   17. `add_ai_api_format_setting.sql` — 为 AI 设置补充 `apiFormat`，默认使用 `openai`（幂等，不删除旧设置键）
   18. `add_media_content_analytics.sql` — 本地媒体元数据、页面/文章每日 PV/UV 聚合及访客去重表
+  19. `add_home_cta_visibility_setting.sql` — 首页“继续探索”模块显示开关，默认保持显示（幂等）
 
 历史增量脚本保持不变。已部署数据库中的 `resume_*` 表和相关站点设置不会被运行时代码访问，也无需为本次升级执行破坏性删除。
 

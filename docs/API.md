@@ -579,7 +579,7 @@ DELETE /api/v1/admin/media/:id
 GET /api/v1/site/settings
 ```
 
-权限：公开。返回当前游客是否可以注册账号、注册是否需要邮箱验证码、首页文章列表布局、前台页面控制和站点 SEO 信息。若用户表为空，即使后台开关保存为关闭，也会返回 `registrationEnabled = true`，确保首个注册用户仍可成为管理员。`registrationEmailCodeRequired` 仅在“用户表为空且邮箱服务未启用”时为 `false`。
+权限：公开。返回当前游客是否可以注册账号、注册是否需要邮箱验证码、首页文章列表布局、首页模块显示状态、前台页面控制和站点 SEO 信息。若用户表为空，即使后台开关保存为关闭，也会返回 `registrationEnabled = true`，确保首个注册用户仍可成为管理员。`registrationEmailCodeRequired` 仅在“用户表为空且邮箱服务未启用”时为 `false`。
 
 响应示例：
 
@@ -591,6 +591,7 @@ GET /api/v1/site/settings
     "registrationEnabled": true,
     "registrationEmailCodeRequired": false,
     "homeArticleLayout": "standard",
+    "homeCtaHidden": false,
     "siteTitle": "Notes of Ashen",
     "siteDescription": "A personal blog written slowly by the lamp of ink.",
     "siteKeywords": "blog,notes,writing",
@@ -628,6 +629,7 @@ PUT /api/v1/admin/site/settings
 | --- | --- | --- | --- |
 | registrationEnabled | bool | 否 | 是否允许后续用户注册；不传时保留当前值 |
 | homeArticleLayout | string | 否 | `standard` 或 `alternating`；字段缺失或空值时保留当前值 |
+| homeCtaHidden | bool | 否 | 是否隐藏首页“继续探索”模块；不传时保留当前值 |
 | siteTitle | string | 否 | 站点标题；字段缺失或空值时保留当前值 |
 | siteDescription | string | 否 | 站点描述；字段缺失或空值时保留当前值 |
 | siteKeywords | string | 否 | 站点关键词；字段缺失或空值时保留当前值 |

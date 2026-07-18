@@ -70,6 +70,7 @@ export interface ResetPasswordReq {
 export interface UpdateSiteSettingsReq {
   registrationEnabled?: boolean;
   homeArticleLayout?: 'standard' | 'alternating';
+  homeCtaHidden?: boolean;
   siteTitle?: string;
   siteDescription?: string;
   siteKeywords?: string;

@@ -12,6 +12,7 @@ interface SiteSettingsState {
   registrationEnabled: boolean;
   registrationEmailCodeRequired: boolean;
   homeArticleLayout: HomeArticleLayout;
+  homeCtaHidden: boolean;
   siteTitle: string;
   siteDescription: string;
   siteKeywords: string;
@@ -31,6 +32,7 @@ const toSiteSettingsState = (settings: SiteSettings): Partial<SiteSettingsState>
   registrationEnabled: settings.registrationEnabled,
   registrationEmailCodeRequired: settings.registrationEmailCodeRequired ?? true,
   homeArticleLayout: settings.homeArticleLayout || 'standard',
+  homeCtaHidden: Boolean(settings.homeCtaHidden),
   siteTitle: settings.siteTitle || DEFAULT_SITE_TITLE,
   siteDescription: settings.siteDescription || '',
   siteKeywords: settings.siteKeywords || '',
@@ -43,6 +45,7 @@ export const useSiteSettingsStore = create<SiteSettingsState>((set, get) => ({
   registrationEnabled: true,
   registrationEmailCodeRequired: true,
   homeArticleLayout: 'standard',
+  homeCtaHidden: false,
   siteTitle: DEFAULT_SITE_TITLE,
   siteDescription: DEFAULT_SITE_DESCRIPTION,
   siteKeywords: 'blog,notes,writing',

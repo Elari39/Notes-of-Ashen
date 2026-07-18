@@ -11,6 +11,7 @@ func TestSiteSettingsResp(t *testing.T) {
 	settings := &model.SiteSettings{
 		RegistrationEnabled: false,
 		HomeArticleLayout:   model.HomeArticleLayoutAlternating,
+		HomeCTAHidden:       true,
 		ProjectsPageEnabled: true,
 		ProjectsNavHidden:   true,
 	}
@@ -24,6 +25,9 @@ func TestSiteSettingsResp(t *testing.T) {
 	}
 	if resp.HomeArticleLayout != model.HomeArticleLayoutAlternating {
 		t.Fatalf("HomeArticleLayout = %q, want %q", resp.HomeArticleLayout, model.HomeArticleLayoutAlternating)
+	}
+	if !resp.HomeCtaHidden {
+		t.Fatal("siteSettingsResp should expose home CTA visibility setting")
 	}
 	if !resp.ProjectsPageEnabled || !resp.ProjectsNavHidden {
 		t.Fatal("siteSettingsResp should expose public page visibility settings")
@@ -79,6 +83,7 @@ func TestSiteSettingsForUpdatePreservesMissingFieldsAndClearsBaseURL(t *testing.
 	current := model.SiteSettings{
 		RegistrationEnabled: true,
 		HomeArticleLayout:   model.HomeArticleLayoutAlternating,
+		HomeCTAHidden:       false,
 		SiteTitle:           "Title",
 		SiteDescription:     "Description",
 		SiteKeywords:        "go,blog",
@@ -91,7 +96,7 @@ func TestSiteSettingsForUpdatePreservesMissingFieldsAndClearsBaseURL(t *testing.
 	if err != nil {
 		t.Fatalf("siteSettingsForUpdate() error = %v", err)
 	}
-	if next.SiteBaseURL != current.SiteBaseURL || next.SiteTitle != current.SiteTitle || next.HomeArticleLayout != current.HomeArticleLayout {
+	if next.SiteBaseURL != current.SiteBaseURL || next.SiteTitle != current.SiteTitle || next.HomeArticleLayout != current.HomeArticleLayout || next.HomeCTAHidden != current.HomeCTAHidden {
 		t.Fatalf("missing fields were not preserved: %#v", next)
 	}
 	if next.RegistrationEnabled {
@@ -108,6 +113,24 @@ func TestSiteSettingsForUpdatePreservesMissingFieldsAndClearsBaseURL(t *testing.
 	}
 	if next.SiteTitle != current.SiteTitle {
 		t.Fatal("clearing siteBaseUrl changed unrelated fields")
+	}
+
+	hidden := true
+	next, err = siteSettingsForUpdate(current, types.UpdateSiteSettingsReq{HomeCtaHidden: &hidden})
+	if err != nil {
+		t.Fatalf("siteSettingsForUpdate(hide home CTA) error = %v", err)
+	}
+	if !next.HomeCTAHidden {
+		t.Fatal("explicit true homeCtaHidden was not applied")
+	}
+
+	visible := false
+	next, err = siteSettingsForUpdate(current, types.UpdateSiteSettingsReq{HomeCtaHidden: &visible})
+	if err != nil {
+		t.Fatalf("siteSettingsForUpdate(show home CTA) error = %v", err)
+	}
+	if next.HomeCTAHidden {
+		t.Fatal("explicit false homeCtaHidden was not applied")
 	}
 }
 

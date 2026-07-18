@@ -17,6 +17,7 @@ const AdminSettings: React.FC = () => {
   const {
     registrationEnabled,
     homeArticleLayout,
+    homeCtaHidden,
     siteTitle,
     siteDescription,
     siteKeywords,
@@ -32,6 +33,7 @@ const AdminSettings: React.FC = () => {
     useShallow((state) => ({
       registrationEnabled: state.registrationEnabled,
       homeArticleLayout: state.homeArticleLayout,
+      homeCtaHidden: state.homeCtaHidden,
       siteTitle: state.siteTitle,
       siteDescription: state.siteDescription,
       siteKeywords: state.siteKeywords,
@@ -47,6 +49,7 @@ const AdminSettings: React.FC = () => {
   );
   const [draftRegistrationEnabled, setDraftRegistrationEnabled] = useState(registrationEnabled);
   const [draftHomeArticleLayout, setDraftHomeArticleLayout] = useState<HomeArticleLayout>(homeArticleLayout);
+  const [draftHomeCtaHidden, setDraftHomeCtaHidden] = useState(homeCtaHidden);
   const [draftSiteTitle, setDraftSiteTitle] = useState(siteTitle);
   const [draftSiteDescription, setDraftSiteDescription] = useState(siteDescription);
   const [draftSiteKeywords, setDraftSiteKeywords] = useState(siteKeywords);
@@ -65,17 +68,19 @@ const AdminSettings: React.FC = () => {
   useEffect(() => {
     setDraftRegistrationEnabled(registrationEnabled);
     setDraftHomeArticleLayout(homeArticleLayout);
+    setDraftHomeCtaHidden(homeCtaHidden);
     setDraftSiteTitle(siteTitle);
     setDraftSiteDescription(siteDescription);
     setDraftSiteKeywords(siteKeywords);
     setDraftSiteBaseUrl(siteBaseUrl);
     setDraftProjectsPageEnabled(projectsPageEnabled);
     setDraftProjectsNavHidden(projectsNavHidden);
-  }, [registrationEnabled, homeArticleLayout, siteTitle, siteDescription, siteKeywords, siteBaseUrl, projectsPageEnabled, projectsNavHidden]);
+  }, [registrationEnabled, homeArticleLayout, homeCtaHidden, siteTitle, siteDescription, siteKeywords, siteBaseUrl, projectsPageEnabled, projectsNavHidden]);
 
   const hasChanges =
     draftRegistrationEnabled !== registrationEnabled ||
     draftHomeArticleLayout !== homeArticleLayout ||
+    draftHomeCtaHidden !== homeCtaHidden ||
     draftSiteTitle !== siteTitle ||
     draftSiteDescription !== siteDescription ||
     draftSiteKeywords !== siteKeywords ||
@@ -91,6 +96,7 @@ const AdminSettings: React.FC = () => {
       await updateSettings({
         registrationEnabled: draftRegistrationEnabled,
         homeArticleLayout: draftHomeArticleLayout,
+        homeCtaHidden: draftHomeCtaHidden,
         siteTitle: draftSiteTitle.trim(),
         siteDescription: draftSiteDescription.trim(),
         siteKeywords: draftSiteKeywords.trim(),
@@ -107,6 +113,7 @@ const AdminSettings: React.FC = () => {
   const handleReset = () => {
     setDraftRegistrationEnabled(registrationEnabled);
     setDraftHomeArticleLayout(homeArticleLayout);
+    setDraftHomeCtaHidden(homeCtaHidden);
     setDraftSiteTitle(siteTitle);
     setDraftSiteDescription(siteDescription);
     setDraftSiteKeywords(siteKeywords);
@@ -230,6 +237,25 @@ const AdminSettings: React.FC = () => {
                 </button>
               </div>
             </SettingsCard>
+
+            <SettingsCard
+              title={t('settings.homeModulesTitle')}
+              description={t('settings.homeModulesDesc')}
+              action={(
+                <div className="flex flex-wrap items-center gap-3">
+                  <span className="text-sm font-medium text-ink">{t('settings.homeCtaModule')}</span>
+                  <Switch
+                    checked={!draftHomeCtaHidden}
+                    onCheckedChange={(visible) => setDraftHomeCtaHidden(!visible)}
+                    disabled={isLoading}
+                    label={t('settings.homeCtaModule')}
+                  />
+                  <span className="text-xs tracking-widest text-ink-light">
+                    {draftHomeCtaHidden ? t('settings.moduleHidden') : t('settings.moduleVisible')}
+                  </span>
+                </div>
+              )}
+            />
 
             <SettingsCard
               title={t('settings.seoTitle')}
