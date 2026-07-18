@@ -1,593 +1,302 @@
 # Notes of Ashen 项目问题评审报告
 
-> 评审日期：2026-07-17  
-> 评审范围：后端 Go/go-zero、前端 React/TypeScript/Vite、MySQL schema 与增量脚本、Docker Compose、Nginx、接口文档和现有测试。  
-> 评审方式：静态阅读代码与配置、追踪主要调用链、执行现有测试、检查 Docker Compose 运行状态和容器内探针。  
-> 评审结论：当前默认 Docker 部署可用，服务已运行在 `127.0.0.1:1270`；项目不存在已确认的 P0 级问题，但存在若干部署兼容、生产安全、资源控制和文档一致性问题，建议优先处理 P1/P2 项。
+> 评审日期：2026-07-18
+>
+> 修复版本：`1f8f450`（`fix: 修复项目评审中的 P2 问题`）
+>
+> 部署地址：`http://127.0.0.1:1270`
+>
+> 报告性质：全量评审后的 P2 修复复核；P2 结论按修复提交和本轮真实验证结果更新。
+> 改动边界：未直接修改当前运行中的用户数据库或 Docker 数据卷；旧库升级需要显式执行新增增量 SQL。
 
 ## 1. 执行摘要
 
-### 1.0 本轮实施状态（2026-07-17）
+当前版本已完成 P2-01 至 P2-08 的修复。后端、前端、静态配置检查以及 core/extended 隔离集成套件均通过；Web 入口 `/healthz` 已返回后端 readiness，`/livez` 独立表示 Nginx 存活。
 
-- [x] P1-01：Compose 初始化数据库固定为 `notes_of_ashen`，已移除独立可变数据库名入口。
-- [x] P1-02：公开 readiness 已校验当前运行所需的表和字段；缺失时返回 `503`。
-- [x] P2-01：文章、分类和标签的文本字节上限、请求体上限与前端计数已补齐。
-- [x] P2-02：生产构建不再生成 source map，Nginx 对 `.map` 返回 `404`。
-- [x] P2-03：分页统一限制为 `page=1..1000`、`size=1..100`。
-- [x] P2-04：`X-Request-Id` 已限制为最多 128 位的安全 ASCII 格式，并记录来源。
-- [x] P2-05：备份恢复改为媒体卷内暂存、持久 journal、可回滚发布与启动恢复。
-- [x] P2-06：Refresh Token Cookie 示例和后台用户管理路由文档已修正。
-- [x] P3-01：真实 HTTP、Compose 和 Chromium E2E 测试编排已完成，core 与 extended 已在干净 Docker 环境中完整通过。
-- [x] P3-02：已补 `type-check`、前端 CI，并于 2026-07-18 完成 Tailwind CSS 4 升级。
+本轮未发现可直接造成权限绕过、敏感信息泄露、数据破坏或生产无法启动的 P0/P1 问题。原报告确认的 8 项 P2 已全部关闭；剩余事项为镜像可复现性、可选基础设施、测试覆盖、JWT 加固、未使用代码和前端拆包等 P3 风险。
 
-### 1.1 总体评价
-
-项目已经具备较完整的个人博客产品形态和生产部署基础：
-
-- 后端采用分层结构，Handler、Logic、Model、ServiceContext 边界清晰。
-- 认证、角色权限、访问令牌失效、Refresh Token 轮换、验证码、敏感接口限流等安全控制较完整。
-- 媒体上传包含 MIME、扩展名、图片格式、尺寸、SHA-256 和原子落盘校验。
-- AI 配置使用数据库保存，API Key 使用由认证密钥派生的独立用途密钥加密，且对 AI 出站请求做了公网地址和重定向限制。
-- 加密备份包含口令保护、归档路径校验、大小上限、校验和、恢复租约和数据关联校验。
-- Compose 只把 Web 暴露到宿主机 `127.0.0.1:1270`，MySQL、Redis、RabbitMQ、Meilisearch 只在 Docker 内部网络暴露。
-
-主要问题集中在“配置可变性和初始化脚本不一致”“就绪探针覆盖不足”“用户输入大小控制不足”“构建产物泄露源码映射”“深分页资源保护不足”和“文档已落后于实现”等方面。
-
-### 1.2 问题统计
-
-| 等级 | 数量 | 结论 |
+| 优先级 | 数量 | 结论 |
 | --- | ---: | --- |
-| P0 | 0 | 未发现立即导致权限绕过、密钥泄露或生产无法启动的确定性问题 |
-| P1 | 2 | 配置数据库名时可能初始化错误数据库；旧数据库缺迁移时就绪探针仍判定健康 |
-| P2 | 6 | 资源限制、源码映射、深分页、Request ID、备份媒体一致性、文档漂移 |
-| P3 | 2 | 测试覆盖和维护性改进 |
+| P0 | 0 | 未发现安全灾难、数据破坏或完全权限绕过 |
+| P1 | 0 | 默认部署、注册登录、文章发布、构建与核心测试均可用 |
+| P2 | 0 | 原 P2-01 至 P2-08 已在 `1f8f450` 修复并完成验证 |
+| P3 | 6 | 可复现性、资源、覆盖率、加固和维护性风险 |
 
-等级定义遵循项目 `AGENTS.md`：P0 为安全、数据破坏、权限绕过或生产无法启动；P1 为核心流程或部署可用性问题；P2 为明显的安全/体验/一致性/可测试性问题；P3 为性能和维护性改进。
+问题状态统计：未解决 P0/P1/P2 均为 0，保留 P3 风险 6 项；本轮未发现已修复问题回归。
 
-## 2. 项目结构与运行链路
+## 2. 评审范围、方法与限制
 
-### 2.1 主要组件
+### 2.1 已审阅范围
 
-| 组件 | 实现 | 运行方式 |
-| --- | --- | --- |
-| Web | React 18、TypeScript、Vite、Tailwind CSS 4、Zustand、Axios | Nginx 非 root 镜像，容器端口 8080 |
-| API | Go 1.25、go-zero REST、JWT、bcrypt | 非 root Alpine 容器，容器端口 19000 |
-| 数据库 | MySQL 8.4 | 持久化 volume，首次创建时挂载 `deploy/mysql/schema.sql` |
-| 缓存/限流 | Redis 7.4 Alpine | AOF 持久化，内部网络访问 |
-| 异步审计 | RabbitMQ 4 Management | 事件发布失败时降级同步写库 |
-| 全文搜索 | Meilisearch 1.13 | 可选，故障时回退 MySQL |
-| 媒体 | API 可写、Web 只读共享 volume | `/data/media` 与 `/usr/share/nginx/media` |
+- 后端：入口、配置注入、路由、中间件、认证授权、Logic、Model/SQL、缓存、MQ、搜索、邮件、AI、媒体、备份恢复和健康检查。
+- 前端：路由、Zustand、Axios Token 刷新、API 封装、TypeScript 类型、后台权限、表单边界、Markdown 渲染、持久化、Loading/Error/Empty State、PWA 和 Vite 拆包。
+- 数据与接口：`api/notes-of-ashen.api`、`internal/types`、实际路由、`frontend/src/api`、`frontend/src/types`、`docs/API.md`、MySQL 初始化及增量 SQL。
+- 工程：Dockerfile、Compose、Nginx、测试脚本、GitHub Actions、README 和示例配置。
 
-### 2.2 请求链路
+### 2.2 排除范围
+
+- 未读取真实 `.env` 内容，也未在报告中记录任何真实密钥、密码、Token 或私有服务地址。
+- 未审阅 `node_modules`、构建产物、测试报告产物、二进制、图片、字体等生成或非文本资产。
+- 未对第三方依赖源码做供应链审计；仅检查锁文件、镜像/Action 引用方式和构建告警。
+- 未执行破坏性故障演练、清库、`down -v` 或真实生产数据恢复。
+
+### 2.3 结论分类
+
+- **新增**：旧报告未记录，本轮首次形成有证据的当前问题。
+- **遗留**：旧报告已有同类风险，本轮确认仍有剩余范围。
+- **回归**：旧报告确认修复但当前版本再次出现；本轮为 0。
+- **已修复**：旧报告问题在当前代码和验证中不再成立。
+- **风险提示**：当前实现可工作，但在特定部署、规模或后续维护条件下风险上升。
+
+## 3. 架构与主要调用链
+
+### 3.1 运行架构
 
 ```text
-浏览器
+Browser
   -> 127.0.0.1:1270
-  -> Web Nginx
-      -> 静态 React 页面
-      -> /api/* -> api:19000
-      -> /media/* -> 共享媒体卷
-  -> API
-      -> MySQL：业务数据
-      -> Redis：认证缓存、Refresh Token 辅助缓存、验证码、限流、流量缓存
-      -> RabbitMQ：异步操作日志
-      -> Meilisearch：可选全文搜索
+  -> Web / Nginx (8080, non-root)
+       -> SPA 静态资源与 /media 只读卷
+       -> /api/* 反向代理到 API:19000
+       -> /rss.xml、/sitemap.xml 反向代理到 API 根路由
+  -> API / go-zero REST (19000, non-root)
+       -> Handler: 参数解析、认证上下文、统一响应
+       -> Logic: 业务规则、权限、事务编排
+       -> Model: MySQL
+       -> Redis: 验证码、限流、Refresh Token 辅助状态、缓存
+       -> RabbitMQ: 可选操作日志异步链路
+       -> Meilisearch: 可选搜索链路
+       -> SMTP: 可选邮件链路
+       -> AI Client: 数据库站点设置、API Key v3 密文、SSRF 防护
+       -> Media Volume: API 可写、Web 只读
 ```
 
-## 3. 问题清单
+### 3.2 认证链路
 
-### [x] P1-01：可配置数据库名与初始化 SQL 固定数据库名不一致
+1. 登录校验密码并签发 HS256 Access Token；Refresh Token 以随机明文交给客户端、Hash 入库。
+2. Refresh Token 通过 `HttpOnly`、`SameSite=Strict` Cookie 使用，刷新时执行撤销和轮换。
+3. Bearer 请求解析 Access Token 后，认证中间件再从短缓存/数据库确认用户当前角色和状态。
+4. 全局备份恢复可通过 access-token not-before 截止时间批量失效旧 Token。
+5. 密码修改、找回密码及管理员角色/状态变更会递增用户 `token_version` 并撤销 Refresh Token；认证中间件按数据库版本立即拒绝旧 Access Token。
 
-### 位置
+### 3.3 内容写入链路
 
-- `docker-compose.yml:124`：`MYSQL_DATABASE` 使用 `APP_MYSQL_DATABASE`，支持自定义数据库名。
-- `docker-compose.yml:133`：首次初始化挂载 `deploy/mysql/schema.sql`。
-- `deploy/mysql/schema.sql:3`：固定执行 `USE notes_of_ashen;`。
+- 普通文章：Handler 请求体限制 -> Logic 校验 -> Model 事务写文章、标签关系、版本和搜索/MQ 后续处理。
+- Markdown 导入：解析 Front Matter -> 生成 slug -> 在单一 Store 事务中创建/复用分类和标签、创建文章及关联；失败整体回滚。
+- 媒体上传：校验 MIME、扩展名、图片解码、尺寸、SHA-256 -> 写入唯一隐藏暂存 -> 创建数据库记录 -> 原子发布；删除使用隔离文件和数据库失败恢复。
+- 备份恢复：staging、journal、marker、租约和数据库事务共同保护发布，已覆盖旧报告指出的主要崩溃恢复缺口。
 
-### 证据
+## 4. 当前问题清单
 
-Compose 允许：
+### 4.1 P0 / P1
 
-```yaml
-MYSQL_DATABASE: "${APP_MYSQL_DATABASE:-notes_of_ashen}"
-```
+本轮没有确认的 P0 或 P1 问题。此结论基于当前默认 Compose 配置、本轮测试和本机部署，不代表所有外部反向代理、历史数据库或自定义环境变量组合均已覆盖。
 
-但 schema 文件固定：
+### 4.2 P2 问题
 
-```sql
-USE notes_of_ashen;
-```
+原报告的 P2-01 至 P2-08 已在提交 `1f8f450` 全部修复，当前未解决 P2 数量为 0。
 
-当用户把 `APP_MYSQL_DATABASE` 改为其他值时，MySQL 入口会创建自定义数据库，但初始化脚本仍把表建到 `notes_of_ashen`。API 若通过 DSN 连接自定义数据库，可能启动成功完成基础连接检查，但随后出现表不存在、配置不存在或功能请求失败。
+| 编号 | 状态 | 修复与验证证据 |
+| --- | --- | --- |
+| P2-01 | 已修复 | `users.token_version`、JWT Claim 和认证数据库校验已联动；改密、重置密码、角色/状态变更在事务内递增版本并撤销 Refresh Token，旧 Access Token 测试通过 |
+| P2-02 | 已修复 | `Store.CreateMarkdownArticle` 将分类、标签、文章和关联纳入同一事务；文章插入失败回滚 taxonomy 的 Model 测试通过 |
+| P2-03 | 已修复 | 上传采用 `.upload-*` 暂存和数据库失败补偿，删除采用 `.delete-*` 隔离及恢复；缺少 `file` 返回 400，真实媒体集成路径通过 |
+| P2-04 | 已修复 | 剩余结构化写接口统一使用 `ParseLimited`，按 16 KiB、64 KiB、12 MiB 分档；Content-Length 与 chunked 超限路径均有测试 |
+| P2-05 | 已修复 | Service Worker 仅对 SPA HTML 导航更新 `/index.html`，排除 API、媒体、XML、健康探针和文件路径，并等待 `cache.put` |
+| P2-06 | 已修复 | Nginx 精确代理 `/healthz` 到后端 readiness，`/livez` 返回 204；core 隔离集成测试验证 JSON readiness 和独立 liveness |
+| P2-07 | 已修复 | 项目写入只接受 `tagIds`，非空旧 `tags` 返回 400；事务内从标签表生成名称并同步 JSON 快照、实体和关系 |
+| P2-08 | 已修复 | 项目逐行插入并读取各自 `LastInsertId`，非连续 ID 的 Model 测试通过 |
 
-### 影响
+## 4.3 P3 风险与维护项
 
-- 自定义数据库名的 Docker 部署无法可靠初始化。
-- 错误发生在运行期，启动日志不一定直接说明“schema 初始化到了另一个数据库”。
-- 数据库可能同时存在两个名字相近但结构不一致的库，增加运维误判和数据操作风险。
+### P3-01 构建镜像和 GitHub Actions 未固定到不可变摘要
 
-### 建议
+- 状态：**新增风险提示**
+- 证据：`Dockerfile.api:3,18`、`Dockerfile.web:3,16` 使用版本标签；`docker-compose.yml:119,157,185,217` 使用标签镜像；`.github/workflows/*.yml` 使用 `actions/*@v4/v5`。
+- 风险：同一 Git commit 在未来重建时可能解析到不同基础镜像或 Action 内容，影响可复现性和供应链审计。
+- 建议：生产构建按周期更新并固定镜像 digest；关键 Actions 固定完整 commit SHA，并由依赖更新机器人维护。
 
-优先选择一种单一事实源：
+### P3-02 默认 Compose 总是启动可选 RabbitMQ 与 Meilisearch
 
-1. 固定 Compose 数据库名为 `notes_of_ashen`，移除可变数据库名；或
-2. 将 schema 改为不依赖固定 `USE`，由入口数据库变量决定目标库，并在初始化前验证 DSN、`MYSQL_DATABASE` 和 schema 目标一致。
+- 状态：**新增风险提示**
+- 证据：`docker-compose.yml:72-80` 默认关闭搜索和 RabbitMQ 能力，但 `docker-compose.yml:184-236` 无条件定义并启动两项服务。
+- 风险：即使功能关闭，仍占用镜像下载、内存、健康检查和运维面；本轮 RabbitMQ 在 API 重启时出现 `client unexpectedly closed` 重连告警，管理指标还包含上游弃用提示。
+- 建议：使用 Compose profiles 将可选服务分组；启用能力时再启动对应服务，并在 README/1Panel 部署说明中给出组合命令。
 
-同时增加一次性初始化测试：自定义数据库名启动全新 MySQL volume，验证核心表、默认设置和 API 首次健康检查。
+### P3-03 自动化覆盖率仍集中在工具层，且 CI 未单独执行 go vet
 
-### 优先级
+- 状态：**遗留**
+- 证据：本轮覆盖率中 `aiclient` 78.6%、`config` 70.7%、`middleware` 62.6%，但 `auth logic` 10.0%、`system logic` 12.0%、`mq` 10.5%、`model` 22.4%，多数 Handler 为 0%；`.github/workflows/integration-e2e.yml` 执行 `go test ./...`，未执行 `go vet ./...`。
+- 风险：认证失效、系统健康、消息降级、Model 错误和 HTTP 参数映射的回归更依赖集成测试发现，定位成本较高。
+- 建议：继续提高认证、Model 和 Handler 的直接覆盖率，并把 `go vet ./...` 加入核心 CI。
 
-P1。默认值不会触发，但项目明确暴露了该可配置项，因此属于已确认的部署兼容缺陷。
+### P3-04 JWT 解析未显式限定 HS256
 
-### [x] P1-02：Compose 就绪探针未验证完整数据库 schema 和迁移状态
+- 状态：**新增风险提示**
+- 证据：`internal/authutil/token.go:51` 使用 HS256 签发；`internal/authutil/token.go:54-63` 解析时直接返回 secret，没有显式检查 `token.Method == jwt.SigningMethodHS256` 或使用 valid methods 选项。
+- 风险：当前 `[]byte` key 类型会阻止已知非 HMAC 方法使用，未发现可利用的算法混淆；但未来库升级或解析逻辑修改时缺少显式不变量。
+- 建议：解析回调检查具体算法，或配置 `WithValidMethods([]string{"HS256"})`，并增加错误算法拒绝测试。
 
-### 位置
+### P3-05 存在未使用的维护代码和常量
 
-- `docker-compose.yml:98-113`：API 依赖 MySQL/Redis healthy 后启动。
-- `docker-compose.yml:136-143`：MySQL healthcheck 只执行 `mysqladmin ping`。
-- `internal/logic/site/health.go:29-43`：`/healthz` 只探测 DB Ping 和 Redis Ping。
-- `internal/logic/system/health.go:92`：`backup_schema` 只在管理员系统健康接口中检查。
-- `internal/handler/routes.go:52`、`107`：公开 `/healthz` 与管理员健康接口是两条不同路径。
+- 状态：**新增风险提示**
+- 证据：`internal/logic/backup/backup.go:893` 的 `pruneMedia` 没有调用点；`internal/logic/site/site.go:18` 的 `maxPageContentLength` 没有使用点。
+- 风险：读者可能误判媒体清理和页面长度限制已生效，后续修改也可能维护无效路径。
+- 建议：确认设计意图后删除死代码，或接入真实调用并添加测试；避免用未执行的常量表达安全边界。
 
-### 证据
+### P3-06 前端大模块仍有首访性能压力
 
-当前 API `/healthz` 返回结构仅包含：
+- 状态：**遗留风险提示**
+- 证据：`frontend/vite.config.ts:22-26` 关闭 source map 并将 chunk 告警阈值设为 1000 kB；本轮构建主要 chunk 为 ECharts 512.21 kB、Markdown 430.80 kB、入口 290.48 kB。
+- 风险：构建通过，但慢网、低端设备和首次访问管理页时解析/执行成本较高；提高告警阈值不会降低实际体积。
+- 建议：继续按路由延迟加载，确保 ECharts、编辑器/Markdown 管理能力不进入公开首页关键路径；以真实 bundle analyzer 和 Web Vitals 决定是否拆包。
 
-```json
-{"status":"ok","checks":{"db":{"status":"up"},"redis":{"status":"up"}}}
-```
+## 5. 安全审计结论
 
-旧 MySQL volume 如果没有执行 `deploy/mysql` 下的新增迁移，MySQL Ping 仍然成功，API 也会被 Docker 判定为 healthy；但媒体、内容分析、备份、AI 设置或新字段相关接口可能在实际调用时失败。项目文档已经说明增量 SQL 需要手动执行，但编排层没有把这一状态显式纳入 readiness。
+### 5.1 已确认有效的安全控制
 
-### 影响
+- 首个用户管理员逻辑、注册验证码例外条件和后续注册校验路径一致，未发现可重复获取管理员权限的绕过。
+- Access Token 中角色不被直接信任；认证中间件会回查短缓存/数据库中的当前角色和状态，禁用用户会被拒绝。
+- Refresh Token 使用随机值、Hash 持久化、轮换和撤销；Cookie 使用 `HttpOnly`、`SameSite=Strict`，生产默认 Secure。
+- 登录、注册、验证码、密码重置等敏感入口有 Redis 限流；关键路径在 Redis 故障时采用保守策略。
+- 默认不信任 `X-Forwarded-*`/`X-Real-IP`；只有 `RemoteAddr` 命中 `APP_TRUSTED_PROXY_CIDRS` 时才采纳转发头。
+- AI API Key 使用 `v3:` 密文和独立用途派生密钥；旧版本密文兼容策略明确。
+- AI URL 校验覆盖私网/保留地址、DNS 解析、重定向和代理绕过，HTTP Client 禁止环境代理并限制重定向。
+- 媒体上传校验 MIME、扩展名、图片解码、尺寸和 SHA-256，storage key 不取信用户文件名。
+- Markdown 使用 `react-markdown` 安全默认链路，未启用 raw HTML/`rehype-raw`；外链和图片 URL 经过限制。
+- 备份恢复要求管理员身份、当前密码、口令和确认文本，并使用 staging、journal、marker、租约、路径/大小/Hash 校验和故障恢复流程。
+- Docker API/Web 以非 root 用户运行；MySQL、Redis、RabbitMQ、Meilisearch 均未映射宿主机端口；Web 只绑定 loopback。
+- Nginx 配置安全头、API 限流、source map 404、媒体恢复临时路径拒绝和备份专用请求体上限。
 
-- Docker/1Panel 可能在 schema 不完整时把 API 提供给 Web。
-- 发布检查只看到 healthy，不能说明当前数据库版本满足当前代码要求。
-- 迁移缺失问题会被误判为具体接口或权限问题。
+### 5.2 尚需处理的安全边界
 
-### 建议
+- 用户级 Access Token 已通过 `token_version` 支持立即撤销；改密后当前及其他会话均退出。
+- 结构化写接口已增加端点级请求体限制，chunked 请求也由 `MaxBytesReader` 约束。
+- JWT 算法应显式固定，见 P3-04。
+- 外部 readiness 和 Web liveness 已分离；后续仍应按实际部署环境配置监控来源和告警策略。
 
-- 将关键 schema 版本或必要表检查加入内部 readiness 探针，至少覆盖当前运行代码必需的表和字段。
-- 将“数据库连接正常”和“应用 schema 就绪”区分为 liveness/readiness 两类状态。
-- 若不希望启动时阻断旧库，至少在 `/healthz` 或启动日志中明确报告迁移缺口，并让 Compose healthcheck 根据 readiness 失败。
-- 后续引入显式 migration version 表，避免依赖人工按文件名排序执行。
+## 6. 旧报告问题重新验证
 
-### 优先级
+以下结论均按当前代码和本轮运行结果重新检查，不直接继承旧报告的完成标记。
 
-P1。新库默认部署正常，但存量数据卷升级是实际生产场景，缺迁移会导致功能不可用。
+| 历史问题 | 当前状态 | 重新验证结论 |
+| --- | --- | --- |
+| 数据库名配置与初始化不一致 | 已修复 | Compose 和示例配置固定使用 `notes_of_ashen`，本轮服务正常连接现有卷 |
+| readiness 只检查 DB/Redis、不检查 schema | 已修复 | 容器内 `/healthz` 返回 `db`、`redis`、`schema` 均为 up |
+| 文章/分类/标签缺少长度和请求体限制 | 已修复 | 所有剩余结构化写接口也已按业务容量使用 `ParseLimited` |
+| 生产 source map 可公开访问 | 已修复 | Vite `sourcemap: false`，Nginx 对 `.map` 拒绝 |
+| 深分页缺少 page 上限 | 已修复 | 当前分页校验包含 page/size 边界 |
+| Request ID 长度和字符缺少限制 | 已修复 | 中间件已校验格式与长度 |
+| 备份恢复媒体与数据库发布缺少崩溃恢复 | 已修复 | staging/journal/marker/租约及 extended 故障注入测试通过 |
+| API 文档与错误码/字段明显漂移 | 已修复 | 项目写入统一为 `tagIds`，API、Go/TS 类型、前端请求和文档已同步 |
+| 前端检查因环境错误无法执行 | 已修复（验证条件） | 本轮 `test`、`lint`、`type-check`、`build` 均实际通过 |
 
-### [x] P2-01：文章正文、摘要和分类描述缺少明确输入大小上限
+本轮未发现上述已修复事项发生回归。
 
-### 位置
+## 7. 前后端、API 与数据库一致性
 
-- `internal/logic/article/article.go:592-618`：`validateArticle` 只检查正文非空，没有正文最大长度；摘要也没有长度校验。
-- `internal/logic/category/category.go:104-112`：分类校验只限制名称和 slug。
-- `internal/logic/tag/tag.go:104-112`：标签校验只限制名称和 slug。
-- `deploy/nginx/default.conf:74`：普通客户端请求体上限为 20 MiB。
-- `deploy/mysql/schema.sql:80-83`：正文为 `MEDIUMTEXT`，摘要和描述为 `TEXT`。
+### 7.1 已确认一致
 
-### 证据
+- `api/notes-of-ashen.api`、`internal/types`、Handler/Logic 和前端 API 封装的主要路由、分页、统一响应结构一致。
+- 站点设置可选布尔字段使用指针语义，字段缺失与显式 `false` 可区分。
+- 文章、分类、标签、媒体、备份、AI 设置和用户管理的前端请求字段与后端类型总体一致。
+- schema readiness 已覆盖 `users.token_version` 等当前必需字段；隔离新库验证通过，既有卷上线前必须执行新增迁移。
+- 初始化 SQL 与增量脚本的目标数据库和 Compose DSN 一致。
 
-文章校验包含：
+### 7.2 已确认漂移
 
-```go
-if err := validator.Required(req.Content, "content"); err != nil {
-    return err
-}
-```
+- 本轮 P2 修复后未确认新的前后端字段、项目标签写入或健康探针契约漂移。
+- 旧客户端若继续提交非空 `tags` 会明确收到 400，这是收敛写入契约的预期兼容性行为。
 
-但没有与数据库字段、前端编辑器或 Nginx 请求体对应的业务长度上限。文章创建/更新请求可以携带接近 Web 层 20 MiB 的大正文；摘要、分类描述、标签描述也没有对应的业务上限。
+### 7.3 数据一致性风险
 
-### 影响
+- Markdown taxonomy、文章及标签关系已使用单事务写入。
+- 媒体文件与数据库仍属于不同资源，但已通过唯一暂存、隔离删除和可恢复补偿关闭已知双向窗口。
+- 项目标签关系不再依赖 MySQL 自增步长，并与 JSON 快照在同一事务内保持一致。
 
-- 编辑器用户或被盗的 editor 账号可以持续提交大请求，增加 API 内存、JSON 解码、MySQL 写入和缓存压力。
-- `MEDIUMTEXT` 的数据库上限与 Nginx 20 MiB 请求体上限并不一致，可能产生数据库错误。
-- 大摘要和描述会进入列表、缓存、搜索索引或前台响应，放大一次输入的影响范围。
+## 8. 测试、CI 与构建结果
 
-### 建议
+### 8.1 后端
 
-- 在 Logic 层对正文、摘要、分类/标签描述建立明确的 UTF-8 字符或字节上限。
-- 在 Handler 层使用 `http.MaxBytesReader` 或统一请求体策略，避免 JSON 解码前无限接收。
-- 前端同步展示剩余字数，并为超过限制的场景提供明确错误。
-- 增加边界测试：空值、刚好达到上限、超过上限、中文多字节字符和超大请求体。
+| 命令 | 结果 | 说明 |
+| --- | --- | --- |
+| `go test ./...` | 通过 | 全部 Go 包通过，包含本轮新增 Token、事务、媒体、项目和 Handler 测试 |
+| `go vet ./...` | 通过 | 无静态检查错误 |
+| `go build -o bin/notes-of-ashen.exe ./cmd/notes-of-ashen` | 通过 | 后端可执行文件构建成功 |
 
-### 优先级
+原评审记录的代表性覆盖率（本轮未重新统计）：
 
-P2。当前有 Nginx 20 MiB 上限和权限控制，风险主要是资源消耗和数据质量，不属于匿名直接利用。
-
-### [x] P2-02：生产前端发布了可访问的 JavaScript source map
-
-### 位置
-
-- `frontend/vite.config.ts:21`：`build.sourcemap = 'hidden'`。
-- `Dockerfile.web:13`、`27`：构建后把完整 `dist` 目录复制到 Nginx。
-- `deploy/nginx/default.conf:128-136`：通用静态路径会直接尝试读取存在的文件，没有拒绝 `.map`。
-
-### 证据
-
-`hidden` 只会隐藏 JS 文件中的 `sourceMappingURL` 注释，不会阻止 `.map` 文件生成。当前运行中的 Web 容器已经存在多个 map 文件，例如：
-
-```text
-/usr/share/nginx/html/assets/index-D3XclD0D.js.map
-/usr/share/nginx/html/assets/ArticleEditor-CvKo-hKw.js.map
-/usr/share/nginx/html/assets/AISettings-CBI2xxZW.js.map
-```
-
-### 影响
-
-- 访问者可以下载源码映射，查看模块名、源码路径、实现细节和可能存在的注释。
-- 管理后台的前端实现和内部业务流程更容易被逆向分析。
-- 如果未来错误地把非公开配置或调试信息打入前端，source map 会扩大泄露面。
-
-### 建议
-
-生产环境优先设置 `sourcemap: false`。如果必须保留构建映射，应将 map 文件上传到受控错误监控系统，不复制到 Nginx 公共目录；也可以在 Nginx 中明确拒绝 `\.map` 请求作为兜底。
-
-### 优先级
-
-P2。不会直接泄露后端密钥，但属于可避免的生产源码暴露。
-
-### [x] P2-03：分页只限制 size，不限制 page，存在深分页资源消耗
-
-### 位置
-
-- `internal/httphelper/helper.go:50-63`：解析 HTTP 查询参数时只把 size 限制到 100。
-- `internal/logicutil/common.go:16-27`：业务层同样没有 page 上限。
-- 多个 Model 使用 `(page - 1) * size` 计算 offset。
-
-### 证据
-
-```go
-if size > 100 {
-    size = 100
-}
-return page, size
-```
-
-`page` 只做了小于 1 的归一化，没有最大值、最大 offset 或游标分页策略。公开文章、分类、标签、搜索建议以外的部分列表接口没有统一 IP 限流，攻击者可以反复请求非常大的 page 值。
-
-### 影响
-
-- MySQL 可能执行高成本的深 offset 扫描。
-- 极大 page 在乘法计算时可能产生整数溢出或非法 offset，造成 500。
-- 在数据规模增长后，简单的列表接口可能成为低成本资源消耗入口。
-
-### 建议
-
-- 为 page 设置合理上限，超出时返回 400 或归一化到最后一页。
-- 对公共列表优先考虑基于 ID/时间的 cursor pagination。
-- 为高流量列表增加缓存、索引检查和慢查询监控。
-- 增加 page=1、极大 page、极大 size、负数和非法字符测试。
-
-### 优先级
-
-P2。当前数据规模较小时影响有限，但属于可预防的性能和稳定性问题。
-
-### [x] P2-04：`X-Request-Id` 可由客户端任意注入且没有长度/字符限制
-
-### 位置
-
-- `internal/middleware/requestid.go:18-23`。
-- `internal/middleware/accesslog.go:43-57`。
-
-### 证据
-
-```go
-id := r.Header.Get("X-Request-Id")
-if id == "" {
-    id = newRequestID()
-}
-w.Header().Set("X-Request-Id", id)
-```
-
-客户端提供的值会被直接写回响应并进入访问日志上下文。虽然当前日志框架会对 JSON 内容进行编码，降低换行注入的实际影响，但代码本身没有限制长度、控制字符或非法格式。
-
-### 影响
-
-- 超长 Request ID 会放大响应头和日志体积。
-- 控制字符、换行或特殊格式会增加日志检索和审计风险。
-- 外部调用方可以伪造链路 ID，影响日志关联可信度。
-
-### 建议
-
-- 只接受固定长度的 ASCII 字母、数字、短横线或下划线。
-- 超长、包含控制字符或格式非法时重新生成服务端 ID。
-- 保留一个内部字段标识“客户端提供”还是“服务端生成”，避免审计歧义。
-- 增加控制字符和超长值测试。
-
-### 优先级
-
-P2。当前不是认证绕过，但属于日志和运维安全边界缺口。
-
-### [x] P2-05：备份恢复的媒体落盘与数据库事务不是完全原子操作
-
-### 位置
-
-- `internal/logic/backup/backup.go:252-260`：先恢复媒体文件，再执行数据库 `RestoreBackup`。
-- `internal/logic/backup/backup.go:405-433`：媒体直接写入正式媒体根目录。
-- `model/backup.go:205-337`：数据库替换在单独的 SQL 事务中完成。
-
-### 证据
-
-恢复流程顺序为：
-
-1. 解密并校验归档。
-2. 将归档媒体写入正式媒体目录。
-3. 执行数据库整站替换事务。
-4. 事务成功后再清理旧媒体文件。
-
-如果数据库事务失败，事务会回滚，但已经写入的媒体文件不会自动回滚；如果媒体清理失败，数据库已经切换完成但旧文件会残留。
-
-### 影响
-
-- 数据库恢复失败时可能留下孤立媒体文件，持续占用磁盘。
-- 恢复过程中断或进程异常退出时，媒体目录和数据库状态可能暂时不一致。
-- 长期多次恢复后，残留文件会增加备份和磁盘运维成本。
-
-### 现有缓解措施
-
-- 媒体 storage key 为内容 SHA-256，原子写入可以避免部分文件覆盖。
-- 恢复有本地和 Redis 分布式租约，避免多实例并发恢复。
-- 数据库替换使用 Serializable 事务，归档在落库前完整校验。
-
-### 建议
-
-- 先写入按恢复任务隔离的 staging 目录。
-- 数据库事务成功后，再通过目录 rename 或受控复制将 staging 切换为正式目录。
-- 失败时删除 staging；进程重启时清理超时 staging 目录。
-- 为“媒体写入成功、数据库失败”和“数据库成功、清理失败”增加故障注入测试。
-
-### 优先级
-
-P2。当前更可能造成磁盘残留，不会直接覆盖不同 hash 的媒体内容。
-
-### [x] P2-06：README 和 API 调用示例与当前实现存在文档漂移
-
-### 位置
-
-- `docs/API.md:199` 已说明 Refresh Token 响应字段会置空。
-- `docs/API.md:990` 仍然把 `$register.data.refreshToken` 赋给 PowerShell 变量。
-- `README.md:631` 使用 `GET/PUT /api/v1/admin/users`，而实际接口是 `GET /api/v1/admin/users` 和 `PATCH /api/v1/admin/users/:id/status|role`。
-
-### 影响
-
-- 直接复制 PowerShell 示例的 API 使用者会拿到空 Refresh Token，误以为登录或刷新流程异常。
-- 后台用户管理接口的 README 路径和方法描述不准确。
-- 文档与前端当前基于 HttpOnly Cookie 的认证策略不完全一致。
-
-### 建议
-
-- 删除示例中对响应体 Refresh Token 的依赖，改为说明 Cookie 需要客户端 Cookie 容器保存；如果是无 Cookie API 客户端，明确要求使用兼容 body 方式并说明当前响应不回显新 token。
-- 统一 README、`docs/API.md`、`api/notes-of-ashen.api`、前端 API 封装和实际路由的自动检查。
-- 将路由清单作为 CI 文档漂移检查输入，而不是依赖人工维护。
-
-### 优先级
-
-P2。不会影响前端同源浏览器主流程，但会影响 API 使用者和运维排查。
-
-### [x] P3-01：真实 HTTP/数据库/Compose 集成覆盖已补齐
-
-### 现状证据
-
-`go test -cover ./...` 成功，但覆盖分布不均：
-
-| 包 | 覆盖率 |
+| 包/区域 | 覆盖率 |
 | --- | ---: |
-| `internal/contentstats` | 100.0% |
-| `internal/aiclient` | 77.8% |
+| `internal/aiclient` | 78.6% |
 | `internal/config` | 70.7% |
+| `internal/middleware` | 62.6% |
+| `internal/logic/media` | 50.3% |
 | `internal/logic/auth` | 10.0% |
-| `internal/logic/article` | 20.5% |
-| `internal/logic/backup` | 27.6% |
-| `internal/logic/media` | 28.8% |
-| `model` | 20.2% |
-| 多个 Handler/response/types 包 | 0.0% |
+| `internal/logic/system` | 12.0% |
+| `internal/mq` | 10.5% |
+| `model` | 22.4% |
 
-当前测试大量使用单元测试和 sqlmock，没有覆盖完整的“HTTP 路由 -> Middleware -> Logic -> MySQL/Redis”链路，也没有前端浏览器端到端测试。
+多数 Handler 为 0%，原因是关键 HTTP 路径主要由集成/E2E 覆盖，而非包内单元测试；这仍是 P3-03 所述定位和回归风险。
 
-### 建议
+### 8.2 前端
 
-- 增加 API 集成测试：注册、登录、刷新、权限、文章发布、媒体上传、备份恢复。
-- 使用临时 MySQL/Redis 或 Docker Compose 测试 profile 验证真实 SQL、迁移和健康检查。
-- 增加前端关键路径 E2E：首次注册、登录刷新、文章编辑、媒体插入、后台权限。
-- 对备份恢复、并发注册、Refresh Token 旋转和限流故障增加故障注入测试。
+| 命令 | 结果 | 说明 |
+| --- | --- | --- |
+| `pnpm test` | 通过 | 73 项测试通过 |
+| `pnpm lint` | 通过 | 无 lint 错误 |
+| `pnpm type-check` | 通过 | TypeScript 类型检查通过 |
+| `pnpm build` | 通过 | 生产构建成功，主要 chunk 见 P3-06 |
 
-### 当前实施
+### 8.3 集成测试
 
-- 新增 `scripts/test-integration.ps1 -Suite core|extended`，每个 HTTP、浏览器和扩展阶段均使用新的随机 Compose 项目、卷、凭据、网络与 loopback 端口，且不读取开发 `.env`。
-- 新增测试 Compose 覆盖，仅启动 Web、API、MySQL 与 Redis；测试环境关闭邮件、RabbitMQ、Meilisearch 与 Prerender，并只在该环境关闭 Refresh Cookie 的 Secure 属性。
-- `core` 覆盖真实 HTTP/数据库链路和 Chromium E2E；`extended` 在独立生命周期中覆盖并发、Redis 故障及恢复失败注入。详细命令见 `docs/TESTING.md`。
-- GitHub Actions 在 push/PR 运行 core，并在每日上海时间 02:00 与手动触发时运行 extended；失败时保存 Compose 与 Playwright 产物。
+| 命令 | 结果 | 说明 |
+| --- | --- | --- |
+| `scripts/test-integration.ps1 -Suite core` | 通过 | 隔离环境、后端 HTTP 集成及 4 项 Chromium E2E 通过；覆盖 Web `/healthz` 与 `/livez`，环境自动清理 |
+| `scripts/test-integration.ps1 -Suite extended` | 通过 | 并发、Redis 故障、恢复失败注入及 E2E 通过，环境自动清理 |
+| `node --check frontend/public/sw.js` | 通过 | Service Worker 语法检查通过 |
 
-`core` 与 `extended` 已在干净 Docker 环境中完整通过；测试项目、卷、镜像和临时凭据均已清理。
+### 8.4 CI 审计
 
-### 优先级
+- Frontend CI 使用 pnpm 锁文件安装并运行前端测试与构建。
+- Integration E2E 在 push/PR 运行前端 lint/type-check/test/build、Go test 和 core 集成套件；extended 在计划任务或手动触发时运行。
+- 主要缺口：未把 `go vet` 作为 CI 门禁；Action 引用使用大版本标签而非不可变 SHA，见 P3-01、P3-03。
 
-P3，若项目进入多人协作或频繁发布阶段，建议提升到发布门禁项目。
+## 9. Docker 部署与运行核验
 
-### [x] P3-02：前端构建工具链和项目约定已统一
+### 9.1 执行结果
 
-### 原现状
+| 命令/检查 | 结果 |
+| --- | --- |
+| `docker compose config --quiet` | 通过 |
+| core 隔离 Compose 构建与启动 | 通过；测试项目、网络和命名卷在结束后自动清理 |
+| Web `GET /healthz` | `200 application/json`，返回后端 DB/Redis/schema readiness |
+| Web `GET /livez` | `204 No Content`，仅表示 Nginx 存活 |
+| 真实媒体上传与 Web 读取 | 通过；发布文件权限和暂存路径策略均生效 |
 
-- `frontend/package.json` 实际使用 `tailwindcss ^3.3.5`。
-- 根目录说明与项目约定对 Tailwind 版本的描述并不统一。
-- `package.json` 没有独立的 `type-check` 脚本，类型检查由 `pnpm build` 内部的 `tsc` 完成。
+### 9.2 健康与日志
 
-### 影响
+- core 与 extended 隔离环境未发现 API 启动失败或未清理的测试资源。
+- `/healthz` 不再落入 SPA fallback；集成测试确认其返回 JSON 健康报告。
+- `/livez` 独立返回 204，不会把 Web 存活误报为后端依赖就绪。
 
-- 新贡献者可能按 Tailwind 4 语法修改，但当前构建链仍是 Tailwind 3。
-- CI 若只运行 `pnpm lint`，不会执行 TypeScript 类型检查和 Vite 构建。
+### 9.3 数据卷与暴露面
 
-### 当前实施
+- 未对当前运行中的用户数据库或 Docker 数据卷执行迁移、清库或删除。
+- 集成测试只使用隔离项目和临时命名卷，并在结束后自动清理。
+- API、数据库、缓存、MQ 和搜索服务不映射宿主机端口。
+- API/Web 配置资源限制和 json-file 日志滚动；媒体卷在 Web 侧只读挂载。
 
-- 前端已升级到 Tailwind CSS 4，并使用官方 `@tailwindcss/vite` 插件接入 Vite。
-- 保留现有 JavaScript 主题配置，通过 `@config` 兼容加载颜色、字体、圆角、阴影和 Typography 插件。
-- 已移除 Tailwind 3 使用的 PostCSS/Autoprefixer 配置，并迁移旧透明度、渐变、outline 与 blur 工具类。
-- 已增加独立 `pnpm type-check`，CI 固定执行 lint、类型检查、构建和前端测试。
+## 10. 后续路线图
 
-### 优先级
+P2 修复阶段已完成。后续工作保持在 P3 范围：
 
-P3，属于工程一致性和维护成本问题。
+1. 将 `go vet ./...` 纳入 CI 门禁，并继续提高认证、Model 和 Handler 的直接覆盖率。
+2. 固定关键镜像 digest 和 Actions SHA，使用 Compose profiles 管理可选服务。
+3. 显式限定 JWT 算法，清理未使用代码，并以实际性能数据继续拆分大 chunk。
 
-## 4. 已确认的安全与工程优点
+## 11. 最终结论
 
-### 4.1 认证与权限
+`1f8f450` 已关闭原报告 P2-01 至 P2-08：会话失效、Markdown 事务、媒体补偿、请求体上限、PWA 缓存、公开 readiness、项目标签契约和非连续自增 ID 均已有实现及验证证据。
 
-- Access Token 使用 HS256 JWT，并通过用户状态和角色再次查询确认，不只信任 Token 内角色。
-- Refresh Token 使用随机值、数据库 hash 保存、轮换撤销和 HttpOnly Cookie。
-- 密码修改、找回密码和管理员状态变更会撤销或驱逐相关会话缓存。
-- 管理员、内容管理员和文章作者权限在 Logic 层再次校验，避免只依赖路由分组。
-- 最后一个 active admin 不能被禁用或降级，管理员不能自行降级或禁用自己。
-- 登录、注册、验证码、密码重置等敏感接口使用 Redis 限流，关键限流器 Redis 故障时 fail-closed。
-
-### 4.2 SSRF、文件和内容安全
-
-- 头像、封面、项目链接限制为 HTTP/HTTPS，并在保存阶段拒绝显式本机、私网、链路本地、文档和保留 IP；域名不依赖服务器 DNS，避免透明代理 Fake-IP 导致正常公网 URL 被误判。
-- AI Base URL 在建立新连接时重新解析并拒绝受限 IP，不使用环境代理、不跟随重定向；兼容 HTTPS 默认端口 `443` 下透明代理返回的 `198.18.0.0/15` Fake-IP，但直接填写该网段 IP 或使用其他端口仍会拒绝。
-- 媒体上传校验内容类型、扩展名、图片解码和尺寸，文件名不会决定存储路径。
-- 媒体文件以 SHA-256 storage key 保存，并使用临时文件 + rename 原子写入。
-- Markdown 使用 `react-markdown` 默认安全渲染链，未发现启用原始 HTML 的 `rehype-raw`。
-- 搜索高亮结果在后端做 HTML 转义，只保留受控 `<mark>` 标签。
-
-### 4.3 备份与恢复
-
-- 备份使用 age scrypt 口令加密。
-- 归档包含路径安全检查、entry 数量限制、展开大小限制、manifest、data 和媒体 SHA-256 校验。
-- 备份不包含 AI API Key、Refresh Token、日志、流量明细和访客去重 hash。
-- 恢复要求管理员权限、当前密码、口令和 `REPLACE` 确认。
-- 恢复使用本地原子状态和 Redis 分布式租约，能够降低并发恢复风险。
-
-### 4.4 Docker 与 Nginx
-
-- Web、API 镜像均以非 root 用户运行。
-- API、数据库、Redis、RabbitMQ、Meilisearch 没有映射到宿主机公网端口。
-- Web 仅绑定宿主机 loopback：`127.0.0.1:${WEB_PORT:-1270}:8080`。
-- Nginx 配置了 SPA 路由回退、备份大请求体专用上限、API 基础限流、安全响应头和媒体只读挂载。
-- Compose 服务配置了 restart、healthcheck、资源限制和日志滚动参数。
-
-## 5. 接口与数据一致性审计结论
-
-### 5.1 当前未发现的高风险漂移
-
-- 后端统一响应基本遵循 `{code, message, data}` 约定。
-- 前端 Axios 已使用 `withCredentials`，与 Refresh Token HttpOnly Cookie 机制匹配。
-- `internal/types`、前端 `src/types`、主要 API 封装和页面字段总体一致。
-- 可选布尔字段在站点设置更新逻辑中使用指针语义，显式 `false` 可以关闭开关。
-- 搜索故障时可以回退 MySQL，不会因为 Meilisearch 不可用导致 API 进程退出。
-
-### 5.2 需要持续保持的联动约束
-
-- 修改 API 请求字段时必须同步 `api/notes-of-ashen.api`、`internal/types`、前端 `src/api`、前端 `src/types`、页面和 `docs/API.md`。
-- 修改数据库字段时必须同步 schema、增量脚本、Model 查询字段、备份导入导出和健康检查。
-- 修改 `APP_AUTH_ACCESS_SECRET` 时必须安排已保存 AI API Key 重新录入。
-- 修改 Docker 子网时必须同时调整 Web 固定 IP、Web 可信代理 CIDR 和 API 可信代理 CIDR。
-
-## 6. 修复优先级路线图
-
-### 第一阶段：发布前修复
-
-1. 统一 `APP_MYSQL_DATABASE` 与 schema 初始化目标，补充自定义数据库名测试。
-2. 增强 readiness，显式检查当前代码需要的数据库 schema/migration 状态。
-3. 关闭生产公开 source map。
-4. 为文章正文、摘要、分类描述、标签描述增加业务长度上限。
-
-### 第二阶段：稳定性与安全加固
-
-1. 增加 page 上限或引入 cursor pagination。
-2. 校验和规范化 `X-Request-Id`。
-3. 将备份媒体恢复改为 staging 目录切换。
-4. 增加故障注入和真实中间件集成测试。
-
-### 第三阶段：工程维护
-
-1. 修正文档中的 Refresh Token 和后台用户管理接口示例。
-2. 增加 `pnpm type-check` 脚本和 CI 门禁。
-3. Tailwind CSS 4 升级及版本说明统一已完成。
-
-## 7. 验证记录
-
-### 7.1 后端
-
-执行：
-
-```text
-go test ./...
-go test -cover ./...
-```
-
-结果：通过。
-
-未能在当前 Windows 沙箱中完成 `go vet ./...`，命令启动阶段反复出现：
-
-```text
-CreateProcessAsUserW failed: 1312
-```
-
-该错误属于执行环境会话创建失败，本报告不将其判定为代码静态检查失败。
-
-### 7.2 前端
-
-目标命令：
-
-```text
-pnpm lint
-pnpm test
-pnpm build
-```
-
-当前沙箱在启动 `pnpm` 子进程、ESLint 和 Node test runner 时同样出现 `CreateProcessAsUserW failed: 1312`，因此未声称前端检查通过。Docker Web 镜像已经能够使用当前前端源码完成构建并提供首页静态资源。
-
-### 7.3 Docker
-
-执行或检查：
-
-```text
-docker compose config --quiet
-docker compose ps
-docker compose exec -T web wget -qO- http://127.0.0.1:8080/
-docker compose exec -T api wget -qO- http://127.0.0.1:19000/healthz
-Test-NetConnection 127.0.0.1 -Port 1270
-```
-
-结果：
-
-- Compose 配置校验通过。
-- `web`、`api`、`mysql`、`redis`、`rabbitmq`、`meilisearch` 均为 healthy。
-- Web 容器首页返回 HTML。
-- API 容器 `/healthz` 返回 DB/Redis 均为 up。
-- 宿主机 `127.0.0.1:1270` TCP 连通。
-
-### 7.4 密钥与敏感文件
-
-- 未读取或输出真实 `.env` 内容。
-- `.env` 被 `.gitignore` 和 Docker ignore 排除。
-- 未发现代码中硬编码 API Key、Token 或密码。
-
-## 8. Docker 部署状态
-
-本次部署目标为：
-
-```text
-http://127.0.0.1:1270
-```
-
-Compose 对外只暴露 Web 端口；API 和中间件保持 Docker 内部网络访问。部署完成后建议继续使用以下命令进行日常检查：
-
-```powershell
-docker compose ps
-docker compose logs --tail 100 api web
-Test-NetConnection 127.0.0.1 -Port 1270
-```
-
-生产或 1Panel 场景还应在外层 HTTPS 代理中确认：
-
-- `APP_AUTH_COOKIE_SECURE=true`。
-- `APP_TRUSTED_PROXY_CIDRS` 只包含实际可信代理出口网段。
-- 若修改 Compose 子网，同步修改可信代理 CIDR 和 Web 固定地址。
-- 旧数据库在上线前完成所有增量 SQL，并先执行数据库和媒体卷备份。
-
-## 9. 最终结论
-
-项目当前可以作为个人博客系统运行，默认 Docker 部署链路已经在 `127.0.0.1:1270` 正常工作。安全和业务保护实现明显高于基础 CRUD 项目，但数据库初始化与迁移管理、生产构建产物、输入资源限制和测试门禁仍需要加强。
-
-建议先修复 P1-01、P1-02、P2-01 和 P2-02，再进入正式公网或多人协作发布；其余 P2/P3 项可以纳入后续迭代，但应在数据量和用户量增长前完成分页与集成测试建设。
+上线旧数据库前必须先执行 `deploy/mysql/add_user_token_version.sql`。未迁移数据库会由 readiness 的 schema 检查判定为未就绪，避免在缺失 `users.token_version` 时继续提供服务。剩余风险均为第 4.3 节列出的 P3 维护项。
