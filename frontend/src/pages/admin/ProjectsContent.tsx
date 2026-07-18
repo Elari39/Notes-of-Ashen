@@ -211,7 +211,7 @@ const AdminProjectsContent: React.FC = () => {
                 value={draft.title}
                 onChange={(event) => setDraft((prev) => ({ ...prev, title: event.target.value }))}
                 disabled={isSaving}
-                className="w-full border border-mountain-grey bg-transparent px-3 py-2 text-ink outline-none focus:border-ochre disabled:cursor-not-allowed disabled:opacity-50"
+                className="w-full border border-mountain-grey bg-transparent px-3 py-2 text-ink outline-hidden focus:border-ochre disabled:cursor-not-allowed disabled:opacity-50"
               />
             </label>
             <label className="block text-sm text-ink-light">
@@ -220,7 +220,7 @@ const AdminProjectsContent: React.FC = () => {
                 value={draft.subtitle}
                 onChange={(event) => setDraft((prev) => ({ ...prev, subtitle: event.target.value }))}
                 disabled={isSaving}
-                className="w-full border border-mountain-grey bg-transparent px-3 py-2 text-ink outline-none focus:border-ochre disabled:cursor-not-allowed disabled:opacity-50"
+                className="w-full border border-mountain-grey bg-transparent px-3 py-2 text-ink outline-hidden focus:border-ochre disabled:cursor-not-allowed disabled:opacity-50"
               />
             </label>
           </section>
@@ -412,7 +412,7 @@ const ProjectEditor: React.FC<ProjectEditorProps> = ({
               onChange={(event) => onChange({ summary: event.target.value })}
               disabled={disabled}
               rows={3}
-              className="w-full resize-none border border-mountain-grey bg-transparent px-3 py-2 text-ink outline-none focus:border-ochre disabled:cursor-not-allowed disabled:opacity-50"
+              className="w-full resize-none border border-mountain-grey bg-transparent px-3 py-2 text-ink outline-hidden focus:border-ochre disabled:cursor-not-allowed disabled:opacity-50"
             />
           </label>
         </div>
@@ -440,7 +440,7 @@ const ProjectEditor: React.FC<ProjectEditorProps> = ({
               onChange={(event) => onChange({ contentMarkdown: event.target.value })}
               disabled={disabled}
               placeholder={t('projectAdmin.detailPlaceholder')}
-              className="min-h-0 flex-1 resize-none bg-transparent text-ink-light outline-none disabled:cursor-not-allowed disabled:opacity-50"
+              className="min-h-0 flex-1 resize-none bg-transparent text-ink-light outline-hidden disabled:cursor-not-allowed disabled:opacity-50"
             />
           </section>
           <section className="min-h-[20rem] overflow-y-auto border border-mountain-grey bg-paper p-4">
@@ -479,7 +479,7 @@ const TextInput: React.FC<TextInputProps> = ({ label, value, disabled, onChange 
       value={value}
       onChange={(event) => onChange(event.target.value)}
       disabled={disabled}
-      className="w-full border border-mountain-grey bg-transparent px-3 py-2 text-ink outline-none focus:border-ochre disabled:cursor-not-allowed disabled:opacity-50"
+      className="w-full border border-mountain-grey bg-transparent px-3 py-2 text-ink outline-hidden focus:border-ochre disabled:cursor-not-allowed disabled:opacity-50"
     />
   </label>
 );

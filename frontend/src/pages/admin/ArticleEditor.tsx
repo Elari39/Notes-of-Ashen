@@ -237,7 +237,7 @@ const TaxonomyCombobox = <T extends TaxonomyOption>({
             key={item.id}
             type="button"
             onClick={() => onRemove(item.id)}
-            className="shrink-0 px-2 py-1 text-xs border border-ochre text-ochre rounded-sm whitespace-nowrap hover:bg-mountain-grey hover:bg-opacity-20 transition-colors"
+            className="shrink-0 px-2 py-1 text-xs border border-ochre text-ochre rounded-sm whitespace-nowrap hover:bg-mountain-grey/20 transition-colors"
             title={clearLabel}
           >
             {item.name} <span aria-hidden="true">&times;</span>
@@ -257,7 +257,7 @@ const TaxonomyCombobox = <T extends TaxonomyOption>({
           onFocus={() => setOpen(true)}
           onChange={e => handleInputChange(e.target.value)}
           onKeyDown={handleKeyDown}
-          className="min-w-[8rem] flex-1 bg-transparent py-2 text-ink focus:outline-none"
+          className="min-w-[8rem] flex-1 bg-transparent py-2 text-ink focus:outline-hidden"
         />
         {!multiple && selectedCategory && (
           <button
@@ -294,7 +294,7 @@ const TaxonomyCombobox = <T extends TaxonomyOption>({
               aria-selected={activeIndex === index}
               onMouseEnter={() => setActiveIndex(index)}
               onClick={() => handleSelect(item)}
-              className={`block w-full px-3 py-2 text-left text-sm text-ink hover:bg-mountain-grey hover:bg-opacity-20 ${activeIndex === index ? 'bg-mountain-grey bg-opacity-20' : ''}`}
+              className={`block w-full px-3 py-2 text-left text-sm text-ink hover:bg-mountain-grey/20 ${activeIndex === index ? 'bg-mountain-grey/20' : ''}`}
             >
               <span className="font-bold">{item.name}</span>
               <span className="ml-2 text-xs text-ink-light">{item.slug}</span>
@@ -310,7 +310,7 @@ const TaxonomyCombobox = <T extends TaxonomyOption>({
               onMouseEnter={() => setActiveIndex(filteredItems.length)}
               onClick={handleCreate}
               disabled={creating}
-              className={`block w-full px-3 py-2 text-left text-sm text-ochre hover:bg-mountain-grey hover:bg-opacity-20 disabled:opacity-50 disabled:cursor-not-allowed ${activeIndex === filteredItems.length ? 'bg-mountain-grey bg-opacity-20' : ''}`}
+              className={`block w-full px-3 py-2 text-left text-sm text-ochre hover:bg-mountain-grey/20 disabled:opacity-50 disabled:cursor-not-allowed ${activeIndex === filteredItems.length ? 'bg-mountain-grey/20' : ''}`}
             >
               {creating ? creatingLabel : createLabel(trimmedQuery)}
             </button>
@@ -924,28 +924,28 @@ const ArticleEditor: React.FC = () => {
             </button>
             {aiMenuOpen && (
               <div className="absolute right-0 top-full z-30 mt-2 w-52 border border-mountain-grey bg-paper shadow-sm">
-                <button type="button" onClick={() => handleAIAssist('complete')} className="block w-full px-3 py-2 text-left text-sm text-ink hover:bg-mountain-grey hover:bg-opacity-20">
+                <button type="button" onClick={() => handleAIAssist('complete')} className="block w-full px-3 py-2 text-left text-sm text-ink hover:bg-mountain-grey/20">
                   {t('articleEditor.aiMetadata')}
                 </button>
-                <button type="button" onClick={() => handleAIAssist('proofread')} className="block w-full px-3 py-2 text-left text-sm text-ink hover:bg-mountain-grey hover:bg-opacity-20">
+                <button type="button" onClick={() => handleAIAssist('proofread')} className="block w-full px-3 py-2 text-left text-sm text-ink hover:bg-mountain-grey/20">
                   {t('articleEditor.aiProofread')}
                 </button>
-                <button type="button" onClick={() => handleAIAssist('polish')} className="block w-full px-3 py-2 text-left text-sm text-ink hover:bg-mountain-grey hover:bg-opacity-20">
+                <button type="button" onClick={() => handleAIAssist('polish')} className="block w-full px-3 py-2 text-left text-sm text-ink hover:bg-mountain-grey/20">
                   {t('articleEditor.aiPolish')}
                 </button>
-                <button type="button" onClick={() => handleAIAssist('expand')} className="block w-full px-3 py-2 text-left text-sm text-ink hover:bg-mountain-grey hover:bg-opacity-20">
+                <button type="button" onClick={() => handleAIAssist('expand')} className="block w-full px-3 py-2 text-left text-sm text-ink hover:bg-mountain-grey/20">
                   {t('articleEditor.aiExpand')}
                 </button>
-                <button type="button" onClick={() => handleAIAssist('shorten')} className="block w-full px-3 py-2 text-left text-sm text-ink hover:bg-mountain-grey hover:bg-opacity-20">
+                <button type="button" onClick={() => handleAIAssist('shorten')} className="block w-full px-3 py-2 text-left text-sm text-ink hover:bg-mountain-grey/20">
                   {t('articleEditor.aiShorten')}
                 </button>
-                <button type="button" onClick={() => handleAIAssist('translate')} className="block w-full px-3 py-2 text-left text-sm text-ink hover:bg-mountain-grey hover:bg-opacity-20">
+                <button type="button" onClick={() => handleAIAssist('translate')} className="block w-full px-3 py-2 text-left text-sm text-ink hover:bg-mountain-grey/20">
                   {t('articleEditor.aiTranslate')}
                 </button>
               </div>
             )}
           </div>
-          <button data-testid="article-editor-save" onClick={handleSave} disabled={submitting} className="px-6 py-2 bg-ink text-paper tracking-widest text-sm hover:bg-opacity-80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+          <button data-testid="article-editor-save" onClick={handleSave} disabled={submitting} className="px-6 py-2 bg-ink text-paper tracking-widest text-sm hover:bg-ink/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
             {submitting ? t('common.saving') : t('articleEditor.save')}
           </button>
         </div>
@@ -1032,12 +1032,12 @@ const ArticleEditor: React.FC = () => {
         <input
           data-testid="article-editor-title"
           type="text" placeholder={t('articleEditor.titlePlaceholder')} value={title} onChange={e => setTitle(e.target.value)}
-          className="w-full bg-transparent border-b border-mountain-grey py-2 text-ink focus:outline-none focus:border-ochre text-lg font-bold"
+          className="w-full bg-transparent border-b border-mountain-grey py-2 text-ink focus:outline-hidden focus:border-ochre text-lg font-bold"
         />
         <input
           data-testid="article-editor-slug"
           type="text" placeholder={t('articleEditor.slugPlaceholder')} value={slug} onChange={e => setSlug(e.target.value)}
-          className="w-full bg-transparent border-b border-mountain-grey py-2 text-ink focus:outline-none focus:border-ochre"
+          className="w-full bg-transparent border-b border-mountain-grey py-2 text-ink focus:outline-hidden focus:border-ochre"
         />
         <div className="flex items-end gap-2">
           <input
@@ -1045,7 +1045,7 @@ const ArticleEditor: React.FC = () => {
             placeholder={t('articleEditor.coverPlaceholder')}
             value={coverUrl}
             onChange={(event) => setCoverUrl(event.target.value)}
-            className="min-w-0 flex-1 border-b border-mountain-grey bg-transparent py-2 text-ink focus:border-ochre focus:outline-none"
+            className="min-w-0 flex-1 border-b border-mountain-grey bg-transparent py-2 text-ink focus:border-ochre focus:outline-hidden"
           />
           <Button type="button" size="sm" variant="subtle" onClick={() => setMediaPickerMode('cover')}>
             {t('media.choose')}
@@ -1054,7 +1054,7 @@ const ArticleEditor: React.FC = () => {
         <select
           data-testid="article-editor-status"
           value={status} onChange={e => setStatus(e.target.value as ArticleStatus)}
-          className="w-full bg-transparent border-b border-mountain-grey py-2 text-ink focus:outline-none focus:border-ochre"
+          className="w-full bg-transparent border-b border-mountain-grey py-2 text-ink focus:outline-hidden focus:border-ochre"
         >
           <option value="draft">{getArticleStatusLabel(language, 'draft')}</option>
           <option value="published">{getArticleStatusLabel(language, 'published')}</option>
@@ -1067,7 +1067,7 @@ const ArticleEditor: React.FC = () => {
           type="datetime-local"
           value={scheduledAt}
           onChange={e => setScheduledAt(e.target.value)}
-          className="w-full bg-transparent border-b border-mountain-grey py-2 text-ink focus:outline-none focus:border-ochre"
+          className="w-full bg-transparent border-b border-mountain-grey py-2 text-ink focus:outline-hidden focus:border-ochre"
         />
         {scheduledPublishHint && (
           <div className="text-xs leading-relaxed text-ochre md:col-span-3">
@@ -1092,28 +1092,28 @@ const ArticleEditor: React.FC = () => {
           aria-label={t('articleEditor.priority')}
           placeholder={t('articleEditor.priority')}
           onChange={e => setDisplayPriority(clampPriority(e.target.value))}
-          className="w-full bg-transparent border-b border-mountain-grey py-2 text-ink focus:outline-none focus:border-ochre"
+          className="w-full bg-transparent border-b border-mountain-grey py-2 text-ink focus:outline-hidden focus:border-ochre"
         />
         <input
           type="text"
           placeholder={t('articleEditor.aiSeoTitle')}
           value={seoTitle}
           onChange={e => setSeoTitle(e.target.value)}
-          className="w-full bg-transparent border-b border-mountain-grey py-2 text-ink focus:outline-none focus:border-ochre"
+          className="w-full bg-transparent border-b border-mountain-grey py-2 text-ink focus:outline-hidden focus:border-ochre"
         />
         <input
           type="text"
           placeholder={t('articleEditor.aiSeoDescription')}
           value={seoDescription}
           onChange={e => setSeoDescription(e.target.value)}
-          className="w-full bg-transparent border-b border-mountain-grey py-2 text-ink focus:outline-none focus:border-ochre"
+          className="w-full bg-transparent border-b border-mountain-grey py-2 text-ink focus:outline-hidden focus:border-ochre"
         />
         <input
           type="text"
           placeholder={t('articleEditor.aiSeoKeywords')}
           value={seoKeywords}
           onChange={e => setSeoKeywords(e.target.value)}
-          className="w-full bg-transparent border-b border-mountain-grey py-2 text-ink focus:outline-none focus:border-ochre"
+          className="w-full bg-transparent border-b border-mountain-grey py-2 text-ink focus:outline-hidden focus:border-ochre"
         />
       </div>
 
@@ -1167,7 +1167,7 @@ const ArticleEditor: React.FC = () => {
       <div className="mb-6">
         <input
           type="text" placeholder={t('articleEditor.summary')} value={summary} onChange={e => handleSummaryChange(e.target.value)}
-          className="w-full bg-transparent border-b border-mountain-grey py-2 text-ink focus:outline-none focus:border-ochre"
+          className="w-full bg-transparent border-b border-mountain-grey py-2 text-ink focus:outline-hidden focus:border-ochre"
         />
         <p className="mt-1 text-right text-xs text-ink-light" aria-live="polite">
           {formatText(t('common.byteUsage'), { used: summaryByteLength, limit: MAX_TEXT_FIELD_BYTES })}
@@ -1204,7 +1204,7 @@ const ArticleEditor: React.FC = () => {
             ref={textareaRef}
             value={content}
             onChange={e => setContent(e.target.value)}
-            className="w-full h-full bg-transparent resize-none focus:outline-none text-ink-light font-serif leading-relaxed"
+            className="w-full h-full bg-transparent resize-none focus:outline-hidden text-ink-light font-serif leading-relaxed"
             placeholder={t('articleEditor.content')}
           ></textarea>
         </div>

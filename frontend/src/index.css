@@ -1,6 +1,5 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+@config "../tailwind.config.js";
 
 @layer base {
   :root {
@@ -226,7 +225,7 @@
   }
 
   .form-control {
-    @apply min-h-11 w-full rounded-md border border-hairline bg-paper px-3.5 py-2.5 text-sm text-ink transition-[border-color,box-shadow] duration-fast placeholder:text-muted focus:border-ochre focus:outline-none focus:ring-[3px] focus:ring-[var(--inline-code-bg)];
+    @apply min-h-11 w-full rounded-md border border-hairline bg-paper px-3.5 py-2.5 text-sm text-ink transition-[border-color,box-shadow] duration-fast placeholder:text-muted focus:border-ochre focus:outline-hidden focus:ring-[3px] focus:ring-[var(--inline-code-bg)];
   }
 
   .form-panel {

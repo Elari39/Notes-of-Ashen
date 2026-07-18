@@ -228,7 +228,7 @@ const AdminArticles: React.FC = () => {
           value={keyword}
           onChange={(event) => setKeyword(event.target.value)}
           placeholder={t('home.searchPlaceholder')}
-          className="bg-transparent border border-mountain-grey px-3 py-2 text-sm text-ink outline-none focus:border-ochre md:col-span-2"
+          className="bg-transparent border border-mountain-grey px-3 py-2 text-sm text-ink outline-hidden focus:border-ochre md:col-span-2"
         />
         <select
           value={status}
@@ -236,7 +236,7 @@ const AdminArticles: React.FC = () => {
             setStatus(event.target.value as ArticleStatus | 'scheduled' | '');
             resetPage();
           }}
-          className="bg-paper border border-mountain-grey px-3 py-2 text-sm text-ink outline-none focus:border-ochre"
+          className="bg-paper border border-mountain-grey px-3 py-2 text-sm text-ink outline-hidden focus:border-ochre"
         >
           <option value="">{t('adminArticles.allStatus')}</option>
           <option value="draft">{getArticleStatusLabel(language, 'draft')}</option>
@@ -250,7 +250,7 @@ const AdminArticles: React.FC = () => {
             setCategoryId(Number(event.target.value));
             resetPage();
           }}
-          className="bg-paper border border-mountain-grey px-3 py-2 text-sm text-ink outline-none focus:border-ochre"
+          className="bg-paper border border-mountain-grey px-3 py-2 text-sm text-ink outline-hidden focus:border-ochre"
         >
           <option value={0}>{t('adminArticles.allCategories')}</option>
           {categories.map((category) => (
@@ -263,7 +263,7 @@ const AdminArticles: React.FC = () => {
             setTagId(Number(event.target.value));
             resetPage();
           }}
-          className="bg-paper border border-mountain-grey px-3 py-2 text-sm text-ink outline-none focus:border-ochre"
+          className="bg-paper border border-mountain-grey px-3 py-2 text-sm text-ink outline-hidden focus:border-ochre"
         >
           <option value={0}>{t('adminArticles.allTags')}</option>
           {tags.map((tag) => (
@@ -306,7 +306,7 @@ const AdminArticles: React.FC = () => {
             </thead>
             <tbody>
               {articles.map(a => (
-                <tr key={a.id} className="border-b border-mountain-grey border-opacity-50 hover:bg-mountain-grey hover:bg-opacity-20 transition-colors text-ink">
+                <tr key={a.id} className="border-b border-mountain-grey/50 hover:bg-mountain-grey/20 transition-colors text-ink">
                   <td data-label={t('adminArticles.title')} className="admin-card-title py-4">
                     <div className="font-bold">{a.title}</div>
                     {(a.isPinned || a.displayPriority > 0) && (

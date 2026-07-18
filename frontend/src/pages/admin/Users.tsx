@@ -125,7 +125,7 @@ const AdminUsers: React.FC = () => {
             </thead>
             <tbody>
               {users.map(user => (
-                <tr key={user.id} className="border-b border-mountain-grey border-opacity-50 hover:bg-mountain-grey hover:bg-opacity-20 transition-colors text-ink">
+                <tr key={user.id} className="border-b border-mountain-grey/50 hover:bg-mountain-grey/20 transition-colors text-ink">
                   <td data-label={t('users.account')} className="admin-card-title py-4 font-bold">{user.account}</td>
                   <td data-label={t('users.nickname')} className="py-4 text-ink-light">{user.nickname || '-'}</td>
                   <td data-label={t('users.role')} className="py-4 text-ink-light opacity-80">
@@ -133,7 +133,7 @@ const AdminUsers: React.FC = () => {
                       value={user.role}
                       disabled={busy?.id === user.id}
                       onChange={(event) => handleRole(user.id, event.target.value as UserRole)}
-                      className="bg-paper border border-mountain-grey px-2 py-1 text-sm text-ink outline-none focus:border-ochre disabled:opacity-50"
+                      className="bg-paper border border-mountain-grey px-2 py-1 text-sm text-ink outline-hidden focus:border-ochre disabled:opacity-50"
                     >
                       <option value="user">{getUserRoleLabel(language, 'user')}</option>
                       <option value="editor">{getUserRoleLabel(language, 'editor')}</option>

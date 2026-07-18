@@ -44,7 +44,7 @@ const Modal: React.FC<ModalProps> = ({
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
         <Dialog.Overlay
-          className="fixed inset-0 z-[120] bg-[var(--paper-muted)] backdrop-blur-sm data-[state=open]:animate-in data-[state=open]:fade-in motion-reduce:animate-none"
+          className="fixed inset-0 z-[120] bg-[var(--paper-muted)] backdrop-blur-xs data-[state=open]:animate-in data-[state=open]:fade-in motion-reduce:animate-none"
           onClick={(e) => {
             if (!closeOnOverlayClick) e.preventDefault();
           }}
@@ -57,7 +57,7 @@ const Modal: React.FC<ModalProps> = ({
             'fixed left-1/2 top-1/2 z-[121] w-[calc(100vw-2rem)] -translate-x-1/2 -translate-y-1/2',
             sizeClass[size],
             'overflow-hidden rounded-xl border border-hairline bg-paper shadow-lg',
-            'focus:outline-none',
+            'focus:outline-hidden',
           ].join(' ')}
         >
           <div className="flex items-start justify-between gap-4 border-b border-mountain-grey px-5 py-3.5">

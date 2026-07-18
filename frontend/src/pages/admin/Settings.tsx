@@ -268,7 +268,7 @@ const AdminSettings: React.FC = () => {
                     value={draftSiteTitle}
                     onChange={(event) => setDraftSiteTitle(event.target.value)}
                     disabled={isLoading}
-                    className="w-full border border-mountain-grey bg-transparent px-3 py-2 text-ink outline-none focus:border-ochre disabled:cursor-not-allowed disabled:opacity-50"
+                    className="w-full border border-mountain-grey bg-transparent px-3 py-2 text-ink outline-hidden focus:border-ochre disabled:cursor-not-allowed disabled:opacity-50"
                   />
                 </label>
                 <label className="block text-sm text-ink-light">
@@ -278,7 +278,7 @@ const AdminSettings: React.FC = () => {
                     onChange={(event) => setDraftSiteBaseUrl(event.target.value)}
                     disabled={isLoading}
                     placeholder="https://example.com"
-                    className="w-full border border-mountain-grey bg-transparent px-3 py-2 text-ink outline-none focus:border-ochre disabled:cursor-not-allowed disabled:opacity-50"
+                    className="w-full border border-mountain-grey bg-transparent px-3 py-2 text-ink outline-hidden focus:border-ochre disabled:cursor-not-allowed disabled:opacity-50"
                   />
                 </label>
                 <label className="block text-sm text-ink-light md:col-span-2">
@@ -288,7 +288,7 @@ const AdminSettings: React.FC = () => {
                     onChange={(event) => setDraftSiteDescription(event.target.value)}
                     disabled={isLoading}
                     rows={3}
-                    className="w-full resize-none border border-mountain-grey bg-transparent px-3 py-2 text-ink outline-none focus:border-ochre disabled:cursor-not-allowed disabled:opacity-50"
+                    className="w-full resize-none border border-mountain-grey bg-transparent px-3 py-2 text-ink outline-hidden focus:border-ochre disabled:cursor-not-allowed disabled:opacity-50"
                   />
                 </label>
                 <label className="block text-sm text-ink-light md:col-span-2">
@@ -298,7 +298,7 @@ const AdminSettings: React.FC = () => {
                     onChange={(event) => setDraftSiteKeywords(event.target.value)}
                     disabled={isLoading}
                     placeholder="blog,notes,writing"
-                    className="w-full border border-mountain-grey bg-transparent px-3 py-2 text-ink outline-none focus:border-ochre disabled:cursor-not-allowed disabled:opacity-50"
+                    className="w-full border border-mountain-grey bg-transparent px-3 py-2 text-ink outline-hidden focus:border-ochre disabled:cursor-not-allowed disabled:opacity-50"
                   />
                 </label>
               </div>

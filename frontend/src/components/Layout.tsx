@@ -195,7 +195,7 @@ const Layout: React.FC = () => {
           : 'absolute right-0 top-full mt-3 hidden w-[min(21rem,calc(100vw-3rem))] md:block'
       }`}
     >
-      <div className="border-b border-mountain-grey border-opacity-60 pb-3">
+      <div className="border-b border-mountain-grey/60 pb-3">
         <p id={titleId} className="text-sm font-bold tracking-widest text-ink">{t('preferences.title')}</p>
         <p className="mt-2 text-xs leading-relaxed tracking-wide text-ink-light opacity-80">
           {t('preferences.subtitle')}

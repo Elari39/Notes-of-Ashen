@@ -381,7 +381,7 @@ const Search: React.FC = () => {
           />
         ) : (
           <div className="space-y-12">
-            <div className="flex flex-col gap-3 border-b border-mountain-grey border-opacity-50 pb-5 text-sm text-ink-light md:flex-row md:items-end md:justify-between">
+            <div className="flex flex-col gap-3 border-b border-mountain-grey/50 pb-5 text-sm text-ink-light md:flex-row md:items-end md:justify-between">
               <div>
                 <p className="tracking-widest text-ochre">{t('search.resultsKicker')}</p>
                 <p className="mt-2 tracking-wide">
@@ -407,7 +407,7 @@ const Search: React.FC = () => {
             {loading && articles.length === 0 && (
               <div className="space-y-12">
                 {Array.from({ length: 5 }).map((_, index) => (
-                  <ArticleCardSkeleton key={index} className="border-b border-mountain-grey border-opacity-40 pb-12" />
+                  <ArticleCardSkeleton key={index} className="border-b border-mountain-grey/40 pb-12" />
                 ))}
               </div>
             )}
@@ -431,7 +431,7 @@ const Search: React.FC = () => {
                     const isCoverHidden = Boolean(coverUrl && coverErrors[article.id]);
 
                     return (
-                      <article key={article.id} className="group grid gap-6 border-b border-mountain-grey border-opacity-40 pb-12 md:grid-cols-[12rem_1fr]">
+                      <article key={article.id} className="group grid gap-6 border-b border-mountain-grey/40 pb-12 md:grid-cols-[12rem_1fr]">
                         {coverUrl ? (
                           <PreloadLink to={`/article/${article.id}`} preload={routeLoaders.articleDetail} className="block h-44 overflow-hidden">
                             {isCoverHidden ? (
@@ -475,7 +475,7 @@ const Search: React.FC = () => {
                             <span>{t('common.views')} {article.viewCount}</span>
                             <span>{formatText(t('reading.minutes'), { count: article.readingTimeMinutes })}</span>
                             {article.category && (
-                              <Link to={`/?categoryId=${article.category.id}`} className="border border-mountain-grey border-opacity-60 px-2 py-0.5 transition-colors hover:border-ochre hover:text-ochre">
+                              <Link to={`/?categoryId=${article.category.id}`} className="border border-mountain-grey/60 px-2 py-0.5 transition-colors hover:border-ochre hover:text-ochre">
                                 {article.category.name}
                               </Link>
                             )}

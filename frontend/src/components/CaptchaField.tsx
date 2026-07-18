@@ -80,7 +80,7 @@ const CaptchaField: React.FC<CaptchaFieldProps> = ({
           placeholder={captchaLabel}
           value={captchaCode}
           onChange={(e) => onCaptchaCodeChange(e.target.value.trim())}
-          className="min-w-0 flex-1 bg-transparent border-b border-mountain-grey py-2 px-1 text-ink focus:outline-none focus:border-ochre transition-colors placeholder-ink-light placeholder-opacity-50"
+          className="min-w-0 flex-1 bg-transparent border-b border-mountain-grey py-2 px-1 text-ink focus:outline-hidden focus:border-ochre transition-colors placeholder:text-ink-light/50"
           required
         />
         <button

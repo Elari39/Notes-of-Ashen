@@ -91,7 +91,7 @@ const ProjectPreviewModal: React.FC<ProjectPreviewModalProps> = ({ project, onCl
           data-lightbox-focus
           onClick={onClose}
           aria-label={t('projectModal.close')}
-          className="absolute right-3 top-3 z-10 inline-flex h-9 w-9 items-center justify-center rounded-full border border-mountain-grey bg-[var(--paper)] text-ink transition-colors hover:border-ochre hover:text-ochre focus:outline-none focus:ring-2 focus:ring-ochre"
+          className="absolute right-3 top-3 z-10 inline-flex h-9 w-9 items-center justify-center rounded-full border border-mountain-grey bg-[var(--paper)] text-ink transition-colors hover:border-ochre hover:text-ochre focus:outline-hidden focus:ring-2 focus:ring-ochre"
         >
           <span aria-hidden="true" className="text-xl leading-none">&times;</span>
         </button>

@@ -331,7 +331,7 @@ const AdminAISettings: React.FC = () => {
                     onChange={(event) => updateConnectionDraft({ baseUrl: event.target.value })}
                     disabled={operationBusy}
                     placeholder={draft.apiFormat === 'anthropic' ? 'https://api.anthropic.com' : 'https://api.openai.com/v1'}
-                    className="w-full border border-mountain-grey bg-transparent px-3 py-2 text-ink outline-none focus:border-ochre disabled:cursor-not-allowed disabled:opacity-50"
+                    className="w-full border border-mountain-grey bg-transparent px-3 py-2 text-ink outline-hidden focus:border-ochre disabled:cursor-not-allowed disabled:opacity-50"
                   />
                 </label>
 
@@ -345,7 +345,7 @@ const AdminAISettings: React.FC = () => {
                       disabled={operationBusy}
                       placeholder={t('aiSettings.modelPlaceholder')}
                       autoComplete="off"
-                      className="min-w-0 flex-1 border border-mountain-grey bg-transparent px-3 py-2 text-ink outline-none focus:border-ochre disabled:cursor-not-allowed disabled:opacity-50"
+                      className="min-w-0 flex-1 border border-mountain-grey bg-transparent px-3 py-2 text-ink outline-hidden focus:border-ochre disabled:cursor-not-allowed disabled:opacity-50"
                     />
                     {modelOptions.length > 0 && (
                       <select
@@ -353,7 +353,7 @@ const AdminAISettings: React.FC = () => {
                         onChange={(event) => handleModelChange(event.target.value)}
                         disabled={operationBusy}
                         aria-label={t('aiSettings.modelCandidatesLabel')}
-                        className="w-full border border-mountain-grey bg-transparent px-3 py-2 text-ink outline-none focus:border-ochre disabled:cursor-not-allowed disabled:opacity-50 sm:w-48"
+                        className="w-full border border-mountain-grey bg-transparent px-3 py-2 text-ink outline-hidden focus:border-ochre disabled:cursor-not-allowed disabled:opacity-50 sm:w-48"
                       >
                         <option value="" disabled>
                           {formatText(t('aiSettings.modelCandidates'), { count: modelOptions.length })}
@@ -376,7 +376,7 @@ const AdminAISettings: React.FC = () => {
                     type="password"
                     autoComplete="new-password"
                     placeholder={apiKeyConfigured ? t('aiSettings.apiKeyConfigured') : t('aiSettings.apiKeyPlaceholder')}
-                    className="w-full border border-mountain-grey bg-transparent px-3 py-2 text-ink outline-none focus:border-ochre disabled:cursor-not-allowed disabled:opacity-50"
+                    className="w-full border border-mountain-grey bg-transparent px-3 py-2 text-ink outline-hidden focus:border-ochre disabled:cursor-not-allowed disabled:opacity-50"
                   />
                   <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-ink-light">
                     <span>{apiKeyConfigured ? t('aiSettings.configured') : t('aiSettings.notConfigured')}</span>
@@ -530,7 +530,7 @@ const TimeoutInput = ({ label, value, disabled, onChange }: TimeoutInputProps) =
       value={value}
       onChange={(event) => onChange(clampTimeout(event.target.value))}
       disabled={disabled}
-      className="w-full border border-mountain-grey bg-transparent px-3 py-2 text-ink outline-none focus:border-ochre disabled:cursor-not-allowed disabled:opacity-50"
+      className="w-full border border-mountain-grey bg-transparent px-3 py-2 text-ink outline-hidden focus:border-ochre disabled:cursor-not-allowed disabled:opacity-50"
     />
   </label>
 );

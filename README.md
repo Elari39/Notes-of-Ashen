@@ -62,7 +62,7 @@ http://127.0.0.1:1270
 
 - 后端：Go 1.25、go-zero REST、MySQL 8.4、Redis 7.4、Meilisearch 1.13、RabbitMQ 4、JWT、bcrypt。
   - Docker Compose 默认启动本地 MySQL / Redis / RabbitMQ / Meilisearch 容器；快速开始的 `.env.example` 会启用 RabbitMQ 异步日志，Compose 代码自身的 `APP_RABBITMQ_ENABLED` 回退值为 `false`。搜索功能默认关闭，关闭时 API 回退到 MySQL 查询。
-- 前端：React 18、TypeScript、Vite 5、Tailwind CSS 3.4、Zustand、Axios、Framer Motion、ECharts、React Markdown。
+- 前端：React 18、TypeScript、Vite 5、Tailwind CSS 4、Zustand、Axios、Framer Motion、ECharts、React Markdown。
 - 部署：Docker、Docker Compose、Nginx、1Panel。
 - 文档与脚本：API 文档位于 [docs/API.md](docs/API.md)，数据库脚本位于 [deploy/mysql](deploy/mysql)。
 

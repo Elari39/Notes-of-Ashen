@@ -58,7 +58,7 @@ const Pagination: React.FC<PaginationProps> = ({
   const itemClass = 'min-h-11 min-w-11 rounded-md border border-hairline px-3 py-2 text-sm text-muted hover:border-ink hover:text-ink transition-colors duration-fast focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ochre disabled:opacity-30 disabled:hover:text-muted';
 
   return (
-    <div className="flex flex-wrap justify-center items-center gap-x-4 gap-y-2 mt-16 pt-8 border-t border-mountain-grey border-opacity-50">
+    <div className="flex flex-wrap justify-center items-center gap-x-4 gap-y-2 mt-16 pt-8 border-t border-mountain-grey/50">
       <button
         type="button"
         onClick={() => onPageChange(currentPage - 1)}
@@ -121,7 +121,7 @@ const Pagination: React.FC<PaginationProps> = ({
             value={jumpValue}
             onChange={(e) => setJumpValue(e.target.value.replace(/[^0-9]/g, ''))}
             aria-label={t('pagination.jumpLabel')}
-            className="w-14 border-b border-mountain-grey bg-transparent py-1 px-1 text-center text-sm text-ink focus:outline-none focus:border-ochre transition-colors duration-fast"
+            className="w-14 border-b border-mountain-grey bg-transparent py-1 px-1 text-center text-sm text-ink focus:outline-hidden focus:border-ochre transition-colors duration-fast"
           />
           <button
             type="submit"

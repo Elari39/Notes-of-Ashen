@@ -69,7 +69,7 @@ const RequestProgressBar: React.FC = () => {
           className="fixed left-0 top-0 z-[95] h-[2px] w-full overflow-hidden"
         >
           <span
-            className="block h-full w-2/5 bg-gradient-to-r from-transparent via-[var(--ochre)] to-transparent"
+            className="block h-full w-2/5 bg-linear-to-r from-transparent via-[var(--ochre)] to-transparent"
             style={shouldReduceMotion ? undefined : { animation: 'route-pending-slide 920ms cubic-bezier(0.22, 1, 0.36, 1) infinite' }}
           />
         </motion.div>

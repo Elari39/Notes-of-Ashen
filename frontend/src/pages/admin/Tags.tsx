@@ -126,13 +126,13 @@ const AdminTags: React.FC = () => {
 
       <form onSubmit={handleSubmit} className="mb-8 flex flex-col md:flex-row gap-4 md:items-end">
         <div className="flex-1">
-          <input type="text" placeholder={t('common.name')} required value={name} onChange={e => setName(e.target.value)} className="w-full bg-transparent border-b border-mountain-grey py-2 focus:outline-none focus:border-ochre text-ink" />
+          <input type="text" placeholder={t('common.name')} required value={name} onChange={e => setName(e.target.value)} className="w-full bg-transparent border-b border-mountain-grey py-2 focus:outline-hidden focus:border-ochre text-ink" />
         </div>
         <div className="flex-1">
-          <input type="text" placeholder="Slug" required value={slug} onChange={e => setSlug(e.target.value)} className="w-full bg-transparent border-b border-mountain-grey py-2 focus:outline-none focus:border-ochre text-ink" />
+          <input type="text" placeholder="Slug" required value={slug} onChange={e => setSlug(e.target.value)} className="w-full bg-transparent border-b border-mountain-grey py-2 focus:outline-hidden focus:border-ochre text-ink" />
         </div>
         <div className="flex-1">
-          <input type="text" placeholder={t('common.description')} value={description} onChange={e => setDescription(e.target.value)} className="w-full bg-transparent border-b border-mountain-grey py-2 focus:outline-none focus:border-ochre text-ink" />
+          <input type="text" placeholder={t('common.description')} value={description} onChange={e => setDescription(e.target.value)} className="w-full bg-transparent border-b border-mountain-grey py-2 focus:outline-hidden focus:border-ochre text-ink" />
           <p className="mt-1 text-right text-xs text-ink-light" aria-live="polite">
             {formatText(t('common.byteUsage'), { used: utf8ByteLength(description.trim()), limit: MAX_TEXT_FIELD_BYTES })}
           </p>
@@ -170,7 +170,7 @@ const AdminTags: React.FC = () => {
             </thead>
             <tbody>
               {tags.map(tag => (
-                <tr key={tag.id} className="border-b border-mountain-grey border-opacity-50 hover:bg-mountain-grey hover:bg-opacity-20 transition-colors text-ink">
+                <tr key={tag.id} className="border-b border-mountain-grey/50 hover:bg-mountain-grey/20 transition-colors text-ink">
                   <td data-label={t('common.name')} className="admin-card-title py-4 font-bold relative before:content-['#'] before:mr-1 before:opacity-30">{tag.name}</td>
                   <td data-label="Slug" className="py-4 text-ink-light">{tag.slug}</td>
                   <td data-label={t('taxonomy.articleCount')} className="py-4 text-ink-light">{tag.articleCount}</td>

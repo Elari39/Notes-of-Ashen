@@ -38,7 +38,7 @@ const DropdownMenu: React.FC<DropdownMenuProps> = ({
           align={align}
           side={side}
           sideOffset={4}
-          className="z-[125] min-w-[11rem] rounded-lg border border-hairline bg-paper p-1.5 shadow-md focus:outline-none data-[state=open]:animate-in data-[state=open]:fade-in motion-reduce:animate-none"
+          className="z-[125] min-w-[11rem] rounded-lg border border-hairline bg-paper p-1.5 shadow-md focus:outline-hidden data-[state=open]:animate-in data-[state=open]:fade-in motion-reduce:animate-none"
         >
           {items.map((item, idx) => (
             <React.Fragment key={item.key}>
@@ -53,7 +53,7 @@ const DropdownMenu: React.FC<DropdownMenuProps> = ({
                 }}
                 className={[
                   'block rounded-sm px-3 py-2.5 text-xs font-medium cursor-pointer transition-colors duration-fast',
-                  'data-[highlighted]:bg-surface-soft data-[highlighted]:outline-none',
+                  'data-[highlighted]:bg-surface-soft data-[highlighted]:outline-hidden',
                   'data-[disabled]:opacity-50 data-[disabled]:cursor-not-allowed',
                   item.tone === 'danger'
                     ? 'text-ember data-[highlighted]:bg-[var(--ember-soft)] data-[highlighted]:text-ember'

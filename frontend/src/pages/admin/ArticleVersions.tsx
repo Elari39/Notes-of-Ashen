@@ -159,7 +159,7 @@ const ArticleVersions: React.FC = () => {
                 </tr>
               )}
               {versions.map((version) => (
-                <tr key={version.id} className="border-b border-mountain-grey border-opacity-50">
+                <tr key={version.id} className="border-b border-mountain-grey/50">
                   <td data-label={t('articleVersion.version')} className="py-4">#{version.versionNo}</td>
                   <td data-label={t('articleVersion.articleTitle')} className="admin-card-title py-4 font-bold">{version.title}</td>
                   <td data-label={t('articleVersion.status')} className="py-4 text-ink-light">{getArticleStatusLabel(language, version.status)}</td>

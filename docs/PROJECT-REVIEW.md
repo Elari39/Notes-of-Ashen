@@ -18,7 +18,7 @@
 - [x] P2-05：备份恢复改为媒体卷内暂存、持久 journal、可回滚发布与启动恢复。
 - [x] P2-06：Refresh Token Cookie 示例和后台用户管理路由文档已修正。
 - [x] P3-01：真实 HTTP、Compose 和 Chromium E2E 测试编排已完成，core 与 extended 已在干净 Docker 环境中完整通过。
-- [x] P3-02：已补 `type-check`、前端 CI 和 Tailwind 3.4 现状说明；Tailwind 4 升级按本轮范围明确不做。
+- [x] P3-02：已补 `type-check`、前端 CI，并于 2026-07-18 完成 Tailwind CSS 4 升级。
 
 ### 1.1 总体评价
 
@@ -50,7 +50,7 @@
 
 | 组件 | 实现 | 运行方式 |
 | --- | --- | --- |
-| Web | React 18、TypeScript、Vite、Tailwind CSS 3、Zustand、Axios | Nginx 非 root 镜像，容器端口 8080 |
+| Web | React 18、TypeScript、Vite、Tailwind CSS 4、Zustand、Axios | Nginx 非 root 镜像，容器端口 8080 |
 | API | Go 1.25、go-zero REST、JWT、bcrypt | 非 root Alpine 容器，容器端口 19000 |
 | 数据库 | MySQL 8.4 | 持久化 volume，首次创建时挂载 `deploy/mysql/schema.sql` |
 | 缓存/限流 | Redis 7.4 Alpine | AOF 持久化，内部网络访问 |
@@ -405,9 +405,9 @@ P2。不会影响前端同源浏览器主流程，但会影响 API 使用者和�
 
 P3，若项目进入多人协作或频繁发布阶段，建议提升到发布门禁项目。
 
-### [x] P3-02：前端构建工具链和项目约定存在版本表述不一致
+### [x] P3-02：前端构建工具链和项目约定已统一
 
-### 现状
+### 原现状
 
 - `frontend/package.json` 实际使用 `tailwindcss ^3.3.5`。
 - 根目录说明与项目约定对 Tailwind 版本的描述并不统一。
@@ -418,11 +418,12 @@ P3，若项目进入多人协作或频繁发布阶段，建议提升到发布门
 - 新贡献者可能按 Tailwind 4 语法修改，但当前构建链仍是 Tailwind 3。
 - CI 若只运行 `pnpm lint`，不会执行 TypeScript 类型检查和 Vite 构建。
 
-### 建议
+### 当前实施
 
-- 明确项目当前版本，或单独安排 Tailwind 4 升级任务，不要在问题修复中顺手升级。
-- 增加 `pnpm type-check` 脚本，明确执行 `tsc --noEmit`。
-- CI 固定执行 `pnpm lint`、`pnpm type-check`、`pnpm build` 和前端测试。
+- 前端已升级到 Tailwind CSS 4，并使用官方 `@tailwindcss/vite` 插件接入 Vite。
+- 保留现有 JavaScript 主题配置，通过 `@config` 兼容加载颜色、字体、圆角、阴影和 Typography 插件。
+- 已移除 Tailwind 3 使用的 PostCSS/Autoprefixer 配置，并迁移旧透明度、渐变、outline 与 blur 工具类。
+- 已增加独立 `pnpm type-check`，CI 固定执行 lint、类型检查、构建和前端测试。
 
 ### 优先级
 
@@ -501,7 +502,7 @@ P3，属于工程一致性和维护成本问题。
 
 1. 修正文档中的 Refresh Token 和后台用户管理接口示例。
 2. 增加 `pnpm type-check` 脚本和 CI 门禁。
-3. 统一 Tailwind 版本说明，是否升级到 Tailwind 4 另立任务评估。
+3. Tailwind CSS 4 升级及版本说明统一已完成。
 
 ## 7. 验证记录
 

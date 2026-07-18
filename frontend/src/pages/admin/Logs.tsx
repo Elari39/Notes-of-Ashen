@@ -140,7 +140,7 @@ const AdminLogs: React.FC = () => {
           <select
             value={filterForm.eventType}
             onChange={(event) => updateFilter('eventType', event.target.value)}
-            className="min-h-10 bg-paper border border-mountain-grey px-3 py-2 text-sm text-ink outline-none focus:border-ochre"
+            className="min-h-10 bg-paper border border-mountain-grey px-3 py-2 text-sm text-ink outline-hidden focus:border-ochre"
           >
             <option value="">{t('logs.allEvents')}</option>
             {LOG_EVENT_TYPES.map((eventType) => (
@@ -155,7 +155,7 @@ const AdminLogs: React.FC = () => {
           <input
             value={filterForm.actor}
             onChange={(event) => updateFilter('actor', event.target.value)}
-            className="min-h-10 bg-paper border border-mountain-grey px-3 py-2 text-sm text-ink outline-none focus:border-ochre"
+            className="min-h-10 bg-paper border border-mountain-grey px-3 py-2 text-sm text-ink outline-hidden focus:border-ochre"
           />
         </label>
         <label className="flex flex-col gap-1 text-xs tracking-wider text-ink-light">
@@ -164,7 +164,7 @@ const AdminLogs: React.FC = () => {
             value={filterForm.ip}
             onChange={(event) => updateFilter('ip', event.target.value)}
             inputMode="text"
-            className="min-h-10 bg-paper border border-mountain-grey px-3 py-2 font-mono text-sm text-ink outline-none focus:border-ochre"
+            className="min-h-10 bg-paper border border-mountain-grey px-3 py-2 font-mono text-sm text-ink outline-hidden focus:border-ochre"
           />
         </label>
         <label className="flex flex-col gap-1 text-xs tracking-wider text-ink-light">
@@ -173,7 +173,7 @@ const AdminLogs: React.FC = () => {
             type="date"
             value={filterForm.startDate}
             onChange={(event) => updateFilter('startDate', event.target.value)}
-            className="min-h-10 bg-paper border border-mountain-grey px-3 py-2 text-sm text-ink outline-none focus:border-ochre"
+            className="min-h-10 bg-paper border border-mountain-grey px-3 py-2 text-sm text-ink outline-hidden focus:border-ochre"
           />
         </label>
         <label className="flex flex-col gap-1 text-xs tracking-wider text-ink-light">
@@ -182,7 +182,7 @@ const AdminLogs: React.FC = () => {
             type="date"
             value={filterForm.endDate}
             onChange={(event) => updateFilter('endDate', event.target.value)}
-            className="min-h-10 bg-paper border border-mountain-grey px-3 py-2 text-sm text-ink outline-none focus:border-ochre"
+            className="min-h-10 bg-paper border border-mountain-grey px-3 py-2 text-sm text-ink outline-hidden focus:border-ochre"
           />
         </label>
         <div className="flex items-end gap-2">
@@ -236,7 +236,7 @@ const AdminLogs: React.FC = () => {
                 const metadata = parseLogMetadata(log.metadata);
                 return (
                   <React.Fragment key={log.id}>
-                    <tr className={`log-main-row border-b border-mountain-grey border-opacity-50 hover:bg-mountain-grey hover:bg-opacity-20 transition-colors text-ink ${expanded ? 'log-main-row-expanded' : ''}`}>
+                    <tr className={`log-main-row border-b border-mountain-grey/50 hover:bg-mountain-grey/20 transition-colors text-ink ${expanded ? 'log-main-row-expanded' : ''}`}>
                       <td data-label={t('logs.event')} className="admin-card-title py-4">
                         <Tag tone={eventPresentation.tone} size="sm">{eventPresentation.label}</Tag>
                         <div className="mt-1 break-all font-mono text-[0.7rem] text-ink-light opacity-70">

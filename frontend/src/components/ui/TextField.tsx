@@ -64,7 +64,7 @@ const TextField = React.forwardRef<HTMLInputElement | HTMLTextAreaElement, TextF
           aria-invalid={invalid || undefined}
           className={[
             'block w-full resize-y rounded-md border bg-paper px-3.5 py-3 text-sm leading-relaxed transition-[border-color,box-shadow] duration-fast ease-paper',
-            'focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ochre',
+            'focus:outline-hidden focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ochre',
             invalid
               ? 'border-ember text-ember placeholder:text-ember/60'
               : 'border-hairline text-ink placeholder:text-muted hover:border-muted focus:border-ochre focus:ring-[3px] focus:ring-[var(--inline-code-bg)]',
@@ -89,7 +89,7 @@ const TextField = React.forwardRef<HTMLInputElement | HTMLTextAreaElement, TextF
           ref={ref as React.Ref<HTMLInputElement>}
           aria-invalid={invalid || undefined}
           className={[
-            'block w-full bg-transparent placeholder:text-ink-light placeholder:opacity-50 focus:outline-none',
+            'block w-full bg-transparent placeholder:text-ink-light placeholder:opacity-50 focus:outline-hidden',
             sizeInputClass[size],
             invalid ? 'placeholder:text-ember/60' : '',
             className,

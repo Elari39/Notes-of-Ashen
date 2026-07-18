@@ -81,7 +81,7 @@ const ImageLightbox: React.FC<ImageLightboxProps> = ({ image, onClose }) => {
         data-lightbox-focus
         onClick={onClose}
         aria-label={t('imageLightbox.close')}
-        className="absolute right-4 top-4 inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/60 bg-black/40 text-white hover:bg-black/60 focus:outline-none focus:ring-2 focus:ring-ochre"
+        className="absolute right-4 top-4 inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/60 bg-black/40 text-white hover:bg-black/60 focus:outline-hidden focus:ring-2 focus:ring-ochre"
       >
         <span aria-hidden="true" className="text-xl leading-none">&times;</span>
       </button>
