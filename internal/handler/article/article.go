@@ -261,7 +261,7 @@ func UpdateStatusHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 			return
 		}
 		var req types.ArticleStatusReq
-		if err := basehandler.Parse(r, &req); err != nil {
+		if err := basehandler.ParseLimited(w, r, &req, basehandler.SmallJSONBodyLimit); err != nil {
 			response.ErrorCtx(r.Context(), w, err)
 			return
 		}
@@ -277,7 +277,7 @@ func UpdateStatusHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 func AIAssistHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req types.AIAssistReq
-		if err := basehandler.Parse(r, &req); err != nil {
+		if err := basehandler.ParseLimited(w, r, &req, basehandler.StandardJSONBodyLimit); err != nil {
 			response.ErrorCtx(r.Context(), w, err)
 			return
 		}

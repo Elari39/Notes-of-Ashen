@@ -74,6 +74,12 @@ type ArticleCreate struct {
 	TagIDs          []uint64
 }
 
+type MarkdownArticleImport struct {
+	Article  ArticleCreate
+	Category *TaxonomyCreate
+	Tags     []TaxonomyCreate
+}
+
 type ArticleUpdate struct {
 	CategoryID      uint64
 	Title           string
@@ -133,23 +139,106 @@ type ArticleVersion struct {
 func (s *Store) CreateArticle(ctx context.Context, in ArticleCreate) (uint64, error) {
 	var id uint64
 	err := WithTx(ctx, s.db, func(tx *sql.Tx) error {
-		publishedAt := publishedAtForCreate(in.Status, in.ScheduledAt)
-		res, err := tx.ExecContext(ctx, `
-INSERT INTO articles (author_id, category_id, title, slug, summary, content, cover_url, status, scheduled_at, published_at, is_pinned, display_priority, seo_title, seo_description, seo_keywords)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-			in.AuthorID, nullableUint64(in.CategoryID), in.Title, in.Slug, in.Summary, in.Content, in.CoverURL, in.Status,
-			nullableTime(in.ScheduledAt), nullableTime(publishedAt), in.IsPinned, in.DisplayPriority, in.SEOTitle, in.SEODescription, in.SEOKeywords)
-		if err != nil {
-			return err
-		}
-		insertID, err := res.LastInsertId()
-		if err != nil {
-			return err
-		}
-		id = uint64(insertID)
-		return replaceArticleTags(ctx, tx, id, in.TagIDs)
+		var err error
+		id, err = createArticleTx(ctx, tx, in)
+		return err
 	})
 	return id, err
+}
+
+// CreateMarkdownArticle 将 Markdown 导入所需的 taxonomy ensure、文章和标签关系
+// 放入同一事务，后续任一写入失败都会整体回滚。
+func (s *Store) CreateMarkdownArticle(ctx context.Context, in MarkdownArticleImport) (uint64, error) {
+	var id uint64
+	err := WithTx(ctx, s.db, func(tx *sql.Tx) error {
+		article := in.Article
+		if in.Category != nil {
+			categoryID, err := ensureImportCategoryTx(ctx, tx, *in.Category)
+			if err != nil {
+				return err
+			}
+			article.CategoryID = categoryID
+		}
+		article.TagIDs = make([]uint64, 0, len(in.Tags))
+		for _, tag := range in.Tags {
+			tagID, err := ensureImportTagTx(ctx, tx, tag)
+			if err != nil {
+				return err
+			}
+			article.TagIDs = append(article.TagIDs, tagID)
+		}
+		var err error
+		id, err = createArticleTx(ctx, tx, article)
+		return err
+	})
+	return id, err
+}
+
+func createArticleTx(ctx context.Context, tx *sql.Tx, in ArticleCreate) (uint64, error) {
+	publishedAt := publishedAtForCreate(in.Status, in.ScheduledAt)
+	res, err := tx.ExecContext(ctx, `
+INSERT INTO articles (author_id, category_id, title, slug, summary, content, cover_url, status, scheduled_at, published_at, is_pinned, display_priority, seo_title, seo_description, seo_keywords)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		in.AuthorID, nullableUint64(in.CategoryID), in.Title, in.Slug, in.Summary, in.Content, in.CoverURL, in.Status,
+		nullableTime(in.ScheduledAt), nullableTime(publishedAt), in.IsPinned, in.DisplayPriority, in.SEOTitle, in.SEODescription, in.SEOKeywords)
+	if err != nil {
+		return 0, err
+	}
+	insertID, err := res.LastInsertId()
+	if err != nil {
+		return 0, err
+	}
+	id := uint64(insertID)
+	if err := replaceArticleTags(ctx, tx, id, in.TagIDs); err != nil {
+		return 0, err
+	}
+	return id, nil
+}
+
+func ensureImportCategoryTx(ctx context.Context, tx *sql.Tx, in TaxonomyCreate) (uint64, error) {
+	item, err := scanCategory(tx.QueryRowContext(ctx, `
+SELECT id, name, slug, description, created_by, created_at, updated_at
+FROM categories WHERE name = ? OR slug = ? ORDER BY CASE WHEN slug = ? THEN 0 ELSE 1 END LIMIT 1`, in.Name, in.Slug, in.Slug))
+	if err == nil {
+		return item.ID, nil
+	}
+	if err != ErrNotFound {
+		return 0, err
+	}
+	res, err := tx.ExecContext(ctx, `INSERT INTO categories (name, slug, description, created_by) VALUES (?, ?, ?, ?)`, in.Name, in.Slug, in.Description, in.CreatedBy)
+	if err != nil {
+		if existing, findErr := scanCategory(tx.QueryRowContext(ctx, `
+SELECT id, name, slug, description, created_by, created_at, updated_at
+FROM categories WHERE name = ? OR slug = ? ORDER BY CASE WHEN slug = ? THEN 0 ELSE 1 END LIMIT 1`, in.Name, in.Slug, in.Slug)); findErr == nil {
+			return existing.ID, nil
+		}
+		return 0, err
+	}
+	id, err := res.LastInsertId()
+	return uint64(id), err
+}
+
+func ensureImportTagTx(ctx context.Context, tx *sql.Tx, in TaxonomyCreate) (uint64, error) {
+	item, err := scanTag(tx.QueryRowContext(ctx, `
+SELECT id, name, slug, description, created_by, created_at, updated_at
+FROM tags WHERE name = ? OR slug = ? ORDER BY CASE WHEN slug = ? THEN 0 ELSE 1 END LIMIT 1`, in.Name, in.Slug, in.Slug))
+	if err == nil {
+		return item.ID, nil
+	}
+	if err != ErrNotFound {
+		return 0, err
+	}
+	res, err := tx.ExecContext(ctx, `INSERT INTO tags (name, slug, description, created_by) VALUES (?, ?, ?, ?)`, in.Name, in.Slug, in.Description, in.CreatedBy)
+	if err != nil {
+		if existing, findErr := scanTag(tx.QueryRowContext(ctx, `
+SELECT id, name, slug, description, created_by, created_at, updated_at
+FROM tags WHERE name = ? OR slug = ? ORDER BY CASE WHEN slug = ? THEN 0 ELSE 1 END LIMIT 1`, in.Name, in.Slug, in.Slug)); findErr == nil {
+			return existing.ID, nil
+		}
+		return 0, err
+	}
+	id, err := res.LastInsertId()
+	return uint64(id), err
 }
 
 func (s *Store) UpdateArticle(ctx context.Context, id uint64, in ArticleUpdate, changedBy uint64) error {

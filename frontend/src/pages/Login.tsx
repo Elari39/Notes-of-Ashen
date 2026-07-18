@@ -37,6 +37,7 @@ const Login: React.FC = () => {
   );
   const t = (key: Parameters<typeof translate>[1]) => translate(language, key);
   const from = (location.state as { from?: Location } | null)?.from;
+	const passwordChanged = Boolean((location.state as { passwordChanged?: boolean } | null)?.passwordChanged);
   const redirectTo = from && from.pathname !== '/login'
     ? `${from.pathname}${from.search}${from.hash}`
     : '/';
@@ -153,6 +154,7 @@ const Login: React.FC = () => {
             onCaptchaCodeChange={setCaptchaCode}
             reloadKey={captchaReloadKey}
           />
+          {passwordChanged && <InlineNotice message={t('auth.passwordChangedLogin')} tone="success" />}
           <InlineNotice message={error} />
           <div className="pt-4">
             <Button

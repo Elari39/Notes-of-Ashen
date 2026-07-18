@@ -81,25 +81,20 @@ func replaceProjectItemsTx(ctx context.Context, tx *sql.Tx, items []ProjectItem)
 	if len(items) == 0 {
 		return nil
 	}
-	// 批量插入 projects。MySQL 多值 INSERT 的 LastInsertId 返回首行自增 id，
-	// 后续行按 auto_increment_increment（默认 1）递增，故 insertID+index 可映射回每行。
-	args := make([]any, 0, len(items)*10)
-	var b strings.Builder
-	b.WriteString(`INSERT INTO projects (title, summary, role, period, cover_url, demo_url, repo_url, content_markdown, featured, display_order) VALUES `)
+	projectIDs := make([]uint64, 0, len(items))
 	for index, item := range items {
-		if index > 0 {
-			b.WriteByte(',')
+		res, err := tx.ExecContext(ctx, `
+INSERT INTO projects (title, summary, role, period, cover_url, demo_url, repo_url, content_markdown, featured, display_order)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, item.Title, item.Summary, item.Role, item.Period,
+			item.CoverURL, item.DemoURL, item.RepoURL, item.ContentMarkdown, item.Featured, index+1)
+		if err != nil {
+			return err
 		}
-		b.WriteString("(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
-		args = append(args, item.Title, item.Summary, item.Role, item.Period, item.CoverURL, item.DemoURL, item.RepoURL, item.ContentMarkdown, item.Featured, index+1)
-	}
-	res, err := tx.ExecContext(ctx, b.String(), args...)
-	if err != nil {
-		return err
-	}
-	firstID, err := res.LastInsertId()
-	if err != nil {
-		return err
+		projectID, err := res.LastInsertId()
+		if err != nil {
+			return err
+		}
+		projectIDs = append(projectIDs, uint64(projectID))
 	}
 	// 批量插入 project_tags。
 	var tagB strings.Builder
@@ -107,7 +102,7 @@ func replaceProjectItemsTx(ctx context.Context, tx *sql.Tx, items []ProjectItem)
 	tagArgs := make([]any, 0, len(items)*2)
 	tagCount := 0
 	for index, item := range items {
-		projectID := uint64(firstID) + uint64(index)
+		projectID := projectIDs[index]
 		for _, tagID := range uniqueUint64(item.TagIDs) {
 			if tagCount > 0 {
 				tagB.WriteByte(',')
@@ -120,8 +115,57 @@ func replaceProjectItemsTx(ctx context.Context, tx *sql.Tx, items []ProjectItem)
 	if tagCount == 0 {
 		return nil
 	}
-	_, err = tx.ExecContext(ctx, tagB.String(), tagArgs...)
+	_, err := tx.ExecContext(ctx, tagB.String(), tagArgs...)
 	return err
+}
+
+func hydrateProjectTagsTx(ctx context.Context, tx *sql.Tx, items []ProjectItem) ([]ProjectItem, error) {
+	allIDs := make([]uint64, 0)
+	for _, item := range items {
+		allIDs = append(allIDs, item.TagIDs...)
+	}
+	allIDs = uniqueUint64(allIDs)
+	if len(allIDs) == 0 {
+		for index := range items {
+			items[index].Tags = []string{}
+			items[index].TagIDs = nonNilUint64s(items[index].TagIDs)
+		}
+		return items, nil
+	}
+	placeholders := strings.TrimRight(strings.Repeat("?,", len(allIDs)), ",")
+	args := make([]any, 0, len(allIDs))
+	for _, id := range allIDs {
+		args = append(args, id)
+	}
+	rows, err := tx.QueryContext(ctx, "SELECT id, name FROM tags WHERE id IN ("+placeholders+") ORDER BY name", args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	names := make(map[uint64]string, len(allIDs))
+	for rows.Next() {
+		var id uint64
+		var name string
+		if err := rows.Scan(&id, &name); err != nil {
+			return nil, err
+		}
+		names[id] = name
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	if len(names) != len(allIDs) {
+		return nil, ErrNotFound
+	}
+	for index, item := range items {
+		item.TagIDs = uniqueUint64(item.TagIDs)
+		item.Tags = make([]string, 0, len(item.TagIDs))
+		for _, id := range item.TagIDs {
+			item.Tags = append(item.Tags, names[id])
+		}
+		items[index] = item
+	}
+	return items, nil
 }
 
 func (s *Store) projectTags(ctx context.Context, projectIDs []uint64) (map[uint64][]string, map[uint64][]uint64, error) {

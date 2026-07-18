@@ -50,7 +50,7 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  if (request.mode === 'navigate') {
+  if (request.mode === 'navigate' && isSpaNavigationPath(url.pathname)) {
     event.respondWith(navigationFallback(request));
     return;
   }
@@ -94,9 +94,10 @@ const networkFirst = async (request, cacheName) => {
 const navigationFallback = async (request) => {
   try {
     const response = await fetch(request);
-    const cache = await caches.open(SHELL_CACHE);
-    if (response.ok) {
-      cache.put('/index.html', response.clone());
+    const contentType = response.headers.get('Content-Type') || '';
+    if (response.ok && contentType.toLowerCase().includes('text/html')) {
+      const cache = await caches.open(SHELL_CACHE);
+      await cache.put('/index.html', response.clone());
     }
     return response;
   } catch {
@@ -120,3 +121,15 @@ const trimCache = async (cacheName, maxItems) => {
 };
 
 const isStaticAsset = (pathname) => /\.(?:js|css|svg|png|jpg|jpeg|webp|woff2?)$/i.test(pathname);
+
+const isSpaNavigationPath = (pathname) => {
+  if (pathname === '/rss.xml'
+    || pathname === '/sitemap.xml'
+    || pathname === '/healthz'
+    || pathname === '/livez'
+    || pathname.startsWith('/api/')
+    || pathname.startsWith('/media/')) {
+    return false;
+  }
+  return !/\.[a-z0-9]+$/i.test(pathname);
+};

@@ -6,6 +6,7 @@ import (
 	"database/sql/driver"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"strings"
 	"sync"
@@ -82,6 +83,26 @@ func (c *recordingExecConn) ExecContext(_ context.Context, query string, _ []dri
 	return driver.RowsAffected(1), nil
 }
 
+func (c *recordingExecConn) QueryContext(_ context.Context, query string, _ []driver.NamedValue) (driver.Rows, error) {
+	c.driver.mu.Lock()
+	c.driver.queries = append(c.driver.queries, query)
+	c.driver.mu.Unlock()
+	return &singleTokenVersionRow{}, nil
+}
+
+type singleTokenVersionRow struct{ read bool }
+
+func (*singleTokenVersionRow) Columns() []string { return []string{"token_version"} }
+func (*singleTokenVersionRow) Close() error      { return nil }
+func (r *singleTokenVersionRow) Next(dest []driver.Value) error {
+	if r.read {
+		return io.EOF
+	}
+	r.read = true
+	dest[0] = int64(0)
+	return nil
+}
+
 func TestIssueTokensSucceedsWhenRefreshTokenCacheWriteFails(t *testing.T) {
 	recordingDriver := &recordingExecDriver{}
 	driverName := fmt.Sprintf("auth-recording-%d", recordingDriverSequence.Add(1))
@@ -121,8 +142,8 @@ func TestIssueTokensSucceedsWhenRefreshTokenCacheWriteFails(t *testing.T) {
 	if pair == nil || pair.AccessToken == "" || pair.RefreshToken == "" {
 		t.Fatalf("issueTokens returned invalid token pair: %#v", pair)
 	}
-	if len(queries) != 1 || !strings.Contains(queries[0], "INSERT INTO refresh_tokens") {
-		t.Fatalf("database queries = %#v, want only refresh token INSERT", queries)
+	if len(queries) != 2 || !strings.Contains(queries[0], "SELECT token_version") || !strings.Contains(queries[1], "INSERT INTO refresh_tokens") {
+		t.Fatalf("database queries = %#v, want token version SELECT and refresh token INSERT", queries)
 	}
 }
 
@@ -134,6 +155,9 @@ func TestIssueTokensFailsWhenRefreshTokenDatabaseWriteFails(t *testing.T) {
 	t.Cleanup(func() { _ = db.Close() })
 
 	databaseErr := errors.New("database unavailable")
+	mock.ExpectQuery("SELECT token_version FROM users").
+		WithArgs(uint64(42)).
+		WillReturnRows(sqlmock.NewRows([]string{"token_version"}).AddRow(uint64(0)))
 	mock.ExpectExec("INSERT INTO refresh_tokens").
 		WithArgs(uint64(42), sqlmock.AnyArg(), sqlmock.AnyArg()).
 		WillReturnError(databaseErr)

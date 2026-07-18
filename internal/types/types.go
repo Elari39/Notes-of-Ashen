@@ -98,10 +98,25 @@ type ProjectsPageResp struct {
 	Items    []ProjectItem `json:"items"`
 }
 
+type UpdateProjectItemReq struct {
+	ID              string   `json:"id,optional"`
+	TagIDs          []uint64 `json:"tagIds,optional"`
+	Title           string   `json:"title"`
+	Summary         string   `json:"summary,optional"`
+	Role            string   `json:"role,optional"`
+	Period          string   `json:"period,optional"`
+	Tags            []string `json:"tags,optional"`
+	CoverURL        string   `json:"coverUrl,optional"`
+	DemoURL         string   `json:"demoUrl,optional"`
+	RepoURL         string   `json:"repoUrl,optional"`
+	ContentMarkdown string   `json:"contentMarkdown,optional"`
+	Featured        bool     `json:"featured,optional"`
+}
+
 type UpdateProjectsPageReq struct {
-	Title    string        `json:"title"`
-	Subtitle string        `json:"subtitle,optional"`
-	Items    []ProjectItem `json:"items"`
+	Title    string                 `json:"title"`
+	Subtitle string                 `json:"subtitle,optional"`
+	Items    []UpdateProjectItemReq `json:"items"`
 }
 
 type RequestMeta struct {

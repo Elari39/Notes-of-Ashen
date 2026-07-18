@@ -74,7 +74,7 @@ func (s *Store) ExportBackup(ctx context.Context) (*BackupSnapshot, error) {
 }
 
 func backupUsers(ctx context.Context, tx *sql.Tx) ([]User, error) {
-	rows, err := tx.QueryContext(ctx, `SELECT id, account, password_hash, email, avatar_url, nickname, role, status, created_at, updated_at FROM users ORDER BY id`)
+	rows, err := tx.QueryContext(ctx, `SELECT id, account, password_hash, email, avatar_url, nickname, role, status, token_version, created_at, updated_at FROM users ORDER BY id`)
 	if err != nil {
 		return nil, err
 	}
@@ -82,7 +82,7 @@ func backupUsers(ctx context.Context, tx *sql.Tx) ([]User, error) {
 	items := make([]User, 0)
 	for rows.Next() {
 		var item User
-		if err := rows.Scan(&item.ID, &item.Account, &item.PasswordHash, &item.Email, &item.AvatarURL, &item.Nickname, &item.Role, &item.Status, &item.CreatedAt, &item.UpdatedAt); err != nil {
+		if err := rows.Scan(&item.ID, &item.Account, &item.PasswordHash, &item.Email, &item.AvatarURL, &item.Nickname, &item.Role, &item.Status, &item.TokenVersion, &item.CreatedAt, &item.UpdatedAt); err != nil {
 			return nil, err
 		}
 		items = append(items, item)
@@ -278,7 +278,7 @@ func (s *Store) restoreBackup(ctx context.Context, snapshot BackupSnapshot, rest
 		}
 	}
 	for _, u := range snapshot.Users {
-		if _, err := tx.ExecContext(ctx, `INSERT INTO users(id,account,password_hash,email,avatar_url,nickname,role,status,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?)`, u.ID, u.Account, u.PasswordHash, u.Email, u.AvatarURL, u.Nickname, u.Role, u.Status, u.CreatedAt, u.UpdatedAt); err != nil {
+		if _, err := tx.ExecContext(ctx, `INSERT INTO users(id,account,password_hash,email,avatar_url,nickname,role,status,token_version,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)`, u.ID, u.Account, u.PasswordHash, u.Email, u.AvatarURL, u.Nickname, u.Role, u.Status, u.TokenVersion, u.CreatedAt, u.UpdatedAt); err != nil {
 			return err
 		}
 	}

@@ -143,17 +143,17 @@ const AdminProjectsContent: React.FC = () => {
         title: draft.title.trim(),
         subtitle: draft.subtitle.trim(),
         items: draft.items.map((item) => ({
-          ...item,
           id: item.id.trim(),
+          tagIds: normalizeTagIds(item.tagIds || []),
           title: item.title.trim(),
           summary: item.summary.trim(),
           role: item.role.trim(),
           period: item.period.trim(),
-          tags: normalizeTags(item.tags),
-          tagIds: normalizeTagIds(item.tagIds || []),
           coverUrl: item.coverUrl.trim(),
           demoUrl: item.demoUrl.trim(),
           repoUrl: item.repoUrl.trim(),
+          contentMarkdown: item.contentMarkdown,
+          featured: item.featured,
         })),
       });
       const next = normalizeProjectsPage(res.data, t('projectAdmin.defaultTitle'));
@@ -546,23 +546,6 @@ const createEmptyProject = (): ProjectItem => ({
   contentMarkdown: '',
   featured: false,
 });
-
-const normalizeTags = (tags: string[]) => {
-  const seen = new Set<string>();
-  return tags
-    .map((tag) => tag.trim())
-    .filter((tag) => {
-      if (!tag) {
-        return false;
-      }
-      const key = tag.toLowerCase();
-      if (seen.has(key)) {
-        return false;
-      }
-      seen.add(key);
-      return true;
-    });
-};
 
 const normalizeTagIds = (tagIds: number[]) => Array.from(new Set(tagIds.filter((id) => id > 0)));
 

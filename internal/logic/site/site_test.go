@@ -138,12 +138,12 @@ func TestValidateProjectsPageReq(t *testing.T) {
 	content, err := validateProjectsPageReq(types.UpdateProjectsPageReq{
 		Title:    " 项目 ",
 		Subtitle: " 作品集 ",
-		Items: []types.ProjectItem{
+		Items: []types.UpdateProjectItemReq{
 			{
 				ID:              "one",
 				Title:           " Go Blog ",
 				Summary:         "A blog",
-				Tags:            []string{"Go", "go", "React"},
+				TagIDs:          []uint64{2, 2, 3},
 				DemoURL:         "https://1.1.1.1",
 				ContentMarkdown: "## Detail",
 				Featured:        true,
@@ -157,7 +157,7 @@ func TestValidateProjectsPageReq(t *testing.T) {
 		t.Fatalf("content = %#v, want normalized page and one item", content)
 	}
 	item := content.Items[0]
-	if item.Title != "Go Blog" || len(item.Tags) != 2 || item.Tags[0] != "Go" || !item.Featured {
+	if item.Title != "Go Blog" || len(item.TagIDs) != 2 || item.TagIDs[0] != 2 || !item.Featured {
 		t.Fatalf("item = %#v, want normalized project item", item)
 	}
 }
@@ -165,7 +165,14 @@ func TestValidateProjectsPageReq(t *testing.T) {
 func TestValidateProjectsPageReqRejectsInvalidItems(t *testing.T) {
 	if _, err := validateProjectsPageReq(types.UpdateProjectsPageReq{
 		Title: "项目",
-		Items: []types.ProjectItem{
+		Items: []types.UpdateProjectItemReq{{ID: "one", Title: "One", Tags: []string{"Go"}}},
+	}); err == nil {
+		t.Fatal("validateProjectsPageReq should reject legacy tags writes")
+	}
+
+	if _, err := validateProjectsPageReq(types.UpdateProjectsPageReq{
+		Title: "项目",
+		Items: []types.UpdateProjectItemReq{
 			{ID: "same", Title: "One"},
 			{ID: "same", Title: "Two"},
 		},
@@ -175,7 +182,7 @@ func TestValidateProjectsPageReqRejectsInvalidItems(t *testing.T) {
 
 	if _, err := validateProjectsPageReq(types.UpdateProjectsPageReq{
 		Title: "项目",
-		Items: []types.ProjectItem{{ID: "one", Title: "One", RepoURL: "ftp://example.com/repo"}},
+		Items: []types.UpdateProjectItemReq{{ID: "one", Title: "One", RepoURL: "ftp://example.com/repo"}},
 	}); err == nil {
 		t.Fatal("validateProjectsPageReq should reject non-http URLs")
 	}

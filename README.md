@@ -210,6 +210,7 @@ Copy-Item .env.example .env
   16. `add_operation_logs_filter_indexes.sql` — operation_logs 表事件/来源 IP 与时间复合索引（幂等）
   17. `add_ai_api_format_setting.sql` — 为 AI 设置补充 `apiFormat`，默认使用 `openai`（幂等，不删除旧设置键）
   18. `add_media_content_analytics.sql` — 本地媒体元数据、页面/文章每日 PV/UV 聚合及访客去重表
+	19. `add_user_token_version.sql` — 用户级 Access Token 版本；改密、重置密码和管理员变更状态/角色后立即撤销旧会话
   19. `add_home_cta_visibility_setting.sql` — 首页“继续探索”模块显示开关，默认保持显示（幂等）
 
 历史增量脚本保持不变。已部署数据库中的 `resume_*` 表和相关站点设置不会被运行时代码访问，也无需为本次升级执行破坏性删除。
@@ -285,7 +286,9 @@ docker compose up -d --build
 
 Docker Compose 使用 `goblog_media_data` 同时挂载到 API 的 `/data/media`（可写）和 Web 的 `/usr/share/nginx/media`（只读）。Nginx 以 `/media/` 提供不可变长期缓存；不要在 Web 容器内直接修改媒体文件。非 Docker 开发使用 `Media.RootDir` 或 `APP_MEDIA_ROOT`，并由 Vite 将 `/media` 代理到 API。
 
-媒体仅接受 JPEG、PNG、GIF 和 WebP，按内容 SHA-256 保存和去重。后台 `editor/admin` 可浏览与上传，只有 `admin` 可删除；被文章、历史版本、作品或头像引用的媒体不会被删除。
+媒体仅接受 JPEG、PNG、GIF 和 WebP，按内容 SHA-256 保存和去重。上传先写入隐藏暂存文件，元数据成功后再原子发布；删除先移入隐藏隔离区，数据库失败时恢复，进程中断残留会在后续媒体操作中按数据库状态恢复或清理。后台 `editor/admin` 可浏览与上传，只有 `admin` 可删除；被文章、历史版本、作品或头像引用的媒体不会被删除。
+
+Web 入口的 `GET /healthz` 代理到 API readiness，会反映数据库、Redis 和 schema 状态；`GET /livez` 仅表示 Nginx 静态入口存活。监控与负载均衡应使用 `/healthz` 判断应用是否可接流量。
 
 “内容分析”从 `traffic_content_daily_stats` 新表部署后开始累计页面和文章级 PV/UV，无法从旧的文章总浏览量可靠回填。用于 UV 去重的访客哈希明细会定期清理，每日聚合长期保留；不采集设备、浏览器和地域信息。
 

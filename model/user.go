@@ -35,6 +35,7 @@ type User struct {
 	Nickname     string
 	Role         string
 	Status       string
+	TokenVersion uint64
 	CreatedAt    time.Time
 	UpdatedAt    time.Time
 }
@@ -156,7 +157,7 @@ func (tx *UserRegistrationTx) RegistrationEnabled(ctx context.Context) (bool, er
 
 func (tx *UserRegistrationTx) FindUserByAccountOrEmail(ctx context.Context, value string) (*User, error) {
 	row := tx.tx.QueryRowContext(ctx, `
-	SELECT id, account, password_hash, email, avatar_url, nickname, role, status, created_at, updated_at
+	SELECT id, account, password_hash, email, avatar_url, nickname, role, status, token_version, created_at, updated_at
 	FROM users WHERE account = ? OR email = ? LIMIT 1`, value, value)
 	return scanUser(row)
 }
@@ -186,28 +187,28 @@ func (s *Store) CreateUser(ctx context.Context, in UserCreate) (uint64, error) {
 
 func (s *Store) FindUserByID(ctx context.Context, id uint64) (*User, error) {
 	row := s.db.QueryRowContext(ctx, `
-	SELECT id, account, password_hash, email, avatar_url, nickname, role, status, created_at, updated_at
+	SELECT id, account, password_hash, email, avatar_url, nickname, role, status, token_version, created_at, updated_at
 	FROM users WHERE id = ?`, id)
 	return scanUser(row)
 }
 
 func (s *Store) FindUserByAccountOrEmail(ctx context.Context, accountOrEmail string) (*User, error) {
 	row := s.db.QueryRowContext(ctx, `
-	SELECT id, account, password_hash, email, avatar_url, nickname, role, status, created_at, updated_at
+	SELECT id, account, password_hash, email, avatar_url, nickname, role, status, token_version, created_at, updated_at
 	FROM users WHERE account = ? OR email = ? LIMIT 1`, accountOrEmail, accountOrEmail)
 	return scanUser(row)
 }
 
 func (s *Store) FindUserByAccount(ctx context.Context, account string) (*User, error) {
 	row := s.db.QueryRowContext(ctx, `
-	SELECT id, account, password_hash, email, avatar_url, nickname, role, status, created_at, updated_at
+	SELECT id, account, password_hash, email, avatar_url, nickname, role, status, token_version, created_at, updated_at
 	FROM users WHERE account = ? LIMIT 1`, account)
 	return scanUser(row)
 }
 
 func (s *Store) FindUserByEmail(ctx context.Context, email string) (*User, error) {
 	row := s.db.QueryRowContext(ctx, `
-	SELECT id, account, password_hash, email, avatar_url, nickname, role, status, created_at, updated_at
+	SELECT id, account, password_hash, email, avatar_url, nickname, role, status, token_version, created_at, updated_at
 	FROM users WHERE email = ? LIMIT 1`, email)
 	return scanUser(row)
 }
@@ -228,6 +229,36 @@ func (s *Store) UpdateUserPassword(ctx context.Context, id uint64, passwordHash 
 		return err
 	}
 	return s.requireUserUpdateAffected(ctx, id, res)
+}
+
+// UpdateUserPasswordAndRevokeTokens 在同一事务中更新密码、递增 Access Token
+// 版本并撤销全部 Refresh Token，避免任一步骤成功后留下旧会话窗口。
+func (s *Store) UpdateUserPasswordAndRevokeTokens(ctx context.Context, id uint64, passwordHash string) error {
+	return WithTx(ctx, s.db, func(tx *sql.Tx) error {
+		res, err := tx.ExecContext(ctx, `
+UPDATE users SET password_hash = ?, token_version = token_version + 1 WHERE id = ?`, passwordHash, id)
+		if err != nil {
+			return err
+		}
+		if err := requireUpdateAffected(ctx, res, func(ctx context.Context) error {
+			var exists int
+			return tx.QueryRowContext(ctx, "SELECT 1 FROM users WHERE id = ?", id).Scan(&exists)
+		}); err != nil {
+			return err
+		}
+		_, err = tx.ExecContext(ctx, `
+UPDATE refresh_tokens SET revoked_at = NOW()
+WHERE user_id = ? AND revoked_at IS NULL`, id)
+		return err
+	})
+}
+
+func (s *Store) UserTokenVersion(ctx context.Context, id uint64) (uint64, error) {
+	var version uint64
+	if err := s.db.QueryRowContext(ctx, "SELECT token_version FROM users WHERE id = ?", id).Scan(&version); err != nil {
+		return 0, scanErr(err)
+	}
+	return version, nil
 }
 
 func (s *Store) UpdateUserStatusSafely(ctx context.Context, id, currentID uint64, status string) error {
@@ -285,11 +316,16 @@ func (s *Store) updateUserAdminFieldsSafely(ctx context.Context, id, currentID u
 			return errors.New("unsupported user field update")
 		}
 
-		query := "UPDATE users SET status = ?, updated_at = NOW() WHERE id = ?"
+		query := "UPDATE users SET status = ?, token_version = token_version + 1, updated_at = NOW() WHERE id = ?"
 		if field == "role" {
-			query = "UPDATE users SET role = ?, updated_at = NOW() WHERE id = ?"
+			query = "UPDATE users SET role = ?, token_version = token_version + 1, updated_at = NOW() WHERE id = ?"
 		}
-		_, err = tx.ExecContext(ctx, query, value, id)
+		if _, err = tx.ExecContext(ctx, query, value, id); err != nil {
+			return err
+		}
+		_, err = tx.ExecContext(ctx, `
+UPDATE refresh_tokens SET revoked_at = NOW()
+WHERE user_id = ? AND revoked_at IS NULL`, id)
 		return err
 	})
 }
@@ -330,7 +366,7 @@ func (s *Store) ListUsers(ctx context.Context, page, size int) ([]User, int64, e
 
 func scanUser(row *sql.Row) (*User, error) {
 	var u User
-	err := row.Scan(&u.ID, &u.Account, &u.PasswordHash, &u.Email, &u.AvatarURL, &u.Nickname, &u.Role, &u.Status, &u.CreatedAt, &u.UpdatedAt)
+	err := row.Scan(&u.ID, &u.Account, &u.PasswordHash, &u.Email, &u.AvatarURL, &u.Nickname, &u.Role, &u.Status, &u.TokenVersion, &u.CreatedAt, &u.UpdatedAt)
 	if err != nil {
 		return nil, scanErr(err)
 	}

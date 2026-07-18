@@ -18,7 +18,6 @@ const (
 	maxPageContentLength    = 200000
 	maxProjectsCount        = 50
 	maxProjectContentLength = 50000
-	maxProjectTagsCount     = 12
 )
 
 func Settings(ctx context.Context, svcCtx *svc.ServiceContext) (*types.SiteSettingsResp, error) {
@@ -149,13 +148,10 @@ func UpdateProjectsPage(ctx context.Context, svcCtx *svc.ServiceContext, req typ
 	if err != nil {
 		return nil, err
 	}
-	if err := svcCtx.Store.EnsureTagsExist(ctx, projectTagIDs(content.Items)); err != nil {
+	if err := svcCtx.Store.UpdateProjectsPageContent(ctx, content); err != nil {
 		if err == model.ErrNotFound {
 			return nil, errors.NotFound("tag not found")
 		}
-		return nil, err
-	}
-	if err := svcCtx.Store.UpdateProjectsPageContent(ctx, content); err != nil {
 		return nil, err
 	}
 	evictProjectsPageCache(ctx, svcCtx)
@@ -211,6 +207,9 @@ func validateProjectsPageReq(req types.UpdateProjectsPageReq) (model.ProjectsPag
 
 	items := make([]model.ProjectItem, 0, len(req.Items))
 	for _, item := range req.Items {
+		if len(item.Tags) > 0 {
+			return model.ProjectsPageContent{}, errors.BadRequest("items.tags is read-only; use tagIds")
+		}
 		items = append(items, model.ProjectItem{
 			ID:              item.ID,
 			TagIDs:          item.TagIDs,
@@ -218,7 +217,6 @@ func validateProjectsPageReq(req types.UpdateProjectsPageReq) (model.ProjectsPag
 			Summary:         item.Summary,
 			Role:            item.Role,
 			Period:          item.Period,
-			Tags:            item.Tags,
 			CoverURL:        item.CoverURL,
 			DemoURL:         item.DemoURL,
 			RepoURL:         item.RepoURL,
@@ -264,14 +262,6 @@ func validateProjectsPageReq(req types.UpdateProjectsPageReq) (model.ProjectsPag
 		if err := validator.Length(item.ContentMarkdown, field("contentMarkdown"), 0, maxProjectContentLength); err != nil {
 			return model.ProjectsPageContent{}, err
 		}
-		if len(item.Tags) > maxProjectTagsCount {
-			return model.ProjectsPageContent{}, errors.BadRequest(field("tags") + " count is invalid")
-		}
-		for tagIndex, tag := range item.Tags {
-			if err := validator.Length(tag, fmt.Sprintf("%s.%d", field("tags"), tagIndex), 1, 32); err != nil {
-				return model.ProjectsPageContent{}, err
-			}
-		}
 	}
 
 	return model.ProjectsPageContent{
@@ -279,14 +269,6 @@ func validateProjectsPageReq(req types.UpdateProjectsPageReq) (model.ProjectsPag
 		Subtitle: subtitle,
 		Items:    items,
 	}, nil
-}
-
-func projectTagIDs(items []model.ProjectItem) []uint64 {
-	ids := make([]uint64, 0)
-	for _, item := range items {
-		ids = append(ids, item.TagIDs...)
-	}
-	return ids
 }
 
 func validateProjectURL(value, field string) error {

@@ -16,8 +16,9 @@ type Manager struct {
 }
 
 type Claims struct {
-	UserID uint64 `json:"userId"`
-	Role   string `json:"role"`
+	UserID       uint64 `json:"userId"`
+	Role         string `json:"role"`
+	TokenVersion uint64 `json:"tokenVersion"`
 	jwt.RegisteredClaims
 }
 
@@ -37,11 +38,12 @@ func (m *Manager) RefreshTTL() time.Duration {
 	return m.refreshExpire
 }
 
-func (m *Manager) CreateAccessToken(userID uint64, role string) (string, error) {
+func (m *Manager) CreateAccessToken(userID uint64, role string, tokenVersion uint64) (string, error) {
 	now := time.Now()
 	claims := Claims{
-		UserID: userID,
-		Role:   role,
+		UserID:       userID,
+		Role:         role,
+		TokenVersion: tokenVersion,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(now.Add(m.accessExpire)),
 			IssuedAt:  jwt.NewNumericDate(now),

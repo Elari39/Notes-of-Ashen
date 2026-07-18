@@ -10,11 +10,13 @@ import { getErrorMessage } from '../utils/error';
 import { translate } from '../i18n';
 import { useFormValidation, type FieldRules } from '../hooks/useFormValidation';
 import { useShallow } from 'zustand/react/shallow';
+import { useNavigate } from 'react-router-dom';
 
 const Profile: React.FC = () => {
-  const { user, fetchUser } = useAuthStore(
-    useShallow((state) => ({ user: state.user, fetchUser: state.fetchUser })),
+  const { user, fetchUser, logout } = useAuthStore(
+	useShallow((state) => ({ user: state.user, fetchUser: state.fetchUser, logout: state.logout })),
   );
+	const navigate = useNavigate();
   const language = usePreferenceStore((state) => state.language);
   const [nickname, setNickname] = useState(user?.nickname || '');
   const [email, setEmail] = useState(user?.email || '');
@@ -139,7 +141,8 @@ const Profile: React.FC = () => {
       setNewPassword('');
       setConfirmPassword('');
       setPasswordEmailCode('');
-      setPwdMsg(t('profile.passwordUpdated'));
+      logout();
+      navigate('/login', { replace: true, state: { passwordChanged: true } });
     } catch (err: unknown) {
       setPwdError(getErrorMessage(err, t('profile.updateError')));
     } finally {

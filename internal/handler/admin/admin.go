@@ -30,7 +30,7 @@ func UpdateUserStatusHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 			return
 		}
 		var req types.UserStatusReq
-		if err := basehandler.Parse(r, &req); err != nil {
+		if err := basehandler.ParseLimited(w, r, &req, basehandler.SmallJSONBodyLimit); err != nil {
 			response.ErrorCtx(r.Context(), w, err)
 			return
 		}
@@ -50,7 +50,7 @@ func UpdateUserRoleHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 			return
 		}
 		var req types.UserRoleReq
-		if err := basehandler.Parse(r, &req); err != nil {
+		if err := basehandler.ParseLimited(w, r, &req, basehandler.SmallJSONBodyLimit); err != nil {
 			response.ErrorCtx(r.Context(), w, err)
 			return
 		}

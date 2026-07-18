@@ -27,7 +27,7 @@ func ExportHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 			return
 		}
 		var req types.BackupExportReq
-		if err := basehandler.Parse(r, &req); err != nil {
+		if err := basehandler.ParseLimited(w, r, &req, basehandler.SmallJSONBodyLimit); err != nil {
 			response.ErrorCtx(r.Context(), w, err)
 			return
 		}

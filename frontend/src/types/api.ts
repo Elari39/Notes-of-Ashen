@@ -96,7 +96,6 @@ export interface ProjectItemReq {
   summary: string;
   role: string;
   period: string;
-  tags: string[];
   coverUrl: string;
   demoUrl: string;
   repoUrl: string;

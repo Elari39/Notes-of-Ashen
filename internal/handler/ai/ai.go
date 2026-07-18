@@ -24,7 +24,7 @@ func SettingsHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 func UpdateSettingsHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req types.UpdateAISettingsReq
-		if err := basehandler.Parse(r, &req); err != nil {
+		if err := basehandler.ParseLimited(w, r, &req, basehandler.StandardJSONBodyLimit); err != nil {
 			response.ErrorCtx(r.Context(), w, err)
 			return
 		}
@@ -40,7 +40,7 @@ func UpdateSettingsHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 func ModelsHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req types.AIConnectionReq
-		if err := basehandler.Parse(r, &req); err != nil {
+		if err := basehandler.ParseLimited(w, r, &req, basehandler.StandardJSONBodyLimit); err != nil {
 			response.ErrorCtx(r.Context(), w, err)
 			return
 		}
@@ -56,7 +56,7 @@ func ModelsHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 func TestModelHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req types.AIModelTestReq
-		if err := basehandler.Parse(r, &req); err != nil {
+		if err := basehandler.ParseLimited(w, r, &req, basehandler.StandardJSONBodyLimit); err != nil {
 			response.ErrorCtx(r.Context(), w, err)
 			return
 		}

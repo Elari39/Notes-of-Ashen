@@ -185,10 +185,7 @@ func ChangePassword(ctx context.Context, svcCtx *svc.ServiceContext, req types.C
 	if err != nil {
 		return err
 	}
-	if err := svcCtx.Store.UpdateUserPassword(ctx, userID, string(hash)); err != nil {
-		return err
-	}
-	if err := svcCtx.Store.RevokeUserRefreshTokens(ctx, userID); err != nil && !errors.Is(err, model.ErrNotFound) {
+	if err := svcCtx.Store.UpdateUserPasswordAndRevokeTokens(ctx, userID, string(hash)); err != nil {
 		return err
 	}
 	// 防御性驱逐 auth 用户缓存，与 admin 改状态/角色保持一致。

@@ -26,6 +26,7 @@ import (
 	"notes-of-ashen/internal/types"
 	"notes-of-ashen/model"
 
+	"github.com/zeromicro/go-zero/core/logx"
 	"golang.org/x/image/webp"
 )
 
@@ -51,6 +52,8 @@ var imageFormats = map[string]string{
 }
 
 var mediaStorageKeyPattern = regexp.MustCompile(`^[a-f0-9]{64}\.(jpg|png|gif|webp)$`)
+var stagedUploadPattern = regexp.MustCompile(`^\.upload-([a-f0-9]{64}\.(?:jpg|png|gif|webp))-.+$`)
+var stagedDeletePattern = regexp.MustCompile(`^\.delete-([0-9]+)-([a-f0-9]{64}\.(?:jpg|png|gif|webp))$`)
 
 func List(ctx context.Context, svcCtx *svc.ServiceContext, page, size int, query string) (*types.ListResp[types.MediaAssetResp], error) {
 	if err := authutil.RequireContentManager(ctx); err != nil {
@@ -111,9 +114,17 @@ func Upload(ctx context.Context, svcCtx *svc.ServiceContext, originalName, altTe
 	if err != nil {
 		return nil, err
 	}
-	if err := writeAtomically(root, storageKey, data); err != nil {
+	recoverMediaStaging(ctx, svcCtx, root)
+	stagedPath, err := stageUpload(root, storageKey, data)
+	if err != nil {
 		return nil, err
 	}
+	cleanupStaged := true
+	defer func() {
+		if cleanupStaged {
+			_ = os.Remove(stagedPath)
+		}
+	}()
 	originalName = filepath.Base(sourceName)
 	if originalName == "." || originalName == "" {
 		originalName = storageKey
@@ -130,12 +141,22 @@ func Upload(ctx context.Context, svcCtx *svc.ServiceContext, originalName, altTe
 		if logicutil.IsDuplicate(err) {
 			existing, findErr := svcCtx.Store.FindMediaAssetBySHA256(ctx, hash)
 			if findErr == nil {
+				_ = os.Remove(stagedPath)
 				resp := mediaResp(*existing)
 				return &resp, nil
 			}
 		}
 		return nil, err
 	}
+	if err := publishStagedUpload(root, storageKey, stagedPath); err != nil {
+		if cleanupErr := svcCtx.Store.DeleteMediaAsset(ctx, id); cleanupErr != nil {
+			// 元数据仍存在时保留暂存文件，后续媒体操作可按数据库记录完成发布。
+			cleanupStaged = false
+			logx.Errorf("rollback media metadata after publish failure failed: id=%d err=%v", id, cleanupErr)
+		}
+		return nil, err
+	}
+	cleanupStaged = false
 	item, err := svcCtx.Store.FindMediaAsset(ctx, id)
 	if err != nil {
 		return nil, err
@@ -167,6 +188,11 @@ func Delete(ctx context.Context, svcCtx *svc.ServiceContext, id uint64) error {
 	if err := authutil.RequireAdmin(ctx); err != nil {
 		return err
 	}
+	root, err := mediaRoot(svcCtx)
+	if err != nil {
+		return err
+	}
+	recoverMediaStaging(ctx, svcCtx, root)
 	item, err := svcCtx.Store.FindMediaAsset(ctx, id)
 	if err != nil {
 		return logicutil.MapError(err)
@@ -178,15 +204,26 @@ func Delete(ctx context.Context, svcCtx *svc.ServiceContext, id uint64) error {
 	if referenced {
 		return apperrors.Conflict("media asset is still referenced")
 	}
+	target := filepath.Join(root, item.StorageKey)
+	quarantine := filepath.Join(root, fmt.Sprintf(".delete-%d-%s", item.ID, item.StorageKey))
+	moved := false
+	if err := os.Rename(target, quarantine); err == nil {
+		moved = true
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("quarantine media file: %w", err)
+	}
 	if err := svcCtx.Store.DeleteMediaAsset(ctx, id); err != nil {
+		if moved {
+			if restoreErr := os.Rename(quarantine, target); restoreErr != nil {
+				logx.Errorf("restore quarantined media after database failure failed: id=%d err=%v", id, restoreErr)
+			}
+		}
 		return logicutil.MapError(err)
 	}
-	root, err := mediaRoot(svcCtx)
-	if err != nil {
-		return err
-	}
-	if err := os.Remove(filepath.Join(root, item.StorageKey)); err != nil && !errors.Is(err, os.ErrNotExist) {
-		return fmt.Errorf("remove media file: %w", err)
+	if moved {
+		if err := os.Remove(quarantine); err != nil && !errors.Is(err, os.ErrNotExist) {
+			logx.Errorf("remove quarantined media failed; it will be retried: id=%d err=%v", id, err)
+		}
 	}
 	return nil
 }
@@ -239,6 +276,97 @@ func ensureMediaRoot(root string) (string, error) {
 
 func writeAtomically(root, key string, data []byte) error {
 	return writeAtomicallyReader(root, key, bytes.NewReader(data), int64(len(data)))
+}
+
+func stageUpload(root, key string, data []byte) (string, error) {
+	if !mediaStorageKeyPattern.MatchString(key) || len(data) == 0 {
+		return "", apperrors.BadRequest("media storage key is invalid")
+	}
+	tmp, err := os.CreateTemp(root, ".upload-"+key+"-")
+	if err != nil {
+		return "", err
+	}
+	path := tmp.Name()
+	cleanup := true
+	defer func() {
+		_ = tmp.Close()
+		if cleanup {
+			_ = os.Remove(path)
+		}
+	}()
+	// 暂存路径由 Nginx 明确拒绝访问；文件发布后需允许只读 Web 容器读取。
+	if err := tmp.Chmod(0644); err != nil {
+		return "", err
+	}
+	if _, err := tmp.Write(data); err != nil {
+		return "", err
+	}
+	if err := tmp.Sync(); err != nil {
+		return "", err
+	}
+	if err := tmp.Close(); err != nil {
+		return "", err
+	}
+	cleanup = false
+	return path, nil
+}
+
+func publishStagedUpload(root, key, stagedPath string) error {
+	target := filepath.Join(root, key)
+	if existingHash, err := fileSHA256(target); err == nil && existingHash == strings.SplitN(key, ".", 2)[0] {
+		return os.Remove(stagedPath)
+	}
+	if err := os.Remove(target); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("replace corrupt media file: %w", err)
+	}
+	if err := os.Rename(stagedPath, target); err != nil {
+		return fmt.Errorf("publish media file: %w", err)
+	}
+	return nil
+}
+
+func recoverMediaStaging(ctx context.Context, svcCtx *svc.ServiceContext, root string) {
+	entries, err := os.ReadDir(root)
+	if err != nil {
+		logx.Errorf("scan media staging failed: %v", err)
+		return
+	}
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		name := entry.Name()
+		path := filepath.Join(root, name)
+		if match := stagedUploadPattern.FindStringSubmatch(name); len(match) == 2 {
+			key := match[1]
+			asset, findErr := svcCtx.Store.FindMediaAssetByStorageKey(ctx, key)
+			switch {
+			case findErr == nil:
+				if err := publishStagedUpload(root, asset.StorageKey, path); err != nil {
+					logx.Errorf("recover staged upload failed: key=%s err=%v", key, err)
+				}
+			case errors.Is(findErr, model.ErrNotFound):
+				_ = os.Remove(path)
+			}
+			continue
+		}
+		if match := stagedDeletePattern.FindStringSubmatch(name); len(match) == 3 {
+			asset, findErr := svcCtx.Store.FindMediaAssetByStorageKey(ctx, match[2])
+			switch {
+			case findErr == nil:
+				target := filepath.Join(root, asset.StorageKey)
+				if _, statErr := os.Stat(target); errors.Is(statErr, os.ErrNotExist) {
+					if err := os.Rename(path, target); err != nil {
+						logx.Errorf("recover quarantined media failed: key=%s err=%v", asset.StorageKey, err)
+					}
+				} else {
+					_ = os.Remove(path)
+				}
+			case errors.Is(findErr, model.ErrNotFound):
+				_ = os.Remove(path)
+			}
+		}
+	}
 }
 
 func writeAtomicallyReader(root, key string, reader io.Reader, size int64) error {

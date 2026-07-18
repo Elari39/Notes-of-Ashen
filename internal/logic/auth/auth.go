@@ -10,6 +10,7 @@ import (
 	"notes-of-ashen/internal/authutil"
 	apperrors "notes-of-ashen/internal/errors"
 	"notes-of-ashen/internal/logicutil"
+	"notes-of-ashen/internal/middleware"
 	"notes-of-ashen/internal/mq"
 	"notes-of-ashen/internal/security"
 	"notes-of-ashen/internal/svc"
@@ -268,12 +269,10 @@ func ResetPassword(ctx context.Context, svcCtx *svc.ServiceContext, req types.Re
 	if err != nil {
 		return err
 	}
-	if err := svcCtx.Store.UpdateUserPassword(ctx, user.ID, string(hash)); err != nil {
+	if err := svcCtx.Store.UpdateUserPasswordAndRevokeTokens(ctx, user.ID, string(hash)); err != nil {
 		return err
 	}
-	if err := svcCtx.Store.RevokeUserRefreshTokens(ctx, user.ID); err != nil && !errors.Is(err, model.ErrNotFound) {
-		return err
-	}
+	middleware.EvictAuthUserCache(ctx, svcCtx.AuthUserCache, user.ID)
 	publishEvent(ctx, svcCtx, mq.Event{
 		UserID:       user.ID,
 		EventType:    "user.password_reset",
@@ -392,7 +391,11 @@ func Logout(ctx context.Context, svcCtx *svc.ServiceContext, req types.RefreshRe
 }
 
 func issueTokens(ctx context.Context, svcCtx *svc.ServiceContext, userID uint64, role string) (*types.TokenPair, error) {
-	accessToken, err := svcCtx.Tokens.CreateAccessToken(userID, role)
+	tokenVersion, err := svcCtx.Store.UserTokenVersion(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	accessToken, err := svcCtx.Tokens.CreateAccessToken(userID, role, tokenVersion)
 	if err != nil {
 		return nil, err
 	}

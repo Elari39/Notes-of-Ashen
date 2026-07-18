@@ -105,6 +105,16 @@ GET /healthz
 
 无需鉴权。返回 JSON 格式的健康报告，`Content-Type: application/json`。全部依赖与运行时数据库结构正常时返回 `200 OK`，响应体 `{"status":"ok","checks":{"db":{"status":"up"},"redis":{"status":"up"},"schema":{"status":"up"},...}}`；存在依赖不可用或表/字段迁移缺失时返回 `503 Service Unavailable`，`status` 为 `"degraded"`，对应 `checks` 条目中 `status` 为 `"down"` 并附带 `error` 字段。用于容器 healthcheck / 负载均衡 readiness 探活。注意 `/healthz` 为手写 handler，不使用统一 `{ code, message, data }` 响应封装，也未在 `api/notes-of-ashen.api` 中声明（详见该文件头注释）。
 
+Docker Web 入口同样公开 `/healthz` 并精确代理到上述 API 探针；`GET /livez` 返回 `204 No Content`，只表示 Nginx 静态入口存活，不代表数据库等依赖已就绪。
+
+## JSON 请求体上限
+
+- 认证、用户资料/改密、管理员用户状态与角色、流量、媒体 Alt、文章状态和备份导出：16 KiB。
+- AI 设置/连接/测试、文章 AI 辅助和站点基础设置：64 KiB。
+- 项目页面更新：12 MiB；文章创建/更新与 taxonomy 上限见对应章节。
+
+无论请求是否携带 `Content-Length`，超过上限均返回 `400 Bad Request`。
+
 ## 认证接口
 
 ### 获取图片验证码
@@ -277,7 +287,7 @@ PUT /api/v1/users/me
 PUT /api/v1/users/me/password
 ```
 
-权限：登录用户。修改成功后，用户已有 Refresh Token 会被撤销。
+权限：登录用户。修改成功后用户的 `tokenVersion` 会递增，所有已签发 Access Token 与 Refresh Token（包括当前浏览器）立即失效，前端会清空会话并要求重新登录。
 
 | 字段 | 类型 | 必填 | 说明 |
 | --- | --- | --- | --- |
@@ -698,13 +708,15 @@ PUT /api/v1/admin/site/projects
 | summary | string | 否 | 摘要，最长 500 |
 | role | string | 否 | 角色或职责，最长 80 |
 | period | string | 否 | 项目周期，最长 80 |
-| tags | string[] | 否 | 最多 12 个，每个最长 32；保存时会去空和去重 |
+| tags | string[] | 否 | 只读兼容检测字段；写入必须省略或传空数组，非空返回 `400`，请使用 `tagIds` |
 | tagIds | uint64[] | 否 | 关联现有标签 ID，传入时必须存在 |
 | coverUrl | string | 否 | 封面 URL，非空必须为 `http://` 或 `https://` |
 | demoUrl | string | 否 | 演示 URL，非空必须为 `http://` 或 `https://` |
 | repoUrl | string | 否 | 代码仓库 URL，非空必须为 `http://` 或 `https://` |
 | contentMarkdown | string | 否 | 项目详情 Markdown，最长 50000 字符 |
 | featured | bool | 否 | 是否精选 |
+
+项目页面更新请求体最大 12 MiB。保存时会在同一事务内校验 `tagIds`、生成 `tags` 名称快照并写入项目关系。
 
 ### RSS 与 Sitemap
 

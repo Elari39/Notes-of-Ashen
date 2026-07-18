@@ -15,6 +15,12 @@ import (
 	"github.com/zeromicro/go-zero/rest/httpx"
 )
 
+const (
+	SmallJSONBodyLimit    int64 = 16 << 10
+	StandardJSONBodyLimit int64 = 64 << 10
+	ProjectsJSONBodyLimit int64 = 12 << 20
+)
+
 type idPath struct {
 	ID uint64 `path:"id"`
 }

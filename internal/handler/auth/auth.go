@@ -36,7 +36,7 @@ func resolveRefreshToken(r *http.Request, req types.RefreshReq) types.RefreshReq
 func RegisterHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req types.RegisterReq
-		if err := basehandler.Parse(r, &req); err != nil {
+		if err := basehandler.ParseLimited(w, r, &req, basehandler.SmallJSONBodyLimit); err != nil {
 			response.ErrorCtx(r.Context(), w, err)
 			return
 		}
@@ -53,7 +53,7 @@ func RegisterHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 func CaptchaHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req types.CaptchaReq
-		if err := basehandler.Parse(r, &req); err != nil {
+		if err := basehandler.ParseLimited(w, r, &req, basehandler.SmallJSONBodyLimit); err != nil {
 			response.ErrorCtx(r.Context(), w, err)
 			return
 		}
@@ -69,7 +69,7 @@ func CaptchaHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 func SendVerifyCodeHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req types.SendVerifyCodeReq
-		if err := basehandler.Parse(r, &req); err != nil {
+		if err := basehandler.ParseLimited(w, r, &req, basehandler.SmallJSONBodyLimit); err != nil {
 			response.ErrorCtx(r.Context(), w, err)
 			return
 		}
@@ -84,7 +84,7 @@ func SendVerifyCodeHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 func LoginHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req types.LoginReq
-		if err := basehandler.Parse(r, &req); err != nil {
+		if err := basehandler.ParseLimited(w, r, &req, basehandler.SmallJSONBodyLimit); err != nil {
 			response.ErrorCtx(r.Context(), w, err)
 			return
 		}
@@ -101,7 +101,7 @@ func LoginHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 func ResetPasswordHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req types.ResetPasswordReq
-		if err := basehandler.Parse(r, &req); err != nil {
+		if err := basehandler.ParseLimited(w, r, &req, basehandler.SmallJSONBodyLimit); err != nil {
 			response.ErrorCtx(r.Context(), w, err)
 			return
 		}
@@ -116,7 +116,7 @@ func ResetPasswordHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 func RefreshHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req types.RefreshReq
-		if err := basehandler.Parse(r, &req); err != nil {
+		if err := basehandler.ParseLimited(w, r, &req, basehandler.SmallJSONBodyLimit); err != nil {
 			response.ErrorCtx(r.Context(), w, err)
 			return
 		}
@@ -134,7 +134,7 @@ func RefreshHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 func LogoutHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req types.RefreshReq
-		if err := basehandler.Parse(r, &req); err != nil {
+		if err := basehandler.ParseLimited(w, r, &req, basehandler.SmallJSONBodyLimit); err != nil {
 			response.ErrorCtx(r.Context(), w, err)
 			return
 		}

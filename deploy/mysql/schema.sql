@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS users (
     nickname VARCHAR(64) DEFAULT '',
     role VARCHAR(20) DEFAULT 'user',
     status VARCHAR(20) DEFAULT 'active',
+    token_version BIGINT UNSIGNED NOT NULL DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     INDEX idx_users_role_status_id (role, status, id)

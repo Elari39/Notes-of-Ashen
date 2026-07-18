@@ -265,6 +265,7 @@ const zh = {
   'profile.updatingPassword': '修改中...',
   'profile.updated': '资料已更新',
   'profile.passwordUpdated': '密码已更新',
+	'auth.passwordChangedLogin': '密码已更新，所有会话均已退出，请重新登录。',
   'profile.updateError': '更新失败',
 
   'protected.forbidden': '没有权限访问此页面。',
@@ -996,6 +997,7 @@ const en: Record<TranslationKey, string> = {
   'profile.updatingPassword': 'Changing...',
   'profile.updated': 'Profile updated',
   'profile.passwordUpdated': 'Password updated',
+	'auth.passwordChangedLogin': 'Password updated. All sessions were signed out; please log in again.',
   'profile.updateError': 'Update failed',
 
   'protected.forbidden': 'You do not have permission to access this page.',

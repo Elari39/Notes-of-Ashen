@@ -45,7 +45,7 @@ func UploadHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 		}
 		file, header, err := r.FormFile("file")
 		if err != nil {
-			response.ErrorCtx(r.Context(), w, err)
+			response.ErrorCtx(r.Context(), w, apperrors.BadRequest("media file is required"))
 			return
 		}
 		defer file.Close()
@@ -71,7 +71,7 @@ func UpdateHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 			return
 		}
 		var req types.UpdateMediaReq
-		if err := basehandler.Parse(r, &req); err != nil {
+		if err := basehandler.ParseLimited(w, r, &req, basehandler.SmallJSONBodyLimit); err != nil {
 			response.ErrorCtx(r.Context(), w, err)
 			return
 		}

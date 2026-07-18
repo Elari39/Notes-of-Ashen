@@ -1,0 +1,4 @@
+USE notes_of_ashen;
+
+ALTER TABLE users
+    ADD COLUMN IF NOT EXISTS token_version BIGINT UNSIGNED NOT NULL DEFAULT 0 AFTER status;

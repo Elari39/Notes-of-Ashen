@@ -145,6 +145,25 @@ func TestCoreHealthAndSchema(t *testing.T) {
 	}
 	expectAPISuccess(t, proxiedAPI)
 
+	webReady, err := h.request(context.Background(), http.MethodGet, h.webURL("/healthz"), nil, nil, "", "")
+	if err != nil {
+		t.Fatalf("通过前端 Nginx 请求 readiness 失败: %v", err)
+	}
+	if webReady.status != http.StatusOK || !strings.Contains(webReady.header.Get("Content-Type"), "application/json") {
+		t.Fatalf("Web readiness 状态或类型错误: status=%d content-type=%q", webReady.status, webReady.header.Get("Content-Type"))
+	}
+	var webHealth healthReport
+	if err := json.Unmarshal(webReady.body, &webHealth); err != nil || webHealth.Status != "ok" {
+		t.Fatalf("Web readiness 未返回后端健康报告: error=%v body=%s", err, webReady.body)
+	}
+	webLive, err := h.request(context.Background(), http.MethodGet, h.webURL("/livez"), nil, nil, "", "")
+	if err != nil {
+		t.Fatalf("请求 Web liveness 失败: %v", err)
+	}
+	if webLive.status != http.StatusNoContent || len(webLive.body) != 0 {
+		t.Fatalf("Web liveness 响应错误: status=%d body=%q", webLive.status, webLive.body)
+	}
+
 	result, err := h.request(context.Background(), http.MethodGet, h.apiURL("/healthz"), nil, nil, "", "")
 	if err != nil {
 		t.Fatalf("请求健康检查失败: %v", err)

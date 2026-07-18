@@ -255,6 +255,17 @@ func Create(ctx context.Context, svcCtx *svc.ServiceContext, req types.ArticleRe
 	if err := validateArticle(ctx, svcCtx, req); err != nil {
 		return nil, err
 	}
+	id, err := svcCtx.Store.CreateArticle(ctx, articleCreateFromReq(req, userID))
+	if err != nil {
+		if logicutil.IsDuplicate(err) {
+			return nil, apperrors.Conflict("article slug already exists")
+		}
+		return nil, logicutil.MapError(err)
+	}
+	return finishArticleCreate(ctx, svcCtx, id, userID, meta)
+}
+
+func articleCreateFromReq(req types.ArticleReq, userID uint64) model.ArticleCreate {
 	isPinned := false
 	if req.IsPinned != nil {
 		isPinned = *req.IsPinned
@@ -263,7 +274,7 @@ func Create(ctx context.Context, svcCtx *svc.ServiceContext, req types.ArticleRe
 	if req.DisplayPriority != nil {
 		displayPriority = *req.DisplayPriority
 	}
-	id, err := svcCtx.Store.CreateArticle(ctx, model.ArticleCreate{
+	return model.ArticleCreate{
 		AuthorID:        userID,
 		CategoryID:      req.CategoryID,
 		Title:           strings.TrimSpace(req.Title),
@@ -279,13 +290,10 @@ func Create(ctx context.Context, svcCtx *svc.ServiceContext, req types.ArticleRe
 		SEODescription:  strings.TrimSpace(req.SEODescription),
 		SEOKeywords:     strings.TrimSpace(req.SEOKeywords),
 		TagIDs:          req.TagIDs,
-	})
-	if err != nil {
-		if logicutil.IsDuplicate(err) {
-			return nil, apperrors.Conflict("article slug already exists")
-		}
-		return nil, logicutil.MapError(err)
 	}
+}
+
+func finishArticleCreate(ctx context.Context, svcCtx *svc.ServiceContext, id, userID uint64, meta types.RequestMeta) (*types.ArticleResp, error) {
 	item, err := svcCtx.Store.FindArticle(ctx, id)
 	if err != nil {
 		return nil, logicutil.MapError(err)
@@ -595,6 +603,24 @@ func RestoreVersion(ctx context.Context, svcCtx *svc.ServiceContext, articleID u
 }
 
 func validateArticle(ctx context.Context, svcCtx *svc.ServiceContext, req types.ArticleReq) error {
+	if err := validateArticleFields(req); err != nil {
+		return err
+	}
+	if req.CategoryID > 0 {
+		if _, err := svcCtx.Store.FindCategory(ctx, req.CategoryID); err != nil {
+			return logicutil.MapError(err)
+		}
+	}
+	if err := svcCtx.Store.EnsureTagsExist(ctx, req.TagIDs); err != nil {
+		if err == model.ErrNotFound {
+			return apperrors.NotFound("tag not found")
+		}
+		return err
+	}
+	return nil
+}
+
+func validateArticleFields(req types.ArticleReq) error {
 	if err := validator.Length(strings.TrimSpace(req.Title), "title", 1, 160); err != nil {
 		return err
 	}
@@ -626,17 +652,6 @@ func validateArticle(ctx context.Context, svcCtx *svc.ServiceContext, req types.
 		return err
 	}
 	if err := validatorOptionalLength(req.SEOKeywords, "seoKeywords", 0, 255); err != nil {
-		return err
-	}
-	if req.CategoryID > 0 {
-		if _, err := svcCtx.Store.FindCategory(ctx, req.CategoryID); err != nil {
-			return logicutil.MapError(err)
-		}
-	}
-	if err := svcCtx.Store.EnsureTagsExist(ctx, req.TagIDs); err != nil {
-		if err == model.ErrNotFound {
-			return apperrors.NotFound("tag not found")
-		}
 		return err
 	}
 	return nil

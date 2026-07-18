@@ -35,7 +35,7 @@ func testMySQLStore(t *testing.T) *Store {
 	if _, err = db.Exec(`DROP TABLE IF EXISTS users`); err != nil {
 		t.Fatal(err)
 	}
-	if _, err = db.Exec(`CREATE TABLE users (id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, account VARCHAR(64) NOT NULL UNIQUE, password_hash VARCHAR(128) NOT NULL, email VARCHAR(128) NOT NULL UNIQUE, avatar_url VARCHAR(255) DEFAULT '', nickname VARCHAR(64) DEFAULT '', role VARCHAR(20) DEFAULT 'user', status VARCHAR(20) DEFAULT 'active', created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, INDEX idx_users_role_status_id (role,status,id)) ENGINE=InnoDB`); err != nil {
+	if _, err = db.Exec(`CREATE TABLE users (id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, account VARCHAR(64) NOT NULL UNIQUE, password_hash VARCHAR(128) NOT NULL, email VARCHAR(128) NOT NULL UNIQUE, avatar_url VARCHAR(255) DEFAULT '', nickname VARCHAR(64) DEFAULT '', role VARCHAR(20) DEFAULT 'user', status VARCHAR(20) DEFAULT 'active', token_version BIGINT UNSIGNED NOT NULL DEFAULT 0, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, INDEX idx_users_role_status_id (role,status,id)) ENGINE=InnoDB`); err != nil {
 		t.Fatal(err)
 	}
 	return &Store{db: db}

@@ -118,8 +118,11 @@ func TestUpdateUserStatusSafelyCommitsNormalUpdate(t *testing.T) {
 	mock.ExpectQuery(regexp.QuoteMeta("SELECT id, role, status FROM users WHERE id = ? FOR UPDATE")).
 		WithArgs(uint64(1)).
 		WillReturnRows(sqlmock.NewRows([]string{"id", "role", "status"}).AddRow(1, "admin", "active"))
-	mock.ExpectExec(regexp.QuoteMeta("UPDATE users SET status = ?, updated_at = NOW() WHERE id = ?")).
+	mock.ExpectExec(regexp.QuoteMeta("UPDATE users SET status = ?, token_version = token_version + 1, updated_at = NOW() WHERE id = ?")).
 		WithArgs("disabled", uint64(1)).
+		WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectExec(regexp.QuoteMeta("UPDATE refresh_tokens SET revoked_at = NOW() WHERE user_id = ? AND revoked_at IS NULL")).
+		WithArgs(uint64(1)).
 		WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectCommit()
 

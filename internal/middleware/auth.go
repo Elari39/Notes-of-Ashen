@@ -19,6 +19,7 @@ import (
 
 type UserFinder interface {
 	FindUserByID(ctx context.Context, id uint64) (*model.User, error)
+	UserTokenVersion(ctx context.Context, id uint64) (uint64, error)
 }
 
 // AuthUserCache 是认证中间件使用的短 TTL 用户快照缓存抽象，
@@ -80,6 +81,19 @@ func (m *AuthMiddleware) Handle(next http.HandlerFunc) http.HandlerFunc {
 			return
 		}
 		if m.tokenIssuedBeforeCutoff(r.Context(), claims) {
+			response.ErrorCtx(r.Context(), w, apperrors.Unauthorized("invalid or expired token"))
+			return
+		}
+		currentVersion, err := m.users.UserTokenVersion(r.Context(), claims.UserID)
+		if err != nil {
+			if errors.Is(err, model.ErrNotFound) {
+				response.ErrorCtx(r.Context(), w, apperrors.Unauthorized("invalid or expired token"))
+				return
+			}
+			response.ErrorCtx(r.Context(), w, err)
+			return
+		}
+		if claims.TokenVersion != currentVersion {
 			response.ErrorCtx(r.Context(), w, apperrors.Unauthorized("invalid or expired token"))
 			return
 		}

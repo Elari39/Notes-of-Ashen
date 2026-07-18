@@ -20,7 +20,7 @@ var runtimeSchemaManifest = [...]schemaTableRequirement{
 	{
 		Name: "users",
 		Columns: []string{
-			"id", "account", "password_hash", "email", "avatar_url", "nickname", "role", "status", "created_at", "updated_at",
+			"id", "account", "password_hash", "email", "avatar_url", "nickname", "role", "status", "token_version", "created_at", "updated_at",
 		},
 	},
 	{

@@ -55,6 +55,10 @@ func (s *Store) FindMediaAssetBySHA256(ctx context.Context, hash string) (*Media
 	return scanMediaAsset(s.db.QueryRowContext(ctx, "SELECT "+mediaSelectFields+" FROM media_assets WHERE sha256 = ?", hash))
 }
 
+func (s *Store) FindMediaAssetByStorageKey(ctx context.Context, storageKey string) (*MediaAsset, error) {
+	return scanMediaAsset(s.db.QueryRowContext(ctx, "SELECT "+mediaSelectFields+" FROM media_assets WHERE storage_key = ?", storageKey))
+}
+
 func (s *Store) ListMediaAssets(ctx context.Context, page, size int, query string) ([]MediaAsset, int64, error) {
 	offset := (page - 1) * size
 	where := ""

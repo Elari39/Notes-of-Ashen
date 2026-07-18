@@ -22,17 +22,17 @@ func TestUpdateMePreservesOmittedProfileFieldsAndAllowsExplicitClear(t *testing.
 	now := time.Now()
 	userRows := func(avatarURL, nickname string) *sqlmock.Rows {
 		return sqlmock.NewRows([]string{
-			"id", "account", "password_hash", "email", "avatar_url", "nickname", "role", "status", "created_at", "updated_at",
-		}).AddRow(uint64(7), "writer", "hash", "writer@example.com", avatarURL, nickname, "user", "active", now, now)
+			"id", "account", "password_hash", "email", "avatar_url", "nickname", "role", "status", "token_version", "created_at", "updated_at",
+		}).AddRow(uint64(7), "writer", "hash", "writer@example.com", avatarURL, nickname, "user", "active", uint64(0), now, now)
 	}
-	mock.ExpectQuery("SELECT id, account, password_hash, email, avatar_url, nickname, role, status, created_at, updated_at").
+	mock.ExpectQuery("SELECT id, account, password_hash, email, avatar_url, nickname, role, status, token_version, created_at, updated_at").
 		WithArgs(uint64(7)).
 		WillReturnRows(userRows("https://example.com/avatar.png", "Writer"))
 	empty := ""
 	mock.ExpectExec("UPDATE users SET email = \\?, avatar_url = \\?, nickname = \\? WHERE id = \\?").
 		WithArgs("writer@example.com", "", "Writer", uint64(7)).
 		WillReturnResult(sqlmock.NewResult(0, 1))
-	mock.ExpectQuery("SELECT id, account, password_hash, email, avatar_url, nickname, role, status, created_at, updated_at").
+	mock.ExpectQuery("SELECT id, account, password_hash, email, avatar_url, nickname, role, status, token_version, created_at, updated_at").
 		WithArgs(uint64(7)).
 		WillReturnRows(userRows("", "Writer"))
 

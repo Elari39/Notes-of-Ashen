@@ -2,7 +2,6 @@ package article
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"path/filepath"
 	"strconv"
@@ -63,20 +62,11 @@ func ImportMarkdown(ctx context.Context, svcCtx *svc.ServiceContext, filename, c
 	if err != nil {
 		return nil, err
 	}
-	categoryID, err := ensureImportCategory(ctx, svcCtx, userID, doc.Category)
-	if err != nil {
-		return nil, err
-	}
-	tagIDs, err := ensureImportTags(ctx, svcCtx, userID, doc.Tags)
-	if err != nil {
-		return nil, err
-	}
 	slug, err := uniqueArticleSlug(ctx, svcCtx, doc.Slug)
 	if err != nil {
 		return nil, err
 	}
-	return Create(ctx, svcCtx, types.ArticleReq{
-		CategoryID:      categoryID,
+	req := types.ArticleReq{
 		Title:           doc.Title,
 		Slug:            slug,
 		Summary:         doc.Summary,
@@ -89,8 +79,24 @@ func ImportMarkdown(ctx context.Context, svcCtx *svc.ServiceContext, filename, c
 		SEOTitle:        doc.SEOTitle,
 		SEODescription:  doc.SEODescription,
 		SEOKeywords:     doc.SEOKeywords,
-		TagIDs:          tagIDs,
-	}, meta)
+	}
+	if err := validateArticleFields(req); err != nil {
+		return nil, err
+	}
+	category, tags, err := importTaxonomies(userID, doc.Category, doc.Tags)
+	if err != nil {
+		return nil, err
+	}
+	id, err := svcCtx.Store.CreateMarkdownArticle(ctx, model.MarkdownArticleImport{
+		Article: articleCreateFromReq(req, userID), Category: category, Tags: tags,
+	})
+	if err != nil {
+		if logicutil.IsDuplicate(err) {
+			return nil, apperrors.Conflict("article slug already exists")
+		}
+		return nil, logicutil.MapError(err)
+	}
+	return finishArticleCreate(ctx, svcCtx, id, userID, meta)
 }
 
 func ExportMarkdown(ctx context.Context, svcCtx *svc.ServiceContext, id uint64) (string, string, error) {
@@ -391,71 +397,39 @@ func intPtr(value int) *int {
 	return &value
 }
 
-func ensureImportCategory(ctx context.Context, svcCtx *svc.ServiceContext, userID uint64, name string) (uint64, error) {
-	name = strings.TrimSpace(name)
-	if name == "" {
-		return 0, nil
-	}
-	slug := slugify(name)
-	if slug == "" {
-		slug = fmt.Sprintf("category-%d", time.Now().UnixNano())
-	}
-	item, err := svcCtx.Store.FindCategoryByNameOrSlug(ctx, name, slug)
-	if err == nil {
-		return item.ID, nil
-	}
-	if !errors.Is(err, model.ErrNotFound) {
-		return 0, err
-	}
-	id, err := svcCtx.Store.CreateCategory(ctx, model.TaxonomyCreate{Name: name, Slug: slug, CreatedBy: userID})
-	if err != nil {
-		if logicutil.IsDuplicate(err) {
-			item, findErr := svcCtx.Store.FindCategoryByNameOrSlug(ctx, name, slug)
-			if findErr == nil {
-				return item.ID, nil
-			}
+func importTaxonomies(userID uint64, categoryName string, tagNames []string) (*model.TaxonomyCreate, []model.TaxonomyCreate, error) {
+	var category *model.TaxonomyCreate
+	name := strings.TrimSpace(categoryName)
+	if name != "" {
+		if len([]rune(name)) > 64 {
+			return nil, nil, apperrors.BadRequest("category is too long")
 		}
-		return 0, err
+		slug := slugify(name)
+		if slug == "" {
+			slug = fmt.Sprintf("category-%d", time.Now().UnixNano())
+		}
+		category = &model.TaxonomyCreate{Name: name, Slug: slug, CreatedBy: userID}
 	}
-	return id, nil
-}
 
-func ensureImportTags(ctx context.Context, svcCtx *svc.ServiceContext, userID uint64, names []string) ([]uint64, error) {
-	names = compactStrings(names)
-	tagIDs := make([]uint64, 0, len(names))
+	names := compactStrings(tagNames)
+	tags := make([]model.TaxonomyCreate, 0, len(names))
 	seen := map[string]struct{}{}
 	for _, name := range names {
-		normalized := strings.ToLower(name)
-		if _, ok := seen[normalized]; ok {
+		key := strings.ToLower(name)
+		if _, exists := seen[key]; exists {
 			continue
 		}
-		seen[normalized] = struct{}{}
+		seen[key] = struct{}{}
+		if len([]rune(name)) > 64 {
+			return nil, nil, apperrors.BadRequest("tag is too long")
+		}
 		slug := slugify(name)
 		if slug == "" {
 			slug = fmt.Sprintf("tag-%d", time.Now().UnixNano())
 		}
-		item, err := svcCtx.Store.FindTagByNameOrSlug(ctx, name, slug)
-		if err == nil {
-			tagIDs = append(tagIDs, item.ID)
-			continue
-		}
-		if !errors.Is(err, model.ErrNotFound) {
-			return nil, err
-		}
-		id, err := svcCtx.Store.CreateTag(ctx, model.TaxonomyCreate{Name: name, Slug: slug, CreatedBy: userID})
-		if err != nil {
-			if logicutil.IsDuplicate(err) {
-				item, findErr := svcCtx.Store.FindTagByNameOrSlug(ctx, name, slug)
-				if findErr == nil {
-					tagIDs = append(tagIDs, item.ID)
-					continue
-				}
-			}
-			return nil, err
-		}
-		tagIDs = append(tagIDs, id)
+		tags = append(tags, model.TaxonomyCreate{Name: name, Slug: slug, CreatedBy: userID})
 	}
-	return tagIDs, nil
+	return category, tags, nil
 }
 
 func uniqueArticleSlug(ctx context.Context, svcCtx *svc.ServiceContext, slug string) (string, error) {
