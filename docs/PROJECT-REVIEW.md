@@ -1,28 +1,30 @@
 # Notes of Ashen 项目问题评审报告
 
-> 评审日期：2026-07-18
+> 评审日期：2026-07-18（代码修复复核）；宿主机运行、内容分发与修复复核：2026-07-19
 >
-> 修复版本：本次 P3 修复提交（`fix: 完成项目评审 P3 项`）
+> 修复版本：P3 修复提交（`fix: 完成项目评审 P3 项`）、既有 P2 修复提交 `1f8f450` 及本次本机部署配置修复
 >
 > 部署地址：`http://127.0.0.1:1270`
 >
-> 报告性质：全量评审后的 P2/P3 修复复核；结论按修复提交和本轮真实验证结果更新。
-> 改动边界：未直接修改当前运行中的用户数据库或 Docker 数据卷；旧库升级需要显式执行新增增量 SQL。
+> 报告性质：全量评审后的 P2/P3 代码修复复核、宿主机运行配置复核，以及 RSS/Sitemap 等内容分发契约复核；结论按当前代码、Compose 默认值、容器实际注入的非密钥环境变量和本轮真实验证结果更新。
+> 改动边界：已更新本机未跟踪 `.env` 的非密钥配置，并仅写入运行数据库的 `site_base_url`；未修改用户账号数据、未删除 Docker 数据卷，也不读取或记录真实密钥。旧库升级仍需显式执行新增增量 SQL。
 
 ## 1. 执行摘要
 
-当前版本已完成 P2-01 至 P2-08 和 P3-01 至 P3-06 的修复。后端、前端、静态配置检查以及 core 隔离集成套件均通过；Web 入口 `/healthz` 已返回后端 readiness，`/livez` 独立表示 Nginx 存活。
+当前版本已完成原 P2-01 至 P2-08 和 P3-01 至 P3-06 的代码修复。后端、前端、静态配置检查以及 core 隔离集成套件均通过；Web 入口 `/healthz` 已返回后端 readiness，`/livez` 独立表示 Nginx 存活。2026-07-19 再次核查并修复宿主机部署后，项目 Compose 的 6 个容器均为 `healthy`，Web 是唯一映射到宿主机的服务端口（`127.0.0.1:1270->8080`）。
 
-本轮未发现可直接造成权限绕过、敏感信息泄露、数据破坏或生产无法启动的 P0/P1 问题。原报告确认的 8 项 P2 和 6 项 P3 已全部关闭；镜像可复现性、可选基础设施、定向测试覆盖、JWT 算法约束、死代码和前端拆包均已有可验证实现。
+本轮未发现权限绕过、数据破坏、生产无法启动或额外数据库/缓存端口暴露的 P0 问题。已按本机 Docker 入口完成 P1-01、P1-02、P2-09 和 P2-10 修复：HTTP Refresh Cookie 不再带 Secure 标志、API 仅信任固定 Web 容器地址、Meilisearch 使用 production 模式、RSS/Sitemap 使用明确的 `siteBaseUrl`。
+
+原报告确认的 8 项 P2 代码修复和 6 项 P3 代码修复仍有可验证实现，本轮未发现回归；本次运行修复的验证证据见第 4 节和第 9.2 节。
 
 | 优先级 | 数量 | 结论 |
 | --- | ---: | --- |
 | P0 | 0 | 未发现安全灾难、数据破坏或完全权限绕过 |
-| P1 | 0 | 默认部署、注册登录、文章发布、构建与核心测试均可用 |
-| P2 | 0 | 原 P2-01 至 P2-08 已在 `1f8f450` 修复并完成验证 |
-| P3 | 0 | 原 P3-01 至 P3-06 已完成修复并纳入构建/CI 门禁 |
+| P1 | 0 | 当前本机部署的 Refresh Cookie 与可信代理配置已收敛 |
+| P2 | 0 | Meilisearch 生产模式与 RSS/Sitemap 规范 URL 已验证 |
+| P3 | 0 | 原 P3-01 至 P3-06 已完成修复并纳入构建/CI 门禁；另有若干运维级风险提示见 §5.2 |
 
-问题状态统计：未解决 P0/P1/P2/P3 均为 0；本轮未发现已修复问题回归。
+问题状态统计：未解决 P0=0、P1=0、P2=0、P3=0；本轮未发现原代码修复回归。
 
 ## 2. 评审范围、方法与限制
 
@@ -90,11 +92,16 @@ Browser
 
 ### 4.1 P0 / P1
 
-本轮没有确认的 P0 或 P1 问题。此结论基于当前默认 Compose 配置、本轮测试和本机部署，不代表所有外部反向代理、历史数据库或自定义环境变量组合均已覆盖。
+本轮没有确认的 P0 问题。以下 P1 已在**当前宿主机运行配置**中修复；结论不自动覆盖未来外部反向代理、历史数据库或自定义环境变量组合。
+
+| 编号 | 状态 | 问题与证据 |
+| --- | --- | --- |
+| P1-01 | 已修复（当前本机 HTTP 部署） | API 容器实际注入 `APP_AUTH_COOKIE_SECURE=false`，与 `http://127.0.0.1:1270` 匹配；Cookie 与认证相关定向测试通过。生产 HTTPS 必须重新设为 `true`。证据：容器 env（2026-07-19）、`internal/logic/auth/cookie.go`、定向 Go 测试。 |
+| P1-02 | 已修复 | API 容器实际注入 `APP_TRUSTED_PROXY_CIDRS=172.30.127.10/32`，精确覆盖固定 Web 容器地址；可信代理解析定向测试通过。Web 前方新增外层代理时必须追加其实际出口 CIDR，禁止使用宽泛公网网段。证据：容器 env（2026-07-19）、`internal/httphelper/helper.go`、`docker-compose.yml`、定向 Go 测试。 |
 
 ### 4.2 P2 问题
 
-原报告的 P2-01 至 P2-08 已在提交 `1f8f450` 全部修复，当前未解决 P2 数量为 0。
+原报告的 P2-01 至 P2-08 已在提交 `1f8f450` 全部修复；部署配置与内容分发的 P2-09、P2-10 已在当前本机部署完成修复并验证。
 
 | 编号 | 状态 | 修复与验证证据 |
 | --- | --- | --- |
@@ -106,6 +113,8 @@ Browser
 | P2-06 | 已修复 | Nginx 精确代理 `/healthz` 到后端 readiness，`/livez` 返回 204；core 隔离集成测试验证 JSON readiness 和独立 liveness |
 | P2-07 | 已修复 | 项目写入只接受 `tagIds`，非空旧 `tags` 返回 400；事务内从标签表生成名称并同步 JSON 快照、实体和关系 |
 | P2-08 | 已修复 | 项目逐行插入并读取各自 `LastInsertId`，非连续 ID 的 Model 测试通过 |
+| P2-09 | 已修复 | Compose、示例配置和实际 Meilisearch 容器均使用 `MEILI_ENV=production`；服务仍未映射宿主机端口，未带 Key 访问 `/indexes` 返回 401，公开搜索建议接口可正常返回结果。 |
+| P2-10 | 已修复（当前部署） | 运行数据库已配置 `siteBaseUrl=http://127.0.0.1:1270`；RSS/Sitemap 在正常和伪造 Host 下均输出该规范地址且保留 `:1270`。Nginx 对这两个端点改用 `$http_host` 以兼容非标准端口。未来不得清空 `siteBaseUrl` 后继续依赖请求 Host 生成规范 URL。 |
 
 ## 4.3 P3 修复记录
 
@@ -167,6 +176,15 @@ Browser
 - 结构化写接口已增加端点级请求体限制，chunked 请求也由 `MaxBytesReader` 约束。
 - JWT 解析已显式限定 HS256，并由错误算法拒绝测试保护，见 P3-04。
 - 外部 readiness 和 Web liveness 已分离；后续仍应按实际部署环境配置监控来源和告警策略。
+- 当前本机 HTTP 入口已使用 `APP_AUTH_COOKIE_SECURE=false`；切换 HTTPS 时必须恢复为 `true`（P1-01）。
+- 当前 API 仅信任固定 Web 容器 `172.30.127.10/32`；新增可信代理时按实际链路追加精确 CIDR，禁止使用宽泛公网网段（P1-02）。
+- Meilisearch 已运行于 `production` 模式，仍未映射宿主机端口，且 Master Key 鉴权保持生效（P2-09）。
+- `siteBaseUrl` 已固定为 `http://127.0.0.1:1270`，RSS/Sitemap 不再依赖请求 Host；Nginx 同时使用 `$http_host` 保留非标准端口。若未来清空该设置，仍应避免将不可信请求 Host 作为规范 URL（P2-10）。
+- **风险提示（不计入未解决 P3 计数）**：
+  - Nginx CSP 含 `upgrade-insecure-requests`；生产应走 HTTPS 反代，纯 HTTP 本机入口需知悉浏览器可能升级部分请求。
+  - Redis 当前无密码且仅暴露在 Compose 内网；未映射宿主机，但 Docker 网络横向失陷时可读取验证码/限流等缓存键。
+  - API Prometheus `/metrics` 监听容器内 `0.0.0.0:9101`（compose `expose` 不映射宿主机）；编排切勿误映射到公网。
+  - 修改密码/邮箱路径强依赖邮箱验证码；当前运行已启用邮件，若关闭邮件服务则改密会被验证码消费阻断（设计约束）。
 
 ## 6. 旧报告问题重新验证
 
@@ -198,8 +216,9 @@ Browser
 
 ### 7.2 已确认漂移
 
-- 本轮 P2 修复后未确认新的前后端字段、项目标签写入或健康探针契约漂移。
+- 本轮未确认新的前后端字段、项目标签写入或健康探针契约漂移。
 - 旧客户端若继续提交非空 `tags` 会明确收到 400，这是收敛写入契约的预期兼容性行为。
+- 内容分发契约：当前 `siteBaseUrl` 固定为 `http://127.0.0.1:1270`，RSS/Sitemap 的绝对 URL 不受请求 Host 影响且保留端口；未来变更域名、协议或端口时必须同步更新该设置，见 P2-10。
 
 ### 7.3 数据一致性风险
 
@@ -267,29 +286,60 @@ Browser
 | Web `GET /livez` | `204 No Content`，仅表示 Nginx 存活 |
 | 真实媒体上传与 Web 读取 | 通过；发布文件权限和暂存路径策略均生效 |
 
-### 9.2 健康与日志
+### 9.2 本次宿主机容器复核
+
+复核日期：2026-07-19（承接 2026-07-18 复核结论并扩展 feed/sitemap 与运行 env 非密钥字段）。
+
+执行了 `docker ps`、`docker compose ps`、额外容器名称检查、容器网络 IP、非密钥环境变量抽样，以及 `GET http://127.0.0.1:1270/healthz`、`/livez`、公开 settings、RSS/Sitemap。结果如下：
+
+- `mysql8`：未发现。
+- `redis7`：未发现。
+- 当前运行的 6 个容器均属于 `notes-of-ashen` Compose 项目并处于 `healthy` 状态：`web`、`api`、`mysql`、`redis`、`meilisearch`、`rabbitmq`。
+- 只有 `notes-of-ashen-web-1` 映射 `127.0.0.1:1270->8080/tcp`。
+- API、MySQL、Redis、RabbitMQ、Meilisearch 均未映射宿主机端口；宿主机探测 `3306`/`6379`/`7700`/`15672`/`9101` 不可达。
+- Web 固定地址 `172.30.127.10`；API 实际注入（非密钥）：`APP_AUTH_COOKIE_SECURE=false`、`APP_TRUSTED_PROXY_CIDRS=172.30.127.10/32`、`APP_SEARCH_ENABLED=true`、`APP_RABBITMQ_ENABLED=true`、`APP_EMAIL_ENABLED=true`。
+- Meilisearch：`MEILI_ENV=production`；Master Key 已设置（容器内无 key 访问 `/indexes` 返回 401），公开搜索建议接口可正常返回结果。
+- `/healthz` 返回 HTTP 200，`db`、`redis`、`schema` 均为 `up`；`/livez` 返回 204。
+- 公开 `siteBaseUrl` 为 `http://127.0.0.1:1270`；`/rss.xml`、`/sitemap.xml` 在正常和伪造 Host 下均输出该规范地址（含 `:1270`），见 P2-10。
+
+本项仅代表本次核查与修复后的宿主机状态；仅重建并重启了 Web、API 和 Meilisearch，未停止或删除数据卷，也未读取真实 `.env` 文件内容。
+
+### 9.3 健康与日志
 
 - core 与 extended 隔离环境未发现 API 启动失败或未清理的测试资源。
 - `/healthz` 不再落入 SPA fallback；集成测试确认其返回 JSON 健康报告。
 - `/livez` 独立返回 204，不会把 Web 存活误报为后端依赖就绪。
 
-### 9.3 数据卷与暴露面
+### 9.4 数据卷与暴露面
 
 - 未对当前运行中的用户数据库或 Docker 数据卷执行迁移、清库或删除。
 - 集成测试只使用隔离项目和临时命名卷，并在结束后自动清理。
-- API、数据库、缓存、MQ 和搜索服务不映射宿主机端口。
+- 本次复核未发现额外的 MySQL/Redis 容器或其宿主机端口映射；API、数据库、缓存、MQ 和搜索服务不映射宿主机端口。
 - API/Web 配置资源限制和 json-file 日志滚动；媒体卷在 Web 侧只读挂载。
+- 仓库根目录存在本地 `.env`、构建产物 `notes-of-ashen.exe` 与 `*_backup.sql` 等文件，均已被 `.gitignore` 覆盖且未纳入版本跟踪；部署与备份流程仍应避免误提交。
 
 ## 10. 后续路线图
 
-P2/P3 修复阶段已完成。后续维护按常规工程节奏进行：
+原 P2/P3 代码修复阶段已完成；当前运行配置、内容分发与部署状态按以下事项维护：
 
 1. 审查 Dependabot 提交的镜像和 GitHub Action 更新，按发布流程更新固定摘要。
 2. 新增认证、数据写入和 Handler 高风险分支时同步补充直接测试。
 3. 保持 `pnpm build` 体积门禁；若未来确有性能运营需求，再单独评估 Web Vitals 数据采集与隐私边界。
+4. 切换 HTTPS、域名或外部反向代理前，重新核对 `APP_AUTH_COOKIE_SECURE`、`APP_TRUSTED_PROXY_CIDRS` 与完整代理链；禁止配置宽泛公网网段。
+5. 搜索启用时持续保持 Meilisearch production 模式、有效 Master Key 和非宿主机端口暴露。
+6. 变更域名、协议或端口时同步更新 `siteBaseUrl`，并复核 RSS/Sitemap 的规范 URL；不要在清空该设置后信任请求 Host。
+7. 若需内网抓取 metrics，仅在受控编排网络内访问 API `:9101`，不要映射到宿主机公网接口。
 
 ## 11. 最终结论
 
-`1f8f450` 已关闭原报告 P2-01 至 P2-08：会话失效、Markdown 事务、媒体补偿、请求体上限、PWA 缓存、公开 readiness、项目标签契约和非连续自增 ID 均已有实现及验证证据。
+`1f8f450` 已关闭原报告 P2-01 至 P2-08：会话失效、Markdown 事务、媒体补偿、请求体上限、PWA 缓存、公开 readiness、项目标签契约和非连续自增 ID 均已有实现及验证证据。第 4.3 节原 P3-01 至 P3-06 亦已关闭并纳入 CI/构建门禁。
 
-上线旧数据库前必须先执行 `deploy/mysql/add_user_token_version.sql`。未迁移数据库会由 readiness 的 schema 检查判定为未就绪，避免在缺失 `users.token_version` 时继续提供服务。第 4.3 节原 P3 项均已关闭，后续按常规依赖更新、定向测试和构建体积门禁维护。
+2026-07-19 宿主机复核未发现额外 MySQL/Redis 容器或宿主机数据库/缓存端口暴露；本轮也未发现新的 P0 权限绕过或数据破坏类代码缺陷。P1-01、P1-02、P2-09 和 P2-10 已在当前本机部署完成修复：
+
+- HTTP 本机入口使用非 Secure Refresh Cookie，API 仅信任固定 Web 容器 CIDR；
+- Meilisearch 使用 production 模式并保持 Master Key 鉴权与非宿主机端口暴露；
+- `siteBaseUrl` 固定为 `http://127.0.0.1:1270`，RSS/Sitemap 在正常与伪造 Host 下均输出该规范地址（含端口）。
+
+当前未关闭问题统计为 P0/P1/P2/P3 均为 0。P2-10 的关闭以前述规范 `siteBaseUrl` 持续存在为前提；未来不得清空该设置后继续信任请求 Host。
+
+上线旧数据库前必须先执行 `deploy/mysql/add_user_token_version.sql`。未迁移数据库会由 readiness 的 schema 检查判定为未就绪，避免在缺失 `users.token_version` 时继续提供服务。后续优先收敛运行配置与 feed URL 契约，再按常规依赖更新、定向测试和构建体积门禁维护。

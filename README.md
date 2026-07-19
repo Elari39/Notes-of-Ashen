@@ -280,7 +280,7 @@ APP_MEILISEARCH_INDEX=articles
 docker compose up -d --build
 ```
 
-启用搜索时必须为 `APP_MEILISEARCH_API_KEY` 配置强随机值（同时作为 Meilisearch Master Key）；如需生产模式，可额外设置 `MEILI_ENV=production`。服务启动后，使用 `editor` 或 `admin` 登录后台，并调用 `POST /api/v1/admin/search/reindex` 全量重建文章索引。Meilisearch 初始化或运行中不可用时，API 不会因此退出，公开文章搜索会回退到 MySQL；后端会在后台重试索引初始化，恢复后重新启用 Meilisearch。
+启用搜索时必须为 `APP_MEILISEARCH_API_KEY` 配置强随机值（同时作为 Meilisearch Master Key）。Compose 在启用搜索时默认使用 `MEILI_ENV=production`；如需临时开发模式，才显式设置 `MEILI_ENV=development`。服务启动后，使用 `editor` 或 `admin` 登录后台，并调用 `POST /api/v1/admin/search/reindex` 全量重建文章索引。Meilisearch 初始化或运行中不可用时，API 不会因此退出，公开文章搜索会回退到 MySQL；后端会在后台重试索引初始化，恢复后重新启用 Meilisearch。
 
 ### 媒体、内容分析与系统工具
 
@@ -334,7 +334,7 @@ APP_RABBITMQ_URL=amqp://notes_user:<strong-random-password>@rabbitmq:5672/
 # COMPOSE_PROFILES=search
 # APP_SEARCH_ENABLED=true
 # APP_MEILISEARCH_API_KEY=<strong-random-key>
-# MEILI_ENV=production
+MEILI_ENV=production
 ```
 
 也可临时使用 `docker compose --profile messaging up -d --build` 或 `docker compose --profile search up -d --build`；能力开关和凭据仍须在 `.env` 中显式配置。

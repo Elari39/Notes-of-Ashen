@@ -220,7 +220,7 @@ services:
     profiles: ["search"]
     restart: unless-stopped
     environment:
-      MEILI_ENV: "${MEILI_ENV:-development}"
+      MEILI_ENV: "${MEILI_ENV:-production}"
       MEILI_MASTER_KEY: "${APP_MEILISEARCH_API_KEY:-}"
       TZ: Asia/Shanghai
     volumes:
