@@ -111,6 +111,7 @@ Icon?
 *.sw?
 *.code-workspace
 *.iml
+docs/
 
 # 临时文件
 tmp/
