@@ -111,7 +111,8 @@ Icon?
 *.sw?
 *.code-workspace
 *.iml
-docs/
+PROJECT-REVIEW-TODO.md
+.claude/settings.local.json
 
 # 临时文件
 tmp/

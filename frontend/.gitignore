@@ -3,6 +3,14 @@
 .env.*
 !.env.example
 *.local
+*.pem
+*.key
+*.crt
+*.cert
+*.p12
+*.pfx
+*.secret
+*.secrets
 
 # 依赖目录
 node_modules/
@@ -14,10 +22,17 @@ dist-ssr/
 
 # 工具缓存
 .vite/
+.vite-inspect/
 .cache/
 .eslintcache
+.stylelintcache
 *.tsbuildinfo
+storybook-static/
+playwright-report/
+test-results/
+coverage-final.json
 coverage/
+*.lcov
 
 # 日志
 logs/

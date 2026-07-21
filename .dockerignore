@@ -2,6 +2,9 @@
 .git
 .git/
 .github/
+.agents/
+.claude/
+.codex/
 .gitignore
 **/.gitignore
 .dockerignore
@@ -17,13 +20,19 @@ docker-compose*.yaml
 *.pem
 *.key
 *.crt
+*.cert
 *.p12
 *.pfx
+*.secret
+*.secrets
 
 # 文档与说明
 README.md
 docs/
 frontend/README.md
+AGENTS.md
+DESIGN.md
+PROJECT-REVIEW-TODO.md
 
 # 依赖与前端产物
 **/node_modules
@@ -31,15 +40,19 @@ frontend/README.md
 **/dist
 **/dist-ssr
 **/.vite
+**/.vite-inspect
 **/.cache
 **/.eslintcache
+**/.stylelintcache
 **/*.tsbuildinfo
+**/storybook-static
 playwright-report
 **/playwright-report
 test-results
 **/test-results
 coverage-final.json
 **/coverage-final.json
+**/*.lcov
 **/.turbo
 
 # Go 构建与测试产物
@@ -64,13 +77,20 @@ data
 **/data
 *_backup.sql
 *_dump.sql
+*.backup.sql
+*.bak.sql
 *.dump.sql
 *.sql.gz
+*.sql.bz2
+*.sql.xz
 *.sql.zip
 *.sql.7z
+*.sql.tar
+*.sql.tar.gz
 *.mmdb
 GeoLite2-*.tar.gz
 GeoIP2-*.tar.gz
+*.noa-backup
 
 # 日志
 logs
