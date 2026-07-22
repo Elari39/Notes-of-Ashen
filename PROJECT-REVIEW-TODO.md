@@ -196,7 +196,7 @@
 
 ### TODO-P2-05 统一 Visitor ID、IP/UA 与 UV 统计口径
 
-- [ ] **优先级**：P2；**负责人建议**：后端 + 产品数据；**预估**：中等。
+- [x] **优先级**：P2；**负责人建议**：后端 + 产品数据；**预估**：中等。
 - **问题**：前端为点赞去重发送持久化 `X-Visitor-Id`，但流量 UV 的 visitor hash 仍只由日期、IP、User-Agent 组成；同一 NAT 出口下的多个用户可能被合并。
 - **证据**：
   - `frontend/src/utils/http.ts:96-100` 全局注入 `X-Visitor-Id`。

@@ -63,7 +63,10 @@ func Visit(ctx context.Context, svcCtx *svc.ServiceContext, req types.TrafficVis
 	now := time.Now()
 	date := now.Format("2006-01-02")
 	sourceType, sourceName := classifyReferer(req.Referrer, meta.Host)
-	visitorHash := visitorDailyHash(date, meta.IP, meta.UserAgent)
+	// UV 使用服务端观察到的 IP/UA 与前端匿名 visitor ID 的组合哈希：
+	// 同一 NAT 下不同浏览器不会被强行合并，清 Cookie 后仍会回退到 IP/UA，
+	// 且数据库和 Redis 不保存原始 visitor ID、IP 或 User-Agent。
+	visitorHash := visitorDailyHash(date, meta.IP, meta.UserAgent, meta.VisitorID)
 
 	if err := svcCtx.Store.RecordTraffic(ctx, model.TrafficRecord{
 		Date:        date,
@@ -156,8 +159,12 @@ func canonicalContentRoute(path string, articleID uint64) (string, string, bool)
 	}
 }
 
-func visitorDailyHash(date, ip, userAgent string) string {
-	sum := sha256.Sum256([]byte(strings.TrimSpace(date) + "|" + strings.TrimSpace(ip) + "|" + strings.TrimSpace(userAgent)))
+func visitorDailyHash(date, ip, userAgent string, visitorIDs ...string) string {
+	input := strings.TrimSpace(date) + "|" + strings.TrimSpace(ip) + "|" + strings.TrimSpace(userAgent)
+	if len(visitorIDs) > 0 && strings.TrimSpace(visitorIDs[0]) != "" {
+		input += "|" + strings.TrimSpace(visitorIDs[0])
+	}
+	sum := sha256.Sum256([]byte(input))
 	return hex.EncodeToString(sum[:])
 }
 

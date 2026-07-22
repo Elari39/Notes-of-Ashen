@@ -93,6 +93,19 @@ func TestMetaFallsBackWhenForwardedIPIsInvalid(t *testing.T) {
 	}
 }
 
+func TestMetaNormalizesVisitorIDAndIgnoresUntrustedShape(t *testing.T) {
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req.Header.Set("X-Visitor-Id", "ABCDEF12-3456-7890-ABCD-EF1234567890")
+	if got := Meta(req).VisitorID; got != "abcdef12-3456-7890-abcd-ef1234567890" {
+		t.Fatalf("normalized visitor id = %q", got)
+	}
+
+	req.Header.Set("X-Visitor-Id", "visitor<script>")
+	if got := Meta(req).VisitorID; got != "" {
+		t.Fatalf("invalid visitor id = %q, want empty", got)
+	}
+}
+
 func TestRequestBaseURLUsesForwardedHeadersOnlyForTrustedProxy(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/rss.xml", nil)
 	req.RemoteAddr = "203.0.113.10:54321"

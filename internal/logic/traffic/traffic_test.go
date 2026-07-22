@@ -39,6 +39,15 @@ func TestVisitorDailyHash(t *testing.T) {
 	if got == visitorDailyHash("2026-06-08", "127.0.0.1", "ua") {
 		t.Fatal("visitorDailyHash() should change across dates")
 	}
+	if got != visitorDailyHash("2026-06-07", "127.0.0.1", "ua", "") {
+		t.Fatal("missing visitor id should preserve the IP/UA fallback hash")
+	}
+	if got == visitorDailyHash("2026-06-07", "127.0.0.1", "ua", "abcdef12-3456-7890-abcd-ef1234567890") {
+		t.Fatal("visitor id should participate in the daily UV hash")
+	}
+	if visitorDailyHash("2026-06-07", "127.0.0.1", "ua", "visitor-a-123456") == visitorDailyHash("2026-06-07", "127.0.0.1", "ua", "visitor-b-123456") {
+		t.Fatal("different visitor ids behind the same NAT should not share a UV hash")
+	}
 }
 
 func TestIsPublicTrafficPath(t *testing.T) {

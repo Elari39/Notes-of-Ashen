@@ -734,7 +734,7 @@ GET /sitemap.xml
 POST /api/v1/traffic/visit
 ```
 
-权限：公开。前端自动上报公开页面访问，接口有 IP 限流保护。后端仅记录公开页面路径、PV/UV 与访问来源，后台、登录、注册、个人资料和找回密码等路径会被忽略。
+权限：公开。前端自动上报公开页面访问，接口有 IP 限流保护。后端仅记录公开页面路径、PV/UV 与访问来源，后台、登录、注册、个人资料和找回密码等路径会被忽略。UV 按自然日去重，使用服务端观察到的 IP、User-Agent 与经过长度/字符集校验的匿名 `X-Visitor-Id` 组合后再哈希；未提供或校验失败时回退到 IP/User-Agent。原始 IP、User-Agent 和 Visitor ID 不入库，Visitor ID 不参与鉴权或反滥用授权。
 
 访客 IP 默认来自直连 `RemoteAddr`；只有请求来自 `APP_TRUSTED_PROXY_CIDRS` 中配置的可信代理时，才会读取 `X-Forwarded-For` 或 `X-Real-IP`。
 

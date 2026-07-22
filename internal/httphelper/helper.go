@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net"
 	"net/http"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -48,6 +49,8 @@ func PathVersionNo(r *http.Request) (int, error) {
 type ForwardedOptions struct {
 	TrustedProxyCIDRs string
 }
+
+var visitorIDPattern = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{15,63}$`)
 
 func RequestBaseURL(r *http.Request, options ...ForwardedOptions) string {
 	proto := requestProto(r.TLS)
@@ -138,8 +141,18 @@ func Meta(r *http.Request, options ...ForwardedOptions) types.RequestMeta {
 		UserAgent: r.UserAgent(),
 		Referrer:  r.Referer(),
 		Host:      host,
-		VisitorID: strings.TrimSpace(r.Header.Get("X-Visitor-Id")),
+		VisitorID: normalizeVisitorID(r.Header.Get("X-Visitor-Id")),
 	}
+}
+
+// normalizeVisitorID 只接受前端生成的匿名 ID 形态；非法值被忽略而不是
+// 拒绝整个公开请求。该值只作为 IP/UA 组合哈希的一个输入，不是鉴权或反滥用凭据。
+func normalizeVisitorID(value string) string {
+	value = strings.ToLower(strings.TrimSpace(value))
+	if !visitorIDPattern.MatchString(value) {
+		return ""
+	}
+	return value
 }
 
 func forwardedOptions(options []ForwardedOptions) ForwardedOptions {

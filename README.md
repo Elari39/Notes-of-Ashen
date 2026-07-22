@@ -275,7 +275,7 @@ Docker Compose 使用 `goblog_media_data` 同时挂载到 API 的 `/data/media`�
 
 Web 入口的 `GET /healthz` 代理到 API readiness，会反映数据库、Redis 和 schema 状态；`GET /livez` 仅表示 Nginx 静态入口存活。监控与负载均衡应使用 `/healthz` 判断应用是否可接流量。
 
-“内容分析”从 `traffic_content_daily_stats` 新表部署后开始累计页面和文章级 PV/UV，无法从旧的文章总浏览量可靠回填。用于 UV 去重的访客哈希明细会定期清理，每日聚合长期保留；不采集设备、浏览器和地域信息。
+“内容分析”从 `traffic_content_daily_stats` 新表部署后开始累计页面和文章级 PV/UV，无法从旧的文章总浏览量可靠回填。用于 UV 去重的访客哈希明细会定期清理，每日聚合长期保留；UV 使用服务端 IP、User-Agent 与校验后的匿名 Visitor ID 组合哈希，同一 NAT 下的不同浏览器可区分，清理/缺失 Visitor ID 时回退到 IP/UA；不保存原始 IP、Visitor ID、设备、浏览器和地域信息。
 
 “系统工具”仅管理员可访问，提供依赖健康探测以及 `.noa-backup` 加密导出/恢复。健康页的 `backup_schema` 项会校验媒体与内容分析表是否齐全；旧 MySQL 数据卷若显示异常，先完成数据库备份并运行一次迁移任务。备份口令不会持久化；归档不包含 AI API Key、Token、日志、流量明细、搜索索引和访客点赞哈希。恢复是破坏性的整站替换，会清空目标会话、日志、流量统计和 AI Key，并强制退出当前登录。执行恢复前仍应保留数据库/媒体卷的基础设施快照，并先在独立实例演练。
 
