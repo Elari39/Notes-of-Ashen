@@ -97,7 +97,8 @@ type ResetPasswordReq {
 
 type TokenPair {
 	AccessToken  string `json:"accessToken"`
-	RefreshToken string `json:"refreshToken"`
+	// refreshToken 仅由 HttpOnly Cookie 携带；响应体中省略该可选字段。
+	RefreshToken string `json:"refreshToken,optional"`
 	TokenType    string `json:"tokenType"`
 	ExpiresIn    int64  `json:"expiresIn"`
 }

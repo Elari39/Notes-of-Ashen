@@ -208,7 +208,7 @@ POST /api/v1/auth/refresh
 
 权限：公开。刷新成功后，旧 Refresh Token 会被撤销，并返回新的 Access Token。
 
-> Refresh Token 默认通过后端下发的 `HttpOnly` + `SameSite=Strict` Cookie（`noa_refresh_token`）携带，请求需带凭证（`withCredentials`）；Body 中的 `refreshToken` 字段可选，仅用于直接调用 API 的客户端兜底。响应中的 `refreshToken` 字段已置空，前端不应再依赖。
+> Refresh Token 默认通过后端下发的 `HttpOnly` + `SameSite=Strict` Cookie（`noa_refresh_token`）携带，请求需带凭证（`withCredentials`）；Body 中的 `refreshToken` 字段可选，仅用于直接调用 API 的客户端兜底。响应体不返回 Refresh Token，前端不应读取或依赖该字段。
 
 | 字段 | 类型 | 必填 | 说明 |
 | --- | --- | --- | --- |
@@ -222,7 +222,6 @@ Token 响应示例：
   "message": "success",
   "data": {
     "accessToken": "jwt",
-    "refreshToken": "",
     "tokenType": "Bearer",
     "expiresIn": 7200
   }
@@ -1042,7 +1041,7 @@ $register = Invoke-RestMethod -Method Post `
 
 $accessToken = $register.data.accessToken
 
-# Refresh Token 仅由服务端写入 HttpOnly Cookie，响应中的 refreshToken 始终为空。
+# Refresh Token 仅由服务端写入 HttpOnly Cookie，响应体不包含 refreshToken。
 $refresh = Invoke-RestMethod -Method Post `
   -Uri "http://127.0.0.1:19000/api/v1/auth/refresh" `
   -WebSession $session

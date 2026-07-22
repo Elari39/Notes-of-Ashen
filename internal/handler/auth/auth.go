@@ -15,7 +15,7 @@ func forwardedOptions(svcCtx *svc.ServiceContext) basehandler.ForwardedOptions {
 }
 
 // issueRefreshCookie 将 TokenPair 中的 refreshToken 写入 HttpOnly Cookie，
-// 并把响应体内的 refreshToken 置空——前端不再依赖该字段，长期凭证仅存于 Cookie。
+// 并把响应体内的 refreshToken 置空——omitempty 会省略该字段，长期凭证仅存于 Cookie。
 func issueRefreshCookie(w http.ResponseWriter, svcCtx *svc.ServiceContext, resp *types.TokenPair) {
 	if resp != nil {
 		authlogic.SetRefreshCookie(w, svcCtx, resp.RefreshToken)

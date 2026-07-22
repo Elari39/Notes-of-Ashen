@@ -3,8 +3,9 @@ package types
 import "time"
 
 type TokenPair struct {
-	AccessToken  string `json:"accessToken"`
-	RefreshToken string `json:"refreshToken"`
+	AccessToken string `json:"accessToken"`
+	// refreshToken 仅由 HttpOnly Cookie 携带；Handler 清空后通过 omitempty 省略。
+	RefreshToken string `json:"refreshToken,omitempty"`
 	TokenType    string `json:"tokenType"`
 	ExpiresIn    int64  `json:"expiresIn"`
 }

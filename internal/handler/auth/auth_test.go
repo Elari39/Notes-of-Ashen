@@ -47,3 +47,19 @@ func TestResolveRefreshTokenPrefersBodyAndFallsBackToCookie(t *testing.T) {
 		t.Fatalf("missing token = %q, want empty", got)
 	}
 }
+
+func TestTokenPairResponseOmitsRefreshToken(t *testing.T) {
+	payload, err := json.Marshal(struct {
+		Code int             `json:"code"`
+		Data types.TokenPair `json:"data"`
+	}{
+		Code: 0,
+		Data: types.TokenPair{AccessToken: "access-token", TokenType: "Bearer", ExpiresIn: 1800},
+	})
+	if err != nil {
+		t.Fatalf("marshal token response: %v", err)
+	}
+	if strings.Contains(string(payload), "refreshToken") {
+		t.Fatalf("token response exposes refreshToken: %s", payload)
+	}
+}

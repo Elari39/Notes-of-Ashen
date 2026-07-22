@@ -142,7 +142,7 @@
 
 ### TODO-P2-02 统一 API 描述、后端类型和 Cookie-only Refresh Token 契约
 
-- [ ] **优先级**：P2；**负责人建议**：后端 + 前端；**预估**：小。
+- [x] **优先级**：P2；**负责人建议**：后端 + 前端；**预估**：小。
 - **问题**：Refresh Token 实际由 HttpOnly Cookie 携带，handler 会把响应体中的 `refreshToken` 清空，但 API 描述中的 `TokenPair.refreshToken` 仍是普通必填字段。
 - **证据**：
   - `api/notes-of-ashen.api:98-102` 将 `TokenPair.refreshToken` 定义为非 optional。
