@@ -54,6 +54,8 @@ services:
         condition: service_healthy
       migrate:
         condition: service_completed_successfully
+      config-check:
+        condition: service_completed_successfully
     env_file:
       - "${APP_ENV_FILE:-.env}"
     environment:
@@ -76,6 +78,8 @@ services:
       APP_MEILISEARCH_API_KEY: "${APP_MEILISEARCH_API_KEY:-}"
       APP_MEILISEARCH_INDEX: "${APP_MEILISEARCH_INDEX:-articles}"
       APP_RABBITMQ_ENABLED: "${APP_RABBITMQ_ENABLED:-false}"
+      APP_RABBITMQ_USER: "${APP_RABBITMQ_USER:-notes_user}"
+      APP_RABBITMQ_PASSWORD: "${APP_RABBITMQ_PASSWORD:-}"
       APP_RABBITMQ_URL: "${APP_RABBITMQ_URL:-}"
       APP_RABBITMQ_EXCHANGE: "${APP_RABBITMQ_EXCHANGE:-notes-of-ashen.events}"
       APP_RABBITMQ_QUEUE: "${APP_RABBITMQ_QUEUE:-notes-of-ashen.operation_logs}"
@@ -92,6 +96,7 @@ services:
       APP_MEDIA_MAX_UPLOAD_BYTES: "${APP_MEDIA_MAX_UPLOAD_BYTES:-10485760}"
       APP_BACKUP_MAX_UPLOAD_BYTES: "${APP_BACKUP_MAX_UPLOAD_BYTES:-1073741824}"
       APP_TRUSTED_PROXY_CIDRS: "${APP_TRUSTED_PROXY_CIDRS:-172.30.127.10/32}"
+      COMPOSE_PROFILES: "${COMPOSE_PROFILES:-}"
     volumes:
       - goblog_media_data:/data/media
     expose:
@@ -128,6 +133,8 @@ services:
     depends_on:
       mysql:
         condition: service_healthy
+      config-check:
+        condition: service_completed_successfully
     env_file:
       - "${APP_ENV_FILE:-.env}"
     environment:
@@ -143,6 +150,36 @@ services:
         max-file: "3"
     labels:
       org.opencontainers.image.title: "Notes of Ashen Database Migrations"
+    networks:
+      - app
+
+  config-check:
+    image: notes-of-ashen-api:${IMAGE_TAG:-latest}
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    restart: "no"
+    env_file:
+      - "${APP_ENV_FILE:-.env}"
+    environment:
+      TZ: Asia/Shanghai
+      COMPOSE_PROFILES: "${COMPOSE_PROFILES:-}"
+      APP_SEARCH_ENABLED: "${APP_SEARCH_ENABLED:-false}"
+      APP_MEILISEARCH_HOST: "${APP_MEILISEARCH_HOST:-http://meilisearch:7700}"
+      APP_MEILISEARCH_API_KEY: "${APP_MEILISEARCH_API_KEY:-}"
+      APP_MEILISEARCH_INDEX: "${APP_MEILISEARCH_INDEX:-articles}"
+      APP_RABBITMQ_ENABLED: "${APP_RABBITMQ_ENABLED:-false}"
+      APP_RABBITMQ_USER: "${APP_RABBITMQ_USER:-notes_user}"
+      APP_RABBITMQ_PASSWORD: "${APP_RABBITMQ_PASSWORD:-}"
+      APP_RABBITMQ_URL: "${APP_RABBITMQ_URL:-}"
+    command: ["-f", "/app/etc/notes-of-ashen.yaml", "-validate-optional-dependencies-only"]
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    labels:
+      org.opencontainers.image.title: "Notes of Ashen Optional Dependency Validation"
     networks:
       - app
 

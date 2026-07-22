@@ -24,8 +24,9 @@ import (
 )
 
 var (
-	configFile  = flag.String("f", "etc/notes-of-ashen.yaml", "the config file")
-	migrateOnly = flag.Bool("migrate-only", false, "run embedded database migrations and exit")
+	configFile           = flag.String("f", "etc/notes-of-ashen.yaml", "the config file")
+	migrateOnly          = flag.Bool("migrate-only", false, "run embedded database migrations and exit")
+	validateOptionalOnly = flag.Bool("validate-optional-dependencies-only", false, "validate Compose optional dependency switches and profiles, then exit")
 )
 
 func main() {
@@ -46,7 +47,13 @@ func main() {
 		return
 	}
 	logx.Must(c.ApplyEnv())
+	if *validateOptionalOnly {
+		logx.Must(c.ValidateOptionalDependencyProfiles())
+		logx.Info("[config] optional dependency profile configuration is valid")
+		return
+	}
 	logx.Must(c.ValidateConfig())
+	logx.Must(c.ValidateOptionalDependencyProfiles())
 
 	// go-zero 的内置访问日志会在 5xx 时转储完整请求，其中可能包含认证凭证和 API Key。
 	// 关闭内置实现，统一使用项目的安全访问日志中间件。

@@ -123,7 +123,7 @@
 
 ### TODO-P2-01 增加可选依赖开关与 Compose profile 的一致性校验
 
-- [ ] **优先级**：P2；**负责人建议**：运维 + 后端；**预估**：小到中等。
+- [x] **优先级**：P2；**负责人建议**：运维 + 后端；**预估**：小到中等。
 - **问题**：RabbitMQ 与 Meilisearch 使用 Compose profile 控制容器是否创建，API 又分别使用 `APP_RABBITMQ_ENABLED`、`APP_SEARCH_ENABLED` 控制能力；当前主要依赖 README 和操作者手工保持一致。
 - **证据**：
   - `docker-compose.yml:72-80` 注入搜索与 RabbitMQ 开关/连接配置。

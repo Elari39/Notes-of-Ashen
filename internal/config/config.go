@@ -1,7 +1,9 @@
 package config
 
 import (
+	"errors"
 	"fmt"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -50,6 +52,8 @@ type SearchConf struct {
 
 type RabbitMQConf struct {
 	Enabled    bool
+	User       string
+	Password   string
 	URL        string
 	Exchange   string
 	Queue      string
@@ -202,6 +206,8 @@ func (c *Config) ApplyEnv() error {
 	if err := setBool("APP_RABBITMQ_ENABLED", &c.RabbitMQ.Enabled); err != nil {
 		return err
 	}
+	setString("APP_RABBITMQ_USER", &c.RabbitMQ.User)
+	setString("APP_RABBITMQ_PASSWORD", &c.RabbitMQ.Password)
 	setString("APP_RABBITMQ_URL", &c.RabbitMQ.URL)
 	setString("APP_RABBITMQ_EXCHANGE", &c.RabbitMQ.Exchange)
 	setString("APP_RABBITMQ_QUEUE", &c.RabbitMQ.Queue)
@@ -228,6 +234,85 @@ func (c *Config) ApplyEnv() error {
 	setString("APP_TRUSTED_PROXY_CIDRS", &c.Proxy.TrustedCIDRs)
 
 	return nil
+}
+
+// ValidateOptionalDependencyProfiles validates the Compose-only contract between
+// optional dependency switches and the profiles that create their containers.
+// COMPOSE_PROFILES is intentionally optional so non-Compose deployments can use
+// externally managed RabbitMQ/Meilisearch instances without inheriting Compose
+// assumptions.
+func (c Config) ValidateOptionalDependencyProfiles() error {
+	profiles, ok := os.LookupEnv("COMPOSE_PROFILES")
+	if !ok {
+		return nil
+	}
+	active := composeProfiles(profiles)
+
+	if c.Search.Enabled != active["search"] {
+		return fmt.Errorf("search configuration mismatch: APP_SEARCH_ENABLED=%t requires COMPOSE_PROFILES to %sinclude search", c.Search.Enabled, ternary(c.Search.Enabled, "", "not "))
+	}
+	if c.Search.Enabled {
+		if err := validateComposeURL("APP_MEILISEARCH_HOST", c.Search.MeilisearchHost, "http", "https"); err != nil {
+			return err
+		}
+		if err := validateRequiredSecret("APP_MEILISEARCH_API_KEY", c.Search.MeilisearchAPIKey, 8); err != nil {
+			return err
+		}
+	} else if strings.TrimSpace(c.Search.MeilisearchAPIKey) != "" {
+		return errors.New("APP_MEILISEARCH_API_KEY must be empty when APP_SEARCH_ENABLED=false")
+	}
+
+	if c.RabbitMQ.Enabled != active["messaging"] {
+		return fmt.Errorf("RabbitMQ configuration mismatch: APP_RABBITMQ_ENABLED=%t requires COMPOSE_PROFILES to %sinclude messaging", c.RabbitMQ.Enabled, ternary(c.RabbitMQ.Enabled, "", "not "))
+	}
+	if c.RabbitMQ.Enabled {
+		if strings.TrimSpace(c.RabbitMQ.User) == "" {
+			return errors.New("APP_RABBITMQ_USER is required when messaging profile is enabled")
+		}
+		if err := validateRequiredSecret("APP_RABBITMQ_PASSWORD", c.RabbitMQ.Password, 12); err != nil {
+			return err
+		}
+		parsed, err := url.Parse(strings.TrimSpace(c.RabbitMQ.URL))
+		if err != nil || (parsed.Scheme != "amqp" && parsed.Scheme != "amqps") || parsed.Host == "" || parsed.User == nil {
+			return errors.New("APP_RABBITMQ_URL must be a valid amqp(s) URL with user and password")
+		}
+		password, hasPassword := parsed.User.Password()
+		if !hasPassword || password == "" || parsed.User.Username() != strings.TrimSpace(c.RabbitMQ.User) || password != c.RabbitMQ.Password {
+			return errors.New("APP_RABBITMQ_URL credentials must match APP_RABBITMQ_USER and APP_RABBITMQ_PASSWORD")
+		}
+	} else if strings.TrimSpace(c.RabbitMQ.URL) != "" || strings.TrimSpace(c.RabbitMQ.Password) != "" {
+		return errors.New("APP_RABBITMQ_URL and APP_RABBITMQ_PASSWORD must be empty when APP_RABBITMQ_ENABLED=false")
+	}
+
+	return nil
+}
+
+func composeProfiles(value string) map[string]bool {
+	profiles := make(map[string]bool)
+	for _, item := range strings.FieldsFunc(value, func(r rune) bool { return r == ',' || r == ' ' || r == '\t' || r == '\r' || r == '\n' }) {
+		profiles[strings.TrimSpace(item)] = true
+	}
+	return profiles
+}
+
+func validateComposeURL(name, value string, schemes ...string) error {
+	parsed, err := url.Parse(strings.TrimSpace(value))
+	if err != nil || parsed.Host == "" {
+		return fmt.Errorf("%s must be a valid URL", name)
+	}
+	for _, scheme := range schemes {
+		if parsed.Scheme == scheme {
+			return nil
+		}
+	}
+	return fmt.Errorf("%s must use one of %s", name, strings.Join(schemes, "|"))
+}
+
+func ternary(condition bool, whenTrue, whenFalse string) string {
+	if condition {
+		return whenTrue
+	}
+	return whenFalse
 }
 
 const minAccessSecretLength = 16

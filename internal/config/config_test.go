@@ -1,6 +1,9 @@
 package config
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestApplyEnvOverridesConfig(t *testing.T) {
 	c := Config{}
@@ -150,6 +153,64 @@ func TestValidateRejectsNonPositiveTokenExpirations(t *testing.T) {
 			tt.mutate(&conf)
 			if err := conf.ValidateConfig(); err == nil {
 				t.Fatal("ValidateConfig() error = nil, want error")
+			}
+		})
+	}
+}
+
+func TestValidateOptionalDependencyProfiles(t *testing.T) {
+	tests := []struct {
+		name      string
+		profiles  string
+		conf      Config
+		wantError string
+	}{
+		{
+			name:      "search enabled without profile",
+			profiles:  "",
+			conf:      Config{Search: SearchConf{Enabled: true, MeilisearchHost: "http://meilisearch:7700", MeilisearchAPIKey: "strong-meili-key"}},
+			wantError: "APP_SEARCH_ENABLED",
+		},
+		{
+			name:     "search enabled with profile",
+			profiles: "search",
+			conf: Config{Search: SearchConf{
+				Enabled: true, MeilisearchHost: "http://meilisearch:7700", MeilisearchAPIKey: "strong-meili-key", MeilisearchIndex: "articles",
+			}},
+		},
+		{
+			name:     "rabbitmq enabled with matching credentials",
+			profiles: "messaging",
+			conf: Config{RabbitMQ: RabbitMQConf{
+				Enabled: true, User: "notes_user", Password: "strong-rabbit-password", URL: "amqp://notes_user:strong-rabbit-password@rabbitmq:5672/",
+			}},
+		},
+		{
+			name:      "rabbitmq credentials drift",
+			profiles:  "messaging",
+			conf:      Config{RabbitMQ: RabbitMQConf{Enabled: true, User: "notes_user", Password: "strong-rabbit-password", URL: "amqp://notes_user:another-password@rabbitmq:5672/"}},
+			wantError: "credentials must match",
+		},
+		{
+			name:      "disabled search with profile",
+			profiles:  "search",
+			conf:      Config{},
+			wantError: "APP_SEARCH_ENABLED",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Setenv("COMPOSE_PROFILES", tt.profiles)
+			err := tt.conf.ValidateOptionalDependencyProfiles()
+			if tt.wantError == "" {
+				if err != nil {
+					t.Fatalf("ValidateOptionalDependencyProfiles() error = %v, want nil", err)
+				}
+				return
+			}
+			if err == nil || !strings.Contains(err.Error(), tt.wantError) {
+				t.Fatalf("ValidateOptionalDependencyProfiles() error = %v, want substring %q", err, tt.wantError)
 			}
 		})
 	}
