@@ -43,6 +43,14 @@ const Search: React.FC = () => {
   const [activeSuggestion, setActiveSuggestion] = useState(-1);
   const size = 10;
   const t = (key: Parameters<typeof translate>[1]) => translate(language, key);
+  const suggestionKindLabel = (kind: string) => {
+    switch (kind) {
+      case 'article': return t('search.suggestionArticle');
+      case 'category': return t('search.suggestionCategory');
+      case 'tag': return t('search.suggestionTag');
+      default: return t('search.suggestionUnknown');
+    }
+  };
   const query = (searchParams.get('q') || '').trim();
   const page = parsePositiveInt(searchParams.get('page'), 1);
   const categoryId = parsePositiveInt(searchParams.get('categoryId'), 0);
@@ -178,7 +186,17 @@ const Search: React.FC = () => {
       navigate(`/article/${item.id}`);
       return;
     }
-    setSearchParams(item.kind === 'category' ? { categoryId: String(item.id) } : { tagId: String(item.id) });
+    if (item.kind === 'category') {
+      setSearchParams({ categoryId: String(item.id) });
+      return;
+    }
+    if (item.kind === 'tag') {
+      setSearchParams({ tagId: String(item.id) });
+      return;
+    }
+    // API 未来扩展 kind 时不把未知项误当成 tag，安全回退到普通关键词搜索。
+    setKeyword(item.label);
+    setSearchParams({ q: item.label });
   };
 
   const chooseRecent = (value: string) => {
@@ -333,10 +351,16 @@ const Search: React.FC = () => {
                   aria-selected={activeSuggestion === index}
                   onMouseDown={(event) => event.preventDefault()}
                   onClick={() => chooseSuggestion(item)}
+                  aria-label={`${suggestionKindLabel(item.kind)}: ${item.label}`}
                   className={`flex w-full items-center justify-between rounded-md px-3 py-2 text-sm ${activeSuggestion === index ? 'bg-surface-soft text-ochre' : 'text-ink hover:bg-surface-soft'}`}
                 >
-                  <span>{item.label}</span>
-                  {item.kind !== 'article' && <span className="text-xs text-muted">{item.articleCount}</span>}
+                  <span className="flex min-w-0 items-center gap-3">
+                    <span className="truncate">{item.label}</span>
+                    <span className="shrink-0 rounded border border-hairline px-1.5 py-0.5 text-[0.65rem] tracking-wide text-muted">
+                      {suggestionKindLabel(item.kind)}
+                    </span>
+                  </span>
+                  {(item.kind === 'category' || item.kind === 'tag') && <span className="text-xs text-muted">{item.articleCount}</span>}
                 </button>
               ))}
             </div>

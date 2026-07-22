@@ -49,3 +49,13 @@ test('NoData mutation API 不再声明必填 data', () => {
   assert.match(media, /deleteMedia[\s\S]*NoDataResp/);
   assert.match(traffic, /NoDataResp/);
 });
+
+test('搜索建议展示来源并对未知 kind 安全回退', () => {
+  const search = read('../src/pages/Search.tsx');
+  assert.match(search, /search\.suggestionArticle/);
+  assert.match(search, /search\.suggestionCategory/);
+  assert.match(search, /search\.suggestionTag/);
+  assert.match(search, /search\.suggestionUnknown/);
+  assert.match(search, /aria-label=\{`\$\{suggestionKindLabel\(item\.kind\)\}/);
+  assert.match(search, /未知项误当成 tag/);
+});
