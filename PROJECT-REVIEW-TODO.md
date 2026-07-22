@@ -178,7 +178,7 @@
 
 ### TODO-P2-04 建立数据库关系完整性策略
 
-- [ ] **优先级**：P2；**负责人建议**：数据层；**预估**：中等，需评估兼容性。
+- [x] **优先级**：P2；**负责人建议**：数据层；**预估**：中等，需评估兼容性。
 - **问题**：`schema.sql` 没有发现 `FOREIGN KEY`、`REFERENCES` 或级联约束；文章、标签、项目、用户、Token 和日志之间的关系主要依靠业务 SQL 手工维护。
 - **证据**：
   - `deploy/mysql/schema.sql:106-228` 定义 categories、tags、articles、article_versions、article_tags、article_likes 等关系表，但没有数据库外键声明。

@@ -48,6 +48,7 @@ var destructiveMigrationWarnings = map[uint64]string{
 	2:  "包含历史数据写入或清理操作",
 	13: "会删除已废弃的 traffic_geo 表",
 	23: "会清理孤儿 article_versions 数据",
+	24: "会清理孤儿关系并增加数据库外键约束",
 }
 
 // Migration 是一个已发现的、不可变的 SQL 迁移文件。
