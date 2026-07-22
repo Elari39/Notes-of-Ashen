@@ -93,11 +93,17 @@ function Get-ComposePort {
 function Get-ComposeContainerIds {
     param(
         [Parameter(Mandatory)]$Runtime,
-        [Parameter(Mandatory)][string]$Service
+        [Parameter(Mandatory)][string]$Service,
+        [switch]$IncludeStopped
     )
 
     $composeArguments = Get-ComposeArguments -Runtime $Runtime
-    $containerLines = @(& docker @composeArguments ps --quiet $Service)
+    $psArguments = @("ps")
+    if ($IncludeStopped) {
+        $psArguments += "--all"
+    }
+    $psArguments += @("--quiet", $Service)
+    $containerLines = @(& docker @composeArguments @psArguments)
     $containerIds = @($containerLines | ForEach-Object { ([string]$_).Trim() } | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
     if ($LASTEXITCODE -ne 0 -or $containerIds.Count -eq 0) {
         throw "无法获取 $Service 容器 ID。"
@@ -120,7 +126,8 @@ function New-StageRuntime {
     param(
         [Parameter(Mandatory)][string]$Stage,
         [Parameter(Mandatory)][int]$Ordinal,
-        [string[]]$ComposeOverrides = @()
+        [string[]]$ComposeOverrides = @(),
+        [System.Collections.IDictionary]$EnvironmentOverrides = @{}
     )
 
     $project = "noa-it-$($runId.Replace('-', ''))-$Stage-$Ordinal".ToLowerInvariant()
@@ -187,6 +194,10 @@ function New-StageRuntime {
         PRERENDER_TOKEN              = ""
     }
 
+    foreach ($entry in $EnvironmentOverrides.GetEnumerator()) {
+        $composeEnvironment[[string]$entry.Key] = [string]$entry.Value
+    }
+
     $envLines = foreach ($entry in $composeEnvironment.GetEnumerator()) {
         "$($entry.Key)=$($entry.Value)"
     }
@@ -200,6 +211,7 @@ function New-StageRuntime {
         ComposeEnvironment = $composeEnvironment
         ComposeFiles        = @($baseComposeFiles + $ComposeOverrides)
         MySQLRootPassword  = $mysqlRootPassword
+        RedisPassword      = [string]$composeEnvironment["APP_REDIS_PASSWORD"]
     }
 }
 
@@ -313,6 +325,56 @@ function Wait-ForContainerHealthy {
     throw "等待 $Service 容器健康检查超时（最后状态：$lastStatus）。"
 }
 
+function Wait-ForContainerExit {
+    param(
+        [Parameter(Mandatory)][string]$ContainerID,
+        [Parameter(Mandatory)][string]$Service
+    )
+
+    $deadline = (Get-Date).AddSeconds(90)
+    $lastStatus = "unknown"
+    while ((Get-Date) -lt $deadline) {
+        $state = @(& docker inspect --format "{{.State.Status}}|{{.State.ExitCode}}" $ContainerID)
+        if ($LASTEXITCODE -eq 0 -and $state.Count -gt 0) {
+            $parts = ([string]$state[0]).Trim().Split("|", 2)
+            $lastStatus = $parts[0]
+            if ($lastStatus -eq "exited" -or $lastStatus -eq "dead") {
+                $exitCode = if ($parts.Count -eq 2) { [int]$parts[1] } else { -1 }
+                return [PSCustomObject]@{
+                    Status   = $lastStatus
+                    ExitCode = $exitCode
+                }
+            }
+        }
+        Start-Sleep -Seconds 2
+    }
+
+    throw "等待 $Service 容器退出超时（最后状态：$lastStatus）。"
+}
+
+function Wait-ForComposeContainerIds {
+    param(
+        [Parameter(Mandatory)]$Runtime,
+        [Parameter(Mandatory)][string]$Service,
+        [switch]$IncludeStopped
+    )
+
+    $deadline = (Get-Date).AddSeconds(90)
+    while ((Get-Date) -lt $deadline) {
+        try {
+            $containerIds = @(Get-ComposeContainerIds -Runtime $Runtime -Service $Service -IncludeStopped:$IncludeStopped)
+            if ($containerIds.Count -gt 0) {
+                return $containerIds
+            }
+        } catch {
+            # 依赖服务刚被 Compose 创建时继续等待。
+        }
+        Start-Sleep -Seconds 2
+    }
+
+    throw "等待 $Service 容器创建超时。"
+}
+
 function Initialize-DatabaseEndpoints {
     param([Parameter(Mandatory)]$Runtime)
 
@@ -381,13 +443,86 @@ function Set-TestEndpoints {
         [Parameter(Mandatory)][hashtable]$Snapshot
     )
 
+    $redisPassword = [string]$Runtime.RedisPassword
+    $redisURL = if ([string]::IsNullOrEmpty($redisPassword)) {
+        "redis://127.0.0.1:$($Runtime.RedisPort)/0"
+    } else {
+        "redis://:$([uri]::EscapeDataString($redisPassword))@127.0.0.1:$($Runtime.RedisPort)/0"
+    }
+
     Set-EnvironmentValue -Snapshot $Snapshot -Name "E2E_WEB_BASE_URL" -Value $Runtime.WebBaseUrl
     Set-EnvironmentValue -Snapshot $Snapshot -Name "E2E_API_BASE_URL" -Value $Runtime.ApiBaseUrl
-    Set-EnvironmentValue -Snapshot $Snapshot -Name "E2E_REDIS_URL" -Value "redis://127.0.0.1:$($Runtime.RedisPort)/0"
+    Set-EnvironmentValue -Snapshot $Snapshot -Name "E2E_REDIS_URL" -Value $redisURL
+    Set-EnvironmentValue -Snapshot $Snapshot -Name "E2E_REDIS_PASSWORD" -Value $redisPassword
     Set-EnvironmentValue -Snapshot $Snapshot -Name "E2E_MYSQL_DSN" -Value "notes_test:$($Runtime.ComposeEnvironment['APP_MYSQL_PASSWORD'])@tcp(127.0.0.1:$($Runtime.MySQLPort))/notes_of_ashen?charset=utf8mb4&parseTime=true&loc=Local"
     Set-EnvironmentValue -Snapshot $Snapshot -Name "E2E_MYSQL_ROOT_DSN" -Value "root:$($Runtime.MySQLRootPassword)@tcp(127.0.0.1:$($Runtime.MySQLPort))/notes_of_ashen?charset=utf8mb4&parseTime=true&loc=Local"
     Set-EnvironmentValue -Snapshot $Snapshot -Name "E2E_REDIS_CONTAINER_ID" -Value $Runtime.RedisContainerId
     Set-EnvironmentValue -Snapshot $Snapshot -Name "E2E_MYSQL_CONTAINER_ID" -Value $Runtime.MySQLContainerId
+}
+
+function Invoke-RedisCli {
+    param(
+        [Parameter(Mandatory)]$Runtime,
+        [bool]$UsePassword = $false
+    )
+
+    $arguments = @("exec")
+    $previousPassword = $null
+    try {
+        if ($UsePassword) {
+            $previousPassword = [Environment]::GetEnvironmentVariable("REDISCLI_AUTH", "Process")
+            [Environment]::SetEnvironmentVariable("REDISCLI_AUTH", [string]$Runtime.RedisPassword, "Process")
+            # 让 Docker CLI 从当前进程环境转发变量，避免密码出现在命令参数或错误输出中。
+            $arguments += @("-e", "REDISCLI_AUTH")
+        }
+        $arguments += @($Runtime.RedisContainerId, "redis-cli", "ping")
+        $output = @(& docker @arguments 2>&1)
+        return [PSCustomObject]@{
+            ExitCode = $LASTEXITCODE
+            Output   = (($output | ForEach-Object { $_.ToString() }) -join "`n").Trim()
+        }
+    } finally {
+        if ($UsePassword) {
+            [Environment]::SetEnvironmentVariable("REDISCLI_AUTH", $previousPassword, "Process")
+        }
+    }
+}
+
+function Assert-RedisPasswordMode {
+    param([Parameter(Mandatory)]$Runtime)
+
+    $password = [string]$Runtime.RedisPassword
+    if ([string]::IsNullOrEmpty($password)) {
+        $anonymous = Invoke-RedisCli -Runtime $Runtime
+        if ($anonymous.ExitCode -ne 0 -or $anonymous.Output -notmatch "(?m)^PONG$") {
+            throw "空 APP_REDIS_PASSWORD 时 Redis 未允许无认证 PING：exit=$($anonymous.ExitCode) output=$($anonymous.Output)"
+        }
+        return
+    }
+
+    $anonymous = Invoke-RedisCli -Runtime $Runtime
+    if ($anonymous.Output -notmatch "(?i)(NOAUTH|AUTH.*required|authentication required)") {
+        throw "非空 APP_REDIS_PASSWORD 时 Redis 未拒绝无认证 PING：exit=$($anonymous.ExitCode) output=$($anonymous.Output)"
+    }
+
+    $authenticated = Invoke-RedisCli -Runtime $Runtime -UsePassword $true
+    if ($authenticated.ExitCode -ne 0 -or $authenticated.Output -notmatch "(?m)^PONG$") {
+        throw "非空 APP_REDIS_PASSWORD 时 Redis 未接受正确认证：exit=$($authenticated.ExitCode) output=$($authenticated.Output)"
+    }
+}
+
+function Get-ComposeServiceLogs {
+    param(
+        [Parameter(Mandatory)]$Runtime,
+        [Parameter(Mandatory)][string]$Service
+    )
+
+    $composeArguments = Get-ComposeArguments -Runtime $Runtime
+    $output = @(& docker @composeArguments logs --no-color $Service 2>&1)
+    if ($LASTEXITCODE -ne 0) {
+        throw "读取 $Service Compose 日志失败。"
+    }
+    return (($output | ForEach-Object { $_.ToString() }) -join "`n")
 }
 
 function Get-ExpectedMigrations {
@@ -587,10 +722,11 @@ function Invoke-Stage {
         [Parameter(Mandatory)][string]$Name,
         [Parameter(Mandatory)][int]$Ordinal,
         [string[]]$ComposeOverrides = @(),
+        [System.Collections.IDictionary]$EnvironmentOverrides = @{},
         [Parameter(Mandatory)][scriptblock]$TestCommand
     )
 
-    $runtime = New-StageRuntime -Stage $Name -Ordinal $Ordinal -ComposeOverrides $ComposeOverrides
+    $runtime = New-StageRuntime -Stage $Name -Ordinal $Ordinal -ComposeOverrides $ComposeOverrides -EnvironmentOverrides $EnvironmentOverrides
     $environmentSnapshot = @{}
     $stageSucceeded = $false
 
@@ -655,6 +791,59 @@ function Invoke-MigrationConcurrentStage {
     }
 }
 
+function Invoke-RedisWrongPasswordStage {
+    param(
+        [Parameter(Mandatory)][string]$Name,
+        [Parameter(Mandatory)][int]$Ordinal,
+        [Parameter(Mandatory)][string]$ComposeOverride
+    )
+
+    $redisPassword = New-TestSecret
+    $apiPassword = New-TestSecret
+    if ($apiPassword -eq $redisPassword) {
+        throw "无法生成不同的 Redis 正确密码和 API 错误密码。"
+    }
+    $runtime = New-StageRuntime -Stage $Name -Ordinal $Ordinal -ComposeOverrides @($ComposeOverride) -EnvironmentOverrides @{
+        APP_REDIS_PASSWORD     = $redisPassword
+        E2E_API_REDIS_PASSWORD = $apiPassword
+    }
+    $environmentSnapshot = @{}
+    $stageSucceeded = $false
+
+    try {
+        Prepare-StageEnvironment -Runtime $runtime -Snapshot $environmentSnapshot
+        # 仅启动 API 及其依赖；不会拉起 Web，也不会接触当前开发 Compose 项目。
+        Invoke-Compose -Runtime $runtime -Arguments @("up", "--detach", "--build", "api")
+        Initialize-DatabaseEndpoints -Runtime $runtime
+        Wait-ForContainerHealthy -ContainerID $runtime.MySQLContainerId -Service "mysql"
+        Wait-ForContainerHealthy -ContainerID $runtime.RedisContainerId -Service "redis"
+        Assert-RedisPasswordMode -Runtime $runtime
+
+        $apiContainerIds = @(Wait-ForComposeContainerIds -Runtime $runtime -Service "api" -IncludeStopped)
+        if ($apiContainerIds.Count -ne 1) {
+            throw "Redis 错误密码阶段 API 容器数 = $($apiContainerIds.Count)，期望 1。"
+        }
+        $apiExit = Wait-ForContainerExit -ContainerID $apiContainerIds[0] -Service "api"
+        if ($apiExit.ExitCode -eq 0) {
+            throw "APP_REDIS_PASSWORD 错误时 API 意外成功退出，未保持启动期 fail-fast。"
+        }
+
+        $apiLogs = Get-ComposeServiceLogs -Runtime $runtime -Service "api"
+        if ($apiLogs -notmatch "(?i)(redis.*(authentication|auth)|wrongpass|noauth|invalid username-password)") {
+            throw "APP_REDIS_PASSWORD 错误时 API 日志未包含明确 Redis 认证错误：$apiLogs"
+        }
+
+        $stageSucceeded = $true
+    } catch {
+        Save-StageLogs -Runtime $runtime
+        throw
+    } finally {
+        Stop-Stage -Runtime $runtime -KeepLogs:(-not $stageSucceeded)
+        Restore-Environment -Snapshot $environmentSnapshot
+        Remove-Item -LiteralPath $runtime.EnvFile -Force -ErrorAction SilentlyContinue
+    }
+}
+
 function Invoke-GoIntegrationTests {
     param([Parameter(Mandatory)][string]$Pattern)
 
@@ -690,15 +879,17 @@ try {
     Push-Location $repoRoot
     $legacyEE23045Compose = Join-Path $repoRoot "deploy\test\docker-compose.migration-legacy-ee23045.yml"
     $legacy09FD516Compose = Join-Path $repoRoot "deploy\test\docker-compose.migration-legacy-09fd516.yml"
-    foreach ($legacyCompose in @($legacyEE23045Compose, $legacy09FD516Compose)) {
-        if (-not (Test-Path -LiteralPath $legacyCompose -PathType Leaf)) {
-            throw "缺少迁移历史 schema Compose 覆盖文件：$legacyCompose"
+    $redisWrongPasswordCompose = Join-Path $repoRoot "deploy\test\docker-compose.redis-wrong-password.yml"
+    foreach ($composeOverride in @($legacyEE23045Compose, $legacy09FD516Compose, $redisWrongPasswordCompose)) {
+        if (-not (Test-Path -LiteralPath $composeOverride -PathType Leaf)) {
+            throw "缺少集成测试 Compose 覆盖文件：$composeOverride"
         }
     }
 
-    # 空库启动时 api 必须等待 migrate 成功，随后完整 schema_migrations 和健康检查同时可用。
+    # 空密码：空库启动时 API 必须等待 migrate 成功，Redis 仍明确允许无认证探测。
     Invoke-Stage -Name "http" -Ordinal 1 -TestCommand {
         param($runtime)
+        Assert-RedisPasswordMode -Runtime $runtime
         Assert-MigrationState -Runtime $runtime
         Assert-ApiMigrationHealth -Runtime $runtime
         Invoke-GoIntegrationTests -Pattern "^TestCore"
@@ -723,14 +914,22 @@ try {
     }
     Invoke-MigrationConcurrentStage -Name "migration-concurrent-09fd516" -Ordinal 4 -ComposeOverride $legacy09FD516Compose
 
-    Invoke-Stage -Name "browser" -Ordinal 5 -TestCommand { Invoke-BrowserIntegrationTests }
+    # 正确非空密码：Redis 必须拒绝匿名访问、接受正确认证，且 API 在认证 Redis 重启后恢复健康。
+    Invoke-Stage -Name "redis-auth" -Ordinal 5 -EnvironmentOverrides @{ APP_REDIS_PASSWORD = (New-TestSecret) } -TestCommand {
+        param($runtime)
+        Assert-RedisPasswordMode -Runtime $runtime
+        Assert-ApiMigrationHealth -Runtime $runtime
+        Invoke-GoIntegrationTests -Pattern "^TestExtendedRedisFailClosed$"
+    }
+
+    # 错误密码：API 必须在启动期 fail-fast，且输出可定位的 Redis 认证错误；该阶段不会启动 Web。
+    Invoke-RedisWrongPasswordStage -Name "redis-wrong-password" -Ordinal 6 -ComposeOverride $redisWrongPasswordCompose
+
+    Invoke-Stage -Name "browser" -Ordinal 7 -TestCommand { Invoke-BrowserIntegrationTests }
     if ($Suite -eq "extended") {
-        Invoke-Stage -Name "extended" -Ordinal 6 -TestCommand {
-            # Redis 停止/重启可能使 Windows Docker Desktop 的宿主端口映射延迟恢复。
-            # 因此先完成仍依赖 E2E_REDIS_URL 的并发与备份故障注入，再将 Redis
-            # fail-closed 用例置于本生命周期的最后，避免其影响后续断言。
+        Invoke-Stage -Name "extended" -Ordinal 8 -TestCommand {
+            # 密码保护 Redis 的停止/重启恢复已在 redis-auth 核心阶段覆盖；此处保留其余扩展故障注入。
             Invoke-GoIntegrationTests -Pattern "^TestExtended(ConcurrentRegistrationAndRefreshRotation|BackupDatabaseStageFailure)$"
-            Invoke-GoIntegrationTests -Pattern "^TestExtendedRedisFailClosed$"
         }
     }
 

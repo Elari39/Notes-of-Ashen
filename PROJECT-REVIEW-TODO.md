@@ -102,7 +102,7 @@
 
 ### TODO-P1-02 统一 Redis 密码的 Compose 服务端与 API 客户端配置
 
-- [ ] **优先级**：P1；**负责人建议**：运维 + 配置维护；**预估**：小到中等。
+- [x] **优先级**：P1；**负责人建议**：运维 + 配置维护；**预估**：小到中等。
 - **问题**：API 接收 `APP_REDIS_PASSWORD`，但本地 Compose 启动 Redis 的 command 没有配置 `requirepass`；配置文件只保证客户端一侧可能携带密码。
 - **证据**：
   - `docker-compose.yml:69-71` 将 `APP_REDIS_PASSWORD` 注入 API。

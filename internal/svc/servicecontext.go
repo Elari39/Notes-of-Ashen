@@ -2,6 +2,9 @@ package svc
 
 import (
 	"context"
+	"errors"
+	"fmt"
+	"strings"
 	"time"
 
 	"notes-of-ashen/internal/authutil"
@@ -23,6 +26,28 @@ import (
 const startupRedisTimeout = 10 * time.Second
 
 const searchIndexRetryInterval = 30 * time.Second
+
+func isRedisAuthenticationError(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	message := strings.ToLower(err.Error())
+	return strings.Contains(message, "wrongpass") ||
+		strings.Contains(message, "noauth") ||
+		strings.Contains(message, "authentication required") ||
+		strings.Contains(message, "invalid username-password pair") ||
+		strings.Contains(message, "auth <password> called without any password configured")
+}
+
+// redisStartupPingFailure 生成供 logx.Must 使用的安全启动错误。认证失败时不透传
+// Redis 服务端原始错误，避免将意外包含的凭据写入启动日志。
+func redisStartupPingFailure(err error) error {
+	if isRedisAuthenticationError(err) {
+		return errors.New("redis PING authentication failed; verify APP_REDIS_PASSWORD matches the target Redis credentials")
+	}
+	return fmt.Errorf("redis PING failed: %w", err)
+}
 
 type ServiceContext struct {
 	Config        config.Config
@@ -65,7 +90,12 @@ func NewServiceContext(c config.Config) *ServiceContext {
 	pingCtx, cancel := context.WithTimeout(context.Background(), startupRedisTimeout)
 	if err := redisClient.Ping(pingCtx).Err(); err != nil {
 		cancel()
-		logx.Must(err)
+		if isRedisAuthenticationError(err) {
+			logx.Error("[startup] redis PING authentication failed; API will exit. Verify APP_REDIS_PASSWORD matches the target Redis credentials.")
+		} else {
+			logx.Errorf("[startup] redis PING failed; API will exit: %v", err)
+		}
+		logx.Must(redisStartupPingFailure(err))
 	}
 	cancel()
 	events := mq.NewPublisher(c.RabbitMQ, db)

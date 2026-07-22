@@ -3,10 +3,58 @@ package svc
 import (
 	"context"
 	"errors"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
 )
+
+func TestRedisStartupPingFailureAuthenticationIsExplicitAndRedacted(t *testing.T) {
+	const secret = "redis-password-must-not-appear"
+	err := errors.New("WRONGPASS invalid username-password pair: " + secret)
+
+	got := redisStartupPingFailure(err)
+	if !strings.Contains(got.Error(), "redis PING authentication failed") {
+		t.Fatalf("redisStartupPingFailure() = %q, want explicit authentication failure", got)
+	}
+	if strings.Contains(got.Error(), secret) || strings.Contains(got.Error(), "WRONGPASS") {
+		t.Fatalf("redisStartupPingFailure() leaked Redis error detail: %q", got)
+	}
+}
+
+func TestRedisStartupPingFailurePreservesNonAuthenticationError(t *testing.T) {
+	err := errors.New("dial tcp redis:6379: connect: connection refused")
+
+	got := redisStartupPingFailure(err)
+	if !strings.Contains(got.Error(), "redis PING failed") {
+		t.Fatalf("redisStartupPingFailure() = %q, want PING failure context", got)
+	}
+	if !errors.Is(got, err) {
+		t.Fatalf("redisStartupPingFailure() = %v, want wrapped original error", got)
+	}
+}
+
+func TestIsRedisAuthenticationError(t *testing.T) {
+	tests := []struct {
+		name string
+		err  error
+		want bool
+	}{
+		{name: "wrong password", err: errors.New("WRONGPASS invalid username-password pair or user is disabled."), want: true},
+		{name: "missing authentication", err: errors.New("NOAUTH Authentication required."), want: true},
+		{name: "password configured against unauthenticated redis", err: errors.New("ERR AUTH <password> called without any password configured for the default user"), want: true},
+		{name: "network failure", err: errors.New("dial tcp redis:6379: connect: connection refused"), want: false},
+		{name: "nil", err: nil, want: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := isRedisAuthenticationError(tt.err); got != tt.want {
+				t.Fatalf("isRedisAuthenticationError(%v) = %v, want %v", tt.err, got, tt.want)
+			}
+		})
+	}
+}
 
 func TestInitializeSearchWithEnsureReturnsAfterInitialSuccess(t *testing.T) {
 	var calls atomic.Int32

@@ -31,6 +31,7 @@ const (
 	webBaseURLEnv       = "E2E_WEB_BASE_URL"
 	apiBaseURLEnv       = "E2E_API_BASE_URL"
 	redisURLEnv         = "E2E_REDIS_URL"
+	redisPasswordEnv    = "E2E_REDIS_PASSWORD"
 	redisContainerIDEnv = "E2E_REDIS_CONTAINER_ID"
 	mysqlDSNEnv         = "E2E_MYSQL_DSN"
 	mysqlRootDSNEnv     = "E2E_MYSQL_ROOT_DSN"
@@ -45,6 +46,7 @@ type testEnvironment struct {
 	webBaseURL       string
 	apiBaseURL       string
 	redisURL         string
+	redisPassword    string
 	redisContainerID string
 	mysqlDSN         string
 	mysqlRootDSN     string
@@ -55,6 +57,7 @@ type harness struct {
 	apiBaseURL       string
 	client           *http.Client
 	redis            *redis.Client
+	redisPassword    string
 	redisContainerID string
 	appDB            *sql.DB
 	rootDB           *sql.DB
@@ -643,6 +646,7 @@ func newHarness(t *testing.T) *harness {
 		apiBaseURL:       env.apiBaseURL,
 		client:           &http.Client{Timeout: 45 * time.Second},
 		redis:            redisClient,
+		redisPassword:    env.redisPassword,
 		redisContainerID: env.redisContainerID,
 		appDB:            appDB,
 		rootDB:           rootDB,
@@ -669,6 +673,7 @@ func loadEnvironment(t *testing.T) testEnvironment {
 		webBaseURL:       values[webBaseURLEnv],
 		apiBaseURL:       values[apiBaseURLEnv],
 		redisURL:         values[redisURLEnv],
+		redisPassword:    os.Getenv(redisPasswordEnv),
 		redisContainerID: strings.TrimSpace(os.Getenv(redisContainerIDEnv)),
 		mysqlDSN:         values[mysqlDSNEnv],
 		mysqlRootDSN:     values[mysqlRootDSNEnv],
@@ -801,7 +806,16 @@ func (h *harness) waitForRedis(ctx context.Context) error {
 func (h *harness) pingRedisContainer(ctx context.Context) error {
 	pingCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
 	defer cancel()
-	command := exec.CommandContext(pingCtx, "docker", "exec", h.redisContainerID, "redis-cli", "ping")
+	arguments := []string{"exec"}
+	commandEnvironment := os.Environ()
+	if h.redisPassword != "" {
+		// 从 Docker CLI 的进程环境转发认证变量，避免密码出现在 docker exec 参数中。
+		commandEnvironment = append(commandEnvironment, "REDISCLI_AUTH="+h.redisPassword)
+		arguments = append(arguments, "-e", "REDISCLI_AUTH")
+	}
+	arguments = append(arguments, h.redisContainerID, "redis-cli", "ping")
+	command := exec.CommandContext(pingCtx, "docker", arguments...)
+	command.Env = commandEnvironment
 	output, err := command.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("容器内 Redis ping 失败: %w", err)

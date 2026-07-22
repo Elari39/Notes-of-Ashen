@@ -144,8 +144,8 @@ Copy-Item .env.example .env
 - `APP_DATABASE_DSN`：API 与一次性迁移任务使用的 MySQL 连接串，Compose 默认连接本地服务：`notes_user:password@tcp(mysql:3306)/notes_of_ashen?charset=utf8mb4&parseTime=true&loc=Local`。Compose 初始化库固定为 `notes_of_ashen`，此连接串在 Compose 部署中也必须指向该库，并且账号需具有创建/变更表和索引的权限。如需固定 MySQL 会话时区，可追加 `&time_zone='%2B08:00'`（URL 转义后为 `%27%2B08%3A00%27`）。
 - `APP_DATABASE_MAX_OPEN_CONNS`：MySQL 最大打开连接数。
 - `APP_DATABASE_MAX_IDLE_CONNS`：MySQL 最大空闲连接数。
-- `APP_REDIS_ADDR`：Redis 地址，Compose 默认 `redis:6379`。
-- `APP_REDIS_PASSWORD`：Redis 密码；无密码时留空。
+- `APP_REDIS_ADDR`：Redis 地址。使用 Compose 内置 Redis 时应为 `redis:6379`；接入外部 Redis 时填写外部服务可达的 `host:port`。
+- `APP_REDIS_PASSWORD`：Redis 密码。内置 Redis 留空时不启用认证，非空时 Redis 容器、健康检查和 API 会使用同一密码；接入外部 Redis 时填写该实例要求的密码。
 - `APP_REDIS_DB`：Redis DB 编号，默认 `0`。
 - `APP_RABBITMQ_USER`：本地 Compose RabbitMQ 用户，默认 `notes_user`。
 - `APP_RABBITMQ_PASSWORD`：本地 Compose RabbitMQ 密码，需和 `APP_RABBITMQ_URL` 中的密码保持一致。
@@ -184,6 +184,15 @@ Copy-Item .env.example .env
 ### 中间件配置
 
 当前 `docker-compose.yml` 默认启动本地 MySQL、Redis 和 RabbitMQ 容器，API 容器通过 `.env` 中的 `mysql`、`redis`、`rabbitmq` 服务名访问它们。RabbitMQ 容器是否启动与 API 是否启用异步日志是两个概念：快速开始模板启用异步日志，而 Compose 在缺少 `APP_RABBITMQ_ENABLED` 时按 `false` 运行。数据库表结构由一次性 `migrate` 服务执行 [deploy/mysql/migrations](deploy/mysql/migrations) 中的编号迁移，成功后 API 才会启动。
+
+使用内置 Redis 时，设置 `APP_REDIS_ADDR=redis:6379`。`APP_REDIS_PASSWORD` 留空会以无认证模式启动；设置非空密码后，Redis 会启用认证，健康检查通过 `REDISCLI_AUTH` 认证探测，API 也使用同一密码连接。Redis 不可访问或认证失败时，API 会按 fail-fast 策略启动失败。
+
+接入外部 Redis 时，应用连接由 `APP_REDIS_ADDR` 和 `APP_REDIS_PASSWORD` 决定，应填写外部实例的地址与密码；不要继续假定外部服务名为 `redis`、端口为 `6379`，也不要以内置 Redis 容器的健康检查代表外部实例可用性。使用仓库提供的 [docker-compose.external-redis.yml](docker-compose.external-redis.yml) 覆盖文件可移除 `api.depends_on.redis`，并使内置 Redis 不会启动；该文件使用 `!override`，需要 Docker Compose v2.24.4+（本项目验证环境为 v5.1.4）。修改 `.env` 后，以相同的双文件命令校验并启动：
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.external-redis.yml config --quiet
+docker compose -f docker-compose.yml -f docker-compose.external-redis.yml up -d --build
+```
 
 如果你要改用远程 MySQL，请先完成：
 
@@ -333,11 +342,11 @@ docker compose logs -f web
 - Web：`127.0.0.1:1270 -> 8080`（唯一暴露到宿主机的端口）
 - API：容器内部 `api:19000`（仅 Docker 内部网络可达）
 - MySQL：容器内部 `mysql:3306`（仅 Docker 内部网络可达）
-- Redis：容器内部 `redis:6379`（仅 Docker 内部网络可达）
+- Redis：内置模式容器内部 `redis:6379`（仅 Docker 内部网络可达）
 - RabbitMQ：启用 `messaging` profile 后，容器内部 `rabbitmq:5672`，管理端 `rabbitmq:15672`（均仅 Docker 内部网络可达）
 - Meilisearch：启用 `search` profile 后，容器内部 `meilisearch:7700`（仅 Docker 内部网络可达）
 
-MySQL 与 Redis 默认由 `docker-compose.yml` 在内部网络启动，不会映射端口到宿主机。Web 通过 Nginx 反向代理访问 API；RabbitMQ 和 Meilisearch 仅在对应 profile 启用后启动。
+MySQL 与内置 Redis 默认由 `docker-compose.yml` 在内部网络启动，不会映射端口到宿主机。Web 通过 Nginx 反向代理访问 API；RabbitMQ 和 Meilisearch 仅在对应 profile 启用后启动。
 
 Compose 中 API 容器端口固定为 `19000`，`.env` 的 `APP_PORT` 仅影响本地非 Docker 启动。默认专用网络为 `172.30.127.0/24`，如有冲突请按“可信反向代理配置”一节同时调整子网、Web 固定地址、网桥网关可信代理 `/32` 与后端可信代理 `/32`。
 
@@ -538,7 +547,7 @@ docker compose logs -f migrate api
 
 ### Redis 认证失败
 
-确认 `.env` 中的 `APP_REDIS_ADDR=redis:6379`，且 `redis` 容器健康。
+内置 Redis 模式下，确认 `.env` 中的 `APP_REDIS_ADDR=redis:6379`、`APP_REDIS_PASSWORD` 与 Redis 容器密码一致，且 `redis` 容器健康；空密码表示无认证。外部 Redis 模式下，使用 `docker-compose.external-redis.yml` 覆盖文件启动，并确认这两个变量与外部实例一致。Redis 不可用或密码错误会使 API 按 fail-fast 策略启动失败。
 
 查看日志：
 

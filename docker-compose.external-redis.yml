@@ -1,0 +1,13 @@
+# 使用外部 Redis 时与 docker-compose.yml 一同加载。
+# 需要 Docker Compose v2.24.4+ 对 !override 标签的支持。
+services:
+  api:
+    depends_on: !override
+      mysql:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+
+  # 覆盖文件加载时默认不启动内置 Redis；需要本地 Redis 时请只使用基础 Compose 文件。
+  redis:
+    profiles: ["builtin-redis"]
