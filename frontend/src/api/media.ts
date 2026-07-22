@@ -1,5 +1,5 @@
 import http from '../utils/http';
-import type { BaseResp, MediaAsset, PaginatedResp } from '../types';
+import type { BaseResp, MediaAsset, NoDataResp, PaginatedResp } from '../types';
 import type { PageParams } from '../types/api';
 
 export const getMediaAssets = (params?: PageParams, signal?: AbortSignal) =>
@@ -13,4 +13,4 @@ export const uploadMedia = (file: File, altText = '') => {
 export const updateMediaAlt = (id: number, altText: string) =>
   http.patch<unknown, BaseResp<MediaAsset>>(`/admin/media/${id}`, { altText });
 
-export const deleteMedia = (id: number) => http.delete<unknown, BaseResp>(`/admin/media/${id}`);
+export const deleteMedia = (id: number) => http.delete<unknown, NoDataResp>(`/admin/media/${id}`);

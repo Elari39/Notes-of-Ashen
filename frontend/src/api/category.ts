@@ -1,5 +1,5 @@
 import http from '../utils/http';
-import { BaseResp, Category, PaginatedResp } from '../types';
+import { BaseResp, NoDataResp, Category, PaginatedResp } from '../types';
 import { CreateCategoryReq, UpdateCategoryReq, PageParams } from '../types/api';
 
 export const getCategories = (params?: PageParams, signal?: AbortSignal) =>
@@ -15,4 +15,4 @@ export const updateCategory = (id: number | string, data: UpdateCategoryReq) =>
   http.put<unknown, BaseResp<Category>>(`/categories/${id}`, data);
 
 export const deleteCategory = (id: number | string) => 
-  http.delete<unknown, BaseResp>(`/categories/${id}`);
+  http.delete<unknown, NoDataResp>(`/categories/${id}`);

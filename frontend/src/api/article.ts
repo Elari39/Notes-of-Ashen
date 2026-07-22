@@ -1,6 +1,6 @@
 import http from '../utils/http';
 import type { AxiosResponse } from 'axios';
-import { BaseResp, Article, ArticleContext, ArticleVersion, ArticleStatus, PaginatedResp } from '../types';
+import { BaseResp, NoDataResp, Article, ArticleContext, ArticleVersion, ArticleStatus, PaginatedResp } from '../types';
 import {
   AIAssistReq,
   AIAssistResp,
@@ -37,7 +37,7 @@ export const updateArticle = (id: number | string, data: UpdateArticleReq) =>
   http.put<unknown, BaseResp<Article>>(`/articles/${id}`, data);
 
 export const deleteArticle = (id: number | string) => 
-  http.delete<unknown, BaseResp>(`/articles/${id}`);
+  http.delete<unknown, NoDataResp>(`/articles/${id}`);
 
 export const updateArticleStatus = (id: number | string, status: ArticleStatus) =>
   http.patch<unknown, BaseResp<Article>>(`/articles/${id}/status`, { status } as UpdateArticleStatusReq);

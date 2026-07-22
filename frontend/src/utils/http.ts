@@ -11,6 +11,7 @@ import { AppError, ERROR_KEYS, isCurrentPasswordRejection, parseJSONBlobError, t
 import { fixVisibleMojibakeDeep } from './mojibake';
 import { notifyFromError } from './notify';
 import { refreshAccessToken } from './refresh';
+import { isSuccessResponse } from './response';
 import { resolveDefaultTimeout } from './timeoutPolicy';
 import { getVisitorId } from './visitor';
 import { safeLocalStorage } from './storage';
@@ -112,8 +113,9 @@ http.interceptors.response.use(
       return response;
     }
     const data = fixVisibleMojibakeDeep(response.data);
-    if (data.code === 0) {
-      return data;
+    if (isSuccessResponse(data)) {
+      // Axios 拦截器声明返回 AxiosResponse，但本实例约定成功时直接返回统一响应体。
+      return data as unknown as AxiosResponse;
     }
     return Promise.reject(toAppError(new AppError(data.message || ERROR_KEYS.operationFailed, data.code)));
   },
