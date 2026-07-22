@@ -814,7 +814,7 @@ POST /api/v1/admin/backups/export
 POST /api/v1/admin/backups/restore
 ```
 
-权限：`admin`。两项操作都要求重新提交当前账户密码；归档口令长度为 12 到 128 个 Unicode 字符，不保存、不记录日志。备份依赖 `backup_schema` 健康项；旧数据库若收到“数据库结构未升级”错误，应先执行 `deploy/mysql/add_media_content_analytics.sql`。导出请求为 JSON：
+权限：`admin`。两项操作都要求重新提交当前账户密码；归档口令长度为 12 到 128 个 Unicode 字符，不保存、不记录日志。备份依赖 `backup_schema` 健康项；旧数据库若收到“数据库结构未升级”错误，应先完成数据库备份并运行一次 `migrate` 任务。导出请求为 JSON：
 
 ```json
 {

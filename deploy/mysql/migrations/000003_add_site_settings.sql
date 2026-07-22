@@ -1,4 +1,3 @@
-USE notes_of_ashen;
 
 -- Site settings for system-level switches such as account registration.
 CREATE TABLE IF NOT EXISTS site_settings (

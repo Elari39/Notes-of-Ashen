@@ -52,6 +52,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     env_file:
       - "${APP_ENV_FILE:-.env}"
     environment:
@@ -115,6 +117,35 @@ services:
     networks:
       - app
 
+  # 数据库迁移必须独立于 API 执行，避免多副本 API 在启动时竞争 DDL。
+  # 成功退出后 Compose 才会允许 API 启动；失败时保留容器日志供排查。
+  migrate:
+    image: notes-of-ashen-api:${IMAGE_TAG:-latest}
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    restart: "no"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    env_file:
+      - "${APP_ENV_FILE:-.env}"
+    environment:
+      TZ: Asia/Shanghai
+      APP_DATABASE_DSN: "${APP_DATABASE_DSN:?set APP_DATABASE_DSN in .env}"
+      APP_DATABASE_MAX_OPEN_CONNS: "${APP_DATABASE_MAX_OPEN_CONNS:-20}"
+      APP_DATABASE_MAX_IDLE_CONNS: "${APP_DATABASE_MAX_IDLE_CONNS:-10}"
+    command: ["-f", "/app/etc/notes-of-ashen.yaml", "-migrate-only"]
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    labels:
+      org.opencontainers.image.title: "Notes of Ashen Database Migrations"
+    networks:
+      - app
+
   mysql:
     image: mysql:8.4@sha256:c592c15aaf4a1961e15d82eb31ea5987dda862d1c4b1e93424438c0e91dc1f8d
     restart: unless-stopped
@@ -130,7 +161,6 @@ services:
       - --collation-server=utf8mb4_0900_ai_ci
     volumes:
       - goblog_mysql_data:/var/lib/mysql
-      - ./deploy/mysql/schema.sql:/docker-entrypoint-initdb.d/001-schema.sql:ro
     expose:
       - "3306"
     healthcheck:

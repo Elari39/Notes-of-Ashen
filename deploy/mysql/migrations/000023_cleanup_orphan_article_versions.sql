@@ -1,4 +1,3 @@
-USE notes_of_ashen;
 
 -- 清理文章已删除后遗留的历史版本记录；可重复执行。
 DELETE article_versions

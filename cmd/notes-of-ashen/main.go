@@ -6,12 +6,15 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strings"
 
 	_ "go.uber.org/automaxprocs"
 
+	"notes-of-ashen/deploy/mysql/migrations"
 	"notes-of-ashen/internal/config"
 	"notes-of-ashen/internal/handler"
 	backuplogic "notes-of-ashen/internal/logic/backup"
+	"notes-of-ashen/internal/migration"
 	"notes-of-ashen/internal/security"
 	"notes-of-ashen/internal/svc"
 
@@ -20,7 +23,10 @@ import (
 	"github.com/zeromicro/go-zero/rest"
 )
 
-var configFile = flag.String("f", "etc/notes-of-ashen.yaml", "the config file")
+var (
+	configFile  = flag.String("f", "etc/notes-of-ashen.yaml", "the config file")
+	migrateOnly = flag.Bool("migrate-only", false, "run embedded database migrations and exit")
+)
 
 func main() {
 	flag.Parse()
@@ -31,6 +37,13 @@ func main() {
 	// addresses without manual shell exports. Real env vars still win.
 	if err := config.LoadDotEnv(os.Getenv("APP_ENV_FILE")); err != nil {
 		logx.Must(err)
+	}
+	if *migrateOnly {
+		// 迁移 job 只依赖数据库，不能因 Redis、认证密钥或可选服务配置而失败，
+		// 也绝不能初始化 HTTP Server 或后台消费者。
+		applyMigrationDatabaseEnv(&c)
+		runMigrations(c.Database.DataSource)
+		return
 	}
 	logx.Must(c.ApplyEnv())
 	logx.Must(c.ValidateConfig())
@@ -53,6 +66,29 @@ func main() {
 
 	fmt.Printf("Starting server at %s:%d...\n", c.Host, c.Port)
 	server.Start()
+}
+
+func applyMigrationDatabaseEnv(c *config.Config) {
+	if value, ok := os.LookupEnv("APP_DATABASE_DSN"); ok {
+		c.Database.DataSource = value
+	}
+}
+
+func runMigrations(dataSource string) {
+	if strings.TrimSpace(dataSource) == "" {
+		logx.Must(errors.New("APP_DATABASE_DSN is required for -migrate-only"))
+	}
+	db, err := migration.Open(dataSource)
+	if err != nil {
+		logx.Must(err)
+	}
+	defer func() {
+		if closeErr := db.Close(); closeErr != nil {
+			logx.Errorf("close migration database connection failed: %v", closeErr)
+		}
+	}()
+	logx.Must(migration.Run(context.Background(), db, migrations.FS))
+	logx.Info("[migration] all embedded migrations are applied")
 }
 
 func recoverPendingRestore(svcCtx *svc.ServiceContext) error {

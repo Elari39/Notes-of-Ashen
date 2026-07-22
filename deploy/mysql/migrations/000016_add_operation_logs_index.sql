@@ -1,4 +1,3 @@
-USE notes_of_ashen;
 
 SET @schema_name := DATABASE();
 

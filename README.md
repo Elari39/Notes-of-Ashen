@@ -73,7 +73,7 @@ http://127.0.0.1:1270
 ├── api/                    # go-zero API 描述文件
 ├── cmd/notes-of-ashen/     # 后端服务入口
 ├── deploy/
-│   ├── mysql/              # MySQL 初始化与增量脚本
+│   ├── mysql/              # 不可变编号数据库迁移
 │   └── nginx/              # 前端 Nginx 生产配置
 ├── docs/                   # API 文档
 ├── etc/                    # 后端默认配置文件
@@ -141,7 +141,7 @@ Copy-Item .env.example .env
 - `APP_MYSQL_ROOT_PASSWORD`：本地 Compose MySQL root 密码，生产或公网环境必须替换为强随机值。
 - `APP_MYSQL_USER`：本地 Compose MySQL 应用用户，默认 `notes_user`。
 - `APP_MYSQL_PASSWORD`：本地 Compose MySQL 应用用户密码，需和 `APP_DATABASE_DSN` 中的密码保持一致。
-- `APP_DATABASE_DSN`：API 使用的 MySQL 连接串，Compose 默认连接本地服务：`notes_user:password@tcp(mysql:3306)/notes_of_ashen?charset=utf8mb4&parseTime=true&loc=Local`。Compose 初始化库固定为 `notes_of_ashen`，此连接串在 Compose 部署中也必须指向该库。如需固定 MySQL 会话时区，可追加 `&time_zone='%2B08:00'`（URL 转义后为 `%27%2B08%3A00%27`）。
+- `APP_DATABASE_DSN`：API 与一次性迁移任务使用的 MySQL 连接串，Compose 默认连接本地服务：`notes_user:password@tcp(mysql:3306)/notes_of_ashen?charset=utf8mb4&parseTime=true&loc=Local`。Compose 初始化库固定为 `notes_of_ashen`，此连接串在 Compose 部署中也必须指向该库，并且账号需具有创建/变更表和索引的权限。如需固定 MySQL 会话时区，可追加 `&time_zone='%2B08:00'`（URL 转义后为 `%27%2B08%3A00%27`）。
 - `APP_DATABASE_MAX_OPEN_CONNS`：MySQL 最大打开连接数。
 - `APP_DATABASE_MAX_IDLE_CONNS`：MySQL 最大空闲连接数。
 - `APP_REDIS_ADDR`：Redis 地址，Compose 默认 `redis:6379`。
@@ -183,39 +183,15 @@ Copy-Item .env.example .env
 
 ### 中间件配置
 
-当前 `docker-compose.yml` 默认启动本地 MySQL、Redis 和 RabbitMQ 容器，API 容器通过 `.env` 中的 `mysql`、`redis`、`rabbitmq` 服务名访问它们。RabbitMQ 容器是否启动与 API 是否启用异步日志是两个概念：快速开始模板启用异步日志，而 Compose 在缺少 `APP_RABBITMQ_ENABLED` 时按 `false` 运行。首次启动新的 MySQL 数据卷时会自动执行 [deploy/mysql/schema.sql](deploy/mysql/schema.sql) 初始化数据库和表结构。
+当前 `docker-compose.yml` 默认启动本地 MySQL、Redis 和 RabbitMQ 容器，API 容器通过 `.env` 中的 `mysql`、`redis`、`rabbitmq` 服务名访问它们。RabbitMQ 容器是否启动与 API 是否启用异步日志是两个概念：快速开始模板启用异步日志，而 Compose 在缺少 `APP_RABBITMQ_ENABLED` 时按 `false` 运行。数据库表结构由一次性 `migrate` 服务执行 [deploy/mysql/migrations](deploy/mysql/migrations) 中的编号迁移，成功后 API 才会启动。
 
 如果你要改用远程 MySQL，请先完成：
 
 - 远程 MySQL 创建数据库 `notes_of_ashen`，创建专用用户并只授权给 1Panel 服务器 IP 或内网网段。
-- 在远程 MySQL 执行 [deploy/mysql/schema.sql](deploy/mysql/schema.sql) 初始化表结构；旧库迁移前先备份，再按实际版本补执行 [deploy/mysql](deploy/mysql) 下的增量脚本。增量脚本应在 `notes_of_ashen` 库中执行；现有脚本均显式 `USE notes_of_ashen;`，不要在其他库中直接运行。新库可直接用 `schema.sql` 一步到位，无需补跑增量脚本。
-
-  增量脚本按以下时间顺序执行（已在 `schema.sql` 基础上）：
-
-  1. `add_site_settings.sql` — 站点设置表
-  2. `add_content_growth_features.sql` — 文章排程字段、文章版本表 `article_versions`（仅基础列）
-  3. `add_article_pin_priority.sql` — 补 `article_versions.is_pinned` / `display_priority`
-  4. `add_resume_portfolio_interaction_geo.sql` — 历史脚本：补 `article_versions.like_count`、作品集/点赞表，并包含现已停用的简历表
-  5. `alter_site_settings_value_text.sql` — 站点设置 value 列改 MEDIUMTEXT
-  6. `add_traffic_ai_import_features.sql` — 流量/AI/导入相关字段
-  7. `add_ai_settings.sql` — AI 设置表
-  8. `add_public_page_content_settings.sql`、`add_public_page_visibility_settings.sql` — 公开页内容/可见性设置
-  9. `add_article_fulltext_index.sql` — 文章全文索引
-  10. `drop_traffic_geo.sql` — 移除流量地理表（`traffic_geo_*`）
-  11. `cleanup_invalid_avatar_url.sql` — 清理无效头像 URL
-  12. `add_article_tags_tag_index.sql` — 文章标签索引
-  13. `add_article_category_author_index.sql` — 文章分类/作者索引
-  14. `add_operation_logs_index.sql` — operation_logs 表 created_at / user_id 索引（幂等）
-  15. `add_users_admin_state_index.sql` — 用户角色/状态复合索引，缩小管理员并发保护的锁定扫描范围（幂等）
-  16. `add_operation_logs_filter_indexes.sql` — operation_logs 表事件/来源 IP 与时间复合索引（幂等）
-  17. `add_ai_api_format_setting.sql` — 为 AI 设置补充 `apiFormat`，默认使用 `openai`（幂等，不删除旧设置键）
-  18. `add_media_content_analytics.sql` — 本地媒体元数据、页面/文章每日 PV/UV 聚合及访客去重表
-	19. `add_user_token_version.sql` — 用户级 Access Token 版本；改密、重置密码和管理员变更状态/角色后立即撤销旧会话
-  19. `add_home_cta_visibility_setting.sql` — 首页“继续探索”模块显示开关，默认保持显示（幂等）
-
-历史增量脚本保持不变。已部署数据库中的 `resume_*` 表和相关站点设置不会被运行时代码访问，也无需为本次升级执行破坏性删除。
-
-  > 注意：`article_versions` 表的 `like_count` / `is_pinned` / `display_priority` 三列分别由第 3、4 步脚本补齐，必须在 `add_content_growth_features.sql`（第 2 步）之后执行，否则 `model/article.go` 的 `articleVersionSelectFields` 查询会因缺列报 `Unknown column`。
+- 使用与 API 相同的镜像和 `APP_DATABASE_DSN` 执行 `-migrate-only`；Compose 部署会自动完成此步骤。数据库账号必须具有创建/变更表和索引的权限。
+- 不再手动按文件执行 SQL。迁移器会以 MySQL advisory lock 串行执行 `000001` 至最新版本，记录文件名、SHA-256、耗时和失败信息；已发布的编号文件不可修改，修复只能新增更高版本的前向迁移。
+- 旧库首次纳入迁移管理前必须备份。历史链包含清理无效头像、清理孤儿文章版本和删除 `traffic_geo_*` 表等前向破坏性操作；回滚依赖备份恢复。
+- 可使用 `docker compose logs migrate` 查看结果；若 API 的 `/healthz` 显示 schema 检查失败，其中会给出缺失版本或校验和漂移信息。
 - 改用远程 Redis、RabbitMQ 时，确认防火墙和安全组允许 1Panel 服务器访问，避免对公网裸露。
 - 如果 MySQL DSN 或 RabbitMQ URL 的密码包含 `@`、`:`、`/`、`?`、`#` 等 URL 分隔符，请先做 URL 转义，或使用不含这些分隔符的强随机密码。
 
@@ -292,7 +268,7 @@ Web 入口的 `GET /healthz` 代理到 API readiness，会反映数据库、Redi
 
 “内容分析”从 `traffic_content_daily_stats` 新表部署后开始累计页面和文章级 PV/UV，无法从旧的文章总浏览量可靠回填。用于 UV 去重的访客哈希明细会定期清理，每日聚合长期保留；不采集设备、浏览器和地域信息。
 
-“系统工具”仅管理员可访问，提供依赖健康探测以及 `.noa-backup` 加密导出/恢复。健康页的 `backup_schema` 项会校验媒体与内容分析表是否齐全；旧 MySQL 数据卷若显示异常，先在备份后执行 [deploy/mysql/add_media_content_analytics.sql](deploy/mysql/add_media_content_analytics.sql)。备份口令不会持久化；归档不包含 AI API Key、Token、日志、流量明细、搜索索引和访客点赞哈希。恢复是破坏性的整站替换，会清空目标会话、日志、流量统计和 AI Key，并强制退出当前登录。执行恢复前仍应保留数据库/媒体卷的基础设施快照，并先在独立实例演练。
+“系统工具”仅管理员可访问，提供依赖健康探测以及 `.noa-backup` 加密导出/恢复。健康页的 `backup_schema` 项会校验媒体与内容分析表是否齐全；旧 MySQL 数据卷若显示异常，先完成数据库备份并运行一次迁移任务。备份口令不会持久化；归档不包含 AI API Key、Token、日志、流量明细、搜索索引和访客点赞哈希。恢复是破坏性的整站替换，会清空目标会话、日志、流量统计和 AI Key，并强制退出当前登录。执行恢复前仍应保留数据库/媒体卷的基础设施快照，并先在独立实例演练。
 
 ### 预渲染配置
 
@@ -514,7 +490,9 @@ Docker 部署会为本地中间件使用独立 volume：
 - `notes-of-ashen_goblog_meili_data`（启用 `search` profile 时创建）
 - `notes-of-ashen_goblog_media_data`
 
-MySQL 的数据卷首次创建时会自动执行 [deploy/mysql/schema.sql](deploy/mysql/schema.sql) 初始化数据库和表结构。后续增量 SQL 需要按版本变更手动执行或通过迁移流程处理。
+数据库结构由 [deploy/mysql/migrations](deploy/mysql/migrations) 中不可变的编号迁移统一管理。`docker compose up -d --build` 会先运行一次性 `migrate` 任务，成功后 API 才会启动；MySQL 容器只负责创建空的 `notes_of_ashen` 数据库。可用 `docker compose logs migrate` 查看版本、校验和与失败诊断。
+
+已有数据卷首次升级会建立迁移记录并按历史顺序执行全部迁移，其中包含清理无效头像、清理孤儿文章版本和删除旧流量表的前向破坏性操作。升级前必须完成可恢复的数据库备份；迁移失败时不要修改已发布的 SQL 文件，应在修复后重新执行或新增前向修复迁移。回滚依赖备份恢复。
 
 注意：修改本地中间件账号、密码或连接串后，需要同步更新 `.env` 并重新创建相关中间件和 API 容器；已有数据卷中的 MySQL/RabbitMQ 初始账号不会因单纯修改 `.env` 自动重置。
 
@@ -550,12 +528,12 @@ notes_user:password@tcp(mysql:3306)/notes_of_ashen?charset=utf8mb4&parseTime=tru
 
 如需固定 MySQL 会话时区，可在 DSN 末尾追加 `&time_zone='%2B08:00'`（URL 转义后为 `%27%2B08%3A00%27`）。
 
-不要在容器内使用 `127.0.0.1:3306` 连接 MySQL，因为容器里的 `127.0.0.1` 只代表 API 容器自己。还要确认 `mysql` 容器健康，且首次初始化日志没有 SQL 执行失败。
+不要在容器内使用 `127.0.0.1:3306` 连接 MySQL，因为容器里的 `127.0.0.1` 只代表 API 容器自己。还要确认 `mysql` 容器健康，并检查迁移任务是否成功退出。
 
 查看日志：
 
 ```bash
-docker compose logs -f api
+docker compose logs -f migrate api
 ```
 
 ### Redis 认证失败

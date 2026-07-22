@@ -8,7 +8,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
-$composeFiles = @(
+$baseComposeFiles = @(
     (Join-Path $repoRoot "docker-compose.yml"),
     (Join-Path $repoRoot "deploy\test\docker-compose.test.yml")
 )
@@ -37,13 +37,15 @@ function New-TestSecret {
 function Get-ComposeArguments {
     param([Parameter(Mandatory)]$Runtime)
 
-    return @(
+    $arguments = @(
         "compose",
         "--env-file", $Runtime.EnvFile,
-        "--project-name", $Runtime.Project,
-        "--file", $composeFiles[0],
-        "--file", $composeFiles[1]
+        "--project-name", $Runtime.Project
     )
+    foreach ($composeFile in $Runtime.ComposeFiles) {
+        $arguments += @("--file", $composeFile)
+    }
+    return $arguments
 }
 
 function Invoke-Compose {
@@ -88,7 +90,7 @@ function Get-ComposePort {
     return [int]$portMatch.Groups[1].Value
 }
 
-function Get-ComposeContainerId {
+function Get-ComposeContainerIds {
     param(
         [Parameter(Mandatory)]$Runtime,
         [Parameter(Mandatory)][string]$Service
@@ -96,18 +98,29 @@ function Get-ComposeContainerId {
 
     $composeArguments = Get-ComposeArguments -Runtime $Runtime
     $containerLines = @(& docker @composeArguments ps --quiet $Service)
-    $containerId = @($containerLines | Select-Object -First 1)
-    if ($LASTEXITCODE -ne 0 -or $containerId.Count -eq 0 -or [string]::IsNullOrWhiteSpace([string]$containerId[0])) {
+    $containerIds = @($containerLines | ForEach-Object { ([string]$_).Trim() } | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+    if ($LASTEXITCODE -ne 0 -or $containerIds.Count -eq 0) {
         throw "无法获取 $Service 容器 ID。"
     }
 
-    return ([string]$containerId[0]).Trim()
+    return $containerIds
+}
+
+function Get-ComposeContainerId {
+    param(
+        [Parameter(Mandatory)]$Runtime,
+        [Parameter(Mandatory)][string]$Service
+    )
+
+    $containerIds = @(Get-ComposeContainerIds -Runtime $Runtime -Service $Service)
+    return $containerIds[0]
 }
 
 function New-StageRuntime {
     param(
         [Parameter(Mandatory)][string]$Stage,
-        [Parameter(Mandatory)][int]$Ordinal
+        [Parameter(Mandatory)][int]$Ordinal,
+        [string[]]$ComposeOverrides = @()
     )
 
     $project = "noa-it-$($runId.Replace('-', ''))-$Stage-$Ordinal".ToLowerInvariant()
@@ -185,6 +198,7 @@ function New-StageRuntime {
         EnvFile            = $envFile
         ArtifactDirectory  = (Join-Path $artifactRoot $Stage)
         ComposeEnvironment = $composeEnvironment
+        ComposeFiles        = @($baseComposeFiles + $ComposeOverrides)
         MySQLRootPassword  = $mysqlRootPassword
     }
 }
@@ -277,19 +291,86 @@ function Wait-ForWeb {
     throw "等待 Web 健康检查超时：$($Runtime.WebBaseUrl)/"
 }
 
+function Wait-ForContainerHealthy {
+    param(
+        [Parameter(Mandatory)][string]$ContainerID,
+        [Parameter(Mandatory)][string]$Service
+    )
+
+    $deadline = (Get-Date).AddSeconds(180)
+    $lastStatus = "unknown"
+    while ((Get-Date) -lt $deadline) {
+        $status = @(& docker inspect --format "{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}" $ContainerID)
+        if ($LASTEXITCODE -eq 0 -and $status.Count -gt 0) {
+            $lastStatus = ([string]$status[0]).Trim()
+            if ($lastStatus -eq "healthy") {
+                return
+            }
+        }
+        Start-Sleep -Seconds 2
+    }
+
+    throw "等待 $Service 容器健康检查超时（最后状态：$lastStatus）。"
+}
+
+function Initialize-DatabaseEndpoints {
+    param([Parameter(Mandatory)]$Runtime)
+
+    $Runtime | Add-Member -Force -NotePropertyName MySQLPort -NotePropertyValue (Get-ComposePort -Runtime $Runtime -Service "mysql" -ContainerPort 3306)
+    $Runtime | Add-Member -Force -NotePropertyName RedisPort -NotePropertyValue (Get-ComposePort -Runtime $Runtime -Service "redis" -ContainerPort 6379)
+    $Runtime | Add-Member -Force -NotePropertyName RedisContainerId -NotePropertyValue (Get-ComposeContainerId -Runtime $Runtime -Service "redis")
+    $Runtime | Add-Member -Force -NotePropertyName MySQLContainerId -NotePropertyValue (Get-ComposeContainerId -Runtime $Runtime -Service "mysql")
+}
+
+function Initialize-HttpEndpoints {
+    param([Parameter(Mandatory)]$Runtime)
+
+    $Runtime | Add-Member -Force -NotePropertyName WebPort -NotePropertyValue (Get-ComposePort -Runtime $Runtime -Service "web" -ContainerPort 8080)
+    $Runtime | Add-Member -Force -NotePropertyName ApiPort -NotePropertyValue (Get-ComposePort -Runtime $Runtime -Service "api" -ContainerPort 19000)
+    $Runtime | Add-Member -Force -NotePropertyName WebBaseUrl -NotePropertyValue "http://127.0.0.1:$($Runtime.WebPort)"
+    $Runtime | Add-Member -Force -NotePropertyName ApiBaseUrl -NotePropertyValue "http://127.0.0.1:$($Runtime.ApiPort)"
+}
+
 function Start-Stage {
     param([Parameter(Mandatory)]$Runtime)
 
     Invoke-Compose -Runtime $Runtime -Arguments @("up", "--detach", "--build", "web", "api", "mysql", "redis")
-    $Runtime | Add-Member -NotePropertyName WebPort -NotePropertyValue (Get-ComposePort -Runtime $Runtime -Service "web" -ContainerPort 8080)
-    $Runtime | Add-Member -NotePropertyName ApiPort -NotePropertyValue (Get-ComposePort -Runtime $Runtime -Service "api" -ContainerPort 19000)
-    $Runtime | Add-Member -NotePropertyName MySQLPort -NotePropertyValue (Get-ComposePort -Runtime $Runtime -Service "mysql" -ContainerPort 3306)
-    $Runtime | Add-Member -NotePropertyName RedisPort -NotePropertyValue (Get-ComposePort -Runtime $Runtime -Service "redis" -ContainerPort 6379)
-    $Runtime | Add-Member -NotePropertyName WebBaseUrl -NotePropertyValue "http://127.0.0.1:$($Runtime.WebPort)"
-    $Runtime | Add-Member -NotePropertyName ApiBaseUrl -NotePropertyValue "http://127.0.0.1:$($Runtime.ApiPort)"
-    $Runtime | Add-Member -NotePropertyName RedisContainerId -NotePropertyValue (Get-ComposeContainerId -Runtime $Runtime -Service "redis")
-    $Runtime | Add-Member -NotePropertyName MySQLContainerId -NotePropertyValue (Get-ComposeContainerId -Runtime $Runtime -Service "mysql")
+    Initialize-DatabaseEndpoints -Runtime $Runtime
+    Initialize-HttpEndpoints -Runtime $Runtime
 
+    Wait-ForApi -Runtime $Runtime
+    Wait-ForWeb -Runtime $Runtime
+}
+
+function Start-MigrationPrerequisites {
+    param([Parameter(Mandatory)]$Runtime)
+
+    # 只启动 MySQL/Redis，避免 api 的 depends_on 自动拉起 migrate；这样才能让两个
+    # 明确启动的 migrate job 在旧库上竞争同一个 MySQL advisory lock。
+    Invoke-Compose -Runtime $Runtime -Arguments @("up", "--detach", "mysql", "redis")
+    Initialize-DatabaseEndpoints -Runtime $Runtime
+    Wait-ForContainerHealthy -ContainerID $Runtime.MySQLContainerId -Service "mysql"
+    Wait-ForContainerHealthy -ContainerID $Runtime.RedisContainerId -Service "redis"
+    Invoke-Compose -Runtime $Runtime -Arguments @("build", "migrate")
+}
+
+function Start-ApiAndWebAfterMigration {
+    param([Parameter(Mandatory)]$Runtime)
+
+    # 此处仍保留 Compose 的 migrate 依赖链；已由并发 job 完成的版本不得再产生执行记录。
+    # 先缩放 API 到两个副本，确保两个实例都只会在迁移完成后进入健康状态。
+    Invoke-Compose -Runtime $Runtime -Arguments @("up", "--detach", "--scale", "api=2", "api")
+    $apiContainerIds = @(Get-ComposeContainerIds -Runtime $Runtime -Service "api")
+    if ($apiContainerIds.Count -ne 2) {
+        throw "迁移完成后 API 副本数 = $($apiContainerIds.Count)，期望 2。"
+    }
+    foreach ($apiContainerId in $apiContainerIds) {
+        Wait-ForContainerHealthy -ContainerID $apiContainerId -Service "api"
+    }
+
+    # 不重新解析 web 的 api 依赖，避免 Compose 按默认 scale=1 缩容已验证健康的两个副本。
+    Invoke-Compose -Runtime $Runtime -Arguments @("up", "--detach", "--no-deps", "web")
+    Initialize-HttpEndpoints -Runtime $Runtime
     Wait-ForApi -Runtime $Runtime
     Wait-ForWeb -Runtime $Runtime
 }
@@ -307,6 +388,165 @@ function Set-TestEndpoints {
     Set-EnvironmentValue -Snapshot $Snapshot -Name "E2E_MYSQL_ROOT_DSN" -Value "root:$($Runtime.MySQLRootPassword)@tcp(127.0.0.1:$($Runtime.MySQLPort))/notes_of_ashen?charset=utf8mb4&parseTime=true&loc=Local"
     Set-EnvironmentValue -Snapshot $Snapshot -Name "E2E_REDIS_CONTAINER_ID" -Value $Runtime.RedisContainerId
     Set-EnvironmentValue -Snapshot $Snapshot -Name "E2E_MYSQL_CONTAINER_ID" -Value $Runtime.MySQLContainerId
+}
+
+function Get-ExpectedMigrations {
+    $migrationDirectory = Join-Path $repoRoot "deploy\mysql\migrations"
+    $items = @(
+        Get-ChildItem -LiteralPath $migrationDirectory -Filter "*.sql" -File |
+            ForEach-Object {
+                $match = [regex]::Match($_.Name, '^(\d{6})_[A-Za-z0-9][A-Za-z0-9_-]*\.sql$')
+                if (-not $match.Success) {
+                    throw "发现无效迁移文件名：$($_.Name)"
+                }
+                [PSCustomObject]@{
+                    Version  = [int]$match.Groups[1].Value
+                    Name     = $_.Name
+                    Checksum = (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+                }
+            } |
+            Sort-Object Version
+    )
+    if ($items.Count -eq 0) {
+        throw "未找到正式迁移文件：$migrationDirectory"
+    }
+    for ($index = 0; $index -lt $items.Count; $index++) {
+        $expectedVersion = $index + 1
+        if ($items[$index].Version -ne $expectedVersion) {
+            throw "迁移文件版本不连续：期望 $expectedVersion，实际 $($items[$index].Version)"
+        }
+    }
+    return $items
+}
+
+function Invoke-MySQLQuery {
+    param(
+        [Parameter(Mandatory)]$Runtime,
+        [Parameter(Mandatory)][string]$Query
+    )
+
+    # 密码只在隔离容器进程环境中传递，避免出现在命令参数和失败日志里。
+    $output = @(& docker exec -e "MYSQL_PWD=$($Runtime.MySQLRootPassword)" $Runtime.MySQLContainerId mysql --protocol=TCP -h 127.0.0.1 -u root -N -B notes_of_ashen -e $Query)
+    if ($LASTEXITCODE -ne 0) {
+        throw "执行迁移验证 MySQL 查询失败。"
+    }
+    return @($output | ForEach-Object { ([string]$_).Trim() } | Where-Object { $_ -ne "" })
+}
+
+function Get-MigrationRunSnapshot {
+    param([Parameter(Mandatory)]$Runtime)
+
+    return @(Invoke-MySQLQuery -Runtime $Runtime -Query "SELECT version, status, COUNT(*) FROM schema_migration_runs GROUP BY version, status ORDER BY version, status")
+}
+
+function Assert-MigrationState {
+    param([Parameter(Mandatory)]$Runtime)
+
+    $expected = @(Get-ExpectedMigrations)
+    $metadata = @(Invoke-MySQLQuery -Runtime $Runtime -Query "SELECT version, name, checksum FROM schema_migrations ORDER BY version")
+    if ($metadata.Count -ne $expected.Count) {
+        throw "schema_migrations 记录数 = $($metadata.Count)，期望 $($expected.Count)。"
+    }
+    for ($index = 0; $index -lt $expected.Count; $index++) {
+        $parts = $metadata[$index] -split "`t", 3
+        if ($parts.Count -ne 3) {
+            throw "schema_migrations 返回格式无效：$($metadata[$index])"
+        }
+        $item = $expected[$index]
+        if ([int]$parts[0] -ne $item.Version -or $parts[1] -ne $item.Name -or $parts[2].ToLowerInvariant() -ne $item.Checksum) {
+            throw "schema_migrations 第 $($index + 1) 条与内置迁移不一致：实际 '$($metadata[$index])'，期望 '$($item.Version)`t$($item.Name)`t$($item.Checksum)'。"
+        }
+    }
+
+    $runs = @(Get-MigrationRunSnapshot -Runtime $Runtime)
+    if ($runs.Count -ne $expected.Count) {
+        throw "schema_migration_runs 分组数 = $($runs.Count)，期望每个版本恰有一条成功记录（$($expected.Count) 条）。"
+    }
+    for ($index = 0; $index -lt $expected.Count; $index++) {
+        $parts = $runs[$index] -split "`t", 3
+        if ($parts.Count -ne 3 -or [int]$parts[0] -ne $expected[$index].Version -or $parts[1] -ne "success" -or [int]$parts[2] -ne 1) {
+            throw "schema_migration_runs 第 $($index + 1) 条不满足每个版本仅执行一次：$($runs[$index])"
+        }
+    }
+
+    $failedCount = @(Invoke-MySQLQuery -Runtime $Runtime -Query "SELECT COUNT(*) FROM schema_migration_runs WHERE status <> 'success'")
+    if ($failedCount.Count -ne 1 -or [int]$failedCount[0] -ne 0) {
+        throw "迁移执行记录包含失败状态：$($failedCount -join ', ')"
+    }
+}
+
+function Assert-ApiMigrationHealth {
+    param([Parameter(Mandatory)]$Runtime)
+
+    try {
+        $response = Invoke-WebRequest -Uri "$($Runtime.ApiBaseUrl)/healthz" -Method Get -TimeoutSec 10
+    } catch {
+        throw "迁移完成后 API /healthz 未返回 200：$($_.Exception.Message)"
+    }
+    if ($response.StatusCode -ne 200) {
+        throw "迁移完成后 API /healthz 状态码 = $($response.StatusCode)，期望 200。"
+    }
+    try {
+        $report = $response.Content | ConvertFrom-Json
+    } catch {
+        throw "迁移完成后 API /healthz JSON 无法解析：$($_.Exception.Message)"
+    }
+    if ($report.status -ne "ok" -or $null -eq $report.checks -or $report.checks.schema.status -ne "up") {
+        throw "迁移完成后 API schema 健康检查异常：$($response.Content)"
+    }
+}
+
+function Invoke-MigrateTask {
+    param([Parameter(Mandatory)]$Runtime)
+
+    Invoke-Compose -Runtime $Runtime -Arguments @("run", "--rm", "--no-deps", "migrate")
+}
+
+function Start-ComposeProcess {
+    param(
+        [Parameter(Mandatory)]$Runtime,
+        [Parameter(Mandatory)][string[]]$Arguments
+    )
+
+    $startInfo = [System.Diagnostics.ProcessStartInfo]::new()
+    $startInfo.FileName = "docker"
+    $startInfo.UseShellExecute = $false
+    $startInfo.RedirectStandardOutput = $true
+    $startInfo.RedirectStandardError = $true
+    foreach ($argument in @((Get-ComposeArguments -Runtime $Runtime) + $Arguments)) {
+        [void]$startInfo.ArgumentList.Add([string]$argument)
+    }
+    $process = [System.Diagnostics.Process]::new()
+    $process.StartInfo = $startInfo
+    if (-not $process.Start()) {
+        throw "无法启动并发 docker compose migrate 进程。"
+    }
+    return [PSCustomObject]@{
+        Process = $process
+        Output  = $process.StandardOutput.ReadToEndAsync()
+        Error   = $process.StandardError.ReadToEndAsync()
+    }
+}
+
+function Wait-ComposeProcess {
+    param([Parameter(Mandatory)]$ProcessInfo)
+
+    $ProcessInfo.Process.WaitForExit()
+    $output = $ProcessInfo.Output.GetAwaiter().GetResult()
+    $errorOutput = $ProcessInfo.Error.GetAwaiter().GetResult()
+    if ($ProcessInfo.Process.ExitCode -ne 0) {
+        throw "并发 migrate job 退出码 $($ProcessInfo.Process.ExitCode)：$($output.Trim()) $($errorOutput.Trim())"
+    }
+}
+
+function Invoke-ConcurrentMigrateTasks {
+    param([Parameter(Mandatory)]$Runtime)
+
+    $arguments = @("run", "--rm", "--no-deps", "migrate")
+    $first = Start-ComposeProcess -Runtime $Runtime -Arguments $arguments
+    $second = Start-ComposeProcess -Runtime $Runtime -Arguments $arguments
+    Wait-ComposeProcess -ProcessInfo $first
+    Wait-ComposeProcess -ProcessInfo $second
 }
 
 function Save-StageLogs {
@@ -346,10 +586,11 @@ function Invoke-Stage {
     param(
         [Parameter(Mandatory)][string]$Name,
         [Parameter(Mandatory)][int]$Ordinal,
+        [string[]]$ComposeOverrides = @(),
         [Parameter(Mandatory)][scriptblock]$TestCommand
     )
 
-    $runtime = New-StageRuntime -Stage $Name -Ordinal $Ordinal
+    $runtime = New-StageRuntime -Stage $Name -Ordinal $Ordinal -ComposeOverrides $ComposeOverrides
     $environmentSnapshot = @{}
     $stageSucceeded = $false
 
@@ -357,7 +598,52 @@ function Invoke-Stage {
         Prepare-StageEnvironment -Runtime $runtime -Snapshot $environmentSnapshot
         Start-Stage -Runtime $runtime
         Set-TestEndpoints -Runtime $runtime -Snapshot $environmentSnapshot
-        & $TestCommand
+        & $TestCommand $runtime
+        $stageSucceeded = $true
+    } catch {
+        Save-StageLogs -Runtime $runtime
+        throw
+    } finally {
+        Stop-Stage -Runtime $runtime -KeepLogs:(-not $stageSucceeded)
+        Restore-Environment -Snapshot $environmentSnapshot
+        Remove-Item -LiteralPath $runtime.EnvFile -Force -ErrorAction SilentlyContinue
+    }
+}
+
+function Invoke-MigrationConcurrentStage {
+    param(
+        [Parameter(Mandatory)][string]$Name,
+        [Parameter(Mandatory)][int]$Ordinal,
+        [Parameter(Mandatory)][string]$ComposeOverride
+    )
+
+    $runtime = New-StageRuntime -Stage $Name -Ordinal $Ordinal -ComposeOverrides @($ComposeOverride)
+    $environmentSnapshot = @{}
+    $stageSucceeded = $false
+
+    try {
+        Prepare-StageEnvironment -Runtime $runtime -Snapshot $environmentSnapshot
+        Start-MigrationPrerequisites -Runtime $runtime
+
+        $metadataBefore = @(Invoke-MySQLQuery -Runtime $runtime -Query "SHOW TABLES LIKE 'schema_migrations'")
+        if ($metadataBefore.Count -ne 0) {
+            throw "旧 schema fixture 在迁移前已包含 schema_migrations，无法验证自动升级：$($metadataBefore -join ', ')"
+        }
+
+        # 两个 job 共用同一隔离 MySQL；无论抢锁顺序如何，每个编号版本只能留下一个成功执行记录。
+        Invoke-ConcurrentMigrateTasks -Runtime $runtime
+        Assert-MigrationState -Runtime $runtime
+        $runsAfterConcurrentMigrate = @(Get-MigrationRunSnapshot -Runtime $runtime)
+
+        Start-ApiAndWebAfterMigration -Runtime $runtime
+        Set-TestEndpoints -Runtime $runtime -Snapshot $environmentSnapshot
+        Assert-ApiMigrationHealth -Runtime $runtime
+        Assert-MigrationState -Runtime $runtime
+        $runsAfterComposeDependency = @(Get-MigrationRunSnapshot -Runtime $runtime)
+        if (($runsAfterConcurrentMigrate -join "`n") -ne ($runsAfterComposeDependency -join "`n")) {
+            throw "Compose api 依赖的重复 migrate job 意外新增了版本执行记录。"
+        }
+
         $stageSucceeded = $true
     } catch {
         Save-StageLogs -Runtime $runtime
@@ -402,10 +688,44 @@ try {
     }
 
     Push-Location $repoRoot
-    Invoke-Stage -Name "http" -Ordinal 1 -TestCommand { Invoke-GoIntegrationTests -Pattern "^TestCore" }
-    Invoke-Stage -Name "browser" -Ordinal 2 -TestCommand { Invoke-BrowserIntegrationTests }
+    $legacyEE23045Compose = Join-Path $repoRoot "deploy\test\docker-compose.migration-legacy-ee23045.yml"
+    $legacy09FD516Compose = Join-Path $repoRoot "deploy\test\docker-compose.migration-legacy-09fd516.yml"
+    foreach ($legacyCompose in @($legacyEE23045Compose, $legacy09FD516Compose)) {
+        if (-not (Test-Path -LiteralPath $legacyCompose -PathType Leaf)) {
+            throw "缺少迁移历史 schema Compose 覆盖文件：$legacyCompose"
+        }
+    }
+
+    # 空库启动时 api 必须等待 migrate 成功，随后完整 schema_migrations 和健康检查同时可用。
+    Invoke-Stage -Name "http" -Ordinal 1 -TestCommand {
+        param($runtime)
+        Assert-MigrationState -Runtime $runtime
+        Assert-ApiMigrationHealth -Runtime $runtime
+        Invoke-GoIntegrationTests -Pattern "^TestCore"
+    }
+    # 两份已固定历史 schema 都通过 Compose 的 migrate 依赖链自动升级，而非由测试直接导入 SQL。
+    Invoke-Stage -Name "migration-legacy-ee23045" -Ordinal 2 -ComposeOverrides @($legacyEE23045Compose) -TestCommand {
+        param($runtime)
+        Assert-MigrationState -Runtime $runtime
+        Assert-ApiMigrationHealth -Runtime $runtime
+    }
+    Invoke-Stage -Name "migration-legacy-09fd516" -Ordinal 3 -ComposeOverrides @($legacy09FD516Compose) -TestCommand {
+        param($runtime)
+        Assert-MigrationState -Runtime $runtime
+        $runsBeforeRepeat = @(Get-MigrationRunSnapshot -Runtime $runtime)
+        Invoke-MigrateTask -Runtime $runtime
+        Assert-MigrationState -Runtime $runtime
+        $runsAfterRepeat = @(Get-MigrationRunSnapshot -Runtime $runtime)
+        if (($runsBeforeRepeat -join "`n") -ne ($runsAfterRepeat -join "`n")) {
+            throw "已完成的 migrate task 重复运行后意外新增了版本执行记录。"
+        }
+        Assert-ApiMigrationHealth -Runtime $runtime
+    }
+    Invoke-MigrationConcurrentStage -Name "migration-concurrent-09fd516" -Ordinal 4 -ComposeOverride $legacy09FD516Compose
+
+    Invoke-Stage -Name "browser" -Ordinal 5 -TestCommand { Invoke-BrowserIntegrationTests }
     if ($Suite -eq "extended") {
-        Invoke-Stage -Name "extended" -Ordinal 3 -TestCommand {
+        Invoke-Stage -Name "extended" -Ordinal 6 -TestCommand {
             # Redis 停止/重启可能使 Windows Docker Desktop 的宿主端口映射延迟恢复。
             # 因此先完成仍依赖 E2E_REDIS_URL 的并发与备份故障注入，再将 Redis
             # fail-closed 用例置于本生命周期的最后，避免其影响后续断言。
@@ -415,7 +735,7 @@ try {
     }
 
     $runSucceeded = $true
-    Write-Host "P3-01 $Suite 集成测试通过。"
+    Write-Host "$Suite 集成测试通过。"
 } finally {
     Pop-Location -ErrorAction SilentlyContinue
     if ($runSucceeded) {

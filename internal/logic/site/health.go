@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"time"
 
+	embeddedmigrations "notes-of-ashen/deploy/mysql/migrations"
+	"notes-of-ashen/internal/migration"
 	"notes-of-ashen/internal/svc"
 )
 
@@ -78,11 +80,16 @@ func pingRedis(ctx context.Context, svcCtx *svc.ServiceContext) HealthStatus {
 }
 
 func pingSchema(ctx context.Context, svcCtx *svc.ServiceContext) HealthStatus {
-	if svcCtx == nil || svcCtx.Store == nil {
+	if svcCtx == nil || svcCtx.Store == nil || svcCtx.Store.DB() == nil {
 		return HealthStatus{Status: "down", Error: "db not initialized"}
 	}
 	checkCtx, cancel := context.WithTimeout(ctx, healthCheckTimeout)
 	defer cancel()
+	// 先验证迁移文件与数据库记录完全一致。仅检查运行时字段会遗漏历史
+	// SQL 被改写、某个索引/清理迁移未执行等升级链路问题。
+	if err := migration.Check(checkCtx, svcCtx.Store.DB(), embeddedmigrations.FS); err != nil {
+		return HealthStatus{Status: "down", Error: err.Error()}
+	}
 	ready, err := svcCtx.Store.SchemaReady(checkCtx)
 	if err != nil {
 		return HealthStatus{Status: "down", Error: err.Error()}

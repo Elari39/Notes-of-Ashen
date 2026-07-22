@@ -1,4 +1,3 @@
-USE notes_of_ashen;
 
 CREATE TABLE IF NOT EXISTS traffic_daily_stats (
     stat_date DATE NOT NULL PRIMARY KEY,

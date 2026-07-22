@@ -1,29 +1,32 @@
-USE notes_of_ashen;
-
--- 前置依赖：add_site_settings.sql（建表）。
--- 注意：site_settings.setting_value 的 MEDIUMTEXT 变更由 alter_site_settings_value_text.sql 负责，
--- 本脚本仅插入公开页面内容相关默认设置，避免与该脚本重复 ALTER。
 
 INSERT INTO site_settings (setting_key, setting_value)
-VALUES ('resume_title', '简介')
+VALUES ('ai_enabled', 'false')
 ON DUPLICATE KEY UPDATE setting_value = setting_value;
 
 INSERT INTO site_settings (setting_key, setting_value)
-VALUES ('resume_subtitle', '')
+VALUES ('ai_base_url', '')
 ON DUPLICATE KEY UPDATE setting_value = setting_value;
 
 INSERT INTO site_settings (setting_key, setting_value)
-VALUES ('resume_content_markdown', '')
+VALUES ('ai_api_key_cipher', '')
 ON DUPLICATE KEY UPDATE setting_value = setting_value;
 
 INSERT INTO site_settings (setting_key, setting_value)
-VALUES ('projects_title', '项目')
+VALUES ('ai_model', '')
 ON DUPLICATE KEY UPDATE setting_value = setting_value;
 
 INSERT INTO site_settings (setting_key, setting_value)
-VALUES ('projects_subtitle', '')
+VALUES ('ai_first_byte_timeout_seconds', '60')
 ON DUPLICATE KEY UPDATE setting_value = setting_value;
 
 INSERT INTO site_settings (setting_key, setting_value)
-VALUES ('projects_items_json', '[]')
+VALUES ('ai_stream_timeout_seconds', '300')
+ON DUPLICATE KEY UPDATE setting_value = setting_value;
+
+INSERT INTO site_settings (setting_key, setting_value)
+VALUES ('ai_non_stream_timeout_seconds', '600')
+ON DUPLICATE KEY UPDATE setting_value = setting_value;
+
+INSERT INTO site_settings (setting_key, setting_value)
+VALUES ('ai_settings_configured', 'false')
 ON DUPLICATE KEY UPDATE setting_value = setting_value;

@@ -1,0 +1,6 @@
+# 仅供迁移集成测试叠加 docker-compose.yml 使用。
+# 必须以全新的 MySQL 数据卷启动，MySQL 仅会在首次初始化时执行此 legacy fixture。
+services:
+  mysql:
+    volumes:
+      - ./test/fixtures/mysql/legacy-09fd516-schema.sql:/docker-entrypoint-initdb.d/001-legacy.sql:ro

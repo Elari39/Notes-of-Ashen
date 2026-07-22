@@ -23,6 +23,8 @@ import (
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/redis/go-redis/v9"
+	"notes-of-ashen/deploy/mysql/migrations"
+	"notes-of-ashen/internal/migration"
 )
 
 const (
@@ -188,6 +190,7 @@ func TestCoreHealthAndSchema(t *testing.T) {
 			t.Fatalf("健康检查 %s 状态 = %q，错误 = %q", name, check.Status, check.Error)
 		}
 	}
+	assertCompleteMigrationMetadata(t, h.appDB)
 
 	const restoreColumn = "ALTER TABLE media_assets ADD COLUMN alt_text VARCHAR(255) NOT NULL DEFAULT '' AFTER height"
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -216,6 +219,67 @@ func TestCoreHealthAndSchema(t *testing.T) {
 	}
 	if degradedReport.Status != "degraded" || degradedReport.Checks["schema"].Status != "down" {
 		t.Fatalf("schema 缺失后的健康检查未降级: %#v", degradedReport)
+	}
+}
+
+func assertCompleteMigrationMetadata(t *testing.T, db *sql.DB) {
+	t.Helper()
+	expected, err := migration.Discover(migrations.FS)
+	if err != nil {
+		t.Fatalf("读取内置迁移文件失败: %v", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	rows, err := db.QueryContext(ctx, `SELECT version, name, checksum FROM schema_migrations ORDER BY version`)
+	if err != nil {
+		t.Fatalf("读取 schema_migrations 失败: %v", err)
+	}
+	defer rows.Close()
+	for index, want := range expected {
+		if !rows.Next() {
+			t.Fatalf("schema_migrations 缺少第 %d 个内置迁移（%s）", index+1, want.Name)
+		}
+		var version uint64
+		var name, checksum string
+		if err := rows.Scan(&version, &name, &checksum); err != nil {
+			t.Fatalf("读取 schema_migrations 第 %d 条失败: %v", index+1, err)
+		}
+		if version != want.Version || name != want.Name || checksum != want.Checksum {
+			t.Fatalf("schema_migrations 第 %d 条与内置迁移不一致: version=%d name=%q checksum=%q，期望 version=%d name=%q checksum=%q", index+1, version, name, checksum, want.Version, want.Name, want.Checksum)
+		}
+	}
+	if rows.Next() {
+		t.Fatal("schema_migrations 包含未被当前二进制识别的额外记录")
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatalf("遍历 schema_migrations 失败: %v", err)
+	}
+
+	runRows, err := db.QueryContext(ctx, `SELECT version, status, COUNT(*) FROM schema_migration_runs GROUP BY version, status ORDER BY version, status`)
+	if err != nil {
+		t.Fatalf("读取 schema_migration_runs 失败: %v", err)
+	}
+	defer runRows.Close()
+	for index, want := range expected {
+		if !runRows.Next() {
+			t.Fatalf("schema_migration_runs 缺少第 %d 个版本的成功记录", index+1)
+		}
+		var version uint64
+		var status string
+		var count int
+		if err := runRows.Scan(&version, &status, &count); err != nil {
+			t.Fatalf("读取 schema_migration_runs 第 %d 条失败: %v", index+1, err)
+		}
+		if version != want.Version || status != "success" || count != 1 {
+			t.Fatalf("schema_migration_runs 第 %d 条 = version=%d status=%q count=%d，期望 version=%d status=success count=1", index+1, version, status, count, want.Version)
+		}
+	}
+	if runRows.Next() {
+		t.Fatal("schema_migration_runs 包含重复、失败或未知版本记录")
+	}
+	if err := runRows.Err(); err != nil {
+		t.Fatalf("遍历 schema_migration_runs 失败: %v", err)
 	}
 }
 

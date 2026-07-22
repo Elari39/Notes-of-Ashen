@@ -7,7 +7,6 @@
 -- 说明：article_versions 建表仅含基础列，like_count/is_pinned/display_priority 由后续脚本补齐。
 --       新库可直接用 schema.sql 一步到位，无需本脚本。
 -- ============================================================
-USE notes_of_ashen;
 
 SET @schema_name := DATABASE();
 

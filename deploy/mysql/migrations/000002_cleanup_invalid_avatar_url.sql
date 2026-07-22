@@ -1,4 +1,3 @@
-USE notes_of_ashen;
 
 UPDATE users
 SET avatar_url = ''

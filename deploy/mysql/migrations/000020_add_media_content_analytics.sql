@@ -1,4 +1,3 @@
-USE notes_of_ashen;
 
 CREATE TABLE IF NOT EXISTS media_assets (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
