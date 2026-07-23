@@ -170,7 +170,7 @@ function New-StageRuntime {
         APP_REDIS_DB                 = "0"
         # 虽然测试 profile 不启动 RabbitMQ，Compose 仍会在解析服务时校验必填插值。
         APP_RABBITMQ_USER            = "notes_test"
-        APP_RABBITMQ_PASSWORD        = (New-TestSecret)
+        APP_RABBITMQ_PASSWORD        = ""
         APP_RABBITMQ_ENABLED         = "false"
         APP_RABBITMQ_URL             = ""
         APP_SEARCH_ENABLED           = "false"
@@ -854,16 +854,21 @@ function Invoke-GoIntegrationTests {
 }
 
 function Invoke-BrowserIntegrationTests {
+    param(
+        [Parameter(Mandatory)][string]$Project
+    )
+
     if ($env:E2E_SKIP_BROWSER_INSTALL -ne "1") {
-        & pnpm --dir frontend exec playwright install chromium
+        & pnpm --dir frontend exec playwright install chromium webkit
         if ($LASTEXITCODE -ne 0) {
-            throw "Playwright Chromium 安装失败（退出码 $LASTEXITCODE）。"
+            throw "Playwright Chromium/WebKit 安装失败（退出码 $LASTEXITCODE）。"
         }
     }
 
-    & pnpm --dir frontend test:e2e
+    # pnpm 会将分隔符 `--` 原样传给脚本；这里直接传递项目参数，确保只运行当前隔离阶段对应的浏览器项目。
+    & pnpm --dir frontend test:e2e --project $Project
     if ($LASTEXITCODE -ne 0) {
-        throw "前端 E2E 测试失败（退出码 $LASTEXITCODE）。"
+        throw "前端 E2E 测试（项目 $Project）失败（退出码 $LASTEXITCODE）。"
     }
 }
 
@@ -925,9 +930,18 @@ try {
     # 错误密码：API 必须在启动期 fail-fast，且输出可定位的 Redis 认证错误；该阶段不会启动 Web。
     Invoke-RedisWrongPasswordStage -Name "redis-wrong-password" -Ordinal 6 -ComposeOverride $redisWrongPasswordCompose
 
-    Invoke-Stage -Name "browser" -Ordinal 7 -TestCommand { Invoke-BrowserIntegrationTests }
+    $browserProjects = @("chromium", "mobile-chromium", "mobile-webkit")
+    $browserOrdinal = 7
+    foreach ($browserProject in $browserProjects) {
+        $projectName = $browserProject
+        Invoke-Stage -Name "browser-$projectName" -Ordinal $browserOrdinal -TestCommand {
+            param($runtime)
+            Invoke-BrowserIntegrationTests -Project $projectName
+        }
+        $browserOrdinal++
+    }
     if ($Suite -eq "extended") {
-        Invoke-Stage -Name "extended" -Ordinal 8 -TestCommand {
+        Invoke-Stage -Name "extended" -Ordinal 10 -TestCommand {
             # 密码保护 Redis 的停止/重启恢复已在 redis-auth 核心阶段覆盖；此处保留其余扩展故障注入。
             Invoke-GoIntegrationTests -Pattern "^TestExtended(ConcurrentRegistrationAndRefreshRotation|BackupDatabaseStageFailure)$"
         }

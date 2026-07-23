@@ -42,8 +42,8 @@ jobs:
         run: go test ./...
       - name: Check Go static analysis
         run: go vet ./...
-      - name: Install Chromium
-        run: pnpm --dir frontend exec playwright install --with-deps chromium
+      - name: Install Playwright browsers
+        run: pnpm --dir frontend exec playwright install --with-deps chromium webkit
       - name: Run core integration suite
         id: integration
         shell: pwsh
@@ -81,8 +81,8 @@ jobs:
           cache-dependency-path: frontend/pnpm-lock.yaml
       - name: Install frontend dependencies
         run: pnpm --dir frontend install --frozen-lockfile
-      - name: Install Chromium
-        run: pnpm --dir frontend exec playwright install --with-deps chromium
+      - name: Install Playwright browsers
+        run: pnpm --dir frontend exec playwright install --with-deps chromium webkit
       - name: Run extended integration suite
         id: integration
         shell: pwsh

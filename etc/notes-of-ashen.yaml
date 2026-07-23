@@ -40,6 +40,8 @@ Search:
 
 RabbitMQ:
   Enabled: false
+  User: "notes_user"
+  Password: ""
   # 必须通过 .env 或真实环境变量 APP_RABBITMQ_URL 注入。
   URL: ""
   Exchange: "notes-of-ashen.events"

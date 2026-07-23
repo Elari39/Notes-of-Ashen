@@ -3,6 +3,7 @@ import {
   expect,
   test,
   type APIResponse,
+  type Page,
   type StorageState,
 } from '@playwright/test';
 import {
@@ -65,6 +66,7 @@ const storageRefreshCookie = (storageState: StorageState): string => {
 test.describe.serial('真实 Compose 前端关键路径', () => {
   let admin: TestIdentity;
   let adminStorageState: StorageState | undefined;
+  let publishedArticle: Article | undefined;
 
   const requireAdminState = (): StorageState => {
     if (!adminStorageState) {
@@ -137,6 +139,7 @@ test.describe.serial('真实 Compose 前端关键路径', () => {
       const createArticleResponse = page.waitForResponse((response) => matchesAPIPath(response, '/articles', 'POST'));
       await page.getByTestId('article-editor-save').click();
       const article = await successData<Article>(await createArticleResponse, 'Article create');
+      publishedArticle = article;
       await expect(page).toHaveURL(/\/admin\/articles$/);
       await expect(page.getByText(title, { exact: true })).toBeVisible();
 
@@ -194,6 +197,59 @@ test.describe.serial('真实 Compose 前端关键路径', () => {
       expect(forbiddenResponse.status()).toBe(403);
     } finally {
       await editorContext.close();
+    }
+  });
+
+  test('移动端公共页面与后台核心表格可触控使用', async ({ browser, page }) => {
+    test.skip(!test.info().project.name.startsWith('mobile-'), '仅在移动端项目验证移动布局与触控路径。');
+
+    if (!publishedArticle) {
+      throw new Error('The mobile layout test requires the article created by the preceding article test.');
+    }
+
+    const assertNoHorizontalOverflow = async (targetPage: Page): Promise<void> => {
+      await expect.poll(
+        () => targetPage.evaluate(() => Math.max(document.documentElement.scrollWidth, document.body.scrollWidth) - window.innerWidth),
+        { message: '页面不应出现横向滚动条' },
+      ).toBeLessThanOrEqual(1);
+    };
+
+    await preparePage(page);
+    await page.goto('/');
+    await expect(page.getByRole('main')).toBeVisible();
+    await assertNoHorizontalOverflow(page);
+
+    const menuButton = page.getByRole('button', { name: 'Open menu', exact: true });
+    await menuButton.tap();
+    const mobileNavigation = page.getByRole('navigation', { name: 'Open menu', exact: true });
+    await expect(mobileNavigation).toBeVisible();
+    await mobileNavigation.getByRole('link', { name: 'Search', exact: true }).tap();
+    await expect(page).toHaveURL(/\/search$/);
+    await expect(page.getByPlaceholder('Title, summary, or body', { exact: true })).toBeVisible();
+    await assertNoHorizontalOverflow(page);
+
+    await page.goto(`/article/${publishedArticle.id}`);
+    await expect(page.getByRole('heading', { name: publishedArticle.title, exact: true })).toBeVisible();
+    await assertNoHorizontalOverflow(page);
+
+    await page.goto('/login');
+    await expect(page.getByLabel('Account or email', { exact: true })).toBeVisible();
+    await assertNoHorizontalOverflow(page);
+
+    const adminContext = await browser.newContext();
+    await adminContext.addInitScript(() => {
+      window.localStorage.setItem('notesOfAshen.language', 'en');
+    });
+    const adminPage = await adminContext.newPage();
+    try {
+      // 上游 API 刷新测试会轮换 Refresh Cookie；通过真实移动端登录取得当前有效会话。
+      await loginThroughUI(adminPage, admin);
+      await adminPage.goto('/admin/articles');
+      await expect(adminPage.getByRole('heading', { name: 'Articles', exact: true })).toBeVisible();
+      await expect(adminPage.locator('table')).toBeVisible();
+      await assertNoHorizontalOverflow(adminPage);
+    } finally {
+      await adminContext.close();
     }
   });
 });

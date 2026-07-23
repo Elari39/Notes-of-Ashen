@@ -8,7 +8,7 @@
     "dev": "vite",
     "test": "node --experimental-strip-types --test tests/*.test.ts",
     "test:e2e": "playwright test",
-    "test:e2e:install": "playwright install chromium",
+    "test:e2e:install": "playwright install chromium webkit",
     "build": "pnpm lint && pnpm type-check && vite build && pnpm check:bundle-size",
     "check:bundle-size": "node scripts/check-bundle-size.mjs",
     "lint": "eslint . --report-unused-disable-directives --max-warnings 0",

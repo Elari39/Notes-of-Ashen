@@ -9,10 +9,11 @@ pwsh -File scripts/test-integration.ps1 -Suite core
 pwsh -File scripts/test-integration.ps1 -Suite extended
 ```
 
-`core` 依次执行两个彼此隔离的 Compose 生命周期：
+`core` 在彼此隔离的 Compose 生命周期中执行：
 
 - Go 黑盒 HTTP 集成测试（真实 API、MySQL、Redis 与 Web Nginx）。
-- Chromium 浏览器 E2E（首次注册、刷新 Cookie、文章编辑、媒体与角色边界）。
+- 历史 schema 自动迁移、并发 migrate、Redis 认证与错误密码 fail-fast。
+- Chromium 桌面、Pixel 7 Chromium、iPhone 13 WebKit 浏览器 E2E；三个浏览器项目各使用全新的 Compose 数据库，覆盖首次注册、刷新 Cookie、文章编辑、媒体、角色边界，以及移动端首页、搜索、文章详情、登录和后台文章表格的触控与横向溢出断言。
 
 `extended` 在上述两个阶段后，使用第三个全新 Compose 生命周期执行并发、恢复失败注入与 Redis fail-closed 测试；Redis 故障用例固定最后执行，避免其停止/重启过程影响其他需要宿主 Redis 端口的断言。
 
@@ -33,7 +34,7 @@ pwsh -File scripts/test-integration.ps1 -Suite extended
 
 测试环境固定关闭邮件、RabbitMQ、Meilisearch 与 Prerender；仅在该环境设置 `APP_AUTH_COOKIE_SECURE=false`，使 HTTP loopback Chromium 能验证 Refresh Token Cookie。生产 Compose 配置不受影响。
 
-首次在新机器执行时，脚本会安装 Playwright Chromium。CI 已预装浏览器时，可在调用前设置 `E2E_SKIP_BROWSER_INSTALL=1`。
+首次在新机器执行时，脚本会安装 Playwright Chromium 与 WebKit。CI 已预装浏览器时，可在调用前设置 `E2E_SKIP_BROWSER_INSTALL=1`。
 
 ## CI
 
