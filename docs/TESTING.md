@@ -15,7 +15,7 @@ pwsh -File scripts/test-integration.ps1 -Suite extended
 - 历史 schema 自动迁移、并发 migrate、Redis 认证与错误密码 fail-fast。
 - Chromium 桌面、Pixel 7 Chromium、iPhone 13 WebKit 浏览器 E2E；三个浏览器项目各使用全新的 Compose 数据库，覆盖首次注册、刷新 Cookie、文章编辑、媒体、角色边界，以及移动端首页、搜索、文章详情、登录和后台文章表格的触控与横向溢出断言。
 
-`extended` 在上述两个阶段后，使用第三个全新 Compose 生命周期执行并发、恢复失败注入与 Redis fail-closed 测试；Redis 故障用例固定最后执行，避免其停止/重启过程影响其他需要宿主 Redis 端口的断言。
+`extended` 在 `core` 后使用全新的 Compose 生命周期执行其余并发与恢复失败注入测试；Redis 故障用例固定在浏览器阶段前执行，避免其停止/重启过程影响其他需要宿主 Redis 端口的断言。
 
 每个阶段都会生成新的 Docker 项目名、卷、随机数据库/认证凭据、Docker 子网和 loopback 随机端口。测试结束会执行 `docker compose down --volumes --remove-orphans --rmi local`；成功时会删除临时目录和凭据。失败时会保留不含临时环境文件的 Compose 日志，路径会输出到控制台；GitHub Actions 会上传该目录以及 Playwright 报告、trace 和截图。
 
@@ -54,4 +54,4 @@ pnpm check:bundle-size
 
 ## CI
 
-`.github/workflows/integration-e2e.yml` 在推送和拉取请求时运行 `core`；每日 `Asia/Shanghai` 02:00（UTC 18:00）及手动触发运行 `extended`。工作流失败时上传 Playwright 产物和脚本保存的 Compose 日志。
+`.github/workflows/integration-e2e.yml` 在任意 push 和拉取请求时运行 `core`；`extended` 作为发布门禁在 `main` push 时运行，并继续在每日 `Asia/Shanghai` 02:00（UTC 18:00）和手动触发时运行。成功测试会删除临时日志、环境文件和凭据；失败时会上传 Playwright 报告、trace、截图/视频和脚本保留的无凭据 Compose 日志。

@@ -252,7 +252,7 @@
 
 ### TODO-P3-03 将扩展故障注入纳入发布门禁
 
-- [ ] **优先级**：P3；**负责人建议**：测试 + 运维；**预估**：中等。
+- [x] **优先级**：P3；**负责人建议**：测试 + 运维；**预估**：中等。
 - **现状证据**：仓库已有 `test/integration/http_integration_test.go`、`scripts/test-integration.ps1`、`frontend/e2e/critical-path.spec.ts`，`docs/TESTING.md` 还描述了 `core`/`extended` 阶段及 Redis 故障注入；本次只执行了本地单元/静态检查和运行中的只读探查，未执行会重建 Compose 生命周期的扩展套件。
 - **影响**：Redis 不可用、迁移漏执行、RabbitMQ profile 缺失、媒体目录异常、备份恢复中途退出等生产级故障路径虽然有部分代码和测试基础，但当前审查没有新鲜执行证据。
 - **建议动作**：在隔离的临时 Compose 项目和临时 volume 中周期性运行 `core` 与 `extended`；发布前至少运行核心集成测试，夜间运行恢复失败注入和 Redis fail-closed；保留失败日志、trace、截图并清理临时资源。
