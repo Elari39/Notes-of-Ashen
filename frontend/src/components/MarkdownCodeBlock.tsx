@@ -1,65 +1,139 @@
 import { useEffect, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
 import SyntaxHighlighter from 'react-syntax-highlighter/dist/esm/prism-light';
-import bash from 'react-syntax-highlighter/dist/esm/languages/prism/bash';
-import c from 'react-syntax-highlighter/dist/esm/languages/prism/c';
-import cpp from 'react-syntax-highlighter/dist/esm/languages/prism/cpp';
-import csharp from 'react-syntax-highlighter/dist/esm/languages/prism/csharp';
-import css from 'react-syntax-highlighter/dist/esm/languages/prism/css';
-import docker from 'react-syntax-highlighter/dist/esm/languages/prism/docker';
-import go from 'react-syntax-highlighter/dist/esm/languages/prism/go';
-import ini from 'react-syntax-highlighter/dist/esm/languages/prism/ini';
-import java from 'react-syntax-highlighter/dist/esm/languages/prism/java';
-import javascript from 'react-syntax-highlighter/dist/esm/languages/prism/javascript';
-import jsx from 'react-syntax-highlighter/dist/esm/languages/prism/jsx';
-import json from 'react-syntax-highlighter/dist/esm/languages/prism/json';
-import kotlin from 'react-syntax-highlighter/dist/esm/languages/prism/kotlin';
-import markdown from 'react-syntax-highlighter/dist/esm/languages/prism/markdown';
-import markup from 'react-syntax-highlighter/dist/esm/languages/prism/markup';
-import powershell from 'react-syntax-highlighter/dist/esm/languages/prism/powershell';
-import python from 'react-syntax-highlighter/dist/esm/languages/prism/python';
-import rust from 'react-syntax-highlighter/dist/esm/languages/prism/rust';
-import sql from 'react-syntax-highlighter/dist/esm/languages/prism/sql';
-import toml from 'react-syntax-highlighter/dist/esm/languages/prism/toml';
-import tsx from 'react-syntax-highlighter/dist/esm/languages/prism/tsx';
-import typescript from 'react-syntax-highlighter/dist/esm/languages/prism/typescript';
-import yaml from 'react-syntax-highlighter/dist/esm/languages/prism/yaml';
 import { translate } from '../i18n';
 import { usePreferenceStore } from '../store/preferences';
 
-SyntaxHighlighter.registerLanguage('bash', bash);
-SyntaxHighlighter.registerLanguage('sh', bash);
-SyntaxHighlighter.registerLanguage('shell', bash);
-SyntaxHighlighter.registerLanguage('c', c);
-SyntaxHighlighter.registerLanguage('cpp', cpp);
-SyntaxHighlighter.registerLanguage('csharp', csharp);
-SyntaxHighlighter.registerLanguage('css', css);
-SyntaxHighlighter.registerLanguage('docker', docker);
-SyntaxHighlighter.registerLanguage('go', go);
-SyntaxHighlighter.registerLanguage('golang', go);
-SyntaxHighlighter.registerLanguage('ini', ini);
-SyntaxHighlighter.registerLanguage('java', java);
-SyntaxHighlighter.registerLanguage('jsx', jsx);
-SyntaxHighlighter.registerLanguage('javascript', javascript);
-SyntaxHighlighter.registerLanguage('js', javascript);
-SyntaxHighlighter.registerLanguage('json', json);
-SyntaxHighlighter.registerLanguage('kotlin', kotlin);
-SyntaxHighlighter.registerLanguage('markdown', markdown);
-SyntaxHighlighter.registerLanguage('md', markdown);
-SyntaxHighlighter.registerLanguage('markup', markup);
-SyntaxHighlighter.registerLanguage('powershell', powershell);
-SyntaxHighlighter.registerLanguage('python', python);
-SyntaxHighlighter.registerLanguage('py', python);
-SyntaxHighlighter.registerLanguage('rust', rust);
-SyntaxHighlighter.registerLanguage('sql', sql);
-SyntaxHighlighter.registerLanguage('toml', toml);
-SyntaxHighlighter.registerLanguage('tsx', tsx);
-SyntaxHighlighter.registerLanguage('typescript', typescript);
-SyntaxHighlighter.registerLanguage('ts', typescript);
-SyntaxHighlighter.registerLanguage('yaml', yaml);
-SyntaxHighlighter.registerLanguage('yml', yaml);
+type PrismLanguage = Parameters<typeof SyntaxHighlighter.registerLanguage>[1];
+type PrismLanguageModule = { default: PrismLanguage };
+
+type SupportedLanguage =
+  | 'bash'
+  | 'c'
+  | 'cpp'
+  | 'csharp'
+  | 'css'
+  | 'docker'
+  | 'go'
+  | 'ini'
+  | 'java'
+  | 'javascript'
+  | 'jsx'
+  | 'json'
+  | 'kotlin'
+  | 'markdown'
+  | 'markup'
+  | 'powershell'
+  | 'python'
+  | 'rust'
+  | 'sql'
+  | 'toml'
+  | 'tsx'
+  | 'typescript'
+  | 'yaml';
+
+const languageLoaders: Record<SupportedLanguage, () => Promise<PrismLanguageModule>> = {
+  bash: () => import('react-syntax-highlighter/dist/esm/languages/prism/bash'),
+  c: () => import('react-syntax-highlighter/dist/esm/languages/prism/c'),
+  cpp: () => import('react-syntax-highlighter/dist/esm/languages/prism/cpp'),
+  csharp: () => import('react-syntax-highlighter/dist/esm/languages/prism/csharp'),
+  css: () => import('react-syntax-highlighter/dist/esm/languages/prism/css'),
+  docker: () => import('react-syntax-highlighter/dist/esm/languages/prism/docker'),
+  go: () => import('react-syntax-highlighter/dist/esm/languages/prism/go'),
+  ini: () => import('react-syntax-highlighter/dist/esm/languages/prism/ini'),
+  java: () => import('react-syntax-highlighter/dist/esm/languages/prism/java'),
+  javascript: () => import('react-syntax-highlighter/dist/esm/languages/prism/javascript'),
+  jsx: () => import('react-syntax-highlighter/dist/esm/languages/prism/jsx'),
+  json: () => import('react-syntax-highlighter/dist/esm/languages/prism/json'),
+  kotlin: () => import('react-syntax-highlighter/dist/esm/languages/prism/kotlin'),
+  markdown: () => import('react-syntax-highlighter/dist/esm/languages/prism/markdown'),
+  markup: () => import('react-syntax-highlighter/dist/esm/languages/prism/markup'),
+  powershell: () => import('react-syntax-highlighter/dist/esm/languages/prism/powershell'),
+  python: () => import('react-syntax-highlighter/dist/esm/languages/prism/python'),
+  rust: () => import('react-syntax-highlighter/dist/esm/languages/prism/rust'),
+  sql: () => import('react-syntax-highlighter/dist/esm/languages/prism/sql'),
+  toml: () => import('react-syntax-highlighter/dist/esm/languages/prism/toml'),
+  tsx: () => import('react-syntax-highlighter/dist/esm/languages/prism/tsx'),
+  typescript: () => import('react-syntax-highlighter/dist/esm/languages/prism/typescript'),
+  yaml: () => import('react-syntax-highlighter/dist/esm/languages/prism/yaml'),
+};
+
+const languageAliases: Record<string, SupportedLanguage> = {
+  bash: 'bash',
+  sh: 'bash',
+  shell: 'bash',
+  c: 'c',
+  cpp: 'cpp',
+  csharp: 'csharp',
+  css: 'css',
+  docker: 'docker',
+  go: 'go',
+  golang: 'go',
+  ini: 'ini',
+  java: 'java',
+  javascript: 'javascript',
+  js: 'javascript',
+  jsx: 'jsx',
+  json: 'json',
+  kotlin: 'kotlin',
+  markdown: 'markdown',
+  md: 'markdown',
+  markup: 'markup',
+  powershell: 'powershell',
+  python: 'python',
+  py: 'python',
+  rust: 'rust',
+  sql: 'sql',
+  toml: 'toml',
+  tsx: 'tsx',
+  typescript: 'typescript',
+  ts: 'typescript',
+  yaml: 'yaml',
+  yml: 'yaml',
+};
+
+const loadedLanguages = new Set<SupportedLanguage>();
+const languageLoads = new Map<SupportedLanguage, Promise<void>>();
+
+const loadLanguage = (language: SupportedLanguage): Promise<void> => {
+  if (loadedLanguages.has(language)) {
+    return Promise.resolve();
+  }
+
+  const inFlight = languageLoads.get(language);
+  if (inFlight) {
+    return inFlight;
+  }
+
+  const load = languageLoaders[language]().then(({ default: grammar }) => {
+    for (const [alias, supportedLanguage] of Object.entries(languageAliases)) {
+      if (supportedLanguage === language) {
+        SyntaxHighlighter.registerLanguage(alias, grammar);
+      }
+    }
+    loadedLanguages.add(language);
+  }).finally(() => {
+    languageLoads.delete(language);
+  });
+  languageLoads.set(language, load);
+  return load;
+};
 
 const codeFontFamily = '"JetBrains Mono", "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace';
+const codeBlockStyle: CSSProperties = {
+  margin: 0,
+  padding: '1.25rem 1.4rem',
+  background: 'var(--code-bg)',
+  color: 'var(--code-ink)',
+  fontSize: '0.92rem',
+  lineHeight: 1.72,
+  overflowX: 'auto',
+};
+const codeTagStyle: CSSProperties = {
+  color: 'var(--code-ink)',
+  fontFamily: codeFontFamily,
+  fontWeight: 400,
+};
 
 type MarkdownCodeBlockProps = {
   code: string;
@@ -73,6 +147,36 @@ const MarkdownCodeBlock: React.FC<MarkdownCodeBlockProps> = ({ code, language, s
   const uiLanguage = usePreferenceStore((state) => state.language);
   const t = (key: Parameters<typeof translate>[1]) => translate(uiLanguage, key);
   const displayLanguage = language === 'text' ? 'plain text' : language;
+  const syntaxLanguage = languageAliases[language.trim().toLowerCase()];
+  const [isSyntaxReady, setIsSyntaxReady] = useState(() => Boolean(syntaxLanguage && loadedLanguages.has(syntaxLanguage)));
+
+  useEffect(() => {
+    let active = true;
+    if (!syntaxLanguage) {
+      setIsSyntaxReady(false);
+      return () => {
+        active = false;
+      };
+    }
+
+    setIsSyntaxReady(loadedLanguages.has(syntaxLanguage));
+    void loadLanguage(syntaxLanguage)
+      .then(() => {
+        if (active) {
+          setIsSyntaxReady(true);
+        }
+      })
+      .catch(() => {
+        if (active) {
+          // 未知或加载失败时保持普通代码块，文章正文仍可完整阅读。
+          setIsSyntaxReady(false);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [syntaxLanguage]);
 
   useEffect(() => () => {
     if (timerRef.current) {
@@ -111,30 +215,22 @@ const MarkdownCodeBlock: React.FC<MarkdownCodeBlockProps> = ({ code, language, s
           {copied ? t('markdownCode.copied') : t('markdownCode.copy')}
         </button>
       </div>
-      <SyntaxHighlighter
-        style={syntaxTheme}
-        language={language}
-        PreTag="div"
-        className="article-code-block"
-        codeTagProps={{
-          style: {
-            color: 'var(--code-ink)',
-            fontFamily: codeFontFamily,
-            fontWeight: 400,
-          },
-        }}
-        customStyle={{
-          margin: 0,
-          padding: '1.25rem 1.4rem',
-          background: 'var(--code-bg)',
-          color: 'var(--code-ink)',
-          fontSize: '0.92rem',
-          lineHeight: 1.72,
-          overflowX: 'auto',
-        }}
-      >
-        {code}
-      </SyntaxHighlighter>
+      {syntaxLanguage && isSyntaxReady ? (
+        <SyntaxHighlighter
+          style={syntaxTheme}
+          language={syntaxLanguage}
+          PreTag="div"
+          className="article-code-block"
+          codeTagProps={{ style: codeTagStyle }}
+          customStyle={codeBlockStyle}
+        >
+          {code}
+        </SyntaxHighlighter>
+      ) : (
+        <pre className="article-code-block" style={codeBlockStyle}>
+          <code style={codeTagStyle}>{code}</code>
+        </pre>
+      )}
     </div>
   );
 };

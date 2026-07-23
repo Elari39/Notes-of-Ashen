@@ -244,7 +244,7 @@
 
 ### TODO-P3-02 持续治理前端首屏与大资源 chunk
 
-- [ ] **优先级**：P3；**负责人建议**：前端；**预估**：中等。
+- [x] **优先级**：P3；**负责人建议**：前端；**预估**：中等。
 - **现状证据**：本次 `pnpm build` 通过，但产物中 `echarts` 约 500.81 KiB、Markdown 约 423.48 KiB、syntax highlighter 约 95.69 KiB；项目的 `check:bundle-size` 当前阈值允许通过。
 - **影响**：低带宽设备首次进入后台分析、文章详情或编辑器时可能下载较大的 JS；路由懒加载已经缓解部分问题，但仍应以真实网络指标确认。
 - **建议动作**：确认这些 chunk 是否只在对应路由按需加载；对 Markdown/高亮语言按需加载，评估 ECharts 按页面拆分；建立 gzip/brotli 大小预算和 Lighthouse/Web Vitals 监测。

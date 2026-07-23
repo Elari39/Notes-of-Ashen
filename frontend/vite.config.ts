@@ -11,6 +11,7 @@ const chunkGroups: Array<[string, string[]]> = [
 ]
 
 const packagePath = (packageName: string) => `/node_modules/${packageName}/`
+const syntaxLanguagePath = '/node_modules/react-syntax-highlighter/dist/esm/languages/'
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
@@ -28,6 +29,10 @@ export default defineConfig(({ mode }) => {
               return undefined
             }
             const normalized = id.replace(/\\/g, '/')
+            // 语言语法由 MarkdownCodeBlock 的动态 import 按需加载，不能并入基础高亮 chunk。
+            if (normalized.includes(syntaxLanguagePath)) {
+              return undefined
+            }
             for (const [chunkName, packages] of chunkGroups) {
               if (packages.some((packageName) => normalized.includes(packagePath(packageName)))) {
                 return chunkName

@@ -2,7 +2,7 @@
 
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import { gzipSync } from 'node:zlib';
+import { brotliCompressSync, gzipSync } from 'node:zlib';
 
 const distDir = resolve(process.cwd(), 'dist');
 const assetsDir = join(distDir, 'assets');
@@ -18,15 +18,24 @@ if (!existsSync(distDir) || !existsSync(assetsDir)) {
 const assets = readdirSync(assetsDir).filter((file) => statSync(join(assetsDir, file)).isFile());
 const findChunk = (prefix) => {
   const matches = assets.filter((file) => file.startsWith(`${prefix}-`) && file.endsWith('.js'));
-  if (matches.length !== 1) {
-    fail(`expected one ${prefix} JavaScript chunk, found ${matches.length}`);
+  if (matches.length === 0) {
+    fail(`expected a ${prefix} JavaScript chunk, found none`);
   }
-  return matches[0];
+  // 语言按需加载后，`markdown` 等语言模块可能与手工 chunk 共享前缀；主 chunk 始终是其中最大的文件。
+  return matches.sort((left, right) => statSync(join(assetsDir, right)).size - statSync(join(assetsDir, left)).size)[0];
 };
 const bytesOf = (file) => readFileSync(join(assetsDir, file));
-const assertAtMost = (label, bytes, limit) => {
-  if (bytes > limit) {
-    fail(`${label} is ${(bytes / 1024).toFixed(2)} KiB, limit is ${(limit / 1024).toFixed(2)} KiB`);
+const toKiB = (bytes) => `${(bytes / 1024).toFixed(2)} KiB`;
+const measure = (bytes) => ({
+  raw: bytes.length,
+  gzip: gzipSync(bytes).length,
+  brotli: brotliCompressSync(bytes).length,
+});
+const assertBudgets = (label, sizes, limits) => {
+  for (const [format, limit] of Object.entries(limits)) {
+    if (sizes[format] > limit) {
+      fail(`${label} ${format} is ${toKiB(sizes[format])}, limit is ${toKiB(limit)}`);
+    }
   }
 };
 
@@ -34,13 +43,35 @@ const entry = findChunk('index');
 const markdown = findChunk('markdown');
 const syntaxHighlighter = findChunk('syntax-highlighter');
 const echarts = findChunk('echarts');
-const entryBytes = bytesOf(entry);
 
-assertAtMost('initial JavaScript', entryBytes.length, 320 * 1024);
-assertAtMost('initial JavaScript gzip', gzipSync(entryBytes).length, 110 * 1024);
-assertAtMost('markdown chunk', bytesOf(markdown).length, 450 * 1024);
-assertAtMost('syntax-highlighter chunk', bytesOf(syntaxHighlighter).length, 120 * 1024);
-assertAtMost('echarts chunk', bytesOf(echarts).length, 550 * 1024);
+const chunkBudgets = [
+  {
+    label: 'initial JavaScript',
+    file: entry,
+    limits: { raw: 320 * 1024, gzip: 110 * 1024, brotli: 96 * 1024 },
+  },
+  {
+    label: 'markdown chunk',
+    file: markdown,
+    limits: { raw: 450 * 1024, gzip: 140 * 1024, brotli: 118 * 1024 },
+  },
+  {
+    label: 'syntax-highlighter chunk',
+    file: syntaxHighlighter,
+    limits: { raw: 64 * 1024, gzip: 24 * 1024, brotli: 20 * 1024 },
+  },
+  {
+    label: 'echarts chunk',
+    file: echarts,
+    limits: { raw: 550 * 1024, gzip: 185 * 1024, brotli: 155 * 1024 },
+  },
+];
+
+const reports = chunkBudgets.map(({ label, file, limits }) => {
+  const sizes = measure(bytesOf(file));
+  assertBudgets(label, sizes, limits);
+  return `${label} (${file}): raw ${toKiB(sizes.raw)}, gzip ${toKiB(sizes.gzip)}, brotli ${toKiB(sizes.brotli)}`;
+});
 
 const indexHTML = readFileSync(join(distDir, 'index.html'), 'utf8');
 const initialAssets = [...indexHTML.matchAll(/\b(?:src|href)="([^"]+)"/g)].map((match) => match[1]);
@@ -50,9 +81,4 @@ for (const chunk of [markdown, syntaxHighlighter, echarts]) {
   }
 }
 
-console.log(
-  `bundle size check passed: entry ${(entryBytes.length / 1024).toFixed(2)} KiB, ` +
-  `markdown ${(bytesOf(markdown).length / 1024).toFixed(2)} KiB, ` +
-  `syntax-highlighter ${(bytesOf(syntaxHighlighter).length / 1024).toFixed(2)} KiB, ` +
-  `echarts ${(bytesOf(echarts).length / 1024).toFixed(2)} KiB`,
-);
+console.log(`bundle size check passed:\n${reports.join('\n')}`);

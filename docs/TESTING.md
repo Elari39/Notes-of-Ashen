@@ -36,6 +36,22 @@ pwsh -File scripts/test-integration.ps1 -Suite extended
 
 首次在新机器执行时，脚本会安装 Playwright Chromium 与 WebKit。CI 已预装浏览器时，可在调用前设置 `E2E_SKIP_BROWSER_INSTALL=1`。
 
+## 前端构建与包体积
+
+在 `frontend/` 目录执行：
+
+```powershell
+pnpm lint
+pnpm type-check
+pnpm test
+pnpm build
+pnpm check:bundle-size
+```
+
+`check:bundle-size` 对初始 JavaScript、Markdown、语法高亮与 ECharts chunk 分别输出并限制 raw、gzip、brotli 三种大小；Markdown 代码语言语法按需动态加载，未知或加载失败的语言会渲染为普通代码块。
+
+如需调整包体积预算，提交或 PR 必须说明调整原因，并给出调整前后的三种大小基线；不得仅为通过检查而抬高阈值。
+
 ## CI
 
 `.github/workflows/integration-e2e.yml` 在推送和拉取请求时运行 `core`；每日 `Asia/Shanghai` 02:00（UTC 18:00）及手动触发运行 `extended`。工作流失败时上传 Playwright 产物和脚本保存的 Compose 日志。
