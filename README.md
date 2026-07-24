@@ -250,19 +250,22 @@ Web Nginx 使用 `$binary_remote_addr` 做每 IP 限流，并仅接受 `WEB_TRUS
 
 ### 全文搜索配置
 
-Docker Compose 默认会启动 Meilisearch 服务；搜索功能仍默认关闭，`APP_SEARCH_ENABLED=false` 时 API 使用 MySQL 回退，不会调用 Meilisearch。需要启用全文搜索时，在真实 `.env` 中设置：
+Meilisearch 通过 `search` profile 作为可选服务，默认不会启动；搜索功能默认关闭，`APP_SEARCH_ENABLED=false` 时 API 使用 MySQL 回退，不会调用 Meilisearch。需要启用全文搜索时，在真实 `.env` 中同时设置：
 
 ```env
 APP_SEARCH_ENABLED=true
+COMPOSE_PROFILES=search
 APP_MEILISEARCH_HOST=http://meilisearch:7700
 APP_MEILISEARCH_API_KEY=replace-with-a-long-random-key
 APP_MEILISEARCH_INDEX=articles
 ```
 
-直接使用普通 Compose 命令启动即可：
+如果同时启用了 RabbitMQ（`APP_RABBITMQ_ENABLED=true`），请将 `COMPOSE_PROFILES` 改为 `messaging,search`，并确保 RabbitMQ 的密码和 URL 也已配置一致。
+
+启用 `APP_SEARCH_ENABLED=true` 却未在 `COMPOSE_PROFILES` 中加入 `search` 时，`config-check` 会直接失败。配置完成后使用带 profile 的 Compose 命令启动：
 
 ```bash
-docker compose up -d --build
+docker compose --profile search up -d --build
 ```
 
 启用搜索时必须为 `APP_MEILISEARCH_API_KEY` 配置强随机值（同时作为 Meilisearch Master Key）。Compose 在启用搜索时默认使用 `MEILI_ENV=production`；如需临时开发模式，才显式设置 `MEILI_ENV=development`。服务启动后，使用 `editor` 或 `admin` 登录后台，并调用 `POST /api/v1/admin/search/reindex` 全量重建文章索引。Meilisearch 初始化或运行中不可用时，API 不会因此退出，公开文章搜索会回退到 MySQL；后端会在后台重试索引初始化，恢复后重新启用 Meilisearch。
