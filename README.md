@@ -415,6 +415,7 @@ http://127.0.0.1:1270/api/v1/articles?page=1&size=10
 1. **Cookie 安全属性**：生产 HTTPS 环境保持 `APP_AUTH_COOKIE_SECURE=true`。登录后在浏览器开发者工具中确认 `noa_refresh_token` Cookie 带有 `Secure; HttpOnly; SameSite=Strict`。
 2. **会话续期**：登录后刷新页面，确认通过 `/api/v1/auth/refresh` 换取新 accessToken 且无需重新登录；access token 过期后同样能自动恢复会话。
 3. **本机 HTTP 环境例外**：仅通过 `http://127.0.0.1:1270` 访问的本机开发环境必须设置 `APP_AUTH_COOKIE_SECURE=false`，否则浏览器不会保存 refresh Cookie，刷新页面会被迫重新登录。禁止在生产 HTTPS 环境使用 `false`。
+4. **站点基址**：生产环境必须在后台站点设置中将 `siteBaseUrl` 配置为正式 HTTPS 域名（如 `https://blog.example.com`）。验收 `/rss.xml`、`/sitemap.xml` 与文章分享链接全部使用该域名，不依赖请求 Host 推断；`siteBaseUrl` 为空时后端日志会输出 `siteBaseUrl is empty` 回退提示。
 
 ## 本地非 Docker 开发
 

@@ -9,6 +9,8 @@ import (
 
 	"notes-of-ashen/internal/svc"
 	"notes-of-ashen/model"
+
+	"github.com/zeromicro/go-zero/core/logx"
 )
 
 const (
@@ -54,7 +56,7 @@ func RSS(ctx context.Context, svcCtx *svc.ServiceContext, requestBaseURL string)
 	if err != nil {
 		return nil, err
 	}
-	baseURL := effectiveBaseURL(settings.SiteBaseURL, requestBaseURL)
+	baseURL := effectiveBaseURL(ctx, "rss", settings.SiteBaseURL, requestBaseURL)
 	articles, err := svcCtx.Store.ListPublicArticleEntries(ctx, rssArticleLimit)
 	if err != nil {
 		return nil, err
@@ -106,7 +108,7 @@ func Sitemap(ctx context.Context, svcCtx *svc.ServiceContext, requestBaseURL str
 	if err != nil {
 		return nil, err
 	}
-	baseURL := effectiveBaseURL(settings.SiteBaseURL, requestBaseURL)
+	baseURL := effectiveBaseURL(ctx, "sitemap", settings.SiteBaseURL, requestBaseURL)
 	articleLimit := maxSitemapURLs - baseSitemapURLs
 	if settings.ProjectsPageEnabled {
 		articleLimit--
@@ -147,10 +149,13 @@ func sitemapURLs(baseURL string, projectsPageEnabled bool, articles []model.Publ
 	return urls
 }
 
-func effectiveBaseURL(setting, requestBaseURL string) string {
+func effectiveBaseURL(ctx context.Context, feature, setting, requestBaseURL string) string {
 	baseURL := strings.TrimRight(strings.TrimSpace(setting), "/")
 	if baseURL == "" {
 		baseURL = strings.TrimRight(strings.TrimSpace(requestBaseURL), "/")
+		// 站点基址未配置时回退请求 Host；生产环境应在站点设置中配置正式 HTTPS 域名，
+		// 否则搜索引擎和订阅客户端可能收到不可公开访问的绝对链接。
+		logx.WithContext(ctx).Infof("siteBaseUrl is empty, %s falls back to request base url %s; configure a public https siteBaseUrl for production", feature, baseURL)
 	}
 	return baseURL
 }
