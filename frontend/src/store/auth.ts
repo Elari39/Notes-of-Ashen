@@ -3,6 +3,7 @@ import type { User } from '../types';
 import { getCurrentUser } from '../api/user';
 import { refreshAccessToken } from '../utils/refresh';
 import { executeFetchUser, type FetchUserMode } from './authPolicy';
+import { clearEditorDraftsForUser } from '../utils/editorDraft';
 
 // React StrictMode 会在开发环境重复执行挂载 effect。静默刷新会旋转 HttpOnly Cookie，
 // 因此同一时刻只能保留一个初始化任务，避免两个 refresh 请求竞争同一旧 token。
@@ -31,10 +32,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   isInitialized: false,
   onSessionExpired: undefined,
   setAuth: (user, token) => {
+    const previousUser = get().user;
+    if (previousUser && previousUser.id !== user?.id) {
+      clearEditorDraftsForUser(previousUser.id);
+    }
     window.dispatchEvent(new Event('noa:auth-changed'));
     set({ user, accessToken: token, isInitialized: true });
   },
   logout: () => {
+    const currentUser = get().user;
+    clearEditorDraftsForUser(currentUser?.id);
     window.dispatchEvent(new Event('noa:auth-changed'));
     set({ user: null, accessToken: null, isInitialized: true, isFetching: false });
   },
@@ -50,7 +57,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         accessToken,
         request: async () => (await getCurrentUser()).data,
         effects: {
-          setUser: (user) => set({ user }),
+          setUser: (user) => {
+            const previousUser = get().user;
+            if (previousUser && previousUser.id !== user?.id) {
+              clearEditorDraftsForUser(previousUser.id);
+            }
+            set({ user });
+          },
           setAccessToken: (token) => set({ accessToken: token }),
           setInitialized: () => set({ isInitialized: true }),
           notifySessionExpired: () => get().onSessionExpired?.(),
@@ -78,7 +91,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         set({ accessToken: token, isInitialized: true });
         await fetchUser();
       } catch {
-        set({ user: null, accessToken: null, isInitialized: true });
+        get().logout();
       }
     })();
 

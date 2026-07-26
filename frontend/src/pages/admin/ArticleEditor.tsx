@@ -31,6 +31,8 @@ import {
 } from './articleAICompletionPolicy';
 import { exceedsFullArticleAIContentLimit } from './articleAIContentPolicy';
 import { safeLocalStorage } from '../../utils/storage';
+import { editorDraftKey } from '../../utils/editorDraft';
+import { useAuthStore } from '../../store/auth';
 import MediaPicker from '../../components/admin/MediaPicker';
 import { getReadingStats } from '../../utils/readingStats';
 import {
@@ -338,6 +340,7 @@ const ArticleEditor: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const language = usePreferenceStore((state) => state.language);
+  const userId = useAuthStore((state) => state.user?.id);
   const isEdit = id && id !== 'new';
   const t = (key: Parameters<typeof translate>[1]) => translate(language, key);
   const languageRef = useRef(language);
@@ -460,7 +463,7 @@ const ArticleEditor: React.FC = () => {
           }
           const article = res.data;
           const baseline = articleToEditorDraft(article);
-          const draftKey = editorDraftKey(id);
+          const draftKey = editorDraftKey(id, userId);
           editorBaselineRef.current = baseline;
           applyEditorDraft(baseline, {
             setTitle,
@@ -500,7 +503,7 @@ const ArticleEditor: React.FC = () => {
       setArticleBaselineId(undefined);
       setArticleBaselineError('');
       const baseline = emptyEditorDraft();
-      const draftKey = editorDraftKey('new');
+      const draftKey = editorDraftKey('new', userId);
       editorBaselineRef.current = baseline;
       applyEditorDraft(baseline, {
         setTitle,
@@ -530,7 +533,7 @@ const ArticleEditor: React.FC = () => {
     return () => {
       active = false;
     };
-  }, [baselineRetryKey, id, isEdit]);
+  }, [baselineRetryKey, id, isEdit, userId]);
 
   const retryArticleBaseline = () => {
     setArticleBaselineStatus('loading');
@@ -552,7 +555,7 @@ const ArticleEditor: React.FC = () => {
       skipAutosaveOnceRef.current = false;
       return;
     }
-    const key = editorDraftKey(isEdit ? id : 'new');
+    const key = editorDraftKey(isEdit ? id : 'new', userId);
     const baseline = editorBaselineRef.current;
     if (!baseline) {
       return;
@@ -606,6 +609,7 @@ const ArticleEditor: React.FC = () => {
     summary,
     tagIds,
     title,
+    userId,
   ]);
 
   const restoreLocalDraft = () => {
@@ -634,7 +638,7 @@ const ArticleEditor: React.FC = () => {
   };
 
   const discardLocalDraft = () => {
-    removeEditorDraft(editorDraftKey(isEdit ? id : 'new'));
+    removeEditorDraft(editorDraftKey(isEdit ? id : 'new', userId));
     setDraftRecovery(null);
     // 丢弃后表单字段未变，effect 重跑会基于当前字段再次写入草稿；置位跳过下一次自动保存。
     skipAutosaveOnceRef.current = true;
@@ -697,10 +701,10 @@ const ArticleEditor: React.FC = () => {
         async () => {
           if (isEdit) {
             await updateArticle(id, payload);
-            removeEditorDraft(editorDraftKey(id));
+            removeEditorDraft(editorDraftKey(id, userId));
           } else {
             await createArticle(payload);
-            removeEditorDraft(editorDraftKey('new'));
+            removeEditorDraft(editorDraftKey('new', userId));
           }
         },
       );
@@ -1392,9 +1396,10 @@ const shouldRecoverEditorDraft = (draft: EditorDraft | null, baseline: EditorDra
   return !Number.isFinite(updatedAtMs) || draft.savedAt > updatedAtMs;
 };
 
-const editorDraftKey = (id?: string | number | false) => `article-editor:draft:${id || 'new'}`;
-
-const readEditorDraft = (key: string): EditorDraft | null => {
+const readEditorDraft = (key: string | null): EditorDraft | null => {
+  if (!key) {
+    return null;
+  }
   try {
     const raw = safeLocalStorage.getItem(key);
     if (!raw) {
@@ -1410,11 +1415,17 @@ const readEditorDraft = (key: string): EditorDraft | null => {
   }
 };
 
-const writeEditorDraft = (key: string, draft: EditorDraft) => {
+const writeEditorDraft = (key: string | null, draft: EditorDraft) => {
+  if (!key) {
+    return;
+  }
   safeLocalStorage.setItem(key, JSON.stringify(draft));
 };
 
-const removeEditorDraft = (key: string) => {
+const removeEditorDraft = (key: string | null) => {
+  if (!key) {
+    return;
+  }
   safeLocalStorage.removeItem(key);
 };
 

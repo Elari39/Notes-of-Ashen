@@ -1,6 +1,8 @@
 type StorageAdapter = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
 
-type SafeStorage = StorageAdapter;
+type SafeStorage = StorageAdapter & {
+  removeByPrefix: (prefix: string) => void;
+};
 
 export const createSafeStorage = (resolveStorage: () => StorageAdapter | undefined): SafeStorage => {
   const memory = new Map<string, string>();
@@ -50,6 +52,29 @@ export const createSafeStorage = (resolveStorage: () => StorageAdapter | undefin
       } catch {
         unavailable = true;
       }
+    },
+    removeByPrefix: (prefix) => {
+      const keys = new Set<string>();
+      for (const key of memory.keys()) {
+        if (key.startsWith(prefix)) {
+          keys.add(key);
+        }
+      }
+      try {
+        const storage = resolveStorage() as (StorageAdapter & { length?: number; key?: (index: number) => string | null }) | undefined;
+        if (storage && typeof storage.length === 'number' && typeof storage.key === 'function') {
+          for (let index = 0; index < storage.length; index += 1) {
+            const key = storage.key(index);
+            if (key?.startsWith(prefix)) {
+              keys.add(key);
+            }
+          }
+        }
+        keys.forEach((key) => storage?.removeItem(key));
+      } catch {
+        unavailable = true;
+      }
+      keys.forEach((key) => memory.delete(key));
     },
   };
 };

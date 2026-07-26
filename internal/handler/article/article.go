@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"notes-of-ashen/internal/authutil"
 	apperrors "notes-of-ashen/internal/errors"
 	basehandler "notes-of-ashen/internal/httphelper"
 	articlelogic "notes-of-ashen/internal/logic/article"
@@ -293,29 +294,15 @@ func AIAssistHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 
 func ImportMarkdownHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		r.Body = http.MaxBytesReader(w, r.Body, maxMarkdownUploadBytes+1024)
-		if err := r.ParseMultipartForm(maxMarkdownUploadBytes); err != nil {
-			response.ErrorCtx(r.Context(), w, apperrors.BadRequest("markdown file is invalid"))
-			return
-		}
-		file, header, err := r.FormFile("file")
-		if err != nil {
-			response.ErrorCtx(r.Context(), w, apperrors.BadRequest("markdown file is required"))
-			return
-		}
-		defer file.Close()
-		filename := strings.TrimSpace(header.Filename)
-		if strings.ToLower(filepath.Ext(filename)) != ".md" {
-			response.ErrorCtx(r.Context(), w, apperrors.BadRequest("markdown file must be .md"))
-			return
-		}
-		raw, err := io.ReadAll(io.LimitReader(file, maxMarkdownUploadBytes+1))
-		if err != nil {
+		// 权限检查必须位于 MaxBytesReader/ParseMultipartForm 之前，避免低权限用户
+		// 通过大 multipart 请求消耗内存和临时磁盘。
+		if err := authutil.RequireContentManager(r.Context()); err != nil {
 			response.ErrorCtx(r.Context(), w, err)
 			return
 		}
-		if len(raw) > maxMarkdownUploadBytes {
-			response.ErrorCtx(r.Context(), w, apperrors.BadRequest("markdown file is too large"))
+		filename, raw, err := parseMarkdownUpload(w, r)
+		if err != nil {
+			response.ErrorCtx(r.Context(), w, err)
 			return
 		}
 		resp, err := articlelogic.ImportMarkdown(r.Context(), svcCtx, filename, string(raw), basehandler.Meta(r, forwardedOptions(svcCtx)))
@@ -325,6 +312,36 @@ func ImportMarkdownHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 		}
 		response.Ok(w, resp)
 	}
+}
+
+func parseMarkdownUpload(w http.ResponseWriter, r *http.Request) (string, []byte, error) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxMarkdownUploadBytes+1024)
+	if err := r.ParseMultipartForm(maxMarkdownUploadBytes); err != nil {
+		if r.MultipartForm != nil {
+			_ = r.MultipartForm.RemoveAll()
+		}
+		return "", nil, apperrors.BadRequest("markdown file is invalid")
+	}
+	if r.MultipartForm != nil {
+		defer r.MultipartForm.RemoveAll()
+	}
+	file, header, err := r.FormFile("file")
+	if err != nil {
+		return "", nil, apperrors.BadRequest("markdown file is required")
+	}
+	defer file.Close()
+	filename := strings.TrimSpace(header.Filename)
+	if strings.ToLower(filepath.Ext(filename)) != ".md" {
+		return "", nil, apperrors.BadRequest("markdown file must be .md")
+	}
+	raw, err := io.ReadAll(io.LimitReader(file, maxMarkdownUploadBytes+1))
+	if err != nil {
+		return "", nil, err
+	}
+	if len(raw) > maxMarkdownUploadBytes {
+		return "", nil, apperrors.BadRequest("markdown file is too large")
+	}
+	return filename, raw, nil
 }
 
 func ExportMarkdownHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {

@@ -3,10 +3,14 @@ package svc
 import (
 	"context"
 	"errors"
+	"regexp"
 	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/DATA-DOG/go-sqlmock"
+	"notes-of-ashen/model"
 )
 
 func TestRedisStartupPingFailureAuthenticationIsExplicitAndRedacted(t *testing.T) {
@@ -123,5 +127,28 @@ func TestInitializeSearchWithEnsureCancelStopsInFlightRetry(t *testing.T) {
 	case <-retryStopped:
 	case <-time.After(time.Second):
 		t.Fatal("cancel did not stop the in-flight retry")
+	}
+}
+
+func TestStartRefreshTokenCleanupRunsImmediatelyAndCanCancel(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("create sqlmock: %v", err)
+	}
+	defer db.Close()
+	mock.ExpectExec(regexp.QuoteMeta(`
+DELETE FROM refresh_tokens
+WHERE expires_at <= ?
+   OR (revoked_at IS NOT NULL AND revoked_at <= ?)`)).
+		WithArgs(sqlmock.AnyArg(), sqlmock.AnyArg()).
+		WillReturnResult(sqlmock.NewResult(0, 0))
+
+	cancel := startRefreshTokenCleanup(model.NewStore(db))
+	if cancel == nil {
+		t.Fatal("startRefreshTokenCleanup() returned nil cancel")
+	}
+	cancel()
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("cleanup did not run at startup: %v", err)
 	}
 }

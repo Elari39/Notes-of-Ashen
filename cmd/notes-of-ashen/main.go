@@ -26,11 +26,19 @@ import (
 var (
 	configFile           = flag.String("f", "etc/notes-of-ashen.yaml", "the config file")
 	migrateOnly          = flag.Bool("migrate-only", false, "run embedded database migrations and exit")
+	migrationVersionOnly = flag.Bool("migration-version", false, "print the highest embedded migration version and exit")
+	schemaVersionOnly    = flag.Bool("schema-version", false, "print the highest applied database migration version and exit")
 	validateOptionalOnly = flag.Bool("validate-optional-dependencies-only", false, "validate Compose optional dependency switches and profiles, then exit")
 )
 
 func main() {
 	flag.Parse()
+	if *migrationVersionOnly {
+		version, err := migration.LatestVersion(migrations.FS)
+		logx.Must(err)
+		fmt.Println(version)
+		return
+	}
 
 	var c config.Config
 	conf.MustLoad(*configFile, &c)
@@ -44,6 +52,11 @@ func main() {
 		// 也绝不能初始化 HTTP Server 或后台消费者。
 		applyMigrationDatabaseEnv(&c)
 		runMigrations(c.Database.DataSource)
+		return
+	}
+	if *schemaVersionOnly {
+		applyMigrationDatabaseEnv(&c)
+		runSchemaVersion(c.Database.DataSource)
 		return
 	}
 	logx.Must(c.ApplyEnv())
@@ -96,6 +109,24 @@ func runMigrations(dataSource string) {
 	}()
 	logx.Must(migration.Run(context.Background(), db, migrations.FS))
 	logx.Info("[migration] all embedded migrations are applied")
+}
+
+func runSchemaVersion(dataSource string) {
+	if strings.TrimSpace(dataSource) == "" {
+		logx.Must(errors.New("APP_DATABASE_DSN is required for -schema-version"))
+	}
+	db, err := migration.Open(dataSource)
+	if err != nil {
+		logx.Must(err)
+	}
+	defer func() {
+		if closeErr := db.Close(); closeErr != nil {
+			logx.Errorf("close schema version database connection failed: %v", closeErr)
+		}
+	}()
+	version, err := migration.CurrentVersion(context.Background(), db)
+	logx.Must(err)
+	fmt.Println(version)
 }
 
 func recoverPendingRestore(svcCtx *svc.ServiceContext) error {

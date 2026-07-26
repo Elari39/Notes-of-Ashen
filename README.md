@@ -10,7 +10,7 @@ http://127.0.0.1:1270
 
 ## 快速开始
 
-适合用 Docker / 1Panel 一键拉起 Web、API、本地 MySQL、Redis 和 RabbitMQ：
+适合用 Docker / 1Panel 一键拉起 Web、API、本地 MySQL 和 Redis。RabbitMQ、Meilisearch 仅在显式启用对应 profile、功能开关和凭据后启动：
 
 > ⚠️ 复制 `.env` 后，必须把其中所有 `<REPLACE_…>` 占位符替换为真实强随机值，否则后端启动会拒绝占位配置。
 
@@ -61,7 +61,7 @@ http://127.0.0.1:1270
 ## 技术栈
 
 - 后端：Go 1.25、go-zero REST、MySQL 8.4、Redis 7.4、Meilisearch 1.13、RabbitMQ 4、JWT、bcrypt。
-  - Docker Compose 默认启动本地 MySQL / Redis / RabbitMQ / Meilisearch 容器；快速开始的 `.env.example` 会启用 RabbitMQ 异步日志，Compose 代码自身的 `APP_RABBITMQ_ENABLED` 回退值为 `false`。搜索功能默认关闭，关闭时 API 回退到 MySQL 查询。
+  - Docker Compose 默认只启动本地 MySQL / Redis；RabbitMQ 与 Meilisearch 分别位于 `messaging`、`search` profile，必须同时打开对应能力开关和凭据。搜索功能默认关闭，关闭时 API 回退到 MySQL 查询。
 - 前端：React 18、TypeScript、Vite 5、Tailwind CSS 4、Zustand、Axios、Framer Motion、ECharts、React Markdown。
 - 部署：Docker、Docker Compose、Nginx、1Panel。
 - 文档与脚本：API 文档位于 [docs/API.md](docs/API.md)，数据库脚本位于 [deploy/mysql](deploy/mysql)。
@@ -149,7 +149,7 @@ Copy-Item .env.example .env
 - `APP_REDIS_DB`：Redis DB 编号，默认 `0`。
 - `APP_RABBITMQ_USER`：本地 Compose RabbitMQ 用户，默认 `notes_user`。
 - `APP_RABBITMQ_PASSWORD`：本地 Compose RabbitMQ 密码，需和 `APP_RABBITMQ_URL` 中的密码保持一致。
-- `APP_RABBITMQ_ENABLED`：是否启用 RabbitMQ 异步日志。快速开始模板 `.env.example` 显式设为 `true` 以使用本地 RabbitMQ；若不使用模板且未传该变量，`docker-compose.yml` 的代码回退值为 `false`。
+- `APP_RABBITMQ_ENABLED`：是否启用 RabbitMQ 异步日志。默认 `false`；启用时必须同时设置 `COMPOSE_PROFILES=messaging`、凭据和 URL。
 - `APP_RABBITMQ_URL`：RabbitMQ AMQP 地址，Compose 默认连接本地服务：`amqp://notes_user:password@rabbitmq:5672/`。
 - `APP_RABBITMQ_EXCHANGE`：RabbitMQ 交换器名，默认 `notes-of-ashen.events`，通常无需修改。
 - `APP_RABBITMQ_QUEUE`：RabbitMQ 队列名，默认 `notes-of-ashen.operation_logs`，通常无需修改。
@@ -183,7 +183,7 @@ Copy-Item .env.example .env
 
 ### 中间件配置
 
-当前 `docker-compose.yml` 默认启动本地 MySQL、Redis 和 RabbitMQ 容器，API 容器通过 `.env` 中的 `mysql`、`redis`、`rabbitmq` 服务名访问它们。RabbitMQ 容器是否启动与 API 是否启用异步日志是两个概念：快速开始模板启用异步日志，而 Compose 在缺少 `APP_RABBITMQ_ENABLED` 时按 `false` 运行。数据库表结构由一次性 `migrate` 服务执行 [deploy/mysql/migrations](deploy/mysql/migrations) 中的编号迁移，成功后 API 才会启动。
+当前 `docker-compose.yml` 默认启动本地 MySQL 和 Redis；RabbitMQ、Meilisearch 只有在 `.env` 中启用对应 profile、能力开关和凭据后才会启动。数据库表结构由一次性 `migrate` 服务执行 [deploy/mysql/migrations](deploy/mysql/migrations) 中的编号迁移，成功后 API 才会启动。
 
 使用内置 Redis 时，设置 `APP_REDIS_ADDR=redis:6379`。`APP_REDIS_PASSWORD` 留空会以无认证模式启动；设置非空密码后，Redis 会启用认证，健康检查通过 `REDISCLI_AUTH` 认证探测，API 也使用同一密码连接。Redis 不可访问或认证失败时，API 会按 fail-fast 策略启动失败。
 
@@ -321,11 +321,16 @@ pwsh scripts/release.ps1
 # 只构建与更新 .env，不启动
 pwsh scripts/release.ps1 -SkipDeploy
 
-# 回滚到之前发布过的 tag（要求本地镜像仍存在）
+# 回退到之前发布过的 tag（要求本地镜像仍存在；默认校验数据库 schema 兼容性）
 pwsh scripts/release.ps1 -Rollback v20260726-1030-3521de6
+
+# 仅在已验证备份恢复路径后，显式绕过 schema 兼容性检查
+pwsh scripts/release.ps1 -Rollback v20260726-1030-3521de6 -AllowIncompatibleSchema
 ```
 
-脚本会把每次发布/回滚的时间、tag、git commit 和镜像 digest 追加记录到 `deploy/release-history.local.jsonl`（不入库），用于追溯与回滚。发布验收要求：`docker compose config` 展开结果中的应用镜像不得包含 `latest`。
+脚本会把每次发布/代码回退的时间、tag、git commit 和镜像 digest 追加记录到 `deploy/release-history.local.jsonl`（不入库），用于追溯与恢复。发布验收要求：`docker compose config` 展开结果中的应用镜像不得包含 `latest`。
+
+回退只切换应用镜像，不会自动回滚数据库 schema。脚本会在修改 `.env` 前读取目标镜像内置迁移版本，并通过当前 Compose API 镜像查询实际数据库版本；目标镜像落后于数据库或无法读取版本时默认拒绝操作。需要紧急代码回退时，必须先确认备份可恢复，再显式使用 `-AllowIncompatibleSchema`。
 
 默认仅启动 Web、API、MySQL 和 Redis。RabbitMQ 与 Meilisearch 是可选服务：启用前在 `.env` 中配置对应能力与凭据，并设置 `COMPOSE_PROFILES`：
 

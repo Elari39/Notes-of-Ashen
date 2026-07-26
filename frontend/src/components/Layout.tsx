@@ -12,6 +12,9 @@ import { useShallow } from 'zustand/react/shallow';
 import { logout as apiLogout } from '../api/auth';
 import { isHttpAvatarUrl, normalizeAvatarUrl } from '../utils/avatar';
 import { formatText, translate } from '../i18n';
+import { notifyFromError } from '../utils/notify';
+import { toAppError } from '../utils/error';
+import { resolveLogoutFailure } from '../store/logoutPolicy';
 import { useSEO } from '../utils/seo';
 import { routeLoaders } from '../routes/lazyRoutes';
 import { trapFocus } from '../utils/focusTrap';
@@ -157,8 +160,12 @@ const Layout: React.FC = () => {
     // refreshToken 走 HttpOnly Cookie，请求体留空；服务端按 Cookie 撤销并清除 Cookie。
     try {
       await apiLogout({});
-    } catch {
-      // Local logout should still complete if the server-side token revoke fails.
+    } catch (error) {
+      const decision = resolveLogoutFailure(toAppError(error).status ?? 0);
+      if (!decision.clearSession) {
+        notifyFromError(error, 'toast.logoutFailed');
+        return;
+      }
     }
     logout();
     setIsPreferenceOpen(false);

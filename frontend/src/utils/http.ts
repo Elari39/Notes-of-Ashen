@@ -44,7 +44,10 @@ const isAuthRetryEndpoint = (url?: string) => {
   return Boolean(
     url?.includes('/auth/login') ||
     url?.includes('/auth/register') ||
-    url?.includes('/auth/refresh'),
+    url?.includes('/auth/refresh') ||
+    // 注销失败不能触发 refresh；否则 refresh 的网络/5xx 失败会先清空会话，
+    // 让前端误以为注销已完成。Layout 会单独按注销响应状态决定是否清理。
+    url?.includes('/auth/logout'),
   );
 };
 

@@ -40,6 +40,9 @@ var (
 	ErrNoMigrations = errors.New("no embedded migration files found")
 	// ErrLockNotAcquired 表示另一个迁移进程在等待窗口内仍持有数据库锁。
 	ErrLockNotAcquired = errors.New("database migration lock was not acquired")
+	// ErrRollbackSchemaIncompatible 表示目标应用版本无法读取当前数据库的
+	// 更高 schema。代码回退不会自动回滚数据库，必须先恢复备份或使用兼容镜像。
+	ErrRollbackSchemaIncompatible = errors.New("target image migration version is older than database schema")
 )
 
 var migrationFilename = regexp.MustCompile(`^([0-9]{6})_([A-Za-z0-9][A-Za-z0-9_-]*)\.sql$`)
@@ -187,6 +190,15 @@ func Discover(source fs.FS) ([]Migration, error) {
 	return migrations, nil
 }
 
+// LatestVersion 返回嵌入迁移文件中的最高版本，供发布工具读取目标镜像能力。
+func LatestVersion(source fs.FS) (uint64, error) {
+	migrations, err := Discover(source)
+	if err != nil {
+		return 0, err
+	}
+	return migrations[len(migrations)-1].Version, nil
+}
+
 // Open creates a migration-only MySQL pool. multiStatements is deliberately
 // enabled because each immutable SQL file is submitted as one whole script on
 // the dedicated connection used for its advisory lock.
@@ -298,6 +310,28 @@ type appliedMigration struct {
 
 type migrationQueryer interface {
 	QueryContext(ctx context.Context, query string, args ...any) (*sql.Rows, error)
+}
+
+type migrationRowQueryer interface {
+	QueryRowContext(ctx context.Context, query string, args ...any) *sql.Row
+}
+
+// CurrentVersion 只读取数据库已应用的最高迁移版本，不创建元数据表或执行 DDL。
+func CurrentVersion(ctx context.Context, queryer migrationRowQueryer) (uint64, error) {
+	var version uint64
+	if err := queryer.QueryRowContext(ctx, `SELECT COALESCE(MAX(version), 0) FROM schema_migrations`).Scan(&version); err != nil {
+		return 0, fmt.Errorf("read current schema migration version: %w", err)
+	}
+	return version, nil
+}
+
+// ValidateRollbackCompatibility 校验代码回退是否会让目标镜像落后于数据库 schema。
+// allow=true 仅用于显式危险确认，不改变错误语义，调用方仍应记录并提示备份恢复。
+func ValidateRollbackCompatibility(databaseVersion, targetVersion uint64, allow bool) error {
+	if databaseVersion <= targetVersion || allow {
+		return nil
+	}
+	return fmt.Errorf("%w: database=%s target=%s", ErrRollbackSchemaIncompatible, formatVersion(databaseVersion), formatVersion(targetVersion))
 }
 
 func loadApplied(ctx context.Context, queryer migrationQueryer) (map[uint64]appliedMigration, error) {

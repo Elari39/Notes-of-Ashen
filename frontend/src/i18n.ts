@@ -599,6 +599,7 @@ const zh = {
 
   'toast.saveSuccess': '保存成功',
   'toast.sessionExpired': '会话已失效，请重新登录',
+  'toast.logoutFailed': '退出请求失败，请检查网络后重试',
   'toast.summaryFailed': '摘要生成失败',
   'toast.requestPending': '请求处理中，请稍候…',
   'toast.dismiss': '关闭',
@@ -1338,6 +1339,7 @@ const en: Record<TranslationKey, string> = {
 
   'toast.saveSuccess': 'Saved',
   'toast.sessionExpired': 'Session expired. Please sign in again.',
+  'toast.logoutFailed': 'Sign out failed. Check your connection and try again.',
   'toast.summaryFailed': 'Failed to generate summary',
   'toast.requestPending': 'Working on it — please hold on…',
   'toast.dismiss': 'Close',

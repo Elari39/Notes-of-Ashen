@@ -27,6 +27,12 @@ const startupRedisTimeout = 10 * time.Second
 
 const searchIndexRetryInterval = 30 * time.Second
 
+const (
+	refreshTokenCleanupInterval  = 24 * time.Hour
+	refreshTokenRevokedRetention = 30 * 24 * time.Hour
+	refreshTokenCleanupTimeout   = 30 * time.Second
+)
+
 func isRedisAuthenticationError(err error) bool {
 	if err == nil {
 		return false
@@ -50,16 +56,17 @@ func redisStartupPingFailure(err error) error {
 }
 
 type ServiceContext struct {
-	Config        config.Config
-	Store         *model.Store
-	Redis         *redis.Client
-	Cache         *appcache.JSONCache
-	Search        *search.Client
-	Tokens        *authutil.Manager
-	Events        *mq.Publisher
-	Mailer        *emailer.Sender
-	AuthUserCache middleware.AuthUserCache
-	searchCancel  context.CancelFunc
+	Config             config.Config
+	Store              *model.Store
+	Redis              *redis.Client
+	Cache              *appcache.JSONCache
+	Search             *search.Client
+	Tokens             *authutil.Manager
+	Events             *mq.Publisher
+	Mailer             *emailer.Sender
+	AuthUserCache      middleware.AuthUserCache
+	searchCancel       context.CancelFunc
+	tokenCleanupCancel context.CancelFunc
 }
 
 func NewServiceContext(c config.Config) *ServiceContext {
@@ -103,19 +110,58 @@ func NewServiceContext(c config.Config) *ServiceContext {
 
 	searchClient := search.NewClient(c.Search)
 	searchCancel := initializeSearch(searchClient)
+	tokenCleanupCancel := startRefreshTokenCleanup(store)
 
 	return &ServiceContext{
-		Config:        c,
-		Store:         store,
-		Redis:         redisClient,
-		Cache:         appcache.NewJSONCache(redisClient),
-		Search:        searchClient,
-		Tokens:        authutil.NewManager(c.Auth.AccessSecret, c.Auth.AccessExpire, c.Auth.RefreshExpire),
-		Events:        events,
-		Mailer:        emailer.NewSender(c.Email),
-		AuthUserCache: middleware.NewAuthUserCache(redisClient),
-		searchCancel:  searchCancel,
+		Config:             c,
+		Store:              store,
+		Redis:              redisClient,
+		Cache:              appcache.NewJSONCache(redisClient),
+		Search:             searchClient,
+		Tokens:             authutil.NewManager(c.Auth.AccessSecret, c.Auth.AccessExpire, c.Auth.RefreshExpire),
+		Events:             events,
+		Mailer:             emailer.NewSender(c.Email),
+		AuthUserCache:      middleware.NewAuthUserCache(redisClient),
+		searchCancel:       searchCancel,
+		tokenCleanupCancel: tokenCleanupCancel,
 	}
+}
+
+func startRefreshTokenCleanup(store *model.Store) context.CancelFunc {
+	if store == nil {
+		return nil
+	}
+
+	cleanup := func(parent context.Context) {
+		ctx, cancel := context.WithTimeout(parent, refreshTokenCleanupTimeout)
+		defer cancel()
+		now := time.Now().UTC()
+		deleted, err := store.CleanupRefreshTokens(ctx, now, now.Add(-refreshTokenRevokedRetention))
+		if err != nil {
+			logx.Errorf("[auth] refresh token cleanup failed: %v", err)
+			return
+		}
+		if deleted > 0 {
+			logx.Infof("[auth] refresh token cleanup removed %d historical records", deleted)
+		}
+	}
+
+	// 启动时先清理一次，之后按固定周期运行；清理失败不阻断 API 服务。
+	cleanup(context.Background())
+	cleanupCtx, cancel := context.WithCancel(context.Background())
+	go func() {
+		ticker := time.NewTicker(refreshTokenCleanupInterval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-cleanupCtx.Done():
+				return
+			case <-ticker.C:
+				cleanup(cleanupCtx)
+			}
+		}
+	}()
+	return cancel
 }
 
 // initializeSearch 尝试在启动阶段创建并配置 Meilisearch 索引。Meilisearch 是可选依赖，
@@ -165,6 +211,9 @@ func initializeSearchWithEnsure(ensure func(context.Context) error, retryInterva
 func (s *ServiceContext) Close() {
 	if s.searchCancel != nil {
 		s.searchCancel()
+	}
+	if s.tokenCleanupCancel != nil {
+		s.tokenCleanupCancel()
 	}
 	if s.Events != nil {
 		s.Events.Close()

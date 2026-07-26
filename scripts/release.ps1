@@ -4,9 +4,13 @@ param(
     [Parameter(ParameterSetName = "Release")]
     [string]$Tag = "",
 
-    # 回滚到指定 tag（要求该 tag 的本地镜像存在）。
+    # 回退到指定 tag（要求该 tag 的本地镜像存在）。
     [Parameter(ParameterSetName = "Rollback", Mandatory)]
     [string]$Rollback,
+
+    # 明确确认目标镜像可能落后于数据库 schema；仅用于已验证备份恢复路径。
+    [Parameter(ParameterSetName = "Rollback")]
+    [switch]$AllowIncompatibleSchema,
 
     # 仅构建镜像与更新 .env，不执行 docker compose up。
     [Parameter(ParameterSetName = "Release")]
@@ -94,18 +98,70 @@ function Write-ReleaseRecord {
     Write-Host "[release] 记录已追加：$historyFile"
 }
 
+function Read-VersionOutput {
+    param(
+        [Parameter(Mandatory)][object[]]$Output,
+        [Parameter(Mandatory)][string]$Description
+    )
+
+    $matches = @($Output | ForEach-Object { "$($_)".Trim() } | Where-Object { $_ -match '^\d+$' })
+    if ($matches.Count -ne 1) {
+        throw "$Description 未返回可识别的迁移版本。请确认镜像包含版本查询命令；如需紧急回退，请显式使用 -AllowIncompatibleSchema 并先验证备份恢复路径。"
+    }
+    return [uint64]$matches[0]
+}
+
+function Get-EmbeddedMigrationVersion {
+    param([Parameter(Mandatory)][string]$ImageTag)
+
+    $output = & docker run --rm --entrypoint /app/notes-of-ashen "notes-of-ashen-api:$ImageTag" -migration-version 2>$null
+    if ($LASTEXITCODE -ne 0) {
+        throw "目标镜像 notes-of-ashen-api:$ImageTag 无法读取内置迁移版本；已阻止代码回退。请先使用兼容镜像或显式 -AllowIncompatibleSchema。"
+    }
+    return Read-VersionOutput -Output @($output) -Description "目标镜像迁移版本"
+}
+
+function Get-DatabaseMigrationVersion {
+    # 使用当前 Compose API 镜像通过 APP_DATABASE_DSN 查询实际数据库，兼容外部 MySQL。
+    $output = & docker compose run --rm --no-deps api -f /app/etc/notes-of-ashen.yaml -schema-version 2>$null
+    if ($LASTEXITCODE -ne 0) {
+        throw "无法读取当前数据库迁移版本；已阻止代码回退。请确认当前 API 镜像支持 -schema-version，或显式使用 -AllowIncompatibleSchema 并先验证备份恢复路径。"
+    }
+    return Read-VersionOutput -Output @($output) -Description "数据库迁移版本"
+}
+
+function Assert-RollbackSchemaCompatibility {
+    param(
+        [Parameter(Mandatory)][string]$ImageTag,
+        [Parameter(Mandatory)][switch]$Allow
+    )
+
+    if ($Allow) {
+        Write-Warning "已使用 -AllowIncompatibleSchema：仅执行代码回退，不会回滚数据库 schema。必须确认可用备份恢复路径。"
+        return
+    }
+
+    $targetVersion = Get-EmbeddedMigrationVersion -ImageTag $ImageTag
+    $databaseVersion = Get-DatabaseMigrationVersion
+    if ($databaseVersion -gt $targetVersion) {
+        throw "拒绝代码回退：数据库迁移版本 $databaseVersion 高于目标镜像 $ImageTag 的版本 $targetVersion。请恢复兼容备份、选择包含该迁移的镜像，或在已验证恢复路径后显式使用 -AllowIncompatibleSchema。"
+    }
+    Write-Host "[release] schema 兼容性检查通过：database=$databaseVersion target=$targetVersion"
+}
+
 Assert-Command docker
 Assert-Command git
 
 Push-Location $repoRoot
 try {
     if ($PSCmdlet.ParameterSetName -eq "Rollback") {
-        # 回滚：只切换 IMAGE_TAG 并重启，不重新构建。
+        # 代码回退：只切换 IMAGE_TAG 并重启，不重新构建，也不回滚数据库 schema。
         $digests = Get-ImageDigests -ImageTag $Rollback
+        Assert-RollbackSchemaCompatibility -ImageTag $Rollback -Allow:$AllowIncompatibleSchema
         Set-EnvImageTag -Value $Rollback
         Invoke-Native -Description "docker compose up -d" -Arguments @("compose", "up", "-d")
-        Write-ReleaseRecord -Action "rollback" -ImageTag $Rollback -Digests $digests
-        Write-Host "[release] 已回滚到 $Rollback。"
+        Write-ReleaseRecord -Action "code-rollback" -ImageTag $Rollback -Digests $digests
+        Write-Host "[release] 已完成代码回退到 $Rollback（数据库 schema 未回退）。"
         return
     }
 
@@ -141,7 +197,7 @@ try {
     }
 
     Write-ReleaseRecord -Action "release" -ImageTag $Tag -Digests $digests
-    Write-Host "[release] 完成。回滚示例：scripts/release.ps1 -Rollback <旧tag>"
+    Write-Host "[release] 完成。代码回退示例：scripts/release.ps1 -Rollback <旧tag>"
 } finally {
     Pop-Location
 }

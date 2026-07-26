@@ -37,6 +37,53 @@ func TestDiscoverSortsAndChecksumsMigrations(t *testing.T) {
 	}
 }
 
+func TestLatestVersionReturnsHighestEmbeddedMigration(t *testing.T) {
+	version, err := LatestVersion(singleMigrationFS())
+	if err != nil {
+		t.Fatalf("LatestVersion() error = %v", err)
+	}
+	if version != 1 {
+		t.Fatalf("LatestVersion() = %d, want 1", version)
+	}
+}
+
+func TestCurrentVersionReadsDatabaseMaximum(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("create sqlmock: %v", err)
+	}
+	defer db.Close()
+	mock.ExpectQuery(regexp.QuoteMeta(`SELECT COALESCE(MAX(version), 0) FROM schema_migrations`)).
+		WillReturnRows(sqlmock.NewRows([]string{"version"}).AddRow(uint64(24)))
+
+	version, err := CurrentVersion(context.Background(), db)
+	if err != nil {
+		t.Fatalf("CurrentVersion() error = %v", err)
+	}
+	if version != 24 {
+		t.Fatalf("CurrentVersion() = %d, want 24", version)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet SQL expectations: %v", err)
+	}
+}
+
+func TestValidateRollbackCompatibility(t *testing.T) {
+	if err := ValidateRollbackCompatibility(24, 24, false); err != nil {
+		t.Fatalf("equal versions rejected: %v", err)
+	}
+	if err := ValidateRollbackCompatibility(23, 24, false); err != nil {
+		t.Fatalf("target ahead of database rejected: %v", err)
+	}
+	err := ValidateRollbackCompatibility(24, 23, false)
+	if !errors.Is(err, ErrRollbackSchemaIncompatible) {
+		t.Fatalf("incompatible versions error = %v, want ErrRollbackSchemaIncompatible", err)
+	}
+	if err := ValidateRollbackCompatibility(24, 23, true); err != nil {
+		t.Fatalf("explicit override rejected: %v", err)
+	}
+}
+
 func TestDiscoverRejectsNumberGapsAndInvalidNames(t *testing.T) {
 	tests := []struct {
 		name   string

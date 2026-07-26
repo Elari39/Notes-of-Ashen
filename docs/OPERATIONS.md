@@ -74,6 +74,7 @@ Register-ScheduledTask -TaskName "noa-backup" `
    - [ ] 启用搜索时索引重建完成、搜索可用；
    - [ ] AI 设置存在时密钥密文可用（必要时按 README 重新录入）；
    - [ ] `/rss.xml`、`/sitemap.xml` 正常。
+   - [ ] 生产环境站点设置中的 `siteBaseUrl` 为正式 HTTPS 域名，RSS、Sitemap 和文章分享链接均使用该域名。
 5. 记录结束时间、总耗时、发现的问题；耗时应在可接受的目标恢复时间（建议 ≤ 2 小时）内。
 6. 演练完成后销毁隔离栈（`docker compose -p <隔离项目名> down -v`）。
 
@@ -84,6 +85,7 @@ Register-ScheduledTask -TaskName "noa-backup" `
 使用 [scripts/release.ps1](../scripts/release.ps1) 以不可变镜像 tag 发布（详见 README「发布与回滚」）：
 
 - 发布：`pwsh scripts/release.ps1`（构建 → 更新 `.env` IMAGE_TAG → `up -d` → 追加记录）。
-- 回滚：`pwsh scripts/release.ps1 -Rollback <旧tag>`。
-- 每次发布/回滚会在 `deploy/release-history.local.jsonl` 记录时间、tag、git commit 和镜像 digest；该文件不入库，请随备份一起异地保存。
+- 代码回退：`pwsh scripts/release.ps1 -Rollback <旧tag>`。脚本默认校验目标镜像迁移版本不低于实际数据库版本；不兼容时会拒绝并要求恢复备份或选择兼容镜像。
+- 紧急绕过：仅在已验证备份恢复路径后使用 `pwsh scripts/release.ps1 -Rollback <旧tag> -AllowIncompatibleSchema`。该操作不会回滚数据库 schema，记录中的 action 为 `code-rollback`。
+- 每次发布/代码回退会在 `deploy/release-history.local.jsonl` 记录时间、tag、git commit 和镜像 digest；该文件不入库，请随备份一起异地保存。
 - 发布顺序建议：备份 → 发布 → 按 README「生产发布验收清单」验收 → 失败则回滚并恢复备份。

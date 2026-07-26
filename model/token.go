@@ -61,3 +61,16 @@ UPDATE refresh_tokens SET revoked_at = NOW()
 WHERE user_id = ? AND revoked_at IS NULL`, userID)
 	return err
 }
+
+// CleanupRefreshTokens 删除已经不可能被使用的 Refresh Token 记录。
+// expiresAtCutoff 通常传当前时间；revokedAtCutoff 保留一段时间供审计与排障。
+func (s *Store) CleanupRefreshTokens(ctx context.Context, expiresAtCutoff, revokedAtCutoff time.Time) (int64, error) {
+	res, err := s.db.ExecContext(ctx, `
+DELETE FROM refresh_tokens
+WHERE expires_at <= ?
+   OR (revoked_at IS NOT NULL AND revoked_at <= ?)`, expiresAtCutoff, revokedAtCutoff)
+	if err != nil {
+		return 0, err
+	}
+	return res.RowsAffected()
+}
