@@ -92,6 +92,7 @@ lerna-debug.log*
 docker-compose.override.yml
 compose.override.yml
 .docker/
+deploy/release-history.local.jsonl
 
 # IDE 与系统文件
 .idea/

@@ -309,6 +309,24 @@ docker compose config --quiet
 docker compose up -d --build
 ```
 
+### 发布与回滚（不可变镜像 tag）
+
+`docker compose up -d --build` 适合本机开发，但镜像会一直使用 `latest` 标签，发布不可复现（审计 P2）。正式发布请使用发布脚本：
+
+```powershell
+# 发布：以当前 git 提交构建镜像，tag 形如 v20260726-1030-3521de6，
+# 自动更新 .env 的 IMAGE_TAG 并 docker compose up -d
+pwsh scripts/release.ps1
+
+# 只构建与更新 .env，不启动
+pwsh scripts/release.ps1 -SkipDeploy
+
+# 回滚到之前发布过的 tag（要求本地镜像仍存在）
+pwsh scripts/release.ps1 -Rollback v20260726-1030-3521de6
+```
+
+脚本会把每次发布/回滚的时间、tag、git commit 和镜像 digest 追加记录到 `deploy/release-history.local.jsonl`（不入库），用于追溯与回滚。发布验收要求：`docker compose config` 展开结果中的应用镜像不得包含 `latest`。
+
 默认仅启动 Web、API、MySQL 和 Redis。RabbitMQ 与 Meilisearch 是可选服务：启用前在 `.env` 中配置对应能力与凭据，并设置 `COMPOSE_PROFILES`：
 
 ```env
@@ -416,6 +434,7 @@ http://127.0.0.1:1270/api/v1/articles?page=1&size=10
 2. **会话续期**：登录后刷新页面，确认通过 `/api/v1/auth/refresh` 换取新 accessToken 且无需重新登录；access token 过期后同样能自动恢复会话。
 3. **本机 HTTP 环境例外**：仅通过 `http://127.0.0.1:1270` 访问的本机开发环境必须设置 `APP_AUTH_COOKIE_SECURE=false`，否则浏览器不会保存 refresh Cookie，刷新页面会被迫重新登录。禁止在生产 HTTPS 环境使用 `false`。
 4. **站点基址**：生产环境必须在后台站点设置中将 `siteBaseUrl` 配置为正式 HTTPS 域名（如 `https://blog.example.com`）。验收 `/rss.xml`、`/sitemap.xml` 与文章分享链接全部使用该域名，不依赖请求 Host 推断；`siteBaseUrl` 为空时后端日志会输出 `siteBaseUrl is empty` 回退提示。
+5. **不可变镜像 tag**：使用 `scripts/release.ps1` 发布，确认 `.env` 的 `IMAGE_TAG` 为本次发布 tag，`docker compose config` 展开结果中的应用镜像不包含 `latest`，且 `deploy/release-history.local.jsonl` 已记录本次发布。
 
 ## 本地非 Docker 开发
 
