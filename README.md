@@ -680,6 +680,7 @@ docker compose up -d --build
 
 ## 维护建议
 
+- 备份、异地副本、恢复演练与发布回滚的完整运维流程见 [docs/OPERATIONS.md](docs/OPERATIONS.md)；日常备份使用 `pwsh scripts/backup.ps1`。
 - 生产环境务必填写真实强随机密码替换所有 `<REPLACE_…>` 占位符，并设置稳定、足够长的 `APP_AUTH_ACCESS_SECRET`。
 - 前端依赖管理统一使用 `pnpm`，不要混用 `npm` 或 `yarn`。
 - 不要提交 `.env`、数据库备份、日志文件或任何真实密钥；数据库备份建议放在仓库目录外。

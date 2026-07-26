@@ -55,6 +55,7 @@ vendor/
 
 # 本地数据库、备份与转储
 data/
+backups/
 *.db
 *.db-*
 *.sqlite
