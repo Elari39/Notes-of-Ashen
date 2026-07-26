@@ -5,7 +5,9 @@ import tailwindcss from '@tailwindcss/vite'
 const chunkGroups: Array<[string, string[]]> = [
   ['react', ['react', 'react-dom', 'scheduler']],
   ['motion', ['framer-motion']],
-  ['markdown', ['react-markdown', 'remark-gfm', 'remark-math', 'rehype-katex', 'rehype-slug', 'rehype-autolink-headings', 'katex']],
+  ['markdown', ['react-markdown', 'remark-gfm']],
+  // KaTeX 独立成 chunk，由 DeferredMarkdownRenderer 仅在内容含公式时加载。
+  ['katex', ['katex', 'rehype-katex', 'remark-math']],
   ['syntax-highlighter', ['react-syntax-highlighter']],
   ['echarts', ['echarts']],
 ]

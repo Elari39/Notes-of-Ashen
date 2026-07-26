@@ -41,6 +41,7 @@ const assertBudgets = (label, sizes, limits) => {
 
 const entry = findChunk('index');
 const markdown = findChunk('markdown');
+const katex = findChunk('katex');
 const syntaxHighlighter = findChunk('syntax-highlighter');
 const echarts = findChunk('echarts');
 
@@ -51,9 +52,16 @@ const chunkBudgets = [
     limits: { raw: 320 * 1024, gzip: 110 * 1024, brotli: 96 * 1024 },
   },
   {
+    // KaTeX 拆出后 markdown chunk 只含 react-markdown/remark-gfm 及关联依赖。
     label: 'markdown chunk',
     file: markdown,
-    limits: { raw: 450 * 1024, gzip: 140 * 1024, brotli: 118 * 1024 },
+    limits: { raw: 185 * 1024, gzip: 56 * 1024, brotli: 48 * 1024 },
+  },
+  {
+    // 仅当文章内容包含数学公式时由 DeferredMarkdownRenderer 按需加载。
+    label: 'katex chunk',
+    file: katex,
+    limits: { raw: 310 * 1024, gzip: 96 * 1024, brotli: 80 * 1024 },
   },
   {
     label: 'syntax-highlighter chunk',
@@ -75,7 +83,7 @@ const reports = chunkBudgets.map(({ label, file, limits }) => {
 
 const indexHTML = readFileSync(join(distDir, 'index.html'), 'utf8');
 const initialAssets = [...indexHTML.matchAll(/\b(?:src|href)="([^"]+)"/g)].map((match) => match[1]);
-for (const chunk of [markdown, syntaxHighlighter, echarts]) {
+for (const chunk of [markdown, katex, syntaxHighlighter, echarts]) {
   if (initialAssets.some((asset) => asset.endsWith(`/assets/${chunk}`) || asset.endsWith(`assets/${chunk}`))) {
     fail(`${chunk} must not be an initial index.html asset`);
   }

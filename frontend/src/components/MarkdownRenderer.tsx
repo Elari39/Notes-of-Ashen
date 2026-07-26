@@ -1,9 +1,6 @@
 import React, { memo, useCallback, useMemo, useState } from 'react';
-import ReactMarkdown from 'react-markdown';
+import ReactMarkdown, { type Options as ReactMarkdownOptions } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import remarkMath from 'remark-math';
-import rehypeKatex from 'rehype-katex';
-import 'katex/dist/katex.min.css';
 import ImageLightbox, { LightboxImage } from './ImageLightbox';
 import { createMarkdownComponents } from './MarkdownCode';
 import { extractMarkdownHeadings, type MarkdownHeading } from '../utils/markdownHeadings';
@@ -14,9 +11,20 @@ export type MarkdownRendererProps = {
   headingIdPrefix?: string;
   /** 外部已提取的 headings；传入可避免渲染器内部重复提取。 */
   headings?: MarkdownHeading[];
+  /** 追加的 remark 插件（如数学公式）；KaTeX 由 MarkdownRendererWithMath 按需注入。 */
+  extraRemarkPlugins?: ReactMarkdownOptions['remarkPlugins'];
+  /** 追加的 rehype 插件；与 extraRemarkPlugins 配套使用。 */
+  extraRehypePlugins?: ReactMarkdownOptions['rehypePlugins'];
 };
 
-const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, className = '', headingIdPrefix = '', headings }) => {
+const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
+  content,
+  className = '',
+  headingIdPrefix = '',
+  headings,
+  extraRemarkPlugins,
+  extraRehypePlugins,
+}) => {
   const [lightboxImage, setLightboxImage] = useState<LightboxImage | null>(null);
   const openLightbox = useCallback((image: LightboxImage) => setLightboxImage(image), []);
   const closeLightbox = useCallback(() => setLightboxImage(null), []);
@@ -35,15 +43,21 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, className 
     () => createMarkdownComponents({ onImageClick: openLightbox, headingIdByLine }),
     [headingIdByLine, openLightbox],
   );
+  const remarkPlugins = useMemo<NonNullable<ReactMarkdownOptions['remarkPlugins']>>(
+    () => [remarkGfm, ...(extraRemarkPlugins ?? [])],
+    [extraRemarkPlugins],
+  );
+  const rehypePlugins = useMemo<NonNullable<ReactMarkdownOptions['rehypePlugins']>>(
+    () => [...(extraRehypePlugins ?? [])],
+    [extraRehypePlugins],
+  );
 
   return (
     <>
       <div className={`article-markdown prose prose-stone max-w-none font-sans ${className}`.trim()}>
         <ReactMarkdown
-          remarkPlugins={[remarkGfm, remarkMath]}
-          rehypePlugins={[
-            rehypeKatex,
-          ]}
+          remarkPlugins={remarkPlugins}
+          rehypePlugins={rehypePlugins}
           components={components}
         >
           {content}
