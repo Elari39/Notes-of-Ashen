@@ -46,6 +46,7 @@ export const ERROR_KEYS = {
   operationFailed: '__operation_failed__',
   timeout: '__timeout__',
   timeoutWrite: '__timeout_write__',
+  requestBodyTooLarge: '__request_body_too_large__',
   network: '__network_error__',
   duplicateSubmit: '__duplicate_submit__',
 } as const;
@@ -161,6 +162,12 @@ const exactMessages: Record<string, LocalizedText> = {
   'tag already exists': localized('标签名称或路径已存在', 'The tag name or slug already exists'),
   'tag not found': localized('标签不存在', 'Tag not found'),
   'media asset is still referenced': localized('图片仍被文章、历史版本、作品或头像引用，移除引用后再删除', 'This media asset is still referenced by an article, version, project, or avatar. Remove the reference before deleting it.'),
+  'media file is required': localized('请选择要上传的图片文件', 'Choose an image file to upload'),
+  'media upload is invalid or too large': localized('图片上传请求无效或文件超过允许大小，请压缩后重试', 'The image upload is invalid or exceeds the allowed size. Compress it and try again.'),
+  'media file size is invalid': localized('图片为空或超过允许大小，请压缩后重试', 'The image is empty or exceeds the allowed size. Compress it and try again.'),
+  'media type is not supported': localized('不支持该图片格式。请选择 JPG/JPEG、PNG、GIF、WebP 或 AVIF 文件', 'This image format is not supported. Choose a JPG/JPEG, PNG, GIF, WebP, or AVIF file.'),
+  'media extension does not match its content': localized('文件扩展名与实际图片内容不匹配，请重新导出后上传', 'The file extension does not match the image content. Re-export the image and try again.'),
+  'media content is invalid': localized('图片文件已损坏或无法读取，请重新导出后上传', 'The image file is corrupted or cannot be read. Re-export the image and try again.'),
   'ai assistant is disabled': localized('AI 辅助未启用，请先在后台 AI 配置中启用。', 'AI assistance is disabled. Enable it in AI Settings first.'),
   'ai assistant is not configured': localized('AI 辅助尚未配置，请检查 Base URL、API Key 和模型。', 'AI assistance is not configured. Check Base URL, API key, and model.'),
   'ai response is invalid': localized('AI 返回内容格式不正确，请重试。', 'The AI response format is invalid. Please try again.'),
@@ -226,6 +233,7 @@ const exactMessages: Record<string, LocalizedText> = {
     '网络较慢，操作可能仍在处理中，请稍后刷新页面确认，避免重复提交',
     'The network is slow. Your request may still be processing — please refresh the page later to verify, to avoid duplicate submissions.',
   ),
+  [ERROR_KEYS.requestBodyTooLarge]: localized('上传文件过大，请压缩后重试', 'The uploaded file is too large. Compress it and try again.'),
   [ERROR_KEYS.network]: localized('网络连接异常，请检查后重试', 'Network connection failed. Please check your connection and try again.'),
   [ERROR_KEYS.duplicateSubmit]: localized('请勿重复提交，正在处理中…', 'Please do not submit again — your request is still being processed.'),
 };
@@ -327,6 +335,14 @@ export const toAppError = (error: unknown, fallback?: string) => {
         undefined,
         undefined,
         ERROR_KEYS.network,
+      );
+    }
+    if (httpError.response.status === 413) {
+      return new AppError(
+        translateMessage(ERROR_KEYS.requestBodyTooLarge, fallback),
+        undefined,
+        httpError.response.status,
+        ERROR_KEYS.requestBodyTooLarge,
       );
     }
 

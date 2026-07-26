@@ -73,6 +73,18 @@ test('媒体仍被引用时给出可操作提示', () => {
   );
 });
 
+test('媒体上传格式错误与 413 响应会给出可操作提示', () => {
+  assert.equal(
+    getErrorMessage(new AppError('media type is not supported')),
+    '不支持该图片格式。请选择 JPG/JPEG、PNG、GIF、WebP 或 AVIF 文件',
+  );
+  const error = Object.assign(new Error('request failed'), {
+    config: { method: 'post' },
+    response: { status: 413, data: '' },
+  });
+  assert.equal(getErrorMessage(error), '上传文件过大，请压缩后重试');
+});
+
 test('下载接口的 JSON Blob 错误会恢复为统一错误结构', async () => {
   const blob = new Blob([JSON.stringify({ code: 40123, message: 'current password is incorrect' })], {
     type: 'application/json; charset=utf-8',

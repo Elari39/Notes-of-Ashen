@@ -4,7 +4,7 @@ import Button from '../ui/Button';
 import TextField from '../ui/TextField';
 import InlineNotice from '../InlineNotice';
 import PagePendingState from '../RoutePending';
-import { getMediaAssets, uploadMedia } from '../../api/media';
+import { getMediaAssets, MEDIA_UPLOAD_ACCEPT, uploadMedia } from '../../api/media';
 import type { MediaAsset } from '../../types';
 import { usePreferenceStore } from '../../store/preferences';
 import { translate } from '../../i18n';
@@ -85,7 +85,7 @@ const MediaPicker: React.FC<Props> = ({ open, onOpenChange, onSelect }) => {
           ref={inputRef}
           className="sr-only"
           type="file"
-          accept="image/jpeg,image/png,image/gif,image/webp"
+          accept={MEDIA_UPLOAD_ACCEPT}
           onChange={handleUpload}
         />
         <Button type="button" size="sm" loading={uploading} onClick={() => inputRef.current?.click()}>
@@ -93,6 +93,7 @@ const MediaPicker: React.FC<Props> = ({ open, onOpenChange, onSelect }) => {
         </Button>
       </div>
 
+      <p className="mb-4 text-xs text-muted">{t('media.uploadHint')}</p>
       <InlineNotice message={error} className="mb-4" />
       {loading ? (
         <PagePendingState variant="inline" label={t('common.loading')} />

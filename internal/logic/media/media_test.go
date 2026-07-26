@@ -15,6 +15,8 @@ import (
 	"notes-of-ashen/internal/authutil"
 	"notes-of-ashen/internal/config"
 	"notes-of-ashen/internal/svc"
+
+	"github.com/gen2brain/avif"
 )
 
 func TestUploadRejectsMismatchedOrUnsupportedContent(t *testing.T) {
@@ -30,6 +32,29 @@ func TestUploadRejectsMismatchedOrUnsupportedContent(t *testing.T) {
 	}
 	if _, err := Upload(ctx, service, "cover.png", "", nil); err == nil {
 		t.Fatal("Upload() error = nil, want empty file error")
+	}
+}
+
+func TestValidateMediaFileAcceptsAVIF(t *testing.T) {
+	imageData := image.NewRGBA(image.Rect(0, 0, 2, 3))
+	imageData.Set(0, 0, color.RGBA{R: 255, A: 255})
+	var encoded bytes.Buffer
+	if err := avif.Encode(&encoded, imageData); err != nil {
+		t.Fatalf("encode AVIF: %v", err)
+	}
+
+	format, config, err := validateMediaFile("cover.avif", encoded.Bytes())
+	if err != nil {
+		t.Fatalf("validateMediaFile() error = %v", err)
+	}
+	if format.mimeType != "image/avif" || format.storageExtension != ".avif" {
+		t.Fatalf("format = %#v, want AVIF metadata", format)
+	}
+	if config.Width != 2 || config.Height != 3 {
+		t.Fatalf("image dimensions = %dx%d, want 2x3", config.Width, config.Height)
+	}
+	if _, _, err := validateMediaFile("cover.png", encoded.Bytes()); err == nil {
+		t.Fatal("validateMediaFile() error = nil, want extension mismatch")
 	}
 }
 

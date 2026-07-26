@@ -92,7 +92,7 @@ func OptionalImageURL(value, field string) error {
 				}
 			}
 			switch parts[1] {
-			case "jpg", "png", "gif", "webp":
+			case "jpg", "png", "gif", "webp", "avif":
 				return nil
 			}
 		}

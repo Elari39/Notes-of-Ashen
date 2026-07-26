@@ -558,7 +558,7 @@ GET /api/v1/search/suggestions?q=go&limit=8
 静态媒体通过以下同源路径长期缓存访问：
 
 ```text
-GET /media/{sha256}.{jpg|png|gif|webp}
+GET /media/{sha256}.{jpg|png|gif|webp|avif}
 ```
 
 管理接口：
@@ -570,7 +570,7 @@ PATCH  /api/v1/admin/media/:id
 DELETE /api/v1/admin/media/:id
 ```
 
-列表、上传和修改 Alt 权限为 `editor` 或 `admin`；删除仅允许 `admin`。上传使用 `multipart/form-data`，`file` 必填、`altText` 可选。仅接受 JPEG、PNG、GIF、WebP，文件扩展名、检测到的 MIME 和图片解码格式必须一致；默认上限 10 MiB。文件按内容 SHA-256 去重，URL 固定为可迁移的 `/media/{hash}.{ext}`。
+列表、上传和修改 Alt 权限为 `editor` 或 `admin`；删除仅允许 `admin`。上传使用 `multipart/form-data`，`file` 必填、`altText` 可选。仅接受 JPEG（`.jpg`、`.jpeg`）、PNG、GIF、WebP、AVIF，文件扩展名、检测到的 MIME 和图片解码格式必须一致；默认上限 10 MiB。文件按内容 SHA-256 去重，URL 固定为可迁移的 `/media/{hash}.{ext}`。
 
 `PATCH` 请求体：
 

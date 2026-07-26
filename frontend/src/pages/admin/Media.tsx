@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { deleteMedia, getMediaAssets, updateMediaAlt, uploadMedia } from '../../api/media';
+import { deleteMedia, getMediaAssets, MEDIA_UPLOAD_ACCEPT, updateMediaAlt, uploadMedia } from '../../api/media';
 import type { MediaAsset } from '../../types';
 import { usePreferenceStore } from '../../store/preferences';
 import { useAuthStore } from '../../store/auth';
@@ -111,13 +111,14 @@ const AdminMedia: React.FC = () => {
           <p className="editorial-kicker">{t('admin.media')}</p>
           <h3 className="mt-3 text-4xl text-ink">{t('media.title')}</h3>
           <p className="mt-2 text-sm text-muted">{t('media.subtitle')}</p>
+          <p className="mt-2 text-xs text-muted">{t('media.uploadHint')}</p>
         </div>
         <div>
           <input
             ref={inputRef}
             className="sr-only"
             type="file"
-            accept="image/jpeg,image/png,image/gif,image/webp"
+            accept={MEDIA_UPLOAD_ACCEPT}
             onChange={handleUpload}
           />
           <Button loading={busy === 'upload'} onClick={() => inputRef.current?.click()}>

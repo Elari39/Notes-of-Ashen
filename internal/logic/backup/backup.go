@@ -41,7 +41,7 @@ const (
 )
 
 var (
-	mediaKeyPattern = regexp.MustCompile(`^[a-f0-9]{64}\.(jpg|png|gif|webp)$`)
+	mediaKeyPattern = regexp.MustCompile(`^[a-f0-9]{64}\.(jpg|png|gif|webp|avif)$`)
 	sha256Pattern   = regexp.MustCompile(`^[a-f0-9]{64}$`)
 )
 

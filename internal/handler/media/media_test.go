@@ -28,3 +28,10 @@ func TestUploadHandlerRejectsMissingFileAsBadRequest(t *testing.T) {
 		t.Fatalf("status = %d, want 400; body=%s", rec.Code, rec.Body.String())
 	}
 }
+
+func TestUploadRequestLimitIncludesMultipartOverhead(t *testing.T) {
+	svcCtx := &svc.ServiceContext{Config: config.Config{Media: config.MediaConf{MaxUploadBytes: 10 << 20}}}
+	if got, want := UploadRequestLimit(svcCtx), int64(11<<20); got != want {
+		t.Fatalf("UploadRequestLimit() = %d, want %d", got, want)
+	}
+}

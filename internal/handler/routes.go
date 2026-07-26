@@ -98,7 +98,6 @@ func RegisterHandlers(server *rest.Server, svcCtx *svc.ServiceContext) {
 		{Method: http.MethodGet, Path: "/api/v1/admin/categories", Handler: authRequired(categoryhandler.AdminListHandler(svcCtx))},
 		{Method: http.MethodGet, Path: "/api/v1/admin/tags", Handler: authRequired(taghandler.AdminListHandler(svcCtx))},
 		{Method: http.MethodGet, Path: "/api/v1/admin/media", Handler: authRequired(mediahandler.ListHandler(svcCtx))},
-		{Method: http.MethodPost, Path: "/api/v1/admin/media", Handler: authRequired(mediahandler.UploadHandler(svcCtx))},
 		{Method: http.MethodPatch, Path: "/api/v1/admin/media/:id", Handler: authRequired(mediahandler.UpdateHandler(svcCtx))},
 		{Method: http.MethodDelete, Path: "/api/v1/admin/media/:id", Handler: authRequired(mediahandler.DeleteHandler(svcCtx))},
 		{Method: http.MethodGet, Path: "/api/v1/admin/analytics/overview", Handler: authRequired(analyticshandler.OverviewHandler(svcCtx))},
@@ -121,6 +120,12 @@ func RegisterHandlers(server *rest.Server, svcCtx *svc.ServiceContext) {
 		{Method: http.MethodGet, Path: "/api/v1/admin/site/projects", Handler: authRequired(sitehandler.AdminProjectsPageHandler(svcCtx))},
 		{Method: http.MethodPut, Path: "/api/v1/admin/site/projects", Handler: authRequired(sitehandler.UpdateProjectsPageHandler(svcCtx))},
 	})
+
+	// 媒体上传允许使用其独立的文件大小上限，其余管理接口仍使用 go-zero 的默认请求体限制。
+	server.AddRoute(
+		rest.Route{Method: http.MethodPost, Path: "/api/v1/admin/media", Handler: authRequired(mediahandler.UploadHandler(svcCtx))},
+		rest.WithMaxBytes(mediahandler.UploadRequestLimit(svcCtx)),
+	)
 }
 
 func middlewareForwardedOptions(svcCtx *svc.ServiceContext) basehandler.ForwardedOptions {

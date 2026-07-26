@@ -2,6 +2,8 @@ import http from '../utils/http';
 import type { BaseResp, MediaAsset, NoDataResp, PaginatedResp } from '../types';
 import type { PageParams } from '../types/api';
 
+export const MEDIA_UPLOAD_ACCEPT = 'image/jpeg,image/png,image/gif,image/webp,image/avif';
+
 export const getMediaAssets = (params?: PageParams, signal?: AbortSignal) =>
   http.get<unknown, BaseResp<PaginatedResp<MediaAsset>>>('/admin/media', { params, signal });
 

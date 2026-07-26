@@ -18,7 +18,13 @@ import (
 	"github.com/zeromicro/go-zero/rest/httpx"
 )
 
-var storageKeyPattern = regexp.MustCompile(`^[a-f0-9]{64}\.(jpg|png|gif|webp)$`)
+const multipartUploadOverhead = int64(1 << 20)
+
+var storageKeyPattern = regexp.MustCompile(`^[a-f0-9]{64}\.(jpg|png|gif|webp|avif)$`)
+
+func UploadRequestLimit(svcCtx *svc.ServiceContext) int64 {
+	return svcCtx.Config.Media.EffectiveMaxUploadBytes() + multipartUploadOverhead
+}
 
 func ListHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -35,7 +41,7 @@ func ListHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 func UploadHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		maxBytes := svcCtx.Config.Media.EffectiveMaxUploadBytes()
-		r.Body = http.MaxBytesReader(w, r.Body, maxBytes+1<<20)
+		r.Body = http.MaxBytesReader(w, r.Body, UploadRequestLimit(svcCtx))
 		if err := r.ParseMultipartForm(maxBytes); err != nil {
 			response.ErrorCtx(r.Context(), w, apperrors.BadRequest("media upload is invalid or too large"))
 			return

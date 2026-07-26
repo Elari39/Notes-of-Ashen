@@ -26,34 +26,28 @@ import (
 	"notes-of-ashen/internal/types"
 	"notes-of-ashen/model"
 
+	_ "github.com/gen2brain/avif"
 	"github.com/zeromicro/go-zero/core/logx"
-	"golang.org/x/image/webp"
+	_ "golang.org/x/image/webp"
 )
 
-var allowedMedia = map[string]string{
-	"image/jpeg": ".jpg",
-	"image/png":  ".png",
-	"image/gif":  ".gif",
-	"image/webp": ".webp",
+type mediaFormat struct {
+	mimeType         string
+	storageExtension string
+	sourceExtensions map[string]struct{}
 }
 
-var allowedSourceExtensions = map[string]map[string]struct{}{
-	"image/jpeg": {".jpg": {}, ".jpeg": {}},
-	"image/png":  {".png": {}},
-	"image/gif":  {".gif": {}},
-	"image/webp": {".webp": {}},
+var allowedMediaFormats = map[string]mediaFormat{
+	"jpeg": {mimeType: "image/jpeg", storageExtension: ".jpg", sourceExtensions: map[string]struct{}{".jpg": {}, ".jpeg": {}}},
+	"png":  {mimeType: "image/png", storageExtension: ".png", sourceExtensions: map[string]struct{}{".png": {}}},
+	"gif":  {mimeType: "image/gif", storageExtension: ".gif", sourceExtensions: map[string]struct{}{".gif": {}}},
+	"webp": {mimeType: "image/webp", storageExtension: ".webp", sourceExtensions: map[string]struct{}{".webp": {}}},
+	"avif": {mimeType: "image/avif", storageExtension: ".avif", sourceExtensions: map[string]struct{}{".avif": {}}},
 }
 
-var imageFormats = map[string]string{
-	"image/jpeg": "jpeg",
-	"image/png":  "png",
-	"image/gif":  "gif",
-	"image/webp": "webp",
-}
-
-var mediaStorageKeyPattern = regexp.MustCompile(`^[a-f0-9]{64}\.(jpg|png|gif|webp)$`)
-var stagedUploadPattern = regexp.MustCompile(`^\.upload-([a-f0-9]{64}\.(?:jpg|png|gif|webp))-.+$`)
-var stagedDeletePattern = regexp.MustCompile(`^\.delete-([0-9]+)-([a-f0-9]{64}\.(?:jpg|png|gif|webp))$`)
+var mediaStorageKeyPattern = regexp.MustCompile(`^[a-f0-9]{64}\.(jpg|png|gif|webp|avif)$`)
+var stagedUploadPattern = regexp.MustCompile(`^\.upload-([a-f0-9]{64}\.(?:jpg|png|gif|webp|avif))-.+$`)
+var stagedDeletePattern = regexp.MustCompile(`^\.delete-([0-9]+)-([a-f0-9]{64}\.(?:jpg|png|gif|webp|avif))$`)
 
 func List(ctx context.Context, svcCtx *svc.ServiceContext, page, size int, query string) (*types.ListResp[types.MediaAssetResp], error) {
 	if err := authutil.RequireContentManager(ctx); err != nil {
@@ -86,19 +80,10 @@ func Upload(ctx context.Context, svcCtx *svc.ServiceContext, originalName, altTe
 	if utf8.RuneCountInString(altText) > 255 {
 		return nil, apperrors.BadRequest("altText is too long")
 	}
-	mimeType := http.DetectContentType(data)
-	extension, ok := allowedMedia[mimeType]
-	if !ok {
-		return nil, apperrors.BadRequest("media type is not supported")
-	}
 	sourceName := strings.TrimSpace(originalName)
-	sourceExtension := strings.ToLower(filepath.Ext(sourceName))
-	if _, ok := allowedSourceExtensions[mimeType][sourceExtension]; !ok {
-		return nil, apperrors.BadRequest("media extension does not match its content")
-	}
-	config, format, err := image.DecodeConfig(bytes.NewReader(data))
-	if err != nil || format != imageFormats[mimeType] || config.Width <= 0 || config.Height <= 0 {
-		return nil, apperrors.BadRequest("media content is invalid")
+	format, config, err := validateMediaFile(sourceName, data)
+	if err != nil {
+		return nil, err
 	}
 	sum := sha256.Sum256(data)
 	hash := hex.EncodeToString(sum[:])
@@ -109,7 +94,7 @@ func Upload(ctx context.Context, svcCtx *svc.ServiceContext, originalName, altTe
 		return nil, err
 	}
 
-	storageKey := hash + extension
+	storageKey := hash + format.storageExtension
 	root, err := mediaRoot(svcCtx)
 	if err != nil {
 		return nil, err
@@ -133,7 +118,7 @@ func Upload(ctx context.Context, svcCtx *svc.ServiceContext, originalName, altTe
 		originalName = string([]rune(originalName)[:min(255, utf8.RuneCountInString(originalName))])
 	}
 	id, err := svcCtx.Store.CreateMediaAsset(ctx, model.MediaAssetCreate{
-		StorageKey: storageKey, OriginalName: originalName, MIMEType: mimeType,
+		StorageKey: storageKey, OriginalName: originalName, MIMEType: format.mimeType,
 		SizeBytes: uint64(len(data)), Width: uint(config.Width), Height: uint(config.Height),
 		AltText: altText, SHA256: hash, CreatedBy: userID,
 	})
@@ -163,6 +148,43 @@ func Upload(ctx context.Context, svcCtx *svc.ServiceContext, originalName, altTe
 	}
 	resp := mediaResp(*item)
 	return &resp, nil
+}
+
+func validateMediaFile(originalName string, data []byte) (mediaFormat, image.Config, error) {
+	detectedMIMEType := http.DetectContentType(data)
+	config, detectedFormat, err := image.DecodeConfig(bytes.NewReader(data))
+	if err != nil {
+		if _, ok := allowedMediaFormatForMIME(detectedMIMEType); ok {
+			return mediaFormat{}, image.Config{}, apperrors.BadRequest("media content is invalid")
+		}
+		return mediaFormat{}, image.Config{}, apperrors.BadRequest("media type is not supported")
+	}
+	format, ok := allowedMediaFormats[detectedFormat]
+	if !ok {
+		return mediaFormat{}, image.Config{}, apperrors.BadRequest("media type is not supported")
+	}
+	// net/http 尚未识别 AVIF；此格式由已注册的解码器完成内容验证。
+	if detectedMIMEType != format.mimeType && !(detectedFormat == "avif" && detectedMIMEType == "application/octet-stream") {
+		return mediaFormat{}, image.Config{}, apperrors.BadRequest("media content is invalid")
+	}
+	sourceName := strings.TrimSpace(originalName)
+	sourceExtension := strings.ToLower(filepath.Ext(sourceName))
+	if _, ok := format.sourceExtensions[sourceExtension]; !ok {
+		return mediaFormat{}, image.Config{}, apperrors.BadRequest("media extension does not match its content")
+	}
+	if config.Width <= 0 || config.Height <= 0 {
+		return mediaFormat{}, image.Config{}, apperrors.BadRequest("media content is invalid")
+	}
+	return format, config, nil
+}
+
+func allowedMediaFormatForMIME(mimeType string) (mediaFormat, bool) {
+	for _, format := range allowedMediaFormats {
+		if format.mimeType == mimeType {
+			return format, true
+		}
+	}
+	return mediaFormat{}, false
 }
 
 func Update(ctx context.Context, svcCtx *svc.ServiceContext, id uint64, req types.UpdateMediaReq) (*types.MediaAssetResp, error) {
@@ -447,5 +469,3 @@ func mediaResp(item model.MediaAsset) types.MediaAssetResp {
 }
 
 func mediaURL(key string) string { return "/media/" + key }
-
-var _ = webp.DecodeConfig

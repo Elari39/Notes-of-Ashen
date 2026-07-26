@@ -13,7 +13,7 @@ export const isValidCoverUrl = (coverUrl?: string) => {
   return trimmed === '' || isHttpCoverUrl(trimmed) || isLocalMediaUrl(trimmed);
 };
 
-const isLocalMediaUrl = (value: string) => /^\/media\/[a-f0-9]{64}\.(jpg|png|gif|webp)$/.test(value);
+const isLocalMediaUrl = (value: string) => /^\/media\/[a-f0-9]{64}\.(jpg|png|gif|webp|avif)$/.test(value);
 
 const isHttpCoverUrl = (value: string) => {
   try {
