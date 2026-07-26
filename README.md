@@ -408,6 +408,14 @@ http://127.0.0.1:1270/api/v1/articles?page=1&size=10
 
 项目默认使用 Compose 内部 MySQL/Redis；启用 profile 后 RabbitMQ/Meilisearch 也仅在内部网络可达，不会映射 `3306`/`6379`/`5672`/`15672` 端口，因此不会与 1Panel 已有中间件端口冲突。Go 后端通过 `.env` 中的 DSN/URL 连接这些内部服务。
 
+### 生产发布验收清单
+
+每次生产发布（含首次上线）完成后，按以下清单验收：
+
+1. **Cookie 安全属性**：生产 HTTPS 环境保持 `APP_AUTH_COOKIE_SECURE=true`。登录后在浏览器开发者工具中确认 `noa_refresh_token` Cookie 带有 `Secure; HttpOnly; SameSite=Strict`。
+2. **会话续期**：登录后刷新页面，确认通过 `/api/v1/auth/refresh` 换取新 accessToken 且无需重新登录；access token 过期后同样能自动恢复会话。
+3. **本机 HTTP 环境例外**：仅通过 `http://127.0.0.1:1270` 访问的本机开发环境必须设置 `APP_AUTH_COOKIE_SECURE=false`，否则浏览器不会保存 refresh Cookie，刷新页面会被迫重新登录。禁止在生产 HTTPS 环境使用 `false`。
+
 ## 本地非 Docker 开发
 
 非 Docker 开发时，需要自行准备 MySQL 和 Redis；仅在启用异步日志或搜索时再准备 RabbitMQ 或 Meilisearch，并根据 [etc/notes-of-ashen.yaml](etc/notes-of-ashen.yaml) 修改连接信息，或通过环境变量覆盖配置。
