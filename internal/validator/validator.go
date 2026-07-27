@@ -72,6 +72,23 @@ func OptionalHTTPURL(value, field string) error {
 	return nil
 }
 
+// PublicHTTPSURL validates the canonical site URL used in public absolute
+// links. Unlike OptionalHTTPURL, an empty value and HTTP are both rejected.
+func PublicHTTPSURL(value, field string) error {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return apperrors.BadRequest(field + " is required")
+	}
+	if err := OptionalHTTPURL(value, field); err != nil {
+		return err
+	}
+	parsed, err := url.Parse(value)
+	if err != nil || parsed.Scheme != "https" || parsed.Host == "" || parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" {
+		return apperrors.BadRequest(field + " must be a public https URL without credentials, query, or fragment")
+	}
+	return nil
+}
+
 func isLocalHostname(host string) bool {
 	host = strings.TrimSuffix(strings.ToLower(strings.TrimSpace(host)), ".")
 	return host == "localhost" || strings.HasSuffix(host, ".localhost")

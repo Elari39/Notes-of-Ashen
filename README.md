@@ -138,6 +138,7 @@ Copy-Item .env.example .env
 - `APP_DISPLAY_NAME`：站点对外展示名称，默认 `Notes of Ashen`（当前版本后端未读取，预留）。
 - `APP_AUTH_ACCESS_SECRET`：JWT 签名密钥，生产环境必须替换为足够长的随机字符串，建议至少 32 位；后台保存的 AI API Key 也会使用由它派生的独立用途密钥加密，轮换前请先阅读下方迁移说明。
 - `APP_AUTH_COOKIE_SECURE`：refreshToken Cookie 的 Secure 标志，生产 HTTPS 保持 `true`；本机 HTTP 开发需设为 `false`，否则浏览器不会保存 Cookie，刷新页面无法恢复会话。
+- `APP_REQUIRE_PUBLIC_SITE_URL`：生产环境设为 `true`，启动前强制检查数据库中的 `siteBaseUrl` 为正式 HTTPS 地址；本机 HTTP 开发保持 `false`，允许站点基址为空。
 - `IMAGE_TAG`：Docker 应用镜像版本。模板中的值必须替换为不可变发布 tag 或 git commit hash；Compose 未设置该值时的 `latest` fallback 仅适用于本地开发。
 - `APP_MYSQL_ROOT_PASSWORD`：本地 Compose MySQL root 密码，生产或公网环境必须替换为强随机值。
 - `APP_MYSQL_USER`：本地 Compose MySQL 应用用户，默认 `notes_user`。
@@ -329,7 +330,7 @@ pwsh scripts/release.ps1 -Rollback v20260726-1030-3521de6
 pwsh scripts/release.ps1 -Rollback v20260726-1030-3521de6 -AllowIncompatibleSchema
 ```
 
-脚本会把每次发布/代码回退的时间、tag、git commit 和镜像 digest 追加记录到 `deploy/release-history.local.jsonl`（不入库），用于追溯与恢复。发布验收要求：`docker compose config` 展开结果中的应用镜像不得包含 `latest`。
+脚本会把每次发布/代码回退的时间、tag、git commit、工作区状态、镜像 ID 和可用的 RepoDigest 追加记录到 `deploy/release-history.local.jsonl`（不入库），用于追溯与恢复。正式发布默认要求工作区干净且 tag 未被使用；若必须发布未提交内容，显式使用 `-AllowDirty`。发布验收要求：`docker compose config` 展开结果中的应用镜像不得包含 `latest`；生产环境必须设置 `APP_REQUIRE_PUBLIC_SITE_URL=true`，并确认 `public-site-check` 成功。
 
 回退只切换应用镜像，不会自动回滚数据库 schema。脚本会在修改 `.env` 前读取目标镜像内置迁移版本，并通过当前 Compose API 镜像查询实际数据库版本；目标镜像落后于数据库或无法读取版本时默认拒绝操作。需要紧急代码回退时，必须先确认备份可恢复，再显式使用 `-AllowIncompatibleSchema`。
 
@@ -439,7 +440,7 @@ http://127.0.0.1:1270/api/v1/articles?page=1&size=10
 1. **Cookie 安全属性**：生产 HTTPS 环境保持 `APP_AUTH_COOKIE_SECURE=true`。登录后在浏览器开发者工具中确认 `noa_refresh_token` Cookie 带有 `Secure; HttpOnly; SameSite=Strict`。
 2. **会话续期**：登录后刷新页面，确认通过 `/api/v1/auth/refresh` 换取新 accessToken 且无需重新登录；access token 过期后同样能自动恢复会话。
 3. **本机 HTTP 环境例外**：仅通过 `http://127.0.0.1:1270` 访问的本机开发环境必须设置 `APP_AUTH_COOKIE_SECURE=false`，否则浏览器不会保存 refresh Cookie，刷新页面会被迫重新登录。禁止在生产 HTTPS 环境使用 `false`。
-4. **站点基址**：首次上线及每次正式域名变更后，生产环境必须在后台站点设置中将 `siteBaseUrl` 配置为正式 HTTPS 域名（如 `https://blog.example.com`）。验收 `/rss.xml`、`/sitemap.xml` 与文章分享链接全部使用该域名，不依赖请求 Host 推断；`siteBaseUrl` 为空时后端日志会输出 `siteBaseUrl is empty` 回退提示，本机 HTTP 开发环境才允许保留空值。
+4. **站点基址**：首次上线及每次正式域名变更后，生产环境必须设置 `APP_REQUIRE_PUBLIC_SITE_URL=true`，并在后台站点设置中将 `siteBaseUrl` 配置为正式 HTTPS 域名（如 `https://blog.example.com`）。`public-site-check` 和 API 启动检查会拒绝空值、HTTP、凭据、查询参数或片段；验收 `/rss.xml`、`/sitemap.xml` 与文章分享链接全部使用该域名。本机 HTTP 开发环境保持门禁关闭，才允许保留空值。
 5. **不可变镜像 tag**：使用 `scripts/release.ps1` 发布，确认 `.env` 的 `IMAGE_TAG` 为本次发布 tag，`docker compose config` 展开结果中的应用镜像不包含 `latest`，且 `deploy/release-history.local.jsonl` 已记录本次发布。
 
 ## 本地非 Docker 开发

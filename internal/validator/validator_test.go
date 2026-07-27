@@ -45,6 +45,34 @@ func TestOptionalImageURLAllowsPublicHTTPSHostname(t *testing.T) {
 	}
 }
 
+func TestPublicHTTPSURL(t *testing.T) {
+	tests := []struct {
+		name    string
+		value   string
+		wantErr bool
+	}{
+		{name: "empty", value: "", wantErr: true},
+		{name: "http", value: "http://example.com", wantErr: true},
+		{name: "valid https", value: "https://blog.example.com/base", wantErr: false},
+		{name: "credentials", value: "https://user@example.com", wantErr: true},
+		{name: "query", value: "https://example.com?canonical=true", wantErr: true},
+		{name: "fragment", value: "https://example.com/#home", wantErr: true},
+		{name: "localhost", value: "https://localhost", wantErr: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := PublicHTTPSURL(tt.value, "siteBaseUrl")
+			if tt.wantErr && err == nil {
+				t.Fatal("expected error")
+			}
+			if !tt.wantErr && err != nil {
+				t.Fatalf("expected nil error, got %v", err)
+			}
+		})
+	}
+}
+
 func TestEmailRequiresPlainAddress(t *testing.T) {
 	tests := []struct {
 		name    string

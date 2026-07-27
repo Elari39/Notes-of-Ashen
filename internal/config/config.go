@@ -15,13 +15,16 @@ type Config struct {
 	rest.RestConf
 	Database DatabaseConf
 	Auth     AuthConf
-	Redis    RedisConf
-	Search   SearchConf
-	RabbitMQ RabbitMQConf
-	Email    EmailConf
-	Media    MediaConf
-	Backup   BackupConf
-	Proxy    ProxyConf
+	// RequirePublicSiteURL makes production startup fail until the database
+	// contains a canonical HTTPS siteBaseUrl.
+	RequirePublicSiteURL bool
+	Redis                RedisConf
+	Search               SearchConf
+	RabbitMQ             RabbitMQConf
+	Email                EmailConf
+	Media                MediaConf
+	Backup               BackupConf
+	Proxy                ProxyConf
 }
 
 type DatabaseConf struct {
@@ -190,6 +193,9 @@ func (c *Config) ApplyEnv() error {
 		return err
 	}
 	if err := setBool("APP_AUTH_COOKIE_SECURE", &c.Auth.CookieSecure); err != nil {
+		return err
+	}
+	if err := setBool("APP_REQUIRE_PUBLIC_SITE_URL", &c.RequirePublicSiteURL); err != nil {
 		return err
 	}
 	setString("APP_REDIS_ADDR", &c.Redis.Addr)

@@ -87,5 +87,6 @@ Register-ScheduledTask -TaskName "noa-backup" `
 - 发布：`pwsh scripts/release.ps1`（构建 → 更新 `.env` IMAGE_TAG → `up -d` → 追加记录）。
 - 代码回退：`pwsh scripts/release.ps1 -Rollback <旧tag>`。脚本默认校验目标镜像迁移版本不低于实际数据库版本；不兼容时会拒绝并要求恢复备份或选择兼容镜像。
 - 紧急绕过：仅在已验证备份恢复路径后使用 `pwsh scripts/release.ps1 -Rollback <旧tag> -AllowIncompatibleSchema`。该操作不会回滚数据库 schema，记录中的 action 为 `code-rollback`。
-- 每次发布/代码回退会在 `deploy/release-history.local.jsonl` 记录时间、tag、git commit 和镜像 digest；该文件不入库，请随备份一起异地保存。
+- 正式发布默认要求工作区干净且 tag 未被使用；若必须发布未提交内容，显式使用 `-AllowDirty`，记录会标明不可复现风险。
+- 每次发布/代码回退会在 `deploy/release-history.local.jsonl` 记录时间、tag、git commit、工作区状态、镜像 ID 和可用的 RepoDigest；该文件不入库，请随备份一起异地保存。
 - 发布顺序建议：备份 → 发布 → 按 README「生产发布验收清单」验收 → 失败则回滚并恢复备份。

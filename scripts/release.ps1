@@ -14,7 +14,11 @@ param(
 
     # 仅构建镜像与更新 .env，不执行 docker compose up。
     [Parameter(ParameterSetName = "Release")]
-    [switch]$SkipDeploy
+    [switch]$SkipDeploy,
+
+    # 明确允许从脏工作区发布；记录中会标记不可复现风险。
+    [Parameter(ParameterSetName = "Release")]
+    [switch]$AllowDirty
 )
 
 Set-StrictMode -Version Latest
@@ -71,16 +75,61 @@ function Get-ImageDigests {
         if ($LASTEXITCODE -ne 0) {
             throw "本地不存在镜像 ${image}:${ImageTag}。"
         }
-        $digests[$image] = "$imageId".Trim()
+        $repoDigestOutput = & docker image inspect --format '{{json .RepoDigests}}' "${image}:${ImageTag}" 2>$null
+        if ($LASTEXITCODE -ne 0) {
+            throw "无法读取镜像 ${image}:${ImageTag} 的 RepoDigest。"
+        }
+        try {
+            $repoDigests = @($repoDigestOutput | ConvertFrom-Json)
+        } catch {
+            throw "无法解析镜像 ${image}:${ImageTag} 的 RepoDigest。"
+        }
+        $digests[$image] = [ordered]@{
+            imageId    = "$imageId".Trim()
+            repoDigests = $repoDigests
+        }
     }
     return $digests
+}
+
+function Assert-ReleaseTagAvailable {
+    param([Parameter(Mandatory)][string]$ImageTag)
+
+    if ($ImageTag -eq "latest") {
+        throw "发布 tag 不允许使用 latest；请使用不可变版本号。"
+    }
+
+    if (Test-Path $historyFile) {
+        foreach ($line in Get-Content $historyFile) {
+            if ([string]::IsNullOrWhiteSpace($line)) {
+                continue
+            }
+            try {
+                $record = $line | ConvertFrom-Json
+            } catch {
+                throw "发布历史文件包含无法解析的记录：$historyFile"
+            }
+            if ("$($record.imageTag)" -eq $ImageTag) {
+                throw "发布 tag $ImageTag 已存在于发布历史，禁止复用。"
+            }
+        }
+    }
+
+    foreach ($image in $appImages) {
+        $existing = & docker image inspect "${image}:${ImageTag}" 2>$null
+        if ($LASTEXITCODE -eq 0 -and $existing) {
+            throw "本地镜像 ${image}:${ImageTag} 已存在，禁止覆盖发布 tag。"
+        }
+    }
 }
 
 function Write-ReleaseRecord {
     param(
         [Parameter(Mandatory)][string]$Action,
         [Parameter(Mandatory)][string]$ImageTag,
-        [Parameter(Mandatory)]$Digests
+        [Parameter(Mandatory)]$Digests,
+        [Parameter(Mandatory)][bool]$WorktreeClean,
+        [Parameter(Mandatory)][bool]$AllowDirty
     )
 
     $historyDirectory = Split-Path $historyFile -Parent
@@ -92,6 +141,8 @@ function Write-ReleaseRecord {
         action    = $Action
         imageTag  = $ImageTag
         gitCommit = "$(& git -C $repoRoot rev-parse HEAD)".Trim()
+        worktreeClean = $WorktreeClean
+        allowDirty = $AllowDirty
         images    = $Digests
     }
     Add-Content -Path $historyFile -Value ($record | ConvertTo-Json -Compress) -Encoding utf8
@@ -154,29 +205,32 @@ Assert-Command git
 
 Push-Location $repoRoot
 try {
+    $dirty = @(& git -C $repoRoot status --porcelain)
+    $worktreeClean = $dirty.Count -eq 0
+
     if ($PSCmdlet.ParameterSetName -eq "Rollback") {
         # 代码回退：只切换 IMAGE_TAG 并重启，不重新构建，也不回滚数据库 schema。
         $digests = Get-ImageDigests -ImageTag $Rollback
         Assert-RollbackSchemaCompatibility -ImageTag $Rollback -Allow:$AllowIncompatibleSchema
         Set-EnvImageTag -Value $Rollback
         Invoke-Native -Description "docker compose up -d" -Arguments @("compose", "up", "-d")
-        Write-ReleaseRecord -Action "code-rollback" -ImageTag $Rollback -Digests $digests
+        Write-ReleaseRecord -Action "code-rollback" -ImageTag $Rollback -Digests $digests -WorktreeClean:$worktreeClean -AllowDirty:$AllowDirty
         Write-Host "[release] 已完成代码回退到 $Rollback（数据库 schema 未回退）。"
         return
     }
 
-    $dirty = @(& git -C $repoRoot status --porcelain)
-    if ($dirty.Count -gt 0) {
-        Write-Warning "工作区存在未提交改动，发布记录的 gitCommit 无法完整代表镜像内容。"
+    if (-not $worktreeClean -and -not $AllowDirty) {
+        throw "工作区存在未提交改动，已阻止正式发布。请先提交或使用显式 -AllowDirty，并确认发布记录中的不可复现风险。"
+    }
+    if (-not $worktreeClean) {
+        Write-Warning "已使用 -AllowDirty：工作区存在未提交改动，发布记录无法由 gitCommit 完整复现镜像内容。"
     }
 
     if ([string]::IsNullOrWhiteSpace($Tag)) {
         $shortSha = "$(& git -C $repoRoot rev-parse --short HEAD)".Trim()
-        $Tag = "v$(Get-Date -Format 'yyyyMMdd-HHmm')-$shortSha"
+        $Tag = "v$(Get-Date -Format 'yyyyMMdd-HHmmss')-$shortSha"
     }
-    if ($Tag -eq "latest") {
-        throw "发布 tag 不允许使用 latest；请使用不可变版本号。"
-    }
+    Assert-ReleaseTagAvailable -ImageTag $Tag
 
     Write-Host "[release] 使用镜像 tag：$Tag"
     # docker-compose.yml 中 image 使用 ${IMAGE_TAG:-latest}，构建时通过环境变量注入。
@@ -196,7 +250,7 @@ try {
         Write-Host "[release] 已跳过部署（-SkipDeploy）；后续执行 docker compose up -d 生效。"
     }
 
-    Write-ReleaseRecord -Action "release" -ImageTag $Tag -Digests $digests
+    Write-ReleaseRecord -Action "release" -ImageTag $Tag -Digests $digests -WorktreeClean:$worktreeClean -AllowDirty:$AllowDirty
     Write-Host "[release] 完成。代码回退示例：scripts/release.ps1 -Rollback <旧tag>"
 } finally {
     Pop-Location

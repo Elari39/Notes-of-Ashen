@@ -17,6 +17,8 @@ import (
 	"notes-of-ashen/internal/migration"
 	"notes-of-ashen/internal/security"
 	"notes-of-ashen/internal/svc"
+	"notes-of-ashen/internal/validator"
+	"notes-of-ashen/model"
 
 	"github.com/zeromicro/go-zero/core/conf"
 	"github.com/zeromicro/go-zero/core/logx"
@@ -24,11 +26,12 @@ import (
 )
 
 var (
-	configFile           = flag.String("f", "etc/notes-of-ashen.yaml", "the config file")
-	migrateOnly          = flag.Bool("migrate-only", false, "run embedded database migrations and exit")
-	migrationVersionOnly = flag.Bool("migration-version", false, "print the highest embedded migration version and exit")
-	schemaVersionOnly    = flag.Bool("schema-version", false, "print the highest applied database migration version and exit")
-	validateOptionalOnly = flag.Bool("validate-optional-dependencies-only", false, "validate Compose optional dependency switches and profiles, then exit")
+	configFile             = flag.String("f", "etc/notes-of-ashen.yaml", "the config file")
+	migrateOnly            = flag.Bool("migrate-only", false, "run embedded database migrations and exit")
+	migrationVersionOnly   = flag.Bool("migration-version", false, "print the highest embedded migration version and exit")
+	schemaVersionOnly      = flag.Bool("schema-version", false, "print the highest applied database migration version and exit")
+	validateOptionalOnly   = flag.Bool("validate-optional-dependencies-only", false, "validate Compose optional dependency switches and profiles, then exit")
+	validatePublicSiteOnly = flag.Bool("validate-public-site-url", false, "validate the database siteBaseUrl when production enforcement is enabled, then exit")
 )
 
 func main() {
@@ -60,6 +63,15 @@ func main() {
 		return
 	}
 	logx.Must(c.ApplyEnv())
+	if *validatePublicSiteOnly {
+		if !c.RequirePublicSiteURL {
+			logx.Info("[config] public site URL enforcement is disabled")
+			return
+		}
+		logx.Must(validatePublicSiteURL(c.Database.DataSource))
+		logx.Info("[config] public site URL is valid")
+		return
+	}
 	if *validateOptionalOnly {
 		logx.Must(c.ValidateOptionalDependencyProfiles())
 		logx.Info("[config] optional dependency profile configuration is valid")
@@ -75,6 +87,9 @@ func main() {
 
 	ctx := svc.NewServiceContext(c)
 	defer ctx.Close()
+	if c.RequirePublicSiteURL {
+		logx.Must(validatePublicSiteURLStore(context.Background(), ctx.Store))
+	}
 	// 在开始接受请求前，完成已提交恢复的媒体目录发布，或回滚尚未提交的暂存目录。
 	// 这使 MySQL 中的恢复标记和媒体文件系统在进程异常退出后重新收敛。
 	logx.Must(recoverPendingRestore(ctx))
@@ -127,6 +142,31 @@ func runSchemaVersion(dataSource string) {
 	version, err := migration.CurrentVersion(context.Background(), db)
 	logx.Must(err)
 	fmt.Println(version)
+}
+
+func validatePublicSiteURL(dataSource string) error {
+	if strings.TrimSpace(dataSource) == "" {
+		return errors.New("APP_DATABASE_DSN is required for -validate-public-site-url")
+	}
+	db, err := model.Open(dataSource, 1, 1)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		_ = db.Close()
+	}()
+	return validatePublicSiteURLStore(context.Background(), model.NewStore(db))
+}
+
+func validatePublicSiteURLStore(ctx context.Context, store *model.Store) error {
+	settings, err := store.SiteSettings(ctx)
+	if err != nil {
+		return fmt.Errorf("read site settings for public URL validation: %w", err)
+	}
+	if err := validator.PublicHTTPSURL(settings.SiteBaseURL, "siteBaseUrl"); err != nil {
+		return fmt.Errorf("APP_REQUIRE_PUBLIC_SITE_URL=true requires a valid siteBaseUrl: %w", err)
+	}
+	return nil
 }
 
 func recoverPendingRestore(svcCtx *svc.ServiceContext) error {
