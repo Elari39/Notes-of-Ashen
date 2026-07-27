@@ -8,6 +8,7 @@ const chunkGroups: Array<[string, string[]]> = [
   ['markdown', ['react-markdown', 'remark-gfm']],
   // KaTeX 独立成 chunk，由 DeferredMarkdownRenderer 仅在内容含公式时加载。
   ['katex', ['katex', 'rehype-katex', 'remark-math']],
+  ['mermaid', ['mermaid']],
   ['syntax-highlighter', ['react-syntax-highlighter']],
   ['echarts', ['echarts']],
 ]

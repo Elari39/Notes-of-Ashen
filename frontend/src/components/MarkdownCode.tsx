@@ -6,6 +6,7 @@ import { usePreferenceStore } from '../store/preferences';
 import { resolveMarkdownCodeLanguage } from '../utils/markdownCodeLanguage';
 
 const MarkdownCodeBlock = lazy(() => import('./MarkdownCodeBlock'));
+const MermaidCodeBlock = lazy(() => import('./MermaidCodeBlock'));
 
 const codeFontFamily = '"JetBrains Mono", "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace';
 
@@ -102,6 +103,14 @@ export const createMarkdownComponents = ({ onImageClick, headingIdByLine }: Mark
       const language = resolveMarkdownCodeLanguage(className);
       const code = String(children).replace(/\n$/, '');
       const isBlock = Boolean(language) || code.includes('\n') || Boolean(node?.position && node.position.start.line !== node.position.end.line);
+
+      if (isBlock && language === 'mermaid') {
+        return (
+          <Suspense fallback={<pre className="article-code-block" aria-busy="true"><code>{code}</code></pre>}>
+            <MermaidCodeBlock code={code} />
+          </Suspense>
+        );
+      }
 
       return isBlock ? (
         <Suspense fallback={<pre className="article-code-block" aria-busy="true"><code>{code}</code></pre>}>

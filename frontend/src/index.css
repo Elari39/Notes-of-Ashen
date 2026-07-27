@@ -42,6 +42,9 @@
     --code-purple: #d7add8;
     --code-scrollbar: rgba(204, 120, 92, 0.62);
     --inline-code-bg: rgba(204, 120, 92, 0.12);
+    --inline-code-border: rgba(138, 60, 58, 0.14);
+    --code-control-bg: rgba(250, 249, 245, 0.08);
+    --code-shadow: 0 16px 36px rgba(20, 20, 19, 0.1);
     --table-row: rgba(245, 240, 232, 0.56);
     --table-head: var(--surface-card);
 
@@ -99,13 +102,13 @@
     --cover-wash-subtle: rgba(17, 19, 20, 0.16);
     --cover-wash: rgba(17, 19, 20, 0.28);
     --ash-dot: rgba(238, 232, 218, 0.08);
-    --code-bg: rgba(238, 232, 218, 0.06);
-    --code-toolbar-bg: linear-gradient(180deg, var(--paper-soft), transparent);
-    --code-border: rgba(200, 137, 112, 0.24);
+    --code-bg: #121210;
+    --code-toolbar-bg: #252320;
+    --code-border: rgba(214, 138, 112, 0.4);
     --code-toolbar-border: var(--code-border);
     --code-shine: rgba(238, 232, 218, 0.08);
-    --code-ink: #e8deca;
-    --code-muted: #b5a999;
+    --code-ink: #f5f0e8;
+    --code-muted: #c1b8ad;
     --code-comment: #818b89;
     --code-ochre: #d59075;
     --code-green: #a0c49a;
@@ -113,7 +116,10 @@
     --code-blue: #93b7db;
     --code-purple: #d8a5d3;
     --code-scrollbar: rgba(200, 137, 112, 0.45);
-    --inline-code-bg: rgba(200, 137, 112, 0.14);
+    --inline-code-bg: rgba(214, 138, 112, 0.2);
+    --inline-code-border: rgba(214, 138, 112, 0.34);
+    --code-control-bg: rgba(250, 249, 245, 0.1);
+    --code-shadow: 0 18px 40px rgba(0, 0, 0, 0.42);
     --table-row: rgba(238, 232, 218, 0.04);
     --table-head: rgba(200, 137, 112, 0.12);
 
@@ -378,7 +384,7 @@
   .article-markdown.prose :where(h2) {
     margin-top: 3.2rem;
     padding-top: 1.6rem;
-    border-top: 1px solid rgba(138, 60, 58, 0.12);
+    border-top: 1px solid color-mix(in srgb, var(--ochre) 22%, transparent);
   }
 
   .article-markdown.prose :where(h3) {
@@ -394,7 +400,7 @@
   .article-markdown.prose :where(a) {
     color: var(--ochre);
     text-decoration: none;
-    border-bottom: 1px solid rgba(138, 60, 58, 0.28);
+    border-bottom: 1px solid color-mix(in srgb, var(--ochre) 38%, transparent);
     transition: color 180ms ease, border-color 180ms ease;
   }
 
@@ -411,7 +417,7 @@
     margin: 3.4rem 0;
     border: 0;
     height: 1px;
-    background: linear-gradient(90deg, transparent, rgba(138, 60, 58, 0.28), transparent);
+    background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--ochre) 38%, transparent), transparent);
   }
 
   .article-markdown.prose :where(blockquote) {
@@ -433,7 +439,7 @@
   }
 
   .article-markdown.prose :where(li)::marker {
-    color: rgba(138, 60, 58, 0.55);
+    color: color-mix(in srgb, var(--ochre) 64%, transparent);
   }
 
   .article-markdown.prose :where(input[type='checkbox']) {
@@ -449,7 +455,7 @@
   .article-markdown.prose :where(img.article-image-clickable) {
     display: block;
     margin: 2rem auto;
-    border: 1px solid rgba(138, 60, 58, 0.14);
+    border: 1px solid var(--inline-code-border);
     border-radius: 6px;
     cursor: zoom-in;
     transition: transform 180ms ease, box-shadow 180ms ease, filter 180ms ease;
@@ -470,7 +476,7 @@
     display: inline-block;
     margin: 0 0.08rem;
     padding: 0.08rem 0.38rem;
-    border: 1px solid rgba(138, 60, 58, 0.14);
+    border: 1px solid var(--inline-code-border);
     border-radius: 4px;
     color: var(--ink);
     background: var(--inline-code-bg);
@@ -480,9 +486,15 @@
     vertical-align: 0.05em;
   }
 
-  .article-markdown.prose :where(code)::before,
-  .article-markdown.prose :where(code)::after {
-    content: none;
+  .article-markdown.prose .article-inline-code {
+    color: var(--ink) !important;
+    background: var(--inline-code-bg) !important;
+    border-color: var(--inline-code-border) !important;
+  }
+
+  .article-markdown.prose code::before,
+  .article-markdown.prose code::after {
+    content: none !important;
   }
 
   .article-code-block {
@@ -498,7 +510,7 @@
     border: 1px solid var(--code-border);
     border-radius: 12px;
     background: var(--code-bg);
-    box-shadow: inset 0 1px 0 var(--code-shine), 0 16px 36px rgba(20, 20, 19, 0.1);
+    box-shadow: inset 0 1px 0 var(--code-shine), var(--code-shadow);
   }
 
   .article-code-toolbar {
@@ -545,7 +557,7 @@
     border-radius: 6px;
     padding: 0.35rem 0.7rem;
     color: var(--code-ink);
-    background: rgba(250, 249, 245, 0.08);
+    background: var(--code-control-bg);
     font-size: 0.74rem;
     font-weight: 500;
     line-height: 1.2;
@@ -556,9 +568,130 @@
   .article-code-copy:focus-visible {
     border-color: var(--ochre);
     color: var(--ochre);
-    background: rgba(204, 120, 92, 0.14);
+    background: var(--inline-code-bg);
     outline: none;
-    box-shadow: 0 0 0 3px rgba(204, 120, 92, 0.2);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--ochre) 22%, transparent);
+  }
+
+  .article-code-mode {
+    display: inline-flex;
+    flex-shrink: 0;
+    overflow: hidden;
+    border: 1px solid var(--code-toolbar-border);
+    border-radius: 6px;
+  }
+
+  .article-code-mode button {
+    min-height: 2.25rem;
+    border: 0;
+    border-right: 1px solid var(--code-toolbar-border);
+    padding: 0.35rem 0.62rem;
+    color: var(--code-muted);
+    background: transparent;
+    font-size: 0.74rem;
+    font-weight: 500;
+    line-height: 1.2;
+    transition: color var(--dur-fast) ease, background var(--dur-fast) ease;
+  }
+
+  .article-code-mode button:last-child {
+    border-right: 0;
+  }
+
+  .article-code-mode button:hover,
+  .article-code-mode button:focus-visible,
+  .article-code-mode button.is-active {
+    color: var(--code-ink);
+    background: var(--code-control-bg);
+    outline: none;
+  }
+
+  .article-mermaid-panel {
+    position: relative;
+    height: clamp(20rem, 58vh, 32rem);
+    max-width: 100%;
+    overflow: hidden;
+    padding: 0;
+    background: var(--code-bg);
+    color: var(--code-ink);
+    scrollbar-color: var(--code-scrollbar) transparent;
+    scrollbar-width: thin;
+    cursor: grab;
+    touch-action: none;
+    user-select: none;
+  }
+
+  .article-mermaid-panel.is-dragging {
+    cursor: grabbing;
+  }
+
+  .article-mermaid-stage {
+    position: absolute;
+    inset: 0;
+    overflow: visible;
+  }
+
+  .article-mermaid-stage svg {
+    position: absolute;
+    top: 0;
+    left: 0;
+    display: block;
+    max-width: none;
+    height: auto;
+    margin: 0;
+    transform-origin: 0 0;
+    user-select: none;
+  }
+
+  .article-mermaid-controls {
+    position: absolute;
+    z-index: 1;
+    top: 0.75rem;
+    right: 0.75rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.25rem;
+    border: 1px solid var(--code-toolbar-border);
+    border-radius: 6px;
+    background: color-mix(in srgb, var(--code-toolbar-bg) 92%, transparent);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.18);
+    backdrop-filter: blur(8px);
+    cursor: default;
+  }
+
+  .article-mermaid-controls button {
+    display: inline-flex;
+    width: 2rem;
+    height: 2rem;
+    align-items: center;
+    justify-content: center;
+    border: 0;
+    border-radius: 4px;
+    color: var(--code-ink);
+    background: transparent;
+    font-size: 1.05rem;
+    line-height: 1;
+  }
+
+  .article-mermaid-controls button:hover,
+  .article-mermaid-controls button:focus-visible {
+    color: var(--ochre);
+    background: var(--code-control-bg);
+    outline: none;
+  }
+
+  .article-mermaid-controls button:disabled {
+    cursor: not-allowed;
+    opacity: 0.4;
+  }
+
+  .article-mermaid-zoom-value {
+    min-width: 3.5rem;
+    color: var(--code-muted);
+    font-family: "JetBrains Mono", "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+    font-size: 0.7rem;
+    text-align: center;
   }
 
   .article-code-block code {
@@ -583,6 +716,16 @@
 
     .article-code-block {
       font-size: 0.86rem;
+    }
+
+    .article-mermaid-panel {
+      height: min(26rem, 62vh);
+      min-height: 18rem;
+    }
+
+    .article-mermaid-controls {
+      top: 0.55rem;
+      right: 0.55rem;
     }
   }
 
@@ -612,7 +755,7 @@
 
   .article-table-toolbar button {
     flex-shrink: 0;
-    border: 1px solid rgba(138, 60, 58, 0.22);
+    border: 1px solid color-mix(in srgb, var(--ochre) 32%, transparent);
     border-radius: 4px;
     padding: 0.24rem 0.58rem;
     color: var(--ochre);
@@ -633,7 +776,7 @@
   .article-table-wrap {
     max-width: 100%;
     overflow-x: auto;
-    scrollbar-color: rgba(138, 60, 58, 0.45) transparent;
+    scrollbar-color: color-mix(in srgb, var(--ochre) 58%, transparent) transparent;
     scrollbar-width: thin;
   }
 
@@ -685,11 +828,11 @@
     overflow-x: auto;
     overflow-y: hidden;
     padding: 1rem 1.1rem;
-    border: 1px solid rgba(138, 60, 58, 0.14);
+    border: 1px solid var(--inline-code-border);
     border-radius: 6px;
     background: var(--paper-soft);
     text-align: center;
-    scrollbar-color: rgba(138, 60, 58, 0.45) transparent;
+    scrollbar-color: color-mix(in srgb, var(--ochre) 58%, transparent) transparent;
     scrollbar-width: thin;
   }
 
@@ -911,4 +1054,42 @@
   .image-lightbox__image {
     transition: none;
   }
+}
+
+/* Typography plugin tokens must follow the article theme instead of prose-stone defaults. */
+.article-markdown.prose {
+  --tw-prose-body: var(--body);
+  --tw-prose-headings: var(--ink);
+  --tw-prose-lead: var(--body);
+  --tw-prose-links: var(--ochre);
+  --tw-prose-bold: var(--ink);
+  --tw-prose-counters: var(--muted);
+  --tw-prose-bullets: var(--muted);
+  --tw-prose-hr: var(--hairline);
+  --tw-prose-quotes: var(--ink-light);
+  --tw-prose-quote-borders: var(--ochre);
+  --tw-prose-captions: var(--muted);
+  --tw-prose-kbd: var(--ink);
+  --tw-prose-kbd-shadows: var(--hairline);
+  --tw-prose-code: var(--ink);
+  --tw-prose-pre-code: var(--code-ink);
+  --tw-prose-pre-bg: var(--code-bg);
+  --tw-prose-th-borders: var(--mountain-grey);
+  --tw-prose-td-borders: var(--mountain-grey);
+  --tw-prose-invert-body: var(--body);
+  --tw-prose-invert-headings: var(--ink);
+  --tw-prose-invert-links: var(--ochre);
+  --tw-prose-invert-bold: var(--ink);
+  --tw-prose-invert-counters: var(--muted);
+  --tw-prose-invert-bullets: var(--muted);
+  --tw-prose-invert-hr: var(--hairline);
+  --tw-prose-invert-quotes: var(--ink-light);
+  --tw-prose-invert-quote-borders: var(--ochre);
+  --tw-prose-invert-captions: var(--muted);
+  --tw-prose-invert-code: var(--ink);
+  --tw-prose-invert-pre-code: var(--code-ink);
+  --tw-prose-invert-pre-bg: var(--code-bg);
+  --tw-prose-invert-th-borders: var(--mountain-grey);
+  --tw-prose-invert-td-borders: var(--mountain-grey);
+  color: var(--body);
 }

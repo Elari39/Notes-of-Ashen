@@ -6,6 +6,7 @@ import { resolveMarkdownCodeLanguage } from '../src/utils/markdownCodeLanguage.t
 test('识别已注册语言并保留未知语言的纯文本降级能力', () => {
   assert.equal(resolveMarkdownCodeLanguage('language-java'), 'java');
   assert.equal(resolveMarkdownCodeLanguage('language-toml'), 'toml');
+  assert.equal(resolveMarkdownCodeLanguage('language-mermaid'), 'mermaid');
   assert.equal(resolveMarkdownCodeLanguage('language-unknown'), 'unknown');
   assert.equal(resolveMarkdownCodeLanguage('inline-code'), '');
   assert.equal(resolveMarkdownCodeLanguage(), '');
@@ -18,6 +19,7 @@ test('兼容现有语言别名', () => {
   assert.equal(resolveMarkdownCodeLanguage('language-py'), 'python');
   assert.equal(resolveMarkdownCodeLanguage('language-shell'), 'bash');
   assert.equal(resolveMarkdownCodeLanguage('language-yml'), 'yaml');
+  assert.equal(resolveMarkdownCodeLanguage('language-mmd'), 'mermaid');
 });
 
 test('完整解析包含特殊字符和常见文件名的语言别名', () => {

@@ -10,6 +10,8 @@ const languageAliases: Readonly<Record<string, string>> = {
   kt: 'kotlin',
   kts: 'kotlin',
   md: 'markdown',
+  mermaid: 'mermaid',
+  mmd: 'mermaid',
   ps1: 'powershell',
   pwsh: 'powershell',
   py: 'python',

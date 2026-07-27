@@ -1,8 +1,8 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { CSSProperties } from 'react';
 import SyntaxHighlighter from 'react-syntax-highlighter/dist/esm/prism-light';
-import { translate } from '../i18n';
-import { usePreferenceStore } from '../store/preferences';
+import MarkdownCodeToolbar from './MarkdownCodeToolbar';
+import { codeBlockStyle, codeTagStyle } from './MarkdownCodeStyles';
 
 type PrismLanguage = Parameters<typeof SyntaxHighlighter.registerLanguage>[1];
 type PrismLanguageModule = { default: PrismLanguage };
@@ -119,34 +119,13 @@ const loadLanguage = (language: SupportedLanguage): Promise<void> => {
   return load;
 };
 
-const codeFontFamily = '"JetBrains Mono", "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace';
-const codeBlockStyle: CSSProperties = {
-  margin: 0,
-  padding: '1.25rem 1.4rem',
-  background: 'var(--code-bg)',
-  color: 'var(--code-ink)',
-  fontSize: '0.92rem',
-  lineHeight: 1.72,
-  overflowX: 'auto',
-};
-const codeTagStyle: CSSProperties = {
-  color: 'var(--code-ink)',
-  fontFamily: codeFontFamily,
-  fontWeight: 400,
-};
-
-type MarkdownCodeBlockProps = {
+export type MarkdownCodeBlockProps = {
   code: string;
   language: string;
   syntaxTheme: Record<string, CSSProperties>;
 };
 
 const MarkdownCodeBlock: React.FC<MarkdownCodeBlockProps> = ({ code, language, syntaxTheme }) => {
-  const [copied, setCopied] = useState(false);
-  const timerRef = useRef<number | undefined>(undefined);
-  const uiLanguage = usePreferenceStore((state) => state.language);
-  const t = (key: Parameters<typeof translate>[1]) => translate(uiLanguage, key);
-  const displayLanguage = language === 'text' ? 'plain text' : language;
   const syntaxLanguage = languageAliases[language.trim().toLowerCase()];
   const [isSyntaxReady, setIsSyntaxReady] = useState(() => Boolean(syntaxLanguage && loadedLanguages.has(syntaxLanguage)));
 
@@ -178,43 +157,9 @@ const MarkdownCodeBlock: React.FC<MarkdownCodeBlockProps> = ({ code, language, s
     };
   }, [syntaxLanguage]);
 
-  useEffect(() => () => {
-    if (timerRef.current) {
-      window.clearTimeout(timerRef.current);
-    }
-  }, []);
-
-  const copyCode = async () => {
-    try {
-      await navigator.clipboard.writeText(code);
-      setCopied(true);
-      if (timerRef.current) {
-        window.clearTimeout(timerRef.current);
-      }
-      timerRef.current = window.setTimeout(() => setCopied(false), 1600);
-    } catch {
-      setCopied(false);
-    }
-  };
-
   return (
     <div className="article-code-shell">
-      <div className="article-code-toolbar">
-        <div className="article-code-dots" aria-hidden="true">
-          <span className="bg-[#ef6a5e]" />
-          <span className="bg-[#f5bf4f]" />
-          <span className="bg-[#63c554]" />
-        </div>
-        <span className="article-code-language">{displayLanguage}</span>
-        <button
-          type="button"
-          className="article-code-copy"
-          onClick={copyCode}
-          aria-label={copied ? t('markdownCode.copied') : t('markdownCode.copy')}
-        >
-          {copied ? t('markdownCode.copied') : t('markdownCode.copy')}
-        </button>
-      </div>
+      <MarkdownCodeToolbar code={code} language={language} />
       {syntaxLanguage && isSyntaxReady ? (
         <SyntaxHighlighter
           style={syntaxTheme}
