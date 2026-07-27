@@ -76,6 +76,7 @@ type Drift struct {
 type StateError struct {
 	MetadataMissing bool
 	Missing         []uint64
+	Future          []uint64
 	ChecksumDrifts  []Drift
 	NameDrifts      []Drift
 }
@@ -88,9 +89,12 @@ func (e *StateError) Error() string {
 		return "schema migration metadata is missing; run the migrate service"
 	}
 
-	parts := make([]string, 0, 3)
+	parts := make([]string, 0, 4)
 	if len(e.Missing) > 0 {
 		parts = append(parts, "missing migration versions: "+formatVersions(e.Missing))
+	}
+	if len(e.Future) > 0 {
+		parts = append(parts, "database contains newer migration versions: "+formatVersions(e.Future))
 	}
 	if len(e.ChecksumDrifts) > 0 {
 		parts = append(parts, "migration checksum drift: "+formatDrifts(e.ChecksumDrifts))
@@ -361,7 +365,9 @@ func loadApplied(ctx context.Context, queryer migrationQueryer) (map[uint64]appl
 
 func validateState(migrations []Migration, applied map[uint64]appliedMigration, requireAll bool) error {
 	stateErr := &StateError{}
+	knownVersions := make(map[uint64]struct{}, len(migrations))
 	for _, item := range migrations {
+		knownVersions[item.Version] = struct{}{}
 		recorded, exists := applied[item.Version]
 		if !exists {
 			if requireAll {
@@ -384,7 +390,15 @@ func validateState(migrations []Migration, applied map[uint64]appliedMigration, 
 			})
 		}
 	}
-	if len(stateErr.Missing) == 0 && len(stateErr.ChecksumDrifts) == 0 && len(stateErr.NameDrifts) == 0 {
+	for version := range applied {
+		if _, exists := knownVersions[version]; !exists {
+			stateErr.Future = append(stateErr.Future, version)
+		}
+	}
+	sort.Slice(stateErr.Future, func(i, j int) bool {
+		return stateErr.Future[i] < stateErr.Future[j]
+	})
+	if len(stateErr.Missing) == 0 && len(stateErr.Future) == 0 && len(stateErr.ChecksumDrifts) == 0 && len(stateErr.NameDrifts) == 0 {
 		return nil
 	}
 	return stateErr

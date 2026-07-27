@@ -336,10 +336,8 @@ func Refresh(ctx context.Context, svcCtx *svc.ServiceContext, req types.RefreshR
 }
 
 func Logout(ctx context.Context, svcCtx *svc.ServiceContext, req types.RefreshReq, meta types.RequestMeta) error {
-	userID, err := authutil.UserID(ctx)
-	if err != nil {
-		return err
-	}
+	accessUserID, accessErr := authutil.UserID(ctx)
+	hasAccessUser := accessErr == nil
 	req.RefreshToken = trim(req.RefreshToken)
 	// refreshToken 现由 HttpOnly Cookie 携带；缺失时视为已登出，幂等返回成功，
 	// 避免前端在 Cookie 过期/清理后登出反复失败。
@@ -354,22 +352,28 @@ func Logout(ctx context.Context, svcCtx *svc.ServiceContext, req types.RefreshRe
 		}
 		return err
 	}
-	if err := validateLogoutRefreshToken(token, userID, time.Now()); err != nil {
-		// 归属不一致属可疑行为（可能 token 被窃取），无条件按 hash 撤销该 token，
-		// 并记录安全事件，避免侧信道枚举有效 refresh token（P4-13）。
-		_ = svcCtx.Store.RevokeRefreshToken(ctx, hash)
-		_ = svcCtx.Redis.Del(ctx, refreshKey(hash)).Err()
-		publishEvent(ctx, svcCtx, mq.Event{
-			UserID:       userID,
-			EventType:    "token.mismatch_logout",
-			ResourceType: "user",
-			ResourceID:   token.UserID,
-			IP:           meta.IP,
-			UserAgent:    meta.UserAgent,
-		})
-		return err
+	userID := token.UserID
+	if hasAccessUser {
+		userID = accessUserID
 	}
-	if err := svcCtx.Store.RevokeRefreshTokenForUser(ctx, hash, userID); err != nil {
+	if hasAccessUser {
+		if err := validateLogoutRefreshToken(token, userID, time.Now()); err != nil {
+			// 归属不一致属可疑行为（可能 token 被窃取），无条件按 hash 撤销该 token，
+			// 并记录安全事件，避免侧信道枚举有效 refresh token（P4-13）。
+			_ = svcCtx.Store.RevokeRefreshToken(ctx, hash)
+			_ = svcCtx.Redis.Del(ctx, refreshKey(hash)).Err()
+			publishEvent(ctx, svcCtx, mq.Event{
+				UserID:       userID,
+				EventType:    "token.mismatch_logout",
+				ResourceType: "user",
+				ResourceID:   token.UserID,
+				IP:           meta.IP,
+				UserAgent:    meta.UserAgent,
+			})
+			return err
+		}
+	}
+	if err := svcCtx.Store.RevokeRefreshTokenForUser(ctx, hash, token.UserID); err != nil {
 		if errors.Is(err, model.ErrNotFound) {
 			// token 已被撤销（revoked_at 非空）或并发清理，登出幂等成功。
 			return nil

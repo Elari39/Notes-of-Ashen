@@ -252,4 +252,27 @@ test.describe.serial('真实 Compose 前端关键路径', () => {
       await adminContext.close();
     }
   });
+
+  test('Access Token 失效时注销仍撤销 Refresh Cookie', async ({ browser }) => {
+    const context = await browser.newContext();
+    const page = await context.newPage();
+    try {
+      await preparePage(page);
+      await loginThroughUI(page, admin);
+
+      const logoutResponse = await context.request.post(apiV1URL('/auth/logout'), {
+        headers: { Authorization: 'Bearer expired-access-token' },
+        data: {},
+      });
+      const logoutPayload = await logoutResponse.json() as ApiEnvelope<unknown>;
+      expect(logoutResponse.status()).toBe(200);
+      expect(logoutPayload.code).toBe(0);
+      expect(logoutResponse.headers()['set-cookie']).toMatch(/noa_refresh_token=.*Max-Age=0/i);
+
+      const refreshResponse = await context.request.post(apiV1URL('/auth/refresh'), { data: {} });
+      expect(refreshResponse.status()).toBe(401);
+    } finally {
+      await context.close();
+    }
+  });
 });

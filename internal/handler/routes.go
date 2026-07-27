@@ -47,6 +47,9 @@ func RegisterHandlers(server *rest.Server, svcCtx *svc.ServiceContext) {
 	authRequired := func(handler http.HandlerFunc) http.HandlerFunc {
 		return authMiddleware.Handle(handler)
 	}
+	authOptional := func(handler http.HandlerFunc) http.HandlerFunc {
+		return authMiddleware.HandleOptional(handler)
+	}
 
 	server.AddRoutes([]rest.Route{
 		{Method: http.MethodGet, Path: "/healthz", Handler: sitehandler.HealthzHandler(svcCtx)},
@@ -72,7 +75,7 @@ func RegisterHandlers(server *rest.Server, svcCtx *svc.ServiceContext) {
 	})
 
 	server.AddRoutes([]rest.Route{
-		{Method: http.MethodPost, Path: "/api/v1/auth/logout", Handler: authRequired(authhandler.LogoutHandler(svcCtx))},
+		{Method: http.MethodPost, Path: "/api/v1/auth/logout", Handler: authOptional(authhandler.LogoutHandler(svcCtx))},
 		{Method: http.MethodGet, Path: "/api/v1/users/me", Handler: authRequired(userhandler.MeHandler(svcCtx))},
 		{Method: http.MethodPut, Path: "/api/v1/users/me", Handler: authRequired(userhandler.UpdateMeHandler(svcCtx))},
 		{Method: http.MethodPost, Path: "/api/v1/users/me/verify-code/send", Handler: verifyCodeRateLimit.Handle(authRequired(userhandler.SendVerifyCodeHandler(svcCtx)))},

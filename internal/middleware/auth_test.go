@@ -61,6 +61,51 @@ func TestAuthMiddlewareAllowsActiveUserWithLatestRole(t *testing.T) {
 	}
 }
 
+func TestAuthMiddlewareOptionalContinuesWithInvalidAccessToken(t *testing.T) {
+	manager := authutil.NewManager("test-secret", 3600, 3600)
+	middleware := NewAuthMiddleware(manager, fakeUserFinder{err: errors.New("user lookup should not run")})
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/logout", nil)
+	req.Header.Set("Authorization", "Bearer expired-access-token")
+	rec := httptest.NewRecorder()
+
+	middleware.HandleOptional(func(w http.ResponseWriter, r *http.Request) {
+		if _, err := authutil.UserID(r.Context()); err == nil {
+			t.Fatal("optional authentication unexpectedly injected a user")
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}).ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusNoContent, rec.Body.String())
+	}
+}
+
+func TestAuthMiddlewareOptionalInjectsValidActiveUser(t *testing.T) {
+	manager := authutil.NewManager("test-secret", 3600, 3600)
+	token := mustAccessToken(t, manager, 12, authutil.RoleUser)
+	middleware := NewAuthMiddleware(manager, fakeUserFinder{
+		user: &model.User{ID: 12, Role: authutil.RoleAdmin, Status: "active"},
+	})
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/logout", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	rec := httptest.NewRecorder()
+
+	middleware.HandleOptional(func(w http.ResponseWriter, r *http.Request) {
+		userID, err := authutil.UserID(r.Context())
+		if err != nil {
+			t.Fatalf("UserID() error = %v", err)
+		}
+		if userID != 12 {
+			t.Fatalf("userID = %d, want 12", userID)
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}).ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusNoContent, rec.Body.String())
+	}
+}
+
 func TestAuthMiddlewareRejectsDisabledUser(t *testing.T) {
 	manager := authutil.NewManager("test-secret", 3600, 3600)
 	token := mustAccessToken(t, manager, 12, authutil.RoleUser)

@@ -51,7 +51,7 @@ http://127.0.0.1:1270
 - 内容展示：公开文章列表、文章详情、字数与预计阅读时间、原生分享/复制链接、按年月日展开的发布归档、搜索建议与本地最近搜索、Meilisearch 全文搜索、Markdown 渲染、代码高亮、LaTeX 数学公式、文章目录和点赞反馈。
 - 作品集：作品集画廊和项目标签。
 - 分类与标签：公开与后台文章数量展示，后台可创建、更新和删除。
-- 媒体库：本地持久化 JPEG/PNG/GIF/WebP，内容哈希去重，文章与作品集可选择封面或插入 Markdown 图片。
+- 媒体库：本地持久化 JPEG/PNG/GIF/WebP/AVIF，内容哈希去重，文章与作品集可选择封面或插入 Markdown 图片。
 - 管理后台：用户管理、用户状态管理、站点设置、项目管理、操作日志、页面/文章内容分析、依赖健康探测、口令加密备份与整站恢复。
 - 站点能力：RSS、Sitemap、站点标题、描述、关键词、Prerender.io 预渲染配置等。
 - 流量统计：公开页面自动上报 PV、UV 与来源，后台展示最近 30 天趋势。
@@ -138,6 +138,7 @@ Copy-Item .env.example .env
 - `APP_DISPLAY_NAME`：站点对外展示名称，默认 `Notes of Ashen`（当前版本后端未读取，预留）。
 - `APP_AUTH_ACCESS_SECRET`：JWT 签名密钥，生产环境必须替换为足够长的随机字符串，建议至少 32 位；后台保存的 AI API Key 也会使用由它派生的独立用途密钥加密，轮换前请先阅读下方迁移说明。
 - `APP_AUTH_COOKIE_SECURE`：refreshToken Cookie 的 Secure 标志，生产 HTTPS 保持 `true`；本机 HTTP 开发需设为 `false`，否则浏览器不会保存 Cookie，刷新页面无法恢复会话。
+- `IMAGE_TAG`：Docker 应用镜像版本。模板中的值必须替换为不可变发布 tag 或 git commit hash；Compose 未设置该值时的 `latest` fallback 仅适用于本地开发。
 - `APP_MYSQL_ROOT_PASSWORD`：本地 Compose MySQL root 密码，生产或公网环境必须替换为强随机值。
 - `APP_MYSQL_USER`：本地 Compose MySQL 应用用户，默认 `notes_user`。
 - `APP_MYSQL_PASSWORD`：本地 Compose MySQL 应用用户密码，需和 `APP_DATABASE_DSN` 中的密码保持一致。
@@ -274,7 +275,7 @@ docker compose --profile search up -d --build
 
 Docker Compose 使用 `goblog_media_data` 同时挂载到 API 的 `/data/media`（可写）和 Web 的 `/usr/share/nginx/media`（只读）。Nginx 以 `/media/` 提供不可变长期缓存；不要在 Web 容器内直接修改媒体文件。非 Docker 开发使用 `Media.RootDir` 或 `APP_MEDIA_ROOT`，并由 Vite 将 `/media` 代理到 API。
 
-媒体仅接受 JPEG、PNG、GIF 和 WebP，按内容 SHA-256 保存和去重。上传先写入隐藏暂存文件，元数据成功后再原子发布；删除先移入隐藏隔离区，数据库失败时恢复，进程中断残留会在后续媒体操作中按数据库状态恢复或清理。后台 `editor/admin` 可浏览与上传，只有 `admin` 可删除；被文章、历史版本、作品或头像引用的媒体不会被删除。
+媒体仅接受 JPEG、PNG、GIF、WebP 和 AVIF，按内容 SHA-256 保存和去重。上传先写入隐藏暂存文件，元数据成功后再原子发布；删除先移入隐藏隔离区，数据库失败时恢复，进程中断残留会在后续媒体操作中按数据库状态恢复或清理。后台 `editor/admin` 可浏览与上传，只有 `admin` 可删除；被文章、历史版本、作品或头像引用的媒体不会被删除。
 
 Web 入口的 `GET /healthz` 代理到 API readiness，会反映数据库、Redis 和 schema 状态；`GET /livez` 仅表示 Nginx 静态入口存活。监控与负载均衡应使用 `/healthz` 判断应用是否可接流量。
 
@@ -311,7 +312,7 @@ docker compose up -d --build
 
 ### 发布与回滚（不可变镜像 tag）
 
-`docker compose up -d --build` 适合本机开发，但镜像会一直使用 `latest` 标签，发布不可复现（审计 P2）。正式发布请使用发布脚本：
+`docker compose up -d --build` 适合本机开发；未设置 `IMAGE_TAG` 时镜像会 fallback 到 `latest`，发布不可复现。正式发布请使用不可变 tag 和发布脚本：
 
 ```powershell
 # 发布：以当前 git 提交构建镜像，tag 形如 v20260726-1030-3521de6，
@@ -438,7 +439,7 @@ http://127.0.0.1:1270/api/v1/articles?page=1&size=10
 1. **Cookie 安全属性**：生产 HTTPS 环境保持 `APP_AUTH_COOKIE_SECURE=true`。登录后在浏览器开发者工具中确认 `noa_refresh_token` Cookie 带有 `Secure; HttpOnly; SameSite=Strict`。
 2. **会话续期**：登录后刷新页面，确认通过 `/api/v1/auth/refresh` 换取新 accessToken 且无需重新登录；access token 过期后同样能自动恢复会话。
 3. **本机 HTTP 环境例外**：仅通过 `http://127.0.0.1:1270` 访问的本机开发环境必须设置 `APP_AUTH_COOKIE_SECURE=false`，否则浏览器不会保存 refresh Cookie，刷新页面会被迫重新登录。禁止在生产 HTTPS 环境使用 `false`。
-4. **站点基址**：生产环境必须在后台站点设置中将 `siteBaseUrl` 配置为正式 HTTPS 域名（如 `https://blog.example.com`）。验收 `/rss.xml`、`/sitemap.xml` 与文章分享链接全部使用该域名，不依赖请求 Host 推断；`siteBaseUrl` 为空时后端日志会输出 `siteBaseUrl is empty` 回退提示。
+4. **站点基址**：首次上线及每次正式域名变更后，生产环境必须在后台站点设置中将 `siteBaseUrl` 配置为正式 HTTPS 域名（如 `https://blog.example.com`）。验收 `/rss.xml`、`/sitemap.xml` 与文章分享链接全部使用该域名，不依赖请求 Host 推断；`siteBaseUrl` 为空时后端日志会输出 `siteBaseUrl is empty` 回退提示，本机 HTTP 开发环境才允许保留空值。
 5. **不可变镜像 tag**：使用 `scripts/release.ps1` 发布，确认 `.env` 的 `IMAGE_TAG` 为本次发布 tag，`docker compose config` 展开结果中的应用镜像不包含 `latest`，且 `deploy/release-history.local.jsonl` 已记录本次发布。
 
 ## 本地非 Docker 开发

@@ -234,7 +234,7 @@ Token 响应示例：
 POST /api/v1/auth/logout
 ```
 
-权限：登录用户。撤销当前 Refresh Token 并清除 `noa_refresh_token` Cookie；Cookie 缺失时幂等返回成功。
+权限：以 Refresh Token Cookie 或请求体中的 `refreshToken` 作为注销凭据，不要求 Access Token 仍然有效。Access Token 有效时会额外校验 Refresh Token 是否属于当前用户；Access Token 过期时仍可撤销有效的 Refresh Token。成功后撤销当前 Refresh Token 并清除 `noa_refresh_token` Cookie；Cookie 缺失时幂等返回成功，未知 Refresh Token 返回 401。
 
 | 字段 | 类型 | 必填 | 说明 |
 | --- | --- | --- | --- |

@@ -300,3 +300,43 @@ func TestValidateLogoutRefreshTokenIsIdempotentForExpiredOrRevokedToken(t *testi
 		})
 	}
 }
+
+func TestLogoutRevokesRefreshTokenWithoutAccessTokenContext(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("create sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	refreshToken := "refresh-token"
+	hash := authutil.HashRefreshToken(refreshToken)
+	now := time.Now()
+	mock.ExpectQuery("SELECT id, user_id, token_hash, expires_at, revoked_at, created_at").
+		WithArgs(hash).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "user_id", "token_hash", "expires_at", "revoked_at", "created_at"}).
+			AddRow(uint64(1), uint64(42), hash, now.Add(time.Hour), nil, now))
+	mock.ExpectExec("UPDATE refresh_tokens SET revoked_at = NOW").
+		WithArgs(hash, uint64(42)).
+		WillReturnResult(sqlmock.NewResult(0, 1))
+
+	redisErr := errors.New("redis unavailable")
+	redisClient := redis.NewClient(&redis.Options{
+		Addr:       "redis.invalid:6379",
+		MaxRetries: 0,
+		Dialer: func(context.Context, string, string) (net.Conn, error) {
+			return nil, redisErr
+		},
+	})
+	defer redisClient.Close()
+
+	err = Logout(context.Background(), &svc.ServiceContext{
+		Store: model.NewStore(db),
+		Redis: redisClient,
+	}, types.RefreshReq{RefreshToken: refreshToken}, types.RequestMeta{})
+	if err != nil {
+		t.Fatalf("Logout() error = %v, want nil", err)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("database expectations: %v", err)
+	}
+}

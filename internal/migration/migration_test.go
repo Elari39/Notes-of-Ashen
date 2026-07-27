@@ -155,6 +155,33 @@ func TestCheckReportsMissingVersionAndChecksumDrift(t *testing.T) {
 	}
 }
 
+func TestCheckRejectsFutureMigrationVersion(t *testing.T) {
+	source := singleMigrationFS()
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("create sqlmock: %v", err)
+	}
+	defer db.Close()
+	mock.ExpectQuery(regexp.QuoteMeta(`SELECT version, name, checksum FROM schema_migrations ORDER BY version`)).
+		WillReturnRows(sqlmock.NewRows([]string{"version", "name", "checksum"}).
+			AddRow(uint64(2), "000002_future.sql", "future-checksum"))
+
+	err = Check(context.Background(), db, source)
+	var stateErr *StateError
+	if !errors.As(err, &stateErr) {
+		t.Fatalf("Check() error = %v, want *StateError", err)
+	}
+	if len(stateErr.Future) != 1 || stateErr.Future[0] != 2 {
+		t.Fatalf("future versions = %v, want [2]", stateErr.Future)
+	}
+	if !strings.Contains(err.Error(), "newer migration versions") || !strings.Contains(err.Error(), "000002") {
+		t.Fatalf("Check() error = %q, want actionable future-version message", err)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet SQL expectations: %v", err)
+	}
+}
+
 func TestCheckMetadataMissingDoesNotCreateTables(t *testing.T) {
 	source := singleMigrationFS()
 	db, mock, err := sqlmock.New()
@@ -262,6 +289,33 @@ func TestRunStopsWhenMigrationLockIsHeld(t *testing.T) {
 	err = Run(context.Background(), db, singleMigrationFS())
 	if !errors.Is(err, ErrLockNotAcquired) {
 		t.Fatalf("Run() error = %v, want ErrLockNotAcquired", err)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet SQL expectations: %v", err)
+	}
+}
+
+func TestRunRejectsFutureMigrationVersionBeforeExecutingSQL(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("create sqlmock: %v", err)
+	}
+	defer db.Close()
+	expectLockAcquired(mock)
+	mock.ExpectExec(regexp.QuoteMeta(createMigrationsTable)).WillReturnResult(sqlmock.NewResult(0, 0))
+	mock.ExpectExec(regexp.QuoteMeta(createMigrationRunsTable)).WillReturnResult(sqlmock.NewResult(0, 0))
+	mock.ExpectQuery(regexp.QuoteMeta(`SELECT version, name, checksum FROM schema_migrations ORDER BY version`)).
+		WillReturnRows(sqlmock.NewRows([]string{"version", "name", "checksum"}).
+			AddRow(uint64(2), "000002_future.sql", "future-checksum"))
+	expectLockReleased(mock)
+
+	err = Run(context.Background(), db, singleMigrationFS())
+	var stateErr *StateError
+	if !errors.As(err, &stateErr) {
+		t.Fatalf("Run() error = %v, want *StateError", err)
+	}
+	if len(stateErr.Future) != 1 || stateErr.Future[0] != 2 {
+		t.Fatalf("future versions = %v, want [2]", stateErr.Future)
 	}
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Fatalf("unmet SQL expectations: %v", err)

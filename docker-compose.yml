@@ -1,3 +1,4 @@
+# IMAGE_TAG 未设置时的 latest fallback 仅用于本地开发；生产发布必须使用不可变 tag。
 name: notes-of-ashen
 
 services:
