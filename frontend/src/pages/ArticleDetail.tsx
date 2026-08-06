@@ -259,7 +259,8 @@ const ArticleDetail: React.FC = () => {
         aria-hidden="true"
       />
 
-      <div className="editorial-container grid w-full gap-10 lg:grid-cols-[minmax(0,48rem)_16rem] lg:items-start lg:justify-center xl:gap-16">
+      {/* 无目录时退化为单列，正文自动居中；有目录时保持正文列 + 侧栏目录 */}
+      <div className={`editorial-container grid w-full gap-10 lg:items-start lg:justify-center xl:gap-16 ${headings.length > 0 ? 'lg:grid-cols-[minmax(0,48rem)_16rem]' : 'lg:grid-cols-[minmax(0,48rem)]'}`}>
 
         <article className="min-w-0 w-full">
           {loading && <PagePendingState variant="inline" label={t('common.loadingArticle')} />}
@@ -342,33 +343,34 @@ const ArticleDetail: React.FC = () => {
 
           <DeferredMarkdownRenderer content={article.content} headings={headings} className="prose-lg mx-auto" />
 
-          <div className="mt-16 rounded-xl bg-surface-soft px-6 py-8 text-center">
-            <button
-              type="button"
-              onClick={handleLike}
-              disabled={hasLiked || isLiking}
-              className={`group inline-flex min-h-11 items-center gap-3 rounded-md border px-5 py-2 text-sm font-medium transition-colors ${
-                hasLiked
-                  ? 'border-ochre bg-ochre text-on-accent'
-                  : 'border-hairline bg-paper text-ink hover:border-ink'
-              } disabled:cursor-not-allowed disabled:opacity-80`}
-              aria-pressed={hasLiked}
-            >
-              <span className={`h-2.5 w-2.5 rounded-full ${hasLiked ? 'bg-[var(--on-accent)]' : 'bg-ochre group-hover:scale-125'} transition-transform`} />
-              <span>{hasLiked ? t('articleDetail.liked') : (isLiking ? t('articleDetail.liking') : t('articleDetail.like'))}</span>
-              <span>{likeCount}</span>
-            </button>
-            <InlineNotice message={likeError} className="mt-4" />
-            <div className="mt-5 flex flex-wrap justify-center gap-3">
+          <div className="mt-16 rounded-xl bg-surface-soft px-6 py-10 text-center">
+            {/* 点赞 + 分享 + 复制链接同一行排布，换行时自动折行居中 */}
+            <div className="flex flex-wrap items-center justify-center gap-3">
+              <button
+                type="button"
+                onClick={handleLike}
+                disabled={hasLiked || isLiking}
+                className={`group inline-flex min-h-11 items-center gap-3 rounded-md border px-5 py-2 text-sm font-medium transition-colors ${
+                  hasLiked
+                    ? 'border-ochre bg-ochre text-on-accent'
+                    : 'border-hairline bg-paper text-ink hover:border-ink'
+                } disabled:cursor-not-allowed disabled:opacity-80`}
+                aria-pressed={hasLiked}
+              >
+                <span className={`h-2.5 w-2.5 rounded-full ${hasLiked ? 'bg-[var(--on-accent)]' : 'bg-ochre group-hover:scale-125'} transition-transform`} />
+                <span>{hasLiked ? t('articleDetail.liked') : (isLiking ? t('articleDetail.liking') : t('articleDetail.like'))}</span>
+                <span>{likeCount}</span>
+              </button>
               {typeof navigator.share === 'function' && (
-                <Button type="button" size="sm" variant="ghost" onClick={() => void handleShare()}>
+                <Button type="button" variant="ghost" iconBefore={<ShareIcon />} onClick={() => void handleShare()}>
                   {t('share.native')}
                 </Button>
               )}
-              <Button type="button" size="sm" variant="ghost" onClick={() => void copyArticleLink(shareURL)}>
+              <Button type="button" variant="ghost" iconBefore={<CopyLinkIcon />} onClick={() => void copyArticleLink(shareURL)}>
                 {t('share.copy')}
               </Button>
             </div>
+            <InlineNotice message={likeError} className="mt-4" />
           </div>
 
           <div className="mt-10 text-center">
@@ -542,6 +544,21 @@ const ArticleNavLink: React.FC<{
     </PreloadLink>
   );
 };
+
+// 极简内嵌 SVG 图标（stroke 风格，与 InlineNotice/EmptyState 保持一致，≤ 250B 每个）
+const ShareIcon: React.FC = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M22 2 11 13" />
+    <path d="M22 2 15 22l-4-9-9-4 20-7Z" />
+  </svg>
+);
+
+const CopyLinkIcon: React.FC = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+    <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+  </svg>
+);
 
 const articleLikeStorageKey = (articleID: number) => `article-like:${articleID}`;
 
