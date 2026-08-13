@@ -68,6 +68,17 @@ func sharedHTTPClient(headerTimeout time.Duration) *http.Client {
 	return httpConnPool
 }
 
+// NewPublicHTTPClient 返回用于管理员可配置 AI 上游的受限 HTTP 客户端。
+// 它禁止环境代理、在每次拨号时重新做公网 DNS/地址校验并禁止重定向，供 RAG
+// 等同样需要连接第三方模型服务的模块复用，避免各处自行实现不一致的 SSRF 防护。
+// 调用方仍必须对保存阶段的 URL 使用 validator.OptionalHTTPURL 做语法校验。
+func NewPublicHTTPClient(headerTimeout time.Duration) *http.Client {
+	if headerTimeout <= 0 {
+		headerTimeout = defaultFirstByteTimeout
+	}
+	return sharedHTTPClient(headerTimeout)
+}
+
 func doJSONRequest(ctx context.Context, conf Config, format, method, endpoint string, payload any) ([]byte, error) {
 	var body io.Reader
 	if payload != nil {

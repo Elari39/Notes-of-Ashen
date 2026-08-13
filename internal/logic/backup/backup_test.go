@@ -141,6 +141,55 @@ func TestValidateSnapshotRejectsInternalRestoreMarker(t *testing.T) {
 	}
 }
 
+func TestValidateSnapshotRAGChatHistory(t *testing.T) {
+	snapshot, manifest := minimalBackup(t)
+	snapshot.RAGChatSessions = []model.RAGChatSession{{ID: "session-1", UserID: 1, Title: "关于文章", SourceEpoch: 4}}
+	snapshot.RAGChatMessages = []model.RAGChatMessage{
+		{ID: 1, SessionID: "session-1", Role: "user", Content: "文章讲了什么？"},
+		{ID: 2, SessionID: "session-1", Role: "assistant", Content: "文章介绍了 RAG。", Sources: []byte(`[{"articleId":1}]`)},
+	}
+	manifest.Counts = backupCounts(snapshot)
+	if err := validateSnapshot(&snapshot, &manifest); err != nil {
+		t.Fatalf("validateSnapshot() valid RAG history error = %v", err)
+	}
+
+	badOwner := snapshot
+	badOwner.RAGChatSessions = append([]model.RAGChatSession(nil), snapshot.RAGChatSessions...)
+	badOwner.RAGChatSessions[0].UserID = 99
+	badOwnerManifest := manifest
+	badOwnerManifest.Counts = backupCounts(badOwner)
+	if err := validateSnapshot(&badOwner, &badOwnerManifest); err == nil {
+		t.Fatal("validateSnapshot() accepted RAG session with missing owner")
+	}
+
+	badMessage := snapshot
+	badMessage.RAGChatMessages = append([]model.RAGChatMessage(nil), snapshot.RAGChatMessages...)
+	badMessage.RAGChatMessages[1].SessionID = "missing"
+	badMessageManifest := manifest
+	badMessageManifest.Counts = backupCounts(badMessage)
+	if err := validateSnapshot(&badMessage, &badMessageManifest); err == nil {
+		t.Fatal("validateSnapshot() accepted RAG message with missing session")
+	}
+
+	badSources := snapshot
+	badSources.RAGChatMessages = append([]model.RAGChatMessage(nil), snapshot.RAGChatMessages...)
+	badSources.RAGChatMessages[1].Sources = []byte(`{`)
+	badSourcesManifest := manifest
+	badSourcesManifest.Counts = backupCounts(badSources)
+	if err := validateSnapshot(&badSources, &badSourcesManifest); err == nil {
+		t.Fatal("validateSnapshot() accepted malformed RAG message sources")
+	}
+}
+
+func TestValidateSnapshotVersionOneRejectsRAGChatHistory(t *testing.T) {
+	snapshot, manifest := minimalBackup(t)
+	manifest.Version = 1
+	snapshot.RAGChatSessions = []model.RAGChatSession{{ID: "session-1", UserID: 1}}
+	if err := validateSnapshot(&snapshot, &manifest); err == nil {
+		t.Fatal("validateSnapshot() accepted RAG history in v1 archive")
+	}
+}
+
 func TestRecoverPendingRestorePublishesCommittedMedia(t *testing.T) {
 	root := filepath.Join(t.TempDir(), "media")
 	if err := os.MkdirAll(root, 0755); err != nil {
@@ -259,6 +308,7 @@ func backupCounts(snapshot model.BackupSnapshot) map[string]int {
 		"users": len(snapshot.Users), "settings": len(snapshot.Settings), "categories": len(snapshot.Categories),
 		"tags": len(snapshot.Tags), "projects": len(snapshot.Projects), "articles": len(snapshot.Articles),
 		"versions": len(snapshot.Versions), "media": len(snapshot.MediaAssets),
+		"ragChatSessions": len(snapshot.RAGChatSessions), "ragChatMessages": len(snapshot.RAGChatMessages),
 	}
 }
 

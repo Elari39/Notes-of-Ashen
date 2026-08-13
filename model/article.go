@@ -141,7 +141,10 @@ func (s *Store) CreateArticle(ctx context.Context, in ArticleCreate) (uint64, er
 	err := WithTx(ctx, s.db, func(tx *sql.Tx) error {
 		var err error
 		id, err = createArticleTx(ctx, tx, in)
-		return err
+		if err != nil {
+			return err
+		}
+		return enqueueArticleRAGSyncTx(ctx, tx, id, in.Status, in.ScheduledAt)
 	})
 	return id, err
 }
@@ -169,7 +172,10 @@ func (s *Store) CreateMarkdownArticle(ctx context.Context, in MarkdownArticleImp
 		}
 		var err error
 		id, err = createArticleTx(ctx, tx, article)
-		return err
+		if err != nil {
+			return err
+		}
+		return enqueueArticleRAGSyncTx(ctx, tx, id, article.Status, article.ScheduledAt)
 	})
 	return id, err
 }
@@ -268,12 +274,20 @@ WHERE id = ?`,
 		}); err != nil {
 			return err
 		}
-		return replaceArticleTags(ctx, tx, id, in.TagIDs)
+		if err := replaceArticleTags(ctx, tx, id, in.TagIDs); err != nil {
+			return err
+		}
+		return enqueueArticleRAGSyncTx(ctx, tx, id, in.Status, in.ScheduledAt)
 	})
 }
 
 func (s *Store) DeleteArticle(ctx context.Context, id uint64) error {
 	return WithTx(ctx, s.db, func(tx *sql.Tx) error {
+		// 删除任务先写入同一事务；rag_sync_jobs 不存在文章外键，因此提交后仍可
+		// 清理已被删除文章的向量和历史回答。
+		if err := enqueueRAGSyncJobTx(ctx, tx, id, RAGSyncOperationDelete, time.Now().UTC()); err != nil {
+			return err
+		}
 		if _, err := tx.ExecContext(ctx, "DELETE FROM article_tags WHERE article_id = ?", id); err != nil {
 			return err
 		}
@@ -313,9 +327,12 @@ WHERE id = ?`, status, nullableTime(publishedAt), id)
 		if err != nil {
 			return err
 		}
-		return requireUpdateAffected(ctx, res, func(ctx context.Context) error {
+		if err := requireUpdateAffected(ctx, res, func(ctx context.Context) error {
 			return articleExistsTx(ctx, tx, id)
-		})
+		}); err != nil {
+			return err
+		}
+		return enqueueArticleRAGSyncTx(ctx, tx, id, status, nil)
 	})
 }
 
@@ -342,8 +359,23 @@ WHERE id = ?`,
 		}); err != nil {
 			return err
 		}
-		return replaceArticleTags(ctx, tx, articleID, version.TagIDs)
+		if err := replaceArticleTags(ctx, tx, articleID, version.TagIDs); err != nil {
+			return err
+		}
+		return enqueueArticleRAGSyncTx(ctx, tx, articleID, version.Status, version.ScheduledAt)
 	})
+}
+
+func enqueueArticleRAGSyncTx(ctx context.Context, tx *sql.Tx, articleID uint64, status string, scheduledAt *time.Time) error {
+	operation := RAGSyncOperationUpsert
+	runAfter := time.Now().UTC()
+	if status != ArticleStatusPublished {
+		operation = RAGSyncOperationDelete
+	} else if scheduledAt != nil && scheduledAt.After(runAfter) {
+		// 定时文章在到点前绝不发送正文给 embedding 上游。
+		runAfter = *scheduledAt
+	}
+	return enqueueRAGSyncJobTx(ctx, tx, articleID, operation, runAfter)
 }
 
 func (s *Store) FindArticle(ctx context.Context, id uint64) (*Article, error) {

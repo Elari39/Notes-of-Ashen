@@ -101,6 +101,30 @@ var runtimeSchemaManifest = [...]schemaTableRequirement{
 		Name:    "traffic_content_daily_visitors",
 		Columns: []string{"stat_date", "route_type", "article_id", "path", "visitor_hash"},
 	},
+	{
+		Name: "rag_sync_jobs",
+		Columns: []string{
+			"id", "article_id", "operation", "article_version", "run_after", "lease_token", "lease_expires_at", "attempts", "last_error", "created_at", "updated_at",
+		},
+	},
+	{
+		Name: "rag_index_state",
+		Columns: []string{
+			"id", "status", "epoch", "embedding_fingerprint", "last_error", "indexed_article_count", "indexed_chunk_count", "started_at", "completed_at", "rebuild_lease_token", "rebuild_lease_expires_at", "created_at", "updated_at",
+		},
+	},
+	{
+		Name: "rag_chat_sessions",
+		Columns: []string{
+			"id", "user_id", "title", "source_epoch", "expires_at", "created_at", "updated_at",
+		},
+	},
+	{
+		Name: "rag_chat_messages",
+		Columns: []string{
+			"id", "session_id", "role", "content", "sources", "hidden_at", "created_at",
+		},
+	},
 }
 
 const runtimeSchemaColumnsQueryPrefix = `SELECT table_name, column_name FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name IN (`

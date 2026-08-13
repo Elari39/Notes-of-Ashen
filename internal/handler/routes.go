@@ -12,6 +12,7 @@ import (
 	backuphandler "notes-of-ashen/internal/handler/backup"
 	categoryhandler "notes-of-ashen/internal/handler/category"
 	mediahandler "notes-of-ashen/internal/handler/media"
+	raghandler "notes-of-ashen/internal/handler/rag"
 	searchhandler "notes-of-ashen/internal/handler/search"
 	sitehandler "notes-of-ashen/internal/handler/site"
 	systemhandler "notes-of-ashen/internal/handler/system"
@@ -44,6 +45,9 @@ func RegisterHandlers(server *rest.Server, svcCtx *svc.ServiceContext) {
 	trafficRateLimit := middleware.NewRateLimitMiddleware(svcCtx.Redis, "traffic_visit", 120, time.Minute, forwardedOptions)
 	articleLikeRateLimit := middleware.NewRateLimitMiddleware(svcCtx.Redis, "article_like", 60, time.Minute, forwardedOptions)
 	aiRateLimit := middleware.NewRateLimitMiddleware(svcCtx.Redis, "ai_assist", 20, time.Minute, forwardedOptions)
+	ragRateLimit := middleware.NewFailClosedRateLimitMiddleware(svcCtx.Redis, "rag_chat", 12, time.Minute, forwardedOptions)
+	ragConcurrencyLimit := middleware.NewFailClosedConcurrencyLimitMiddleware(svcCtx.Redis, "rag_chat_concurrent", 2, 12*time.Minute, forwardedOptions)
+	ragChatPage := middleware.NewRAGChatPageMiddleware(svcCtx.Store)
 	authRequired := func(handler http.HandlerFunc) http.HandlerFunc {
 		return authMiddleware.Handle(handler)
 	}
@@ -72,6 +76,7 @@ func RegisterHandlers(server *rest.Server, svcCtx *svc.ServiceContext) {
 		{Method: http.MethodGet, Path: "/api/v1/search/suggestions", Handler: searchhandler.SuggestionsHandler(svcCtx)},
 		{Method: http.MethodGet, Path: "/api/v1/site/settings", Handler: sitehandler.SettingsHandler(svcCtx)},
 		{Method: http.MethodGet, Path: "/api/v1/site/projects", Handler: sitehandler.ProjectsPageHandler(svcCtx)},
+		{Method: http.MethodPost, Path: "/api/v1/rag/chat/stream", Handler: ragChatPage.Handle(ragRateLimit.Handle(ragConcurrencyLimit.Handle(authOptional(raghandler.StreamHandler(svcCtx)))))},
 	})
 
 	server.AddRoutes([]rest.Route{
@@ -81,6 +86,9 @@ func RegisterHandlers(server *rest.Server, svcCtx *svc.ServiceContext) {
 		{Method: http.MethodPost, Path: "/api/v1/users/me/verify-code/send", Handler: verifyCodeRateLimit.Handle(authRequired(userhandler.SendVerifyCodeHandler(svcCtx)))},
 		{Method: http.MethodPut, Path: "/api/v1/users/me/password", Handler: changePasswordRateLimit.Handle(authRequired(userhandler.ChangePasswordHandler(svcCtx)))},
 		{Method: http.MethodPost, Path: "/api/v1/articles", Handler: authRequired(articlehandler.CreateHandler(svcCtx))},
+		{Method: http.MethodGet, Path: "/api/v1/rag/sessions", Handler: ragChatPage.Handle(authRequired(raghandler.SessionsHandler(svcCtx)))},
+		{Method: http.MethodGet, Path: "/api/v1/rag/sessions/:id", Handler: ragChatPage.Handle(authRequired(raghandler.SessionHandler(svcCtx)))},
+		{Method: http.MethodDelete, Path: "/api/v1/rag/sessions/:id", Handler: ragChatPage.Handle(authRequired(raghandler.DeleteSessionHandler(svcCtx)))},
 		{Method: http.MethodPost, Path: "/api/v1/articles/ai/assist", Handler: aiRateLimit.Handle(authRequired(articlehandler.AIAssistHandler(svcCtx)))},
 		{Method: http.MethodPost, Path: "/api/v1/articles/import", Handler: authRequired(articlehandler.ImportMarkdownHandler(svcCtx))},
 		{Method: http.MethodGet, Path: "/api/v1/articles/:id/preview", Handler: authRequired(articlehandler.PreviewHandler(svcCtx))},
@@ -114,6 +122,11 @@ func RegisterHandlers(server *rest.Server, svcCtx *svc.ServiceContext) {
 		{Method: http.MethodPut, Path: "/api/v1/admin/ai/settings", Handler: authRequired(aihandler.UpdateSettingsHandler(svcCtx))},
 		{Method: http.MethodPost, Path: "/api/v1/admin/ai/models", Handler: aiRateLimit.Handle(authRequired(aihandler.ModelsHandler(svcCtx)))},
 		{Method: http.MethodPost, Path: "/api/v1/admin/ai/test", Handler: aiRateLimit.Handle(authRequired(aihandler.TestModelHandler(svcCtx)))},
+		{Method: http.MethodGet, Path: "/api/v1/admin/rag/settings", Handler: authRequired(raghandler.SettingsHandler(svcCtx))},
+		{Method: http.MethodPut, Path: "/api/v1/admin/rag/settings", Handler: authRequired(raghandler.UpdateSettingsHandler(svcCtx))},
+		{Method: http.MethodGet, Path: "/api/v1/admin/rag/status", Handler: authRequired(raghandler.StatusHandler(svcCtx))},
+		{Method: http.MethodPost, Path: "/api/v1/admin/rag/test", Handler: aiRateLimit.Handle(authRequired(raghandler.TestHandler(svcCtx)))},
+		{Method: http.MethodPost, Path: "/api/v1/admin/rag/rebuild", Handler: authRequired(raghandler.RebuildHandler(svcCtx))},
 		{Method: http.MethodGet, Path: "/api/v1/admin/users", Handler: authRequired(adminhandler.ListUsersHandler(svcCtx))},
 		{Method: http.MethodPatch, Path: "/api/v1/admin/users/:id/status", Handler: authRequired(adminhandler.UpdateUserStatusHandler(svcCtx))},
 		{Method: http.MethodPatch, Path: "/api/v1/admin/users/:id/role", Handler: authRequired(adminhandler.UpdateUserRoleHandler(svcCtx))},

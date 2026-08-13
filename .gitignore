@@ -131,3 +131,6 @@ temp/
 *.swo
 *~
 *.pid
+
+# 线上安全审计（本地测试产物，不上传）
+security-audit/

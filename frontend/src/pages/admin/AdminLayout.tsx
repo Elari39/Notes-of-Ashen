@@ -27,6 +27,7 @@ const segmentLabelKey: Record<string, TranslationKey> = {
   logs: 'admin.logs',
   settings: 'admin.settings',
   'ai-settings': 'admin.aiSettings',
+  'rag-settings': 'admin.ragSettings',
   projects: 'admin.projects',
   media: 'admin.media',
   analytics: 'admin.analytics',
@@ -108,6 +109,9 @@ const AdminLayout: React.FC = () => {
               </PreloadNavLink>
               <PreloadNavLink to="/admin/ai-settings" preload={routeLoaders.adminAISettings} className={navLinkClass}>
                 {t('admin.aiSettings')}
+              </PreloadNavLink>
+              <PreloadNavLink to="/admin/rag-settings" preload={routeLoaders.adminRAGSettings} className={navLinkClass}>
+                {t('admin.ragSettings')}
               </PreloadNavLink>
               <PreloadNavLink to="/admin/system" preload={routeLoaders.adminSystem} className={navLinkClass}>
                 {t('admin.system')}

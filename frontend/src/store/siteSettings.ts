@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { getSiteSettings, updateSiteSettings } from '../api/siteSettings';
-import type { HomeArticleLayout } from '../types';
+import type { HomeArticleLayout, RAGChatAccessLevel } from '../types';
 import type { SiteSettings } from '../types';
 import type { UpdateSiteSettingsReq } from '../types/api';
 import { executeFetchSettings, executeUpdateSettings } from './siteSettingsPolicy';
@@ -19,6 +19,9 @@ interface SiteSettingsState {
   siteBaseUrl: string;
   projectsPageEnabled: boolean;
   projectsNavHidden: boolean;
+  ragChatPageEnabled: boolean;
+  ragChatNavHidden: boolean;
+  ragChatAccessLevel: RAGChatAccessLevel;
   isLoading: boolean;
   hasLoaded: boolean;
   loadError: string;
@@ -39,6 +42,9 @@ const toSiteSettingsState = (settings: SiteSettings): Partial<SiteSettingsState>
   siteBaseUrl: settings.siteBaseUrl || '',
   projectsPageEnabled: Boolean(settings.projectsPageEnabled),
   projectsNavHidden: settings.projectsNavHidden ?? true,
+  ragChatPageEnabled: Boolean(settings.ragChatPageEnabled),
+  ragChatNavHidden: settings.ragChatNavHidden ?? true,
+  ragChatAccessLevel: settings.ragChatAccessLevel ?? 'guest',
 });
 
 export const useSiteSettingsStore = create<SiteSettingsState>((set, get) => ({
@@ -52,6 +58,9 @@ export const useSiteSettingsStore = create<SiteSettingsState>((set, get) => ({
   siteBaseUrl: '',
   projectsPageEnabled: false,
   projectsNavHidden: true,
+  ragChatPageEnabled: false,
+  ragChatNavHidden: true,
+  ragChatAccessLevel: 'guest',
   isLoading: false,
   hasLoaded: false,
   loadError: '',

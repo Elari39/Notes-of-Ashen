@@ -114,6 +114,9 @@ type SiteSettingsResp {
 	SiteBaseURL                   string `json:"siteBaseUrl"`
 	ProjectsPageEnabled           bool   `json:"projectsPageEnabled"`
 	ProjectsNavHidden             bool   `json:"projectsNavHidden"`
+	RAGChatPageEnabled            bool   `json:"ragChatPageEnabled"`
+	RAGChatNavHidden              bool   `json:"ragChatNavHidden"`
+	RAGChatAccessLevel            string `json:"ragChatAccessLevel"`
 }
 
 type UpdateSiteSettingsReq {
@@ -126,6 +129,9 @@ type UpdateSiteSettingsReq {
 	SiteBaseURL         *string `json:"siteBaseUrl,optional"`
 	ProjectsPageEnabled *bool  `json:"projectsPageEnabled,optional"`
 	ProjectsNavHidden   *bool  `json:"projectsNavHidden,optional"`
+	RAGChatPageEnabled  *bool  `json:"ragChatPageEnabled,optional"`
+	RAGChatNavHidden    *bool  `json:"ragChatNavHidden,optional"`
+	RAGChatAccessLevel  *string `json:"ragChatAccessLevel,optional"`
 }
 
 type ProjectItem {
@@ -304,6 +310,94 @@ type AIModelTestReq {
 type AIModelTestResp {
 	Model     string `json:"model"`
 	LatencyMs int64  `json:"latencyMs"`
+}
+
+// RAGSettingsResp never exposes the plaintext API key. The configured and
+// needsUpdate flags only describe whether the saved encrypted key is usable.
+type RAGSettingsResp {
+	Enabled              bool   `json:"enabled"`
+	ChatBaseURL          string `json:"chatBaseUrl"`
+	EmbeddingBaseURL     string `json:"embeddingBaseUrl"`
+	RerankURL            string `json:"rerankUrl"`
+	APIKeyConfigured     bool   `json:"apiKeyConfigured"`
+	APIKeyNeedsUpdate    bool   `json:"apiKeyNeedsUpdate"`
+	ChatModel            string `json:"chatModel"`
+	EmbeddingModel       string `json:"embeddingModel"`
+	EmbeddingDimensions  int    `json:"embeddingDimensions"`
+	RerankModel          string `json:"rerankModel"`
+	HistoryRetentionDays int    `json:"historyRetentionDays"`
+}
+
+type UpdateRAGSettingsReq {
+	Enabled              bool    `json:"enabled"`
+	ChatBaseURL          *string `json:"chatBaseUrl,optional"`
+	EmbeddingBaseURL     *string `json:"embeddingBaseUrl,optional"`
+	RerankURL            *string `json:"rerankUrl,optional"`
+	APIKey               string  `json:"apiKey,optional"`
+	ClearAPIKey          bool    `json:"clearApiKey,optional"`
+	ChatModel            *string `json:"chatModel,optional"`
+	EmbeddingModel       *string `json:"embeddingModel,optional"`
+	EmbeddingDimensions  *int    `json:"embeddingDimensions,optional"`
+	RerankModel          *string `json:"rerankModel,optional"`
+	HistoryRetentionDays *int    `json:"historyRetentionDays,optional"`
+}
+
+// RAGTestReq uses the saved, encrypted RAG provider configuration.
+type RAGTestReq {
+	Kind string `json:"kind"`
+}
+
+type RAGTestResp {
+	LatencyMs           int64  `json:"latencyMs"`
+	Message             string `json:"message,optional"`
+	EmbeddingDimensions int    `json:"embeddingDimensions,optional"`
+}
+
+type RAGStatusResp {
+	Status          string `json:"status"`
+	Enabled         bool   `json:"enabled"`
+	Configured      bool   `json:"configured"`
+	QueueDepth      uint64 `json:"queueDepth,optional"`
+	IndexedArticles uint64 `json:"indexedArticles,optional"`
+	IndexedChunks   uint64 `json:"indexedChunks,optional"`
+	LastError       string `json:"lastError,optional"`
+}
+
+type RAGChatStreamReq {
+	Question  string `json:"question"`
+	SessionID string `json:"sessionId,optional"`
+}
+
+type RAGChatSourceResp {
+	ArticleID uint64 `json:"articleId"`
+	Title     string `json:"title"`
+	URL       string `json:"url,optional"`
+	Snippet   string `json:"snippet,optional"`
+}
+
+type RAGChatMessageResp {
+	ID             string               `json:"id"`
+	SessionID      string               `json:"sessionId"`
+	Role           string               `json:"role"`
+	Content        string               `json:"content"`
+	Sources        []RAGChatSourceResp `json:"sources,optional"`
+	SourcesUpdated bool                 `json:"sourcesUpdated,optional"`
+	HiddenAt       *time.Time           `json:"hiddenAt,optional"`
+	CreatedAt      time.Time            `json:"createdAt"`
+}
+
+type RAGChatSessionResp {
+	ID          string               `json:"id"`
+	Title       string               `json:"title"`
+	SourceEpoch uint64               `json:"sourceEpoch,optional"`
+	ExpiresAt   *time.Time           `json:"expiresAt,optional"`
+	CreatedAt   time.Time            `json:"createdAt"`
+	UpdatedAt   time.Time            `json:"updatedAt"`
+	Messages    []RAGChatMessageResp `json:"messages,optional"`
+}
+
+type RAGChatSessionListResp {
+	Items []RAGChatSessionResp `json:"items"`
 }
 
 // ArticleListReq 由 handler 用 basehandler.Query 手动解析，tag 与 types.go 一致使用 json。
@@ -721,6 +815,18 @@ service notesOfAshen-api {
 	@handler siteSettings
 	get /api/v1/site/settings returns (SiteSettingsResp)
 
+	@handler ragChatStream
+	post /api/v1/rag/chat/stream (RAGChatStreamReq)
+
+	@handler ragSessions
+	get /api/v1/rag/sessions returns (RAGChatSessionListResp)
+
+	@handler ragSession
+	get /api/v1/rag/sessions/:id returns (RAGChatSessionResp)
+
+	@handler ragDeleteSession
+	delete /api/v1/rag/sessions/:id returns (EmptyResp)
+
 	@handler siteProjectsPage
 	get /api/v1/site/projects returns (ProjectsPageResp)
 
@@ -839,6 +945,21 @@ service notesOfAshen-api {
 
 	@handler adminUpdateAISettings
 	put /api/v1/admin/ai/settings (UpdateAISettingsReq) returns (AISettingsResp)
+
+	@handler adminRAGSettings
+	get /api/v1/admin/rag/settings returns (RAGSettingsResp)
+
+	@handler adminUpdateRAGSettings
+	put /api/v1/admin/rag/settings (UpdateRAGSettingsReq) returns (RAGSettingsResp)
+
+	@handler adminRAGTest
+	post /api/v1/admin/rag/test (RAGTestReq) returns (RAGTestResp)
+
+	@handler adminRAGStatus
+	get /api/v1/admin/rag/status returns (RAGStatusResp)
+
+	@handler adminRAGRebuild
+	post /api/v1/admin/rag/rebuild returns (RAGStatusResp)
 
 	@handler adminAIModels
 	post /api/v1/admin/ai/models (AIConnectionReq) returns (AIModelsResp)

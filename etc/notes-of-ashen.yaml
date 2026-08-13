@@ -43,6 +43,14 @@ Search:
   MeilisearchAPIKey: ""
   MeilisearchIndex: "articles"
 
+# Qdrant 是 RAG 的可再生向量索引。DashScope 地址、模型和 API Key 只保存于
+# 管理后台对应的 site_settings，不得通过本文件或环境变量配置。
+RAG:
+  Enabled: false
+  QdrantURL: "http://127.0.0.1:6333"
+  QdrantAPIKey: ""
+  QdrantCollection: "rag_articles"
+
 RabbitMQ:
   Enabled: false
   User: "notes_user"

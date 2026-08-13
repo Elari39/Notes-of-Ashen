@@ -2,7 +2,7 @@
  * API Request Payloads
  */
 
-import type { ArticleStatus, UserRole, UserStatus } from './index';
+import type { ArticleStatus, RAGChatAccessLevel, UserRole, UserStatus } from './index';
 
 export interface PageParams {
   page?: number;
@@ -77,6 +77,74 @@ export interface UpdateSiteSettingsReq {
   siteBaseUrl?: string;
   projectsPageEnabled?: boolean;
   projectsNavHidden?: boolean;
+  ragChatPageEnabled?: boolean;
+  ragChatNavHidden?: boolean;
+  ragChatAccessLevel?: RAGChatAccessLevel;
+}
+
+export interface RAGSettingsResp {
+  enabled: boolean;
+  chatBaseUrl: string;
+  embeddingBaseUrl: string;
+  rerankUrl: string;
+  apiKeyConfigured: boolean;
+  apiKeyNeedsUpdate: boolean;
+  chatModel: string;
+  embeddingModel: string;
+  embeddingDimensions: number;
+  rerankModel: string;
+  historyRetentionDays: number;
+}
+
+/** RAG 私有会话只支持这些固定保留期，0 表示永久保留。 */
+export const RAG_HISTORY_RETENTION_OPTIONS = [0, 7, 30, 60, 90, 180, 365] as const;
+
+export const isValidRAGHistoryRetentionDays = (value: number): boolean => (
+  Number.isInteger(value) && RAG_HISTORY_RETENTION_OPTIONS.includes(value as typeof RAG_HISTORY_RETENTION_OPTIONS[number])
+);
+
+export interface UpdateRAGSettingsReq {
+  enabled: boolean;
+  chatBaseUrl?: string;
+  embeddingBaseUrl?: string;
+  rerankUrl?: string;
+  apiKey?: string;
+  clearApiKey?: boolean;
+  chatModel?: string;
+  embeddingModel?: string;
+  embeddingDimensions?: number;
+  rerankModel?: string;
+  historyRetentionDays?: number;
+}
+
+export type RAGTestKind = 'chat' | 'embedding' | 'rerank';
+
+/** 测试接口只使用已保存的加密配置，避免浏览器回传或记录 API Key。 */
+export interface RAGTestReq {
+  kind: RAGTestKind;
+}
+
+export interface RAGTestResp {
+  latencyMs: number;
+  message?: string;
+  embeddingDimensions?: number;
+}
+
+export type RAGIndexStatus = 'needs_rebuild' | 'rebuilding' | 'ready' | 'error' | 'disabled';
+
+export interface RAGStatusResp {
+  status: RAGIndexStatus;
+  enabled: boolean;
+  configured: boolean;
+  queueDepth?: number;
+  indexedArticles?: number;
+  indexedChunks?: number;
+  lastError?: string;
+}
+
+export interface RAGChatStreamReq {
+  question: string;
+  sessionId?: string;
 }
 
 export interface ArticleLikeResp {

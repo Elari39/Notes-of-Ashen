@@ -14,6 +14,10 @@ func TestApplyEnvOverridesConfig(t *testing.T) {
 	t.Setenv("APP_PORT", "19001")
 	t.Setenv("APP_DATABASE_DSN", "notes:secret@tcp(mysql:3306)/notes_of_ashen")
 	t.Setenv("APP_REDIS_ADDR", "redis:6379")
+	t.Setenv("APP_RAG_ENABLED", "true")
+	t.Setenv("APP_QDRANT_URL", "http://qdrant:6333")
+	t.Setenv("APP_QDRANT_API_KEY", "qdrant-api-key")
+	t.Setenv("APP_QDRANT_COLLECTION", "rag_articles_test")
 	t.Setenv("APP_RABBITMQ_ENABLED", "false")
 	t.Setenv("APP_AUTH_ACCESS_SECRET", "production-secret")
 	t.Setenv("APP_REQUIRE_PUBLIC_SITE_URL", "true")
@@ -41,6 +45,9 @@ func TestApplyEnvOverridesConfig(t *testing.T) {
 	}
 	if c.Redis.Addr != "redis:6379" {
 		t.Fatalf("Redis.Addr = %q", c.Redis.Addr)
+	}
+	if !c.RAG.Enabled || c.RAG.QdrantURL != "http://qdrant:6333" || c.RAG.QdrantAPIKey != "qdrant-api-key" || c.RAG.QdrantCollection != "rag_articles_test" {
+		t.Fatalf("RAG configuration was not overridden: %+v", c.RAG)
 	}
 	if c.RabbitMQ.Enabled {
 		t.Fatal("RabbitMQ.Enabled = true, want false")
@@ -181,6 +188,31 @@ func TestValidateOptionalDependencyProfiles(t *testing.T) {
 			conf: Config{Search: SearchConf{
 				Enabled: true, MeilisearchHost: "http://meilisearch:7700", MeilisearchAPIKey: "strong-meili-key", MeilisearchIndex: "articles",
 			}},
+		},
+		{
+			name:      "rag enabled without profile",
+			profiles:  "",
+			conf:      Config{RAG: RAGConf{Enabled: true, QdrantURL: "http://qdrant:6333", QdrantCollection: "rag_articles"}},
+			wantError: "APP_RAG_ENABLED",
+		},
+		{
+			name:     "rag enabled with profile",
+			profiles: "rag",
+			conf: Config{RAG: RAGConf{
+				Enabled: true, QdrantURL: "http://qdrant:6333", QdrantCollection: "rag_articles",
+			}},
+		},
+		{
+			name:      "rag enabled without collection",
+			profiles:  "rag",
+			conf:      Config{RAG: RAGConf{Enabled: true, QdrantURL: "http://qdrant:6333"}},
+			wantError: "APP_QDRANT_COLLECTION",
+		},
+		{
+			name:      "disabled rag with api key",
+			profiles:  "",
+			conf:      Config{RAG: RAGConf{QdrantAPIKey: "qdrant-api-key"}},
+			wantError: "APP_QDRANT_API_KEY",
 		},
 		{
 			name:     "rabbitmq enabled with matching credentials",

@@ -7,6 +7,7 @@ const TIMEOUT_LONG_RUNNING = 600_000;
 const SERVER_MANAGED_AI_PATTERNS: RegExp[] = [
   /\/articles\/ai\/assist(?:\?|$)/,
   /\/admin\/ai\/(?:models|test)(?:\?|$)/,
+  /\/admin\/rag\/test(?:\?|$)/,
 ];
 
 const LONG_RUNNING_PATTERNS: RegExp[] = [

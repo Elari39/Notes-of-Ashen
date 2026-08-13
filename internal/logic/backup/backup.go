@@ -35,7 +35,9 @@ import (
 )
 
 const (
-	archiveVersion          = 1
+	// 版本 2 开始包含登录用户的 RAG 私有会话；读取端仍兼容版本 1，
+	// 但旧二进制会拒绝版本 2，避免静默丢弃这些新增的私有数据。
+	archiveVersion          = 2
 	maxBackupArchiveEntries = 100000
 	maxBackupManifestBytes  = int64(8 << 20)
 )
@@ -89,6 +91,7 @@ func Export(ctx context.Context, svcCtx *svc.ServiceContext, req types.BackupExp
 			"users": len(snapshot.Users), "settings": len(snapshot.Settings), "categories": len(snapshot.Categories),
 			"tags": len(snapshot.Tags), "projects": len(snapshot.Projects), "articles": len(snapshot.Articles),
 			"versions": len(snapshot.Versions), "media": len(snapshot.MediaAssets),
+			"ragChatSessions": len(snapshot.RAGChatSessions), "ragChatMessages": len(snapshot.RAGChatMessages),
 		},
 	}
 	root, err := medialogic.Root(svcCtx)
@@ -464,7 +467,7 @@ func readArchive(reader *zip.Reader, maxBytes int64) (*Manifest, *model.BackupSn
 		return nil, nil, apperrors.BadRequest("backup manifest is missing")
 	}
 	var manifest Manifest
-	if json.Unmarshal(manifestData, &manifest) != nil || manifest.Version != archiveVersion {
+	if json.Unmarshal(manifestData, &manifest) != nil || !supportedArchiveVersion(manifest.Version) {
 		return nil, nil, apperrors.BadRequest("backup version is not supported")
 	}
 	if len(entries) != len(manifest.Files)+2 {
@@ -544,12 +547,18 @@ func validateSnapshot(snapshot *model.BackupSnapshot, manifest *Manifest) error 
 		"tags": len(snapshot.Tags), "projects": len(snapshot.Projects), "articles": len(snapshot.Articles),
 		"versions": len(snapshot.Versions), "media": len(snapshot.MediaAssets),
 	}
+	if manifest.Version >= 2 {
+		expectedCounts["ragChatSessions"] = len(snapshot.RAGChatSessions)
+		expectedCounts["ragChatMessages"] = len(snapshot.RAGChatMessages)
+	} else if len(snapshot.RAGChatSessions) != 0 || len(snapshot.RAGChatMessages) != 0 {
+		return apperrors.BadRequest("backup rag chat data requires a newer version")
+	}
 	for name, count := range expectedCounts {
-		if manifest.Counts[name] != count {
+		if actual, exists := manifest.Counts[name]; !exists || actual != count {
 			return apperrors.BadRequest("backup counts do not match")
 		}
 	}
-	if manifest.ExportedAt.IsZero() || !sha256Pattern.MatchString(manifest.DataSHA256) {
+	if !supportedArchiveVersion(manifest.Version) || manifest.ExportedAt.IsZero() || !sha256Pattern.MatchString(manifest.DataSHA256) {
 		return apperrors.BadRequest("backup manifest is invalid")
 	}
 	if len(manifest.Files) != len(snapshot.MediaAssets) {
@@ -592,7 +601,7 @@ func validateSnapshot(snapshot *model.BackupSnapshot, manifest *Manifest) error 
 	}
 	settingKeys := map[string]struct{}{}
 	for _, setting := range snapshot.Settings {
-		if setting.Key == "" || len(setting.Key) > 64 || setting.Key == "ai_api_key_cipher" || setting.Key == model.BackupRestoreMarkerKey {
+		if setting.Key == "" || len(setting.Key) > 64 || setting.Key == model.AIAPIKeyCipherKey || setting.Key == model.RAGAPIKeyCipherKey || setting.Key == model.BackupRestoreMarkerKey {
 			return apperrors.BadRequest("backup setting is invalid")
 		}
 		if _, exists := settingKeys[setting.Key]; exists {
@@ -751,7 +760,59 @@ func validateSnapshot(snapshot *model.BackupSnapshot, manifest *Manifest) error 
 			return apperrors.BadRequest("backup media file is missing")
 		}
 	}
+	ragSessions := make(map[string]struct{}, len(snapshot.RAGChatSessions))
+	for _, session := range snapshot.RAGChatSessions {
+		if !validRAGSessionID(session.ID) || len([]rune(session.Title)) > 160 {
+			return apperrors.BadRequest("backup rag chat session is invalid")
+		}
+		if _, ok := users[session.UserID]; !ok {
+			return apperrors.BadRequest("backup rag chat session owner is invalid")
+		}
+		if _, exists := ragSessions[session.ID]; exists {
+			return apperrors.BadRequest("backup contains duplicate rag chat sessions")
+		}
+		ragSessions[session.ID] = struct{}{}
+	}
+	ragMessageIDs := make(map[uint64]struct{}, len(snapshot.RAGChatMessages))
+	for _, message := range snapshot.RAGChatMessages {
+		if message.ID == 0 || !validRAGChatRole(message.Role) || strings.TrimSpace(message.Content) == "" || len(message.Content) > 16<<20 {
+			return apperrors.BadRequest("backup rag chat message is invalid")
+		}
+		if _, ok := ragSessions[message.SessionID]; !ok {
+			return apperrors.BadRequest("backup rag chat message session is invalid")
+		}
+		if _, exists := ragMessageIDs[message.ID]; exists {
+			return apperrors.BadRequest("backup contains duplicate rag chat messages")
+		}
+		ragMessageIDs[message.ID] = struct{}{}
+		if len(message.Sources) > 0 && string(message.Sources) != "null" {
+			var sources []json.RawMessage
+			if json.Unmarshal(message.Sources, &sources) != nil {
+				return apperrors.BadRequest("backup rag chat message sources are invalid")
+			}
+		}
+	}
 	return nil
+}
+
+func validRAGSessionID(id string) bool {
+	if len(id) == 0 || len(id) > 36 {
+		return false
+	}
+	for _, char := range id {
+		if (char < 'a' || char > 'z') && (char < 'A' || char > 'Z') && (char < '0' || char > '9') && char != '-' && char != '_' {
+			return false
+		}
+	}
+	return true
+}
+
+func validRAGChatRole(role string) bool {
+	return role == "user" || role == "assistant"
+}
+
+func supportedArchiveVersion(version int) bool {
+	return version == 1 || version == archiveVersion
 }
 
 func duplicateFolded(values map[string]struct{}, value string) bool {

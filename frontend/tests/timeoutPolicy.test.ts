@@ -7,6 +7,7 @@ test('AI 提供商请求由服务端设置控制超时', () => {
   assert.equal(resolveDefaultTimeout({ method: 'post', url: '/articles/ai/assist' }), 0);
   assert.equal(resolveDefaultTimeout({ method: 'post', url: '/admin/ai/models' }), 0);
   assert.equal(resolveDefaultTimeout({ method: 'post', url: '/admin/ai/test?draft=1' }), 0);
+  assert.equal(resolveDefaultTimeout({ method: 'post', url: '/admin/rag/test' }), 0);
 });
 
 test('AI 设置读写仍使用普通请求超时', () => {

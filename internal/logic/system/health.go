@@ -15,7 +15,7 @@ import (
 
 const healthCacheTTL = 30 * time.Second
 
-const backupSchemaMigrationHealthMessage = "数据库结构未升级，请执行媒体与内容分析迁移后重试"
+const backupSchemaMigrationHealthMessage = "数据库结构未升级，请执行媒体、内容分析与 RAG 迁移后重试"
 
 var (
 	errBackupSchemaMigrationRequired = errors.New("backup schema migration is required")

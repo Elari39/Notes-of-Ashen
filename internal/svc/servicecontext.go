@@ -13,6 +13,7 @@ import (
 	"notes-of-ashen/internal/emailer"
 	"notes-of-ashen/internal/middleware"
 	"notes-of-ashen/internal/mq"
+	"notes-of-ashen/internal/rag"
 	"notes-of-ashen/internal/search"
 	"notes-of-ashen/model"
 
@@ -31,6 +32,8 @@ const (
 	refreshTokenCleanupInterval  = 24 * time.Hour
 	refreshTokenRevokedRetention = 30 * 24 * time.Hour
 	refreshTokenCleanupTimeout   = 30 * time.Second
+	ragChatCleanupInterval       = 24 * time.Hour
+	ragChatCleanupTimeout        = 30 * time.Second
 )
 
 func isRedisAuthenticationError(err error) bool {
@@ -56,17 +59,19 @@ func redisStartupPingFailure(err error) error {
 }
 
 type ServiceContext struct {
-	Config             config.Config
-	Store              *model.Store
-	Redis              *redis.Client
-	Cache              *appcache.JSONCache
-	Search             *search.Client
-	Tokens             *authutil.Manager
-	Events             *mq.Publisher
-	Mailer             *emailer.Sender
-	AuthUserCache      middleware.AuthUserCache
-	searchCancel       context.CancelFunc
-	tokenCleanupCancel context.CancelFunc
+	Config               config.Config
+	Store                *model.Store
+	Redis                *redis.Client
+	Cache                *appcache.JSONCache
+	Search               *search.Client
+	Tokens               *authutil.Manager
+	Events               *mq.Publisher
+	Mailer               *emailer.Sender
+	RAGWorker            *rag.Worker
+	AuthUserCache        middleware.AuthUserCache
+	searchCancel         context.CancelFunc
+	tokenCleanupCancel   context.CancelFunc
+	ragChatCleanupCancel context.CancelFunc
 }
 
 func NewServiceContext(c config.Config) *ServiceContext {
@@ -111,19 +116,34 @@ func NewServiceContext(c config.Config) *ServiceContext {
 	searchClient := search.NewClient(c.Search)
 	searchCancel := initializeSearch(searchClient)
 	tokenCleanupCancel := startRefreshTokenCleanup(store)
+	// 私有会话的留存策略独立于 RAG 引擎开关。恢复后或临时停用 RAG 时，
+	// 仍需按期删除过期数据，不能依赖 Worker 恰好运行。
+	ragChatCleanupCancel := startRAGChatCleanup(store)
+	var ragWorker *rag.Worker
+	if c.RAG.Enabled {
+		worker, workerErr := rag.NewWorker(c.RAG, c.Auth.AccessSecret, store)
+		if workerErr != nil {
+			logx.Errorf("[startup] RAG worker initialization failed; chat stays unavailable: %v", workerErr)
+		} else {
+			ragWorker = worker
+			ragWorker.Start()
+		}
+	}
 
 	return &ServiceContext{
-		Config:             c,
-		Store:              store,
-		Redis:              redisClient,
-		Cache:              appcache.NewJSONCache(redisClient),
-		Search:             searchClient,
-		Tokens:             authutil.NewManager(c.Auth.AccessSecret, c.Auth.AccessExpire, c.Auth.RefreshExpire),
-		Events:             events,
-		Mailer:             emailer.NewSender(c.Email),
-		AuthUserCache:      middleware.NewAuthUserCache(redisClient),
-		searchCancel:       searchCancel,
-		tokenCleanupCancel: tokenCleanupCancel,
+		Config:               c,
+		Store:                store,
+		Redis:                redisClient,
+		Cache:                appcache.NewJSONCache(redisClient),
+		Search:               searchClient,
+		Tokens:               authutil.NewManager(c.Auth.AccessSecret, c.Auth.AccessExpire, c.Auth.RefreshExpire),
+		Events:               events,
+		Mailer:               emailer.NewSender(c.Email),
+		RAGWorker:            ragWorker,
+		AuthUserCache:        middleware.NewAuthUserCache(redisClient),
+		searchCancel:         searchCancel,
+		tokenCleanupCancel:   tokenCleanupCancel,
+		ragChatCleanupCancel: ragChatCleanupCancel,
 	}
 }
 
@@ -151,6 +171,41 @@ func startRefreshTokenCleanup(store *model.Store) context.CancelFunc {
 	cleanupCtx, cancel := context.WithCancel(context.Background())
 	go func() {
 		ticker := time.NewTicker(refreshTokenCleanupInterval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-cleanupCtx.Done():
+				return
+			case <-ticker.C:
+				cleanup(cleanupCtx)
+			}
+		}
+	}()
+	return cancel
+}
+
+func startRAGChatCleanup(store *model.Store) context.CancelFunc {
+	if store == nil {
+		return nil
+	}
+
+	cleanup := func(parent context.Context) {
+		ctx, cancel := context.WithTimeout(parent, ragChatCleanupTimeout)
+		defer cancel()
+		deleted, err := store.CleanupExpiredRAGChatSessions(ctx, time.Now().UTC())
+		if err != nil {
+			logx.Errorf("[rag] chat session cleanup failed: %v", err)
+			return
+		}
+		if deleted > 0 {
+			logx.Infof("[rag] chat session cleanup removed %d expired records", deleted)
+		}
+	}
+
+	cleanup(context.Background())
+	cleanupCtx, cancel := context.WithCancel(context.Background())
+	go func() {
+		ticker := time.NewTicker(ragChatCleanupInterval)
 		defer ticker.Stop()
 		for {
 			select {
@@ -209,11 +264,17 @@ func initializeSearchWithEnsure(ensure func(context.Context) error, retryInterva
 }
 
 func (s *ServiceContext) Close() {
+	if s.RAGWorker != nil {
+		s.RAGWorker.Close()
+	}
 	if s.searchCancel != nil {
 		s.searchCancel()
 	}
 	if s.tokenCleanupCancel != nil {
 		s.tokenCleanupCancel()
+	}
+	if s.ragChatCleanupCancel != nil {
+		s.ragChatCleanupCancel()
 	}
 	if s.Events != nil {
 		s.Events.Close()

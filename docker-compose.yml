@@ -81,6 +81,10 @@ services:
       APP_MEILISEARCH_HOST: "${APP_MEILISEARCH_HOST:-http://meilisearch:7700}"
       APP_MEILISEARCH_API_KEY: "${APP_MEILISEARCH_API_KEY:-}"
       APP_MEILISEARCH_INDEX: "${APP_MEILISEARCH_INDEX:-articles}"
+      APP_RAG_ENABLED: "${APP_RAG_ENABLED:-false}"
+      APP_QDRANT_URL: "${APP_QDRANT_URL:-http://qdrant:6333}"
+      APP_QDRANT_API_KEY: "${APP_QDRANT_API_KEY:-}"
+      APP_QDRANT_COLLECTION: "${APP_QDRANT_COLLECTION:-rag_articles}"
       APP_RABBITMQ_ENABLED: "${APP_RABBITMQ_ENABLED:-false}"
       APP_RABBITMQ_USER: "${APP_RABBITMQ_USER:-notes_user}"
       APP_RABBITMQ_PASSWORD: "${APP_RABBITMQ_PASSWORD:-}"
@@ -204,6 +208,10 @@ services:
       APP_MEILISEARCH_HOST: "${APP_MEILISEARCH_HOST:-http://meilisearch:7700}"
       APP_MEILISEARCH_API_KEY: "${APP_MEILISEARCH_API_KEY:-}"
       APP_MEILISEARCH_INDEX: "${APP_MEILISEARCH_INDEX:-articles}"
+      APP_RAG_ENABLED: "${APP_RAG_ENABLED:-false}"
+      APP_QDRANT_URL: "${APP_QDRANT_URL:-http://qdrant:6333}"
+      APP_QDRANT_API_KEY: "${APP_QDRANT_API_KEY:-}"
+      APP_QDRANT_COLLECTION: "${APP_QDRANT_COLLECTION:-rag_articles}"
       APP_RABBITMQ_ENABLED: "${APP_RABBITMQ_ENABLED:-false}"
       APP_RABBITMQ_USER: "${APP_RABBITMQ_USER:-notes_user}"
       APP_RABBITMQ_PASSWORD: "${APP_RABBITMQ_PASSWORD:-}"
@@ -365,11 +373,45 @@ services:
     networks:
       - app
 
+  # RAG 向量索引。仅通过 app 内部网络提供 HTTP API，不映射宿主机端口；
+  # collection 可由后端在首次启用或全量重建时创建，卷内数据随时可由文章重建。
+  qdrant:
+    image: qdrant/qdrant:v1.16.3@sha256:0425e3e03e7fd9b3dc95c4214546afe19de2eb2e28ca621441a56663ac6e1f46
+    profiles: ["rag"]
+    restart: unless-stopped
+    environment:
+      TZ: Asia/Shanghai
+    volumes:
+      - goblog_qdrant_data:/qdrant/storage
+    expose:
+      - "6333"
+    healthcheck:
+      # 官方镜像不带 wget/curl；bash 的 /dev/tcp 只验证本地 REST 端口已经监听。
+      test: ["CMD-SHELL", "bash -c ': > /dev/tcp/127.0.0.1/6333'"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 15s
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    labels:
+      org.opencontainers.image.title: "Notes of Ashen Qdrant"
+    networks:
+      - app
+
 volumes:
   goblog_mysql_data:
   goblog_redis_data:
   goblog_rabbitmq_data:
   goblog_meili_data:
+  goblog_qdrant_data:
   goblog_media_data:
 
 networks:

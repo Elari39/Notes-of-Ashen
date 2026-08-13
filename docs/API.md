@@ -553,6 +553,49 @@ GET /api/v1/search/suggestions?q=go&limit=8
 
 最近搜索不提供服务端接口，仅由浏览器本地保存。
 
+## RAG 知识库问答
+
+### 流式问答
+
+```text
+POST /api/v1/rag/chat/stream
+```
+
+此接口使用 SSE 响应，响应头为 `Content-Type: text/event-stream`。`ragChatPageEnabled` 关闭时返回 `404`；页面已启用但 RAG 未配置、索引重建中或依赖不可用时返回 `503`。访问门槛由站点设置的 `ragChatAccessLevel` 控制（`guest`、`user`、`editor`）；始终只检索当前公开且已到发布时间的文章。问答请求有 IP 限流与并发限制。
+
+请求字段：
+
+| 字段 | 类型 | 必填 | 说明 |
+| --- | --- | --- | --- |
+| question | string | 是 | 问题，去空白后长度 1 到 4000 Unicode 字符 |
+| sessionId | string | 否 | 已登录用户的既有私有会话 ID；游客不保存服务端历史 |
+
+事件 `data` 均为 JSON：
+
+| 事件 | data | 说明 |
+| --- | --- | --- |
+| meta | `{ "sessionId": string }` | 登录用户创建或续用会话后发送 |
+| sources | `{ "sources": RAGChatSource[] }` | 本次用于回答的文章来源 |
+| delta | `{ "delta": string }` | 回答增量文本，按接收顺序拼接 |
+| done | `{ "sessionId"?: string, "messageId": string }` | 流式回答正常结束 |
+| error | `{ "message": string }` | 生成过程失败；前端应保留已接收的增量并显示错误状态 |
+
+`RAGChatSource` 字段：`articleId`、`title`，以及可选的 `url`、`snippet`。无有效证据时，服务端会返回“现有文章中没有足够依据”。文章内容仅作为不可信引用资料，不能改变系统指令。
+
+### 私有会话历史
+
+```text
+GET    /api/v1/rag/sessions
+GET    /api/v1/rag/sessions/:id
+DELETE /api/v1/rag/sessions/:id
+```
+
+权限：已登录用户。会话仅允许所有者访问或删除；不存在、已过期或不属于当前用户的会话统一返回 `404`。`GET /sessions` 返回 `{ "items": RAGChatSession[] }`，单会话响应返回 `RAGChatSession`，其中详情接口包含 `messages`。
+
+`RAGChatSession` 字段：`id`、`title`、`createdAt`、`updatedAt`，以及可选的 `sourceEpoch`、`expiresAt`、`messages`。消息字段为 `id`、`sessionId`、`role`（`user` 或 `assistant`）、`content`、`createdAt`，以及可选 `sources`、`hiddenAt`。
+
+历史保留期由管理员设置；文章来源更新时，旧回答会标记为来源已更新。任一来源文章删除、转草稿、归档或改为未来定时公开时，隐藏整条助手回答及引用，仅保留用户问题和不可用提示。
+
 ## 媒体接口
 
 静态媒体通过以下同源路径长期缓存访问：
@@ -606,7 +649,10 @@ GET /api/v1/site/settings
     "siteKeywords": "blog,notes,writing",
     "siteBaseUrl": "",
     "projectsPageEnabled": false,
-    "projectsNavHidden": true
+    "projectsNavHidden": true,
+    "ragChatPageEnabled": false,
+    "ragChatNavHidden": true,
+    "ragChatAccessLevel": "guest"
   }
 }
 ```
@@ -645,6 +691,9 @@ PUT /api/v1/admin/site/settings
 | siteBaseUrl | string | 否 | 字段缺失时保留当前值；显式空字符串表示清空，非空必须为 `http://` 或 `https://` URL |
 | projectsPageEnabled | bool | 否 | 是否启用 `/projects` 项目页面；不传时保留当前值 |
 | projectsNavHidden | bool | 否 | 是否在前台导航隐藏项目入口；不传时保留当前值 |
+| ragChatPageEnabled | bool | 否 | 是否启用 `/ask` 页面与问答接口；不传时保留当前值 |
+| ragChatNavHidden | bool | 否 | 是否在前台导航隐藏问答入口；不传时保留当前值 |
+| ragChatAccessLevel | string | 否 | 问答最低角色：`guest`、`user`、`editor`；不传时保留当前值 |
 
 所有可选字段缺失时均保留当前值。可选布尔字段显式传入 `false` 会把对应开关更新为关闭；仅 `siteBaseUrl` 支持用显式空字符串清空。
 
@@ -804,7 +853,7 @@ GET /api/v1/admin/system/health
 GET /api/v1/admin/system/health?refresh=true
 ```
 
-权限：`admin`。并发探测 MySQL、Redis、Meilisearch、RabbitMQ、SMTP、媒体目录和 `backup_schema`。`backup_schema` 验证 `media_assets` 及内容分析聚合表是否已完成迁移，异常时备份导出与恢复会在读取请求体前拒绝请求。每项返回 `up`、`down` 或 `disabled`、耗时及脱敏说明；关闭的可选依赖不降低总体状态。结果缓存 30 秒，`refresh=true` 强制刷新。SMTP 仅建连、TLS、认证和 `NOOP`，不会发送邮件。
+权限：`admin`。并发探测 MySQL、Redis、Meilisearch、RabbitMQ、SMTP、媒体目录和 `backup_schema`。`backup_schema` 验证 `media_assets`、内容分析聚合表及 RAG 表是否已完成迁移，异常时备份导出与恢复会在读取请求体前拒绝请求。每项返回 `up`、`down` 或 `disabled`、耗时及脱敏说明；关闭的可选依赖不降低总体状态。结果缓存 30 秒，`refresh=true` 强制刷新。SMTP 仅建连、TLS、认证和 `NOOP`，不会发送邮件。
 
 ### 加密备份与整站恢复
 
@@ -822,11 +871,11 @@ POST /api/v1/admin/backups/restore
 }
 ```
 
-导出返回 `application/octet-stream` 的 `.noa-backup` 文件。归档使用 age scrypt 口令加密，包含用户资料与 bcrypt 密码哈希、文章及版本、分类、标签、作品、站点设置中的非密钥配置、媒体元数据和原文件，以及文章累计浏览和点赞数。
+导出返回 `application/octet-stream` 的 `.noa-backup` 文件。归档使用 age scrypt 口令加密，包含用户资料与 bcrypt 密码哈希、文章及版本、分类、标签、作品、站点设置中的非密钥配置、媒体元数据和原文件、文章累计浏览和点赞数，以及已登录用户的 RAG 私有会话与消息。
 
 恢复使用 `multipart/form-data`：`file`、`currentPassword`、`passphrase` 必填，`confirmation` 必须为 `REPLACE`。恢复前完整校验版本、路径、展开总量、清单、SHA-256、数据计数、唯一约束、关联关系和至少一个启用管理员；默认上限为 1 GiB，同时约束最终加密 `.noa-backup` 文件和解压后的归档内容，超限备份不会被导出或恢复。
 
-归档明确排除 Refresh Token、验证码、缓存、AI API Key 密文、环境变量、审计日志、流量明细、搜索索引和访客点赞哈希。恢复会整站替换目标内容，清空会话、日志、流量和访客去重数据，强制关闭 AI 并使旧 Access Token 失效；管理员必须重新登录、重新录入 AI API Key。数据库提交后会清缓存并重建 Meilisearch，索引重建或旧媒体清理失败只作为警告返回。
+归档明确排除 Refresh Token、验证码、缓存、AI/RAG API Key 密文、环境变量、审计日志、流量明细、搜索索引、Qdrant 向量数据、RAG 同步任务、RAG 索引状态和访客点赞哈希。恢复会整站替换目标内容，清空会话、日志、流量和访客去重数据，清空 RAG 同步任务、将 RAG 索引标记为待重建、清除 RAG Key 并关闭 RAG 引擎与公开问答页；同时强制关闭 AI 并使旧 Access Token 失效。管理员必须重新登录、重新录入相应 API Key，RAG 还需完成全量索引重建后才能重新开启。数据库提交后会清缓存并重建 Meilisearch，索引重建或旧媒体清理失败只作为警告返回。
 
 ### 后台 AI 设置
 
@@ -868,6 +917,60 @@ AI 出站请求在每次新建连接时重新解析域名，解析结果只要�
 | apiKeyNeedsUpdate | bool | 已保存密文是否无法继续使用；为 `true` 时必须重新录入 API Key |
 | firstByteTimeoutSeconds | int | 首字等待超时 |
 | nonStreamTimeoutSeconds | int | 非流式输出总超时 |
+
+### 后台 RAG 设置
+
+```text
+GET /api/v1/admin/rag/settings
+PUT /api/v1/admin/rag/settings
+```
+
+权限：`admin`。RAG 使用独立于文章 AI 助手的 API Key；读取接口永不返回明文 Key，只返回 `apiKeyConfigured` 和 `apiKeyNeedsUpdate`。保存的 Key 使用既有独立用途密钥加密；认证密钥轮换或旧密文不可用时，管理员必须重新录入。
+
+更新字段：
+
+| 字段 | 类型 | 必填 | 说明 |
+| --- | --- | --- | --- |
+| enabled | bool | 是 | 是否启用 RAG 引擎 |
+| chatBaseUrl | string | 否 | OpenAI 兼容聊天服务基础地址 |
+| embeddingBaseUrl | string | 否 | OpenAI 兼容 Embedding 服务基础地址 |
+| rerankUrl | string | 否 | Rerank 服务完整地址 |
+| apiKey | string | 否 | 新的 RAG API Key；为空时保留现有 Key |
+| clearApiKey | bool | 否 | 清空已保存 Key；和非空 `apiKey` 不能同时使用 |
+| chatModel | string | 否 | 聊天模型名 |
+| embeddingModel | string | 否 | Embedding 模型名 |
+| embeddingDimensions | int | 否 | Embedding 维度 |
+| rerankModel | string | 否 | 重排模型名 |
+| historyRetentionDays | int | 否 | 历史保留天数；`0` 表示永久，允许 `365`、`180`、`90`、`60`、`30`、`7` |
+
+修改 Embedding 地址、模型或维度会将索引标记为待重建；在索引重新就绪前问答接口返回 `503`。聊天/重排模型修改立即生效。所有上游 URL 都经过与 AI 助手一致的 SSRF、防 DNS rebinding、超时及错误脱敏保护。
+
+响应 `data` 为 `RAGSettingsResp`，包含以上脱敏后的连接配置和 `enabled`、`apiKeyConfigured`、`apiKeyNeedsUpdate`、`historyRetentionDays`。`/ask` 的页面开关、导航可见性与访问门槛由站点设置接口管理。
+
+### 测试 RAG 上游连接
+
+```text
+POST /api/v1/admin/rag/test
+```
+
+权限：`admin`。请求体仅接受 `kind`，取值为 `chat`、`embedding` 或 `rerank`；探测始终使用已保存的加密 RAG 配置，不会回传、记录或接受 API Key，也不会保存设置或重建索引。Embedding 探测会校验实际返回维度与已保存的 `embeddingDimensions` 相等。
+
+```json
+{ "kind": "embedding" }
+```
+
+响应 `data`：`latencyMs`（毫秒），可选 `message` 和 `embeddingDimensions`。参数校验失败返回 `400`；上游拒绝或协议错误返回 `502`；超时返回 `504`，不会回显上游正文或 API Key。
+
+### RAG 索引状态与重建
+
+```text
+GET  /api/v1/admin/rag/status
+POST /api/v1/admin/rag/rebuild
+```
+
+权限：`admin`。状态响应为 `RAGStatusResp`，字段包括 `status`（`needs_rebuild`、`rebuilding`、`ready`、`error` 或 `disabled`）、`enabled`、`configured`，以及可选的 `queueDepth`、`indexedArticles`、`indexedChunks`、`lastError`。错误摘要不包含问题、引用正文或密钥。
+
+重建会递增索引 epoch、清空并创建 Qdrant collection、为当前公开且已到发布时间的文章写入同步任务；完成前公开问答暂停。Qdrant 是可再生派生索引，备份不包含其数据、同步任务、索引状态或 RAG Key；备份恢复后 RAG 引擎与问答页会关闭，管理员重新录入 Key 后需手动触发重建。
 
 ### 获取 AI 模型列表
 

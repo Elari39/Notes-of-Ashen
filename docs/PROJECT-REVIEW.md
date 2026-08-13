@@ -6,173 +6,188 @@
 
 **审计对象：** `Notes of Ashen` 前后端分离博客系统
 
-**审计基线：** 提交 `eb0357e`（`fix: address project audit findings`）与本地 Docker Compose 实例，Web 入口为 `http://127.0.0.1:1270`
+**审计基线：** 当前提交 `007641cda690e293da787b5e43d5797442e0c376`（`优化深色文章阅读与 Mermaid 可读性`）及本地 Docker Compose 运行实例
 
-**总体结论：** 当前 Web、API、MySQL、Redis 以及已启用的 RabbitMQ、Meilisearch 服务均处于健康状态；迁移和配置检查成功，Go 与前端构建验证通过，未发现可直接确认的 P0 或 P1 问题。上一版报告中的 Markdown 导入权限、备份恢复清理、草稿隔离、Refresh Token 索引与清理、发布脚本默认 schema 兼容性检查以及 README 默认 profile 说明已完成修复。
+**运行入口：** `http://127.0.0.1:1270`
 
-当前最需要处理的是 Access Token 过期时的注销语义：注销接口被 Access Token 中间件拦截后，Refresh Token Cookie 可能仍然有效。生产环境还必须设置正式的 HTTPS `siteBaseUrl`，否则 RSS、Sitemap 和分享链接会回退到请求基址；此外，迁移器对高于当前镜像的数据库版本、`.env.example` 的可变镜像 tag 和 README 的 AVIF 说明仍有残余风险。
+本报告是基于当前代码、当前镜像、当前运行态和已打开浏览器页面重新执行的审计，不将旧报告的未解决项直接视为当前问题。当前本地实例可正常访问，Web、API、MySQL、Redis、RabbitMQ 和 Meilisearch 均处于健康状态，数据库迁移与配置检查成功；本轮未确认可直接利用的 P0 或 P1 问题。
 
-本报告仅记录审计结果，不修改业务代码、接口、配置、数据库或运行中的 Docker 实例。
+本轮确认的风险集中在生产配置、发布制品追溯和前端性能：
+
+| 优先级 | 当前发现 | 结论 |
+| --- | --- | --- |
+| P2（生产配置）/P3（本地默认） | `siteBaseUrl` 为空时，RSS、Sitemap 和分享链接回退到请求基址；当前运行态生成的是 `http://127.0.0.1:1270` 绝对链接 | 本地访问正常，但生产发布前必须配置正式 HTTPS 域名并验收所有公开绝对链接 |
+| P2 | 当前运行镜像与发布记录中同一 tag 的镜像 ID 不一致，说明 tag 已被重新构建或覆盖 | 当前实例可运行，但发布制品不能仅凭 tag 和历史记录稳定追溯，回滚边界不可靠 |
+| P3 | Mermaid 以按需 chunk 加载，构建产物约 3.1 MB | 功能正常；包含 Mermaid 的文章在移动端或低带宽网络下可能产生额外加载成本 |
+
+本报告只记录审计结果，不修改业务代码、API、配置、数据库或运行中的 Docker 实例。
 
 ## 2. 范围与方法
 
 ### 2.1 检查范围
 
-- Go 后端：API、Handler、Logic、认证、权限、输入限制、数据访问、迁移、备份恢复、媒体和 AI 出站请求保护。
-- React/TypeScript 前端：认证状态、注销流程、浏览器存储、文章编辑草稿、API 调用、类型和页面状态。
-- 部署与文档：Docker Compose、Dockerfile、Nginx、迁移器、发布与备份脚本、`.env.example`、README 和 CI 配置。
-- 运行态：Docker 服务和一次性任务、健康检查、公开接口、未授权后台接口、RSS/Sitemap、响应头和当前镜像 tag。
+- Go 后端：路由、认证、角色权限、文章与媒体操作、备份恢复、迁移、配置、AI 出站请求、错误与响应处理。
+- React/TypeScript 前端：管理页面、文章阅读、Mermaid 渲染、API 请求封装、类型和构建产物。
+- 部署与运维：Docker Compose、Docker 镜像 tag、Nginx、迁移任务、配置检查、发布脚本、备份脚本和相关文档。
+- 运行态：Docker 服务状态、健康检查、公开接口、未授权后台接口、RSS/Sitemap、已登录后台页面和浏览器控制台日志。
 
-### 2.2 边界与限制
+### 2.2 审计方式与限制
 
-- 未读取或披露真实 `.env`、API Key、Token、密码、备份内容或其他敏感配置。
-- 本次验证针对本机 HTTP 入口，不等同于生产 HTTPS、正式域名、可信代理 CIDR、外部依赖或异地故障恢复验证。
-- 未执行真实登录、注销、备份恢复和跨账号隔离 E2E，以避免修改当前运行实例的数据和容器状态。
-- 未执行真实生产回滚；回滚结论来自发布脚本和迁移器状态校验逻辑的静态审计。
+- 以当前提交和当前运行实例为事实基线，静态结论对应当前源码；运行态结论对应本机 `127.0.0.1:1270`。
+- 未读取或披露真实 `.env`、Token、密码、API Key、Cookie、备份文件或其他敏感内容。
+- 未在当前运行实例执行注册、登录、注销、文章写入、媒体上传/删除、备份导出/恢复、角色修改或跨账号操作，以避免改变用户数据和容器状态。
+- 未执行真实生产 HTTPS、外部 SMTP/AI、异地备份恢复、跨主机部署和真实版本回滚；相关结论来自代码、配置和当前本地运行态。
 
-## 3. 运行态验证证据
+## 3. 当前运行态证据
 
 | 检查项 | 结果 |
 | --- | --- |
-| Docker 服务 | `web`、`api`、`mysql`、`redis`、`rabbitmq`、`meilisearch` 均为 healthy |
-| 初始化任务 | `config-check`、`migrate` 均 Exit 0；迁移任务完成内置迁移检查 |
-| 存活与就绪 | `GET /livez` 返回 204；`GET /healthz` 返回 200，`db`、`redis`、`schema` 均为 `up` |
-| 公开与权限接口 | 首页、归档、搜索、登录页和站点公开接口正常加载；未授权 `GET /api/v1/admin/stats` 返回 401 |
-| 安全响应头 | Web/API 响应包含 CSP、`X-Content-Type-Options: nosniff`、`X-Frame-Options: SAMEORIGIN` 和 `Referrer-Policy` |
-| 本机 HTTP Cookie | 当前 API 运行态 `APP_AUTH_COOKIE_SECURE=false`，与本机 HTTP 入口匹配 |
-| 镜像可追溯性 | `web`、`api`、`migrate`、`config-check` 使用 `v20260726-1646-61020d0`，当前实例不使用 `latest` |
-| 站点基址 | `GET /api/v1/site/settings` 返回 `siteBaseUrl: ""`；RSS/Sitemap 当前使用 `http://127.0.0.1:1270` 绝对链接 |
+| Git 工作区 | 干净；审计基线为 `007641c` |
+| Docker 应用 | `web`、`api` 均为 healthy；Web 绑定 `127.0.0.1:1270` |
+| Docker 依赖 | MySQL、Redis、RabbitMQ、Meilisearch 均为 healthy |
+| 一次性任务 | `migrate`、`config-check` 均 Exit 0 |
+| 存活检查 | `GET /livez` 返回 204 |
+| 就绪检查 | `GET /healthz` 返回 200，`db`、`redis`、`schema` 均为 `up` |
+| 权限检查 | 未授权访问 `GET /api/v1/admin/stats` 返回 401 |
+| 注销公开语义 | 匿名 `POST /api/v1/auth/logout` 返回 200，并清理 Refresh Cookie |
+| 站点设置 | `GET /api/v1/site/settings` 当前返回 `siteBaseUrl: ""` |
+| RSS/Sitemap | 当前绝对链接使用 `http://127.0.0.1:1270` |
+| 当前镜像 tag | 应用使用 `v20260726-1646-61020d0`，不是 `latest` |
 
-### 3.1 已登录浏览器检查
+### 3.1 浏览器页面检查
 
-- 首页顶部显示当前登录用户、`管理` 入口和 `退出` 操作；首页内容正常渲染。
-- 管理总览正常加载，显示文章总数 5、已发布 5、草稿 0、用户 1、分类 3、标签 12。
-- 站点设置页面正常加载，`站点地址` 输入为空，保存和取消按钮在未修改状态下均为禁用，印证了运行态 `siteBaseUrl` 为空的结论。
-- 媒体页面正常加载，界面明确显示支持 JPG/JPEG、PNG、GIF、WebP、AVIF，并展示现有媒体条目。
-- 系统工具页面的依赖健康检查显示整体正常，MySQL、Redis、Meilisearch、RabbitMQ、SMTP、媒体和 `backup_schema` 均为正常；备份导出/恢复按钮在未输入管理员密码时保持禁用。
-- 本次浏览器检查期间未捕获 `error` 或 `warn` 级别控制台日志；未执行保存、退出、导入、恢复或删除操作。
+已检查用户当前打开的后台系统页面 `/admin/system`：
 
-## 4. 已修复问题
+- 系统工具页面正常加载，页面显示 MySQL、Redis、Meilisearch、RabbitMQ、SMTP、媒体和 `backup_schema` 均为正常。
+- 加密备份与恢复区域正常渲染；未输入当前管理员密码时，导出和恢复按钮保持禁用。
+- 页面明确提示恢复会覆盖用户、内容、配置和媒体，并清空会话、日志、流量及 AI 密钥。
+- 首页、文章详情、后台总览和包含 Mermaid 的文章页面均可加载；Mermaid 图表正常渲染。
+- 当前浏览器检查未捕获 `warn` 或 `error` 级别控制台日志。
 
-以下问题已在当前提交或前序修复中得到代码或文档层面的处理，不再作为当前未解决发现列出：
+## 4. 当前审计发现
 
-- **Markdown 导入权限与临时文件：** `internal/handler/article/article.go` 在 multipart 解析前校验内容管理权限，并在成功与失败路径清理 multipart 临时文件。
-- **备份恢复权限与清理：** `internal/handler/backup/backup.go` 在解析前完成管理员鉴权，并清理恢复请求产生的 multipart 临时资源。
-- **文章草稿隔离：** 前端文章编辑草稿键已包含用户维度，避免同一浏览器不同账户互相恢复本地草稿。
-- **Refresh Token 生命周期基础能力：** 已增加过期/撤销记录的清理机制和索引，降低长期运行时令牌表持续增长的风险。
-- **发布脚本回退保护：** `scripts/release.ps1` 默认比较目标镜像内置迁移版本和数据库版本，不兼容时拒绝代码回退；绕过检查需要显式危险参数。
-- **Compose profile 文档：** README 已说明默认只启动 MySQL/Redis，可选 RabbitMQ、Meilisearch 需要对应 profile、功能开关和凭据。
-- **前端注销失败策略：** 已禁止注销请求自动 refresh，并对 401、网络错误和 5xx 进行区分处理；相关前端测试已补充。
-
-## 5. 当前审计发现
-
-### P2：Access Token 过期时注销可能无法撤销 Refresh Token Cookie
+### P2（生产配置）/P3（本地默认）：站点基址为空会生成错误的公开绝对链接
 
 **证据：**
 
-- `internal/handler/routes.go` 将 `POST /api/v1/auth/logout` 注册为 `authRequired(authhandler.LogoutHandler(...))`。
-- `internal/handler/auth/auth.go` 只有进入 `LogoutHandler` 后才解析 Refresh Token、调用注销逻辑并清除 Cookie。
-- `frontend/src/utils/http.ts` 明确禁止注销请求自动触发 refresh；`frontend/src/store/logoutPolicy.ts` 将 401 视为可清理本地会话。
+- 当前 `GET /api/v1/site/settings` 返回的 `siteBaseUrl` 为空。
+- 当前 `GET /rss.xml` 和 `GET /sitemap.xml` 输出的绝对链接以 `http://127.0.0.1:1270` 开头。
+- `internal/logic/site/feed.go` 的 `effectiveBaseURL` 在站点基址为空时回退到请求基址，并记录“生产环境应配置 public https siteBaseUrl”的提示。
+- 前端分享链接在站点基址为空时也会回退到当前页面 origin。
 
-**影响：** 当 Access Token 已过期但 HttpOnly Refresh Token Cookie 仍有效时，注销请求会先被认证中间件返回 401，后端不会进入注销逻辑，也不会撤销 Refresh Token 或清除 Cookie。前端清空本地状态后，刷新页面仍可能通过 `/auth/refresh` 恢复原会话。
+**影响：**
+
+本地部署访问没有功能故障，但如果生产环境保持空值，搜索引擎、RSS 阅读器和分享链接可能收到仅对本机有效、协议不正确或不稳定的地址，影响索引、订阅和外部分享。
 
 **建议：**
 
-1. 让注销接口以 Refresh Token Cookie 为主要凭据，即使 Access Token 已过期也能撤销会话并清除 Cookie；或在前端注销前先刷新 Access Token，再调用注销接口。
-2. 将“收到 401”与“Refresh Token 已失效”区分处理，避免仅凭 Access Token 认证失败就宣称服务端会话已撤销。
-3. 增加真实会话测试，覆盖 Access Token 过期、Refresh Token 有效、Refresh Token 已失效、网络失败和服务端 5xx 场景。
+1. 生产环境在站点设置中填写正式的 `https://` 域名。
+2. 将站点设置、RSS、Sitemap 和文章分享链接纳入发布验收，确认全部使用同一个规范域名。
+3. 生产部署检查中增加“`siteBaseUrl` 非空且为 HTTPS”的明确检查；本地 HTTP 环境可继续保留当前回退行为。
 
-**验收标准：** Access Token 过期时执行注销，Refresh Token 不得继续恢复会话；注销响应、Cookie 状态和前端认证状态保持一致。
+**验收标准：**
 
-### P2（生产配置）/P3（默认行为）：站点基址为空时生成本机绝对链接
+生产环境的站点设置、RSS、Sitemap 和分享链接均使用正式 HTTPS 域名；请求 Host 或转发头变化不会改变已配置的规范地址。
 
-**证据：**
-
-- 当前 `GET /api/v1/site/settings` 返回 `siteBaseUrl: ""`。
-- 当前 `GET /rss.xml` 和 `GET /sitemap.xml` 的绝对链接以 `http://127.0.0.1:1270` 开头。
-- `internal/logic/site/feed.go` 在站点基址为空时回退到请求基址，并记录生产环境配置提示；前端文章分享链接也在空值时回退到当前页面 origin。
-
-**影响：** 本地部署访问正常，但若生产环境沿用空值，搜索引擎、RSS 阅读器和分享链接会得到不可公开访问或不稳定的本机地址。
-
-**建议：** 在生产站点设置中填写正式 `https://` 域名，将 RSS、Sitemap 和文章分享链接纳入发布验收；不要依赖请求 Host 推断规范站点地址。
-
-**验收标准：** 生产环境所有公开绝对链接均使用正式 HTTPS 域名，并且站点设置、RSS、Sitemap 和分享链接保持一致。
-
-### P2：迁移器不会拒绝数据库版本高于当前镜像的情况
+### P2：应用镜像 tag 被复用，当前运行制品与发布历史不一致
 
 **证据：**
 
-- `scripts/release.ps1` 默认已增加目标镜像与数据库迁移版本兼容性检查，但允许通过 `-AllowIncompatibleSchema` 显式绕过。
-- `internal/migration/migration.go` 的 `validateState` 主要遍历当前镜像已知迁移；当数据库包含当前旧镜像未内置的更高版本时，不会自动形成“未知高版本”错误。
+- `docker-compose.yml` 当前应用 tag 为 `v20260726-1646-61020d0`。
+- `deploy/release-history.local.jsonl` 中该 tag 的历史记录对应提交 `61020d0703c263bc804b896de9925cd32b3f0556`，记录的应用镜像 ID 为：API `sha256:a2424885...`、Web `sha256:88cfd509...`。
+- 当前运行容器实际使用的镜像 ID 为：API `sha256:f48447e93772130722f17aa5ff8bc052c6b41d09a4784dc159d26fe1e53dbef1`、Web `sha256:298eb3a9ddbd3b32e0a3f047725e6635c702adbce193deeccfa7b3a58f791cc5`；两者创建时间约为 2026-07-27 20:35（北京时间）。
+- 当前代码提交为 `007641c`，与历史记录中的提交和当前 tag 名称也不一致。
+- `scripts/release.ps1` 通过 tag 查找本地镜像并写入镜像 ID；工作区存在未提交改动时只发出警告，仍可继续构建和记录发布。
 
-**影响：** 正常发布脚本路径已有保护，但手工使用旧镜像、直接执行 Compose，或显式绕过回退检查时，可能出现应用代码低于数据库 schema 的状态。仅切换应用镜像不会回滚数据库，也不能保证旧代码兼容新结构。
+**影响：**
 
-**建议：** 让迁移状态检查显式拒绝数据库中高于当前镜像的迁移版本；保留显式危险绕过能力时，应强制输出“仅代码回退、数据库未回退”并要求已验证的备份恢复路径。补充旧镜像面对高版本 schema 的失败测试。
+同一个 tag 对应多个不同镜像内容时，tag 不再是不可变发布标识。审计人员无法仅凭 Compose 文件和发布历史确定当前运行内容；回滚脚本如果依赖被覆盖的本地 tag，可能无法得到原始发布制品。若从脏工作区发布，记录的 Git commit 也不能完整代表镜像内容。
 
-**验收标准：** 手工启动旧镜像或执行迁移检查时，只要数据库版本高于镜像内置版本就明确失败；代码回退不会被表述为数据库回滚。
+**建议：**
 
-### P3：`.env.example` 默认使用可变的 `IMAGE_TAG=latest`
+1. 禁止已存在的发布 tag 再次构建或覆盖，发布 tag 必须与不可变 Git commit 建立一一对应关系。
+2. 发布记录同时保存镜像内容 digest、Git commit、构建工作区状态和构建时间；不要只依赖可变 tag。
+3. 发布前对脏工作区默认失败；若确需发布未提交内容，应使用显式参数并在记录中标明不可复现风险。
+4. 回滚优先使用已验证的 digest 或本地镜像 ID，并在部署前检查目标制品确实存在且与历史记录一致。
 
-**证据：** `.env.example` 仍设置 `IMAGE_TAG=latest`，且 `docker-compose.yml` 对应用镜像使用 `${IMAGE_TAG:-latest}`；当前实际运行实例使用不可变 tag，发布脚本也已拒绝正式发布使用 `latest`。
+**验收标准：**
 
-**影响：** 按示例直接部署可能无法稳定复现构建内容，且镜像更新、回滚和审计记录不具备明确版本边界。
+同一发布 tag 不能被重新指向不同镜像；从发布记录可以唯一解析出当前运行镜像和对应提交；脏工作区不能在未明确确认的情况下生成正式发布记录。
 
-**建议：** 将示例中的 tag 改为明确的占位版本，并在部署文档中要求生产环境使用不可变 tag；保留 Compose 默认值时应明确其仅适用于本地开发。
+### P3：Mermaid 按需 chunk 体积较大
 
-**验收标准：** 生产部署示例和检查流程不会默认解析到 `latest`，每次发布都能关联明确的镜像 tag 和提交。
+**证据：**
 
-### P3：README 功能概览遗漏 AVIF 媒体格式
+- `frontend/src/components/MarkdownCode.tsx` 对 `MermaidCodeBlock` 使用动态加载，只有 Mermaid 代码块需要时才加载 Mermaid 组件。
+- 当前生产构建生成的 Mermaid chunk 约 3.1 MB，构建通过但存在 Vite 大 chunk warning。
+- 浏览器实际打开包含 Mermaid 的文章时图表正常渲染，未发现运行时错误。
 
-**证据：** 媒体实现和测试已支持 AVIF（`internal/logic/media/media.go`、`internal/logic/media/media_test.go`），前端上传提示也列出 AVIF；README 的媒体功能概览仍只列出 JPEG/PNG/GIF/WebP。
+**影响：**
 
-**影响：** 文档用户会误以为 AVIF 不受支持，造成使用和排障信息不一致。
+当前实现已避免所有页面都加载 Mermaid，但包含 Mermaid 的文章首次打开仍可能下载较大的 JavaScript chunk，在移动端或低带宽环境下增加等待时间和流量消耗。
 
-**建议：** 在 README 功能概览中补充 AVIF，并与前端上传提示和后端校验保持同一格式清单。
+**建议：**
 
-**验收标准：** README、前端提示、错误文案、后端校验和相关测试对支持的媒体格式描述一致。
+1. 继续保持 Mermaid 组件按需加载。
+2. 评估 Mermaid 精简构建、拆分语言/图表模块或在用户切换到“图表”视图时再加载渲染器。
+3. 将 Mermaid chunk 的 gzip/brotli 体积和移动端加载时间纳入前端性能预算。
 
-## 6. 现有安全与可靠性控制
+**验收标准：**
 
-- API 与 Web 容器以非 root 用户运行；API 不映射宿主机端口，Web 仅绑定本机 `127.0.0.1:1270`。
-- Access Token 仅保存在前端内存中；Refresh Token 使用 HttpOnly、SameSite Strict Cookie，并结合 Token version、用户状态和全局 Token cutoff 进行失效控制。
-- 管理员和内容管理权限在 Logic 层再次校验；未鉴权后台接口已在运行态返回 401。
-- Redis 对敏感接口采用 fail-closed 限流；默认不信任转发头，只有命中可信代理 CIDR 时才使用转发来源。
-- AI 出站连接具备 URL、DNS 和建连 SSRF 校验；媒体上传具备内容检测、扩展名匹配、SHA-256 去重和原子发布。
-- 请求日志不记录查询串、Cookie、Header 或正文；Nginx 配置 CSP、`nosniff`、SAMEORIGIN、恢复上传限制和媒体内部目录保护。
-- 数据库迁移具备固定版本、checksum、advisory lock、事务记录和就绪检查；备份恢复具备管理员校验、大小限制、完整性校验、恢复锁和恢复后 Token 失效处理。
-- 前端 API 路径和方法与后端路由/API 描述一致；Markdown 渲染未发现 `dangerouslySetInnerHTML`、`innerHTML` 或原始 HTML 注入路径。
+普通文章不请求 Mermaid 资源；包含 Mermaid 的文章仍能正常渲染，且在目标移动网络下的首屏加载指标达到项目设定预算。
 
-## 7. 测试与构建验证
+## 5. 本轮复核通过的关键控制
 
-| 验证 | 结果 |
+以下内容已根据当前源码和测试复核通过，不作为当前未解决缺陷列出：
+
+- **注销与 Refresh Token：** `POST /api/v1/auth/logout` 使用可选认证路径，Access Token 过期时仍可进入 Refresh Cookie 撤销和 Cookie 清理逻辑；前端注销请求不会因失败而自动 refresh。
+- **迁移状态：** `internal/migration/migration.go` 的 `validateState` 会检测数据库中当前镜像未知的已应用迁移版本，并将其作为状态错误返回。
+- **示例配置与媒体文档：** `.env.example` 不再以 `latest` 作为正式发布占位值；README 的媒体格式说明已包含 AVIF，并与后端校验、前端提示保持一致。
+- **AI 出站请求：** AI Base URL 只允许 HTTP/HTTPS；建连时重新解析域名并拦截本机、私网、保留和受限地址；请求不继承通用代理、不跟随重定向，并设置首字节、总请求和响应体大小限制。
+- **AI 密钥处理：** API Key 不通过响应返回明文；错误消息做密钥脱敏；数据库密文使用独立用途派生密钥，旧版本密文会要求管理员重新录入或在保存时迁移。
+- **Mermaid 安全性：** Mermaid 使用 `securityLevel: 'strict'`；Markdown 内容没有发现将原始 HTML 直接注入页面的路径，组件中的 DOM 写入仅用于处理 Mermaid 自身生成的 SVG。
+- **备份导出与恢复：** Handler 在 multipart 解析前完成管理员权限校验；请求体、归档 entry 数量、解压大小、路径、清单、数据 SHA-256、媒体 key 和媒体 checksum 均受限制；恢复过程使用租约和进程内锁，并通过数据库 marker 与媒体发布日志处理异常中断。
+- **媒体管理：** 上传会校验实际图片内容、扩展名和大小，以 SHA-256 去重并原子发布；删除前检查引用关系，文件删除使用隔离目录，失败时保留可恢复状态。
+- **角色与管理员边界：** 管理接口在路由认证之外由 Logic 层再次校验；管理员不能自行降权或禁用自己，最后一个 active admin 不能被移除；角色/状态变化会递增 token version 并撤销目标用户的 Refresh Token。
+- **前后端接口联动：** 当前路由、前端 API 封装、TypeScript 类型、统一响应处理和 API 文档未发现本轮可确认的路径或字段漂移；前端生产构建及类型检查通过。
+
+## 6. 测试与构建验证
+
+| 验证项 | 结果 |
 | --- | --- |
 | `go test ./...` | 通过 |
 | `go vet ./...` | 通过 |
-| `frontend/pnpm test` | 通过，91/91 测试通过 |
+| `frontend/pnpm test` | 通过，93/93 |
 | `frontend/pnpm build` | 通过，包含 lint、TypeScript、Vite 构建和 bundle size 检查 |
 | `docker compose config --quiet` | 通过 |
-| 本地运行态检查 | Docker 健康检查、`/healthz`、`/livez`、站点设置、RSS、Sitemap 和未授权后台接口均符合本报告记录 |
+| Docker 运行态 | 服务健康，`migrate` 和 `config-check` 成功 |
+| 浏览器页面 | 后台系统页和 Mermaid 文章页正常加载，未捕获 warn/error 日志 |
 
-`pnpm build` 输出的 Vite chunk size warning 属于性能风险提示，不影响本次构建成功结论。项目已配置隔离 Docker 集成测试与 Chromium/WebKit E2E CI；本次未执行该套件，也未执行真实登录、注销、备份恢复和跨账号隔离验证。
+前端构建输出的 Vite 大 chunk warning 与 Mermaid 体积风险相关，但不影响本次构建成功结论；项目自定义 bundle size 检查已通过。
 
-## 8. 优先级行动清单
+本轮未执行以下验证：
 
-### 立即处理（P2）
+- 前端 E2E 关键流程。现有 `frontend/e2e/critical-path.spec.ts` 会注册用户、创建文章、上传媒体、修改角色并注销，不应直接对当前正在使用的本地实例执行。
+- 真实备份导出/恢复、媒体删除、角色修改和跨账号隔离测试，以避免改变当前运行实例的数据。
+- 生产 HTTPS、外部 SMTP/AI 服务、异地备份、跨主机部署和真实回滚演练。
 
-- 修正 Access Token 过期时的注销路径，使 Refresh Token 能被撤销且 Cookie 能被清除；补充真实会话测试。
-- 让迁移状态检查拒绝数据库高于当前镜像的版本，并明确区分代码回退与数据库回滚。
-- 在生产环境设置正式 HTTPS `siteBaseUrl`，验证 RSS、Sitemap 和文章分享链接。
+## 7. 优先级行动清单
 
-### 近期处理（P3）
+### 发布前处理
 
-- 将 `.env.example` 的生产部署示例改为不可变镜像 tag，并明确 `latest` 仅适用于本地开发（如仍保留 Compose fallback）。
-- 在 README 媒体功能概览中补充 AVIF。
-- 围绕注销、迁移兼容性和生产站点基址补充集成/E2E 验收。
+- 为生产站点配置正式 HTTPS `siteBaseUrl`，并验证 RSS、Sitemap、分享链接和转发代理场景。
+- 修正发布流程，使应用 tag 不可复用，并保存可校验的镜像 digest、Git commit 和工作区状态。
+- 在隔离环境执行一次备份恢复、角色边界和跨账号 E2E，验证当前静态控制能够覆盖真实会话与数据流程。
 
-## 9. 剩余风险与假设
+### 近期优化
 
-- 当前健康状态证明本地实例可用，但不能代替版本升级、灾难恢复、数据库损坏、跨主机迁移和生产回滚演练。
-- 当前本机 HTTP 使用 `APP_AUTH_COOKIE_SECURE=false` 是本地配置；生产 HTTPS 必须保持 `true`，并实际验证 Cookie 属性与会话续期。
-- 当前本地站点基址为空是本机测试状态，不应复制到生产环境。
-- 本地 Docker 健康状态不能证明外部邮件、AI、搜索服务、可信代理、异地备份存储或正式 TLS 终止层已验证。
-- 当前未执行真实登录、注销、备份恢复和跨账号隔离 E2E，因此注销 Cookie 撤销链路和数据恢复流程仍需在隔离环境完成验收。
+- 评估 Mermaid chunk 拆分或更细粒度的按需加载，并建立移动端性能预算。
+- 将公开绝对链接和当前运行镜像追溯检查加入 CI/CD 或部署验收脚本。
+
+## 8. 剩余风险与假设
+
+- 当前健康状态证明本地 Docker 实例可用，不等同于生产环境的 TLS、域名、代理、外部依赖、对象存储或灾难恢复能力已验证。
+- 当前 `siteBaseUrl` 为空属于本地运行配置；生产环境若不设置正式 HTTPS 地址，应视为发布阻断项，而不是依赖请求 Host 的默认行为。
+- 当前镜像 tag 与历史记录不一致的结论基于本地 Docker 镜像 ID 和仓库中的发布历史文件；这证明当前发布追溯存在风险，但不单独证明运行容器已加载错误代码。
+- Mermaid 约 3.1 MB 的体积属于性能风险，不是功能或安全故障；实际影响仍需结合压缩传输和目标设备网络测试确认。
+- 未执行会修改运行实例的真实 E2E、恢复和跨账号操作，因此真实会话生命周期、恢复演练时长和数据隔离仍需要在隔离环境补充验收。

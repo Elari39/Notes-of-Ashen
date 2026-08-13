@@ -10,7 +10,7 @@ http://127.0.0.1:1270
 
 ## 快速开始
 
-适合用 Docker / 1Panel 一键拉起 Web、API、本地 MySQL 和 Redis。RabbitMQ、Meilisearch 仅在显式启用对应 profile、功能开关和凭据后启动：
+适合用 Docker / 1Panel 一键拉起 Web、API、本地 MySQL 和 Redis。RabbitMQ、Meilisearch、Qdrant 仅在显式启用对应 profile、功能开关和凭据（如需要）后启动：
 
 > ⚠️ 复制 `.env` 后，必须把其中所有 `<REPLACE_…>` 占位符替换为真实强随机值，否则后端启动会拒绝占位配置。
 
@@ -48,7 +48,7 @@ http://127.0.0.1:1270
 
 - 用户认证：注册、登录、退出、刷新 Token。
 - 文章管理：创建、编辑、删除、发布、归档、草稿预览、版本查看、版本恢复、Markdown 导入/导出、AI 一键补全文章与 SEO 信息、AI 辅助创作、置顶与显示优先级。
-- 内容展示：公开文章列表、文章详情、字数与预计阅读时间、原生分享/复制链接、按年月日展开的发布归档、搜索建议与本地最近搜索、Meilisearch 全文搜索、Markdown 渲染、代码高亮、LaTeX 数学公式、文章目录和点赞反馈。
+- 内容展示：公开文章列表、文章详情、字数与预计阅读时间、原生分享/复制链接、按年月日展开的发布归档、搜索建议与本地最近搜索、Meilisearch 全文搜索、基于公开文章知识库的 RAG AI 问答、Markdown 渲染、代码高亮、LaTeX 数学公式、文章目录和点赞反馈。
 - 作品集：作品集画廊和项目标签。
 - 分类与标签：公开与后台文章数量展示，后台可创建、更新和删除。
 - 媒体库：本地持久化 JPEG/PNG/GIF/WebP/AVIF，内容哈希去重，文章与作品集可选择封面或插入 Markdown 图片。
@@ -60,8 +60,8 @@ http://127.0.0.1:1270
 
 ## 技术栈
 
-- 后端：Go 1.25、go-zero REST、MySQL 8.4、Redis 7.4、Meilisearch 1.13、RabbitMQ 4、JWT、bcrypt。
-  - Docker Compose 默认只启动本地 MySQL / Redis；RabbitMQ 与 Meilisearch 分别位于 `messaging`、`search` profile，必须同时打开对应能力开关和凭据。搜索功能默认关闭，关闭时 API 回退到 MySQL 查询。
+- 后端：Go 1.25、go-zero REST、MySQL 8.4、Redis 7.4、Meilisearch 1.13、Qdrant 1.16、RabbitMQ 4、JWT、bcrypt。
+  - Docker Compose 默认只启动本地 MySQL / Redis；RabbitMQ、Meilisearch、Qdrant 分别位于 `messaging`、`search`、`rag` profile，必须同时打开对应能力开关。搜索功能默认关闭，关闭时 API 回退到 MySQL 查询；Qdrant 只保存可由文章重建的向量索引。
 - 前端：React 18、TypeScript、Vite 5、Tailwind CSS 4、Zustand、Axios、Framer Motion、ECharts、React Markdown。
 - 部署：Docker、Docker Compose、Nginx、1Panel。
 - 文档与脚本：API 文档位于 [docs/API.md](docs/API.md)，数据库脚本位于 [deploy/mysql](deploy/mysql)。
@@ -185,7 +185,7 @@ Copy-Item .env.example .env
 
 ### 中间件配置
 
-当前 `docker-compose.yml` 默认启动本地 MySQL 和 Redis；RabbitMQ、Meilisearch 只有在 `.env` 中启用对应 profile、能力开关和凭据后才会启动。数据库表结构由一次性 `migrate` 服务执行 [deploy/mysql/migrations](deploy/mysql/migrations) 中的编号迁移，成功后 API 才会启动。
+当前 `docker-compose.yml` 默认启动本地 MySQL 和 Redis；RabbitMQ、Meilisearch、Qdrant 只有在 `.env` 中启用对应 profile 和能力开关后才会启动。数据库表结构由一次性 `migrate` 服务执行 [deploy/mysql/migrations](deploy/mysql/migrations) 中的编号迁移，成功后 API 才会启动。
 
 使用内置 Redis 时，设置 `APP_REDIS_ADDR=redis:6379`。`APP_REDIS_PASSWORD` 留空会以无认证模式启动；设置非空密码后，Redis 会启用认证，健康检查通过 `REDISCLI_AUTH` 认证探测，API 也使用同一密码连接。Redis 不可访问或认证失败时，API 会按 fail-fast 策略启动失败。
 
@@ -262,7 +262,7 @@ APP_MEILISEARCH_API_KEY=replace-with-a-long-random-key
 APP_MEILISEARCH_INDEX=articles
 ```
 
-如果同时启用了 RabbitMQ（`APP_RABBITMQ_ENABLED=true`），请将 `COMPOSE_PROFILES` 改为 `messaging,search`，并确保 RabbitMQ 的密码和 URL 也已配置一致。
+如果同时启用了 RabbitMQ（`APP_RABBITMQ_ENABLED=true`）或 RAG（`APP_RAG_ENABLED=true`），请将 `COMPOSE_PROFILES` 分别改为 `messaging,search` 或 `search,rag`，并确保 RabbitMQ 的密码和 URL 也已配置一致。
 
 启用 `APP_SEARCH_ENABLED=true` 却未在 `COMPOSE_PROFILES` 中加入 `search` 时，`config-check` 会直接失败。配置完成后使用带 profile 的 Compose 命令启动：
 
@@ -271,6 +271,27 @@ docker compose --profile search up -d --build
 ```
 
 启用搜索时必须为 `APP_MEILISEARCH_API_KEY` 配置强随机值（同时作为 Meilisearch Master Key）。Compose 在启用搜索时默认使用 `MEILI_ENV=production`；如需临时开发模式，才显式设置 `MEILI_ENV=development`。服务启动后，使用 `editor` 或 `admin` 登录后台，并调用 `POST /api/v1/admin/search/reindex` 全量重建文章索引。Meilisearch 初始化或运行中不可用时，API 不会因此退出，公开文章搜索会回退到 MySQL；后端会在后台重试索引初始化，恢复后重新启用 Meilisearch。
+
+### RAG 知识库配置
+
+RAG 使用 Qdrant 保存文章分段向量；它是可再生索引，不替代 MySQL 中的文章正文，也不参与 Meilisearch 全文搜索。默认关闭。启用前在后台“RAG 知识库”设置中录入 DashScope API Key、聊天/Embedding/Rerank 地址和模型；密钥以数据库密文保存，不应写入 `.env`。
+
+Docker 部署还需要同时启用 `rag` profile 与 Qdrant 运行开关：
+
+```env
+COMPOSE_PROFILES=rag
+APP_RAG_ENABLED=true
+APP_QDRANT_URL=http://qdrant:6333
+APP_QDRANT_COLLECTION=rag_articles
+```
+
+然后执行：
+
+```bash
+docker compose --profile rag up -d --build
+```
+
+Qdrant 不映射宿主机端口，只允许 API 通过 Compose 内部网络访问。配置 `APP_RAG_ENABLED=true` 但没有启用 `rag` profile（或反过来）时，`config-check` 会拒绝启动。修改 Embedding 地址、模型或维度后，系统会立即将知识库标记为重建中并自动发起全量重建；重建期间 AI 问答会暂时不可用。
 
 ### 媒体、内容分析与系统工具
 
@@ -282,7 +303,7 @@ Web 入口的 `GET /healthz` 代理到 API readiness，会反映数据库、Redi
 
 “内容分析”从 `traffic_content_daily_stats` 新表部署后开始累计页面和文章级 PV/UV，无法从旧的文章总浏览量可靠回填。用于 UV 去重的访客哈希明细会定期清理，每日聚合长期保留；UV 使用服务端 IP、User-Agent 与校验后的匿名 Visitor ID 组合哈希，同一 NAT 下的不同浏览器可区分，清理/缺失 Visitor ID 时回退到 IP/UA；不保存原始 IP、Visitor ID、设备、浏览器和地域信息。
 
-“系统工具”仅管理员可访问，提供依赖健康探测以及 `.noa-backup` 加密导出/恢复。健康页的 `backup_schema` 项会校验媒体与内容分析表是否齐全；旧 MySQL 数据卷若显示异常，先完成数据库备份并运行一次迁移任务。备份口令不会持久化；归档不包含 AI API Key、Token、日志、流量明细、搜索索引和访客点赞哈希。恢复是破坏性的整站替换，会清空目标会话、日志、流量统计和 AI Key，并强制退出当前登录。执行恢复前仍应保留数据库/媒体卷的基础设施快照，并先在独立实例演练。
+“系统工具”仅管理员可访问，提供依赖健康探测以及 `.noa-backup` 加密导出/恢复。健康页的 `backup_schema` 项会校验媒体、内容分析与 RAG 表是否齐全；旧 MySQL 数据卷若显示异常，先完成数据库备份并运行一次迁移任务。备份口令不会持久化；归档不包含 AI/RAG API Key、Token、日志、流量明细、搜索索引、Qdrant 数据、RAG 同步任务、RAG 索引状态和访客点赞哈希，但会保留已登录用户的 RAG 私有会话与消息。恢复是破坏性的整站替换：会清空目标同步任务，将 RAG 索引标记为待重建，清除 RAG Key，并关闭 RAG 引擎与公开问答页，管理员重新录入密钥并完成全量重建后才能重新开启；同时会清空目标会话、日志、流量统计和 AI Key，并强制退出当前登录。执行恢复前仍应保留数据库/媒体卷的基础设施快照，并先在独立实例演练。
 
 ### 预渲染配置
 
@@ -334,7 +355,7 @@ pwsh scripts/release.ps1 -Rollback v20260726-1030-3521de6 -AllowIncompatibleSche
 
 回退只切换应用镜像，不会自动回滚数据库 schema。脚本会在修改 `.env` 前读取目标镜像内置迁移版本，并通过当前 Compose API 镜像查询实际数据库版本；目标镜像落后于数据库或无法读取版本时默认拒绝操作。需要紧急代码回退时，必须先确认备份可恢复，再显式使用 `-AllowIncompatibleSchema`。
 
-默认仅启动 Web、API、MySQL 和 Redis。RabbitMQ 与 Meilisearch 是可选服务：启用前在 `.env` 中配置对应能力与凭据，并设置 `COMPOSE_PROFILES`：
+默认仅启动 Web、API、MySQL 和 Redis。RabbitMQ、Meilisearch 与 Qdrant 是可选服务：启用前在 `.env` 中配置对应能力与凭据（如需要），并设置 `COMPOSE_PROFILES`：
 
 ```env
 # 异步操作日志
@@ -348,9 +369,15 @@ APP_RABBITMQ_URL=amqp://notes_user:<strong-random-password>@rabbitmq:5672/
 # APP_SEARCH_ENABLED=true
 # APP_MEILISEARCH_API_KEY=<strong-random-key>
 MEILI_ENV=production
+
+# RAG；与其他 profile 同时启用时写为 messaging,search,rag
+# COMPOSE_PROFILES=rag
+# APP_RAG_ENABLED=true
+# APP_QDRANT_URL=http://qdrant:6333
+# APP_QDRANT_COLLECTION=rag_articles
 ```
 
-也可临时使用 `docker compose --profile messaging up -d --build` 或 `docker compose --profile search up -d --build`；能力开关和凭据仍须在 `.env` 中显式配置。
+也可临时使用 `docker compose --profile messaging up -d --build`、`docker compose --profile search up -d --build` 或 `docker compose --profile rag up -d --build`；能力开关和凭据仍须在 `.env` 中显式配置。
 
 查看容器状态：
 
@@ -373,8 +400,9 @@ docker compose logs -f web
 - Redis：内置模式容器内部 `redis:6379`（仅 Docker 内部网络可达）
 - RabbitMQ：启用 `messaging` profile 后，容器内部 `rabbitmq:5672`，管理端 `rabbitmq:15672`（均仅 Docker 内部网络可达）
 - Meilisearch：启用 `search` profile 后，容器内部 `meilisearch:7700`（仅 Docker 内部网络可达）
+- Qdrant：启用 `rag` profile 后，容器内部 `qdrant:6333`（仅 Docker 内部网络可达）
 
-MySQL 与内置 Redis 默认由 `docker-compose.yml` 在内部网络启动，不会映射端口到宿主机。Web 通过 Nginx 反向代理访问 API；RabbitMQ 和 Meilisearch 仅在对应 profile 启用后启动。
+MySQL 与内置 Redis 默认由 `docker-compose.yml` 在内部网络启动，不会映射端口到宿主机。Web 通过 Nginx 反向代理访问 API；RabbitMQ、Meilisearch 与 Qdrant 仅在对应 profile 启用后启动。
 
 Compose 中 API 容器端口固定为 `19000`，`.env` 的 `APP_PORT` 仅影响本地非 Docker 启动。默认专用网络为 `172.30.127.0/24`，如有冲突请按“可信反向代理配置”一节同时调整子网、Web 固定地址、网桥网关可信代理 `/32` 与后端可信代理 `/32`。
 
@@ -419,7 +447,7 @@ http://127.0.0.1:1270/api/v1/articles?page=1&size=10
 
 2. 在 1Panel 中创建 Docker Compose 项目，选择从 Git 源码构建。
 3. Compose 文件选择仓库根目录的 `docker-compose.yml`。
-4. 在 1Panel 项目目录创建 `.env`，内容可从 `.env.example` 复制后修改。需要 RabbitMQ 或 Meilisearch 时，将 `COMPOSE_PROFILES` 设为 `messaging`、`search` 或 `messaging,search`，并同步打开对应能力开关、填写凭据。
+4. 在 1Panel 项目目录创建 `.env`，内容可从 `.env.example` 复制后修改。需要 RabbitMQ、Meilisearch 或 Qdrant 时，将 `COMPOSE_PROFILES` 包含 `messaging`、`search`、`rag`，并同步打开对应能力开关、填写凭据（如需要）。
 5. 启动 Compose 项目。
 6. 在 1Panel 网站反向代理中配置：
 
@@ -431,7 +459,7 @@ http://127.0.0.1:1270/api/v1/articles?page=1&size=10
 
 1Panel 作为宿主机上的直接上游时，Web 容器默认只信任 Compose `app` 网桥网关 `172.30.127.1/32` 提供的 `X-Forwarded-For`。若修改 `APP_DOCKER_SUBNET`，必须同步把 `WEB_TRUSTED_PROXY_CIDR` 改为新子网网桥网关的 `/32`；禁止配置 `0.0.0.0/0` 等宽泛公网网段。
 
-项目默认使用 Compose 内部 MySQL/Redis；启用 profile 后 RabbitMQ/Meilisearch 也仅在内部网络可达，不会映射 `3306`/`6379`/`5672`/`15672` 端口，因此不会与 1Panel 已有中间件端口冲突。Go 后端通过 `.env` 中的 DSN/URL 连接这些内部服务。
+项目默认使用 Compose 内部 MySQL/Redis；启用 profile 后 RabbitMQ、Meilisearch、Qdrant 也仅在内部网络可达，不会映射 `3306`/`6379`/`5672`/`15672`/`6333` 端口，因此不会与 1Panel 已有中间件端口冲突。Go 后端通过 `.env` 中的 DSN/URL 连接这些内部服务。
 
 ### 生产发布验收清单
 
@@ -445,7 +473,7 @@ http://127.0.0.1:1270/api/v1/articles?page=1&size=10
 
 ## 本地非 Docker 开发
 
-非 Docker 开发时，需要自行准备 MySQL 和 Redis；仅在启用异步日志或搜索时再准备 RabbitMQ 或 Meilisearch，并根据 [etc/notes-of-ashen.yaml](etc/notes-of-ashen.yaml) 修改连接信息，或通过环境变量覆盖配置。
+非 Docker 开发时，需要自行准备 MySQL 和 Redis；仅在启用异步日志、搜索或 RAG 时再准备 RabbitMQ、Meilisearch 或 Qdrant，并根据 [etc/notes-of-ashen.yaml](etc/notes-of-ashen.yaml) 修改连接信息，或通过环境变量覆盖配置。
 
 ### 启动后端
 

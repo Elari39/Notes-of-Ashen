@@ -152,3 +152,23 @@ WHERE expires_at <= ?
 		t.Fatalf("cleanup did not run at startup: %v", err)
 	}
 }
+
+func TestStartRAGChatCleanupRunsImmediatelyAndCanCancel(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("create sqlmock: %v", err)
+	}
+	defer db.Close()
+	mock.ExpectExec(regexp.QuoteMeta(`DELETE FROM rag_chat_sessions WHERE expires_at IS NOT NULL AND expires_at <= ?`)).
+		WithArgs(sqlmock.AnyArg()).
+		WillReturnResult(sqlmock.NewResult(0, 0))
+
+	cancel := startRAGChatCleanup(model.NewStore(db))
+	if cancel == nil {
+		t.Fatal("startRAGChatCleanup() returned nil cancel")
+	}
+	cancel()
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("cleanup did not run at startup: %v", err)
+	}
+}

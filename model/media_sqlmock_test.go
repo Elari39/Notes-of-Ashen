@@ -16,6 +16,9 @@ func TestDeleteArticleRemovesVersionsBeforeArticle(t *testing.T) {
 	defer db.Close()
 
 	mock.ExpectBegin()
+	mock.ExpectExec(regexp.QuoteMeta("INSERT INTO rag_sync_jobs (article_id, operation, article_version, run_after, lease_token, lease_expires_at, attempts, last_error) VALUES (?, ?, 1, ?, NULL, NULL, 0, NULL) ON DUPLICATE KEY UPDATE operation = VALUES(operation), article_version = article_version + 1, run_after = VALUES(run_after), lease_token = NULL, lease_expires_at = NULL, last_error = NULL")).
+		WithArgs(uint64(42), RAGSyncOperationDelete, sqlmock.AnyArg()).
+		WillReturnResult(sqlmock.NewResult(1, 1))
 	mock.ExpectExec(regexp.QuoteMeta("DELETE FROM article_tags WHERE article_id = ?")).
 		WithArgs(uint64(42)).
 		WillReturnResult(sqlmock.NewResult(0, 0))

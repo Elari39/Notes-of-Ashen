@@ -20,6 +20,7 @@ type Config struct {
 	RequirePublicSiteURL bool
 	Redis                RedisConf
 	Search               SearchConf
+	RAG                  RAGConf
 	RabbitMQ             RabbitMQConf
 	Email                EmailConf
 	Media                MediaConf
@@ -51,6 +52,15 @@ type SearchConf struct {
 	MeilisearchHost   string
 	MeilisearchAPIKey string
 	MeilisearchIndex  string
+}
+
+// RAGConf 只保存进程级 Qdrant 连接信息。DashScope URL、模型和 API Key
+// 属于可由管理员管理的站点设置，不允许通过进程环境变量注入。
+type RAGConf struct {
+	Enabled          bool
+	QdrantURL        string
+	QdrantAPIKey     string
+	QdrantCollection string
 }
 
 type RabbitMQConf struct {
@@ -209,6 +219,12 @@ func (c *Config) ApplyEnv() error {
 	setString("APP_MEILISEARCH_HOST", &c.Search.MeilisearchHost)
 	setString("APP_MEILISEARCH_API_KEY", &c.Search.MeilisearchAPIKey)
 	setString("APP_MEILISEARCH_INDEX", &c.Search.MeilisearchIndex)
+	if err := setBool("APP_RAG_ENABLED", &c.RAG.Enabled); err != nil {
+		return err
+	}
+	setString("APP_QDRANT_URL", &c.RAG.QdrantURL)
+	setString("APP_QDRANT_API_KEY", &c.RAG.QdrantAPIKey)
+	setString("APP_QDRANT_COLLECTION", &c.RAG.QdrantCollection)
 	if err := setBool("APP_RABBITMQ_ENABLED", &c.RabbitMQ.Enabled); err != nil {
 		return err
 	}
@@ -266,6 +282,20 @@ func (c Config) ValidateOptionalDependencyProfiles() error {
 		}
 	} else if strings.TrimSpace(c.Search.MeilisearchAPIKey) != "" {
 		return errors.New("APP_MEILISEARCH_API_KEY must be empty when APP_SEARCH_ENABLED=false")
+	}
+
+	if c.RAG.Enabled != active["rag"] {
+		return fmt.Errorf("RAG configuration mismatch: APP_RAG_ENABLED=%t requires COMPOSE_PROFILES to %sinclude rag", c.RAG.Enabled, ternary(c.RAG.Enabled, "", "not "))
+	}
+	if c.RAG.Enabled {
+		if err := validateComposeURL("APP_QDRANT_URL", c.RAG.QdrantURL, "http", "https"); err != nil {
+			return err
+		}
+		if strings.TrimSpace(c.RAG.QdrantCollection) == "" {
+			return errors.New("APP_QDRANT_COLLECTION is required when RAG is enabled")
+		}
+	} else if strings.TrimSpace(c.RAG.QdrantAPIKey) != "" {
+		return errors.New("APP_QDRANT_API_KEY must be empty when APP_RAG_ENABLED=false")
 	}
 
 	if c.RabbitMQ.Enabled != active["messaging"] {
@@ -355,6 +385,17 @@ func (c Config) ValidateConfig() error {
 	if c.Search.Enabled {
 		if err := validateRequiredSecret("APP_MEILISEARCH_API_KEY", c.Search.MeilisearchAPIKey, 8); err != nil {
 			return err
+		}
+	}
+	if c.RAG.Enabled {
+		if err := validateComposeURL("APP_QDRANT_URL", c.RAG.QdrantURL, "http", "https"); err != nil {
+			return err
+		}
+		if strings.TrimSpace(c.RAG.QdrantCollection) == "" {
+			return fmt.Errorf("APP_QDRANT_COLLECTION is required when RAG is enabled")
+		}
+		if containsInsecureMarker(c.RAG.QdrantAPIKey) {
+			return fmt.Errorf("APP_QDRANT_API_KEY contains an insecure placeholder value")
 		}
 	}
 	if c.RabbitMQ.Enabled {

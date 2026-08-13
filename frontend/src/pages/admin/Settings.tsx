@@ -10,6 +10,7 @@ import { usePreferenceStore } from '../../store/preferences';
 import { useSiteSettingsStore } from '../../store/siteSettings';
 import { areSiteSettingsControlsDisabled } from '../../store/siteSettingsPolicy';
 import type { HomeArticleLayout } from '../../types';
+import type { RAGChatAccessLevel } from '../../types';
 import { useShallow } from 'zustand/react/shallow';
 
 const AdminSettings: React.FC = () => {
@@ -24,6 +25,9 @@ const AdminSettings: React.FC = () => {
     siteBaseUrl,
     projectsPageEnabled,
     projectsNavHidden,
+    ragChatPageEnabled,
+    ragChatNavHidden,
+    ragChatAccessLevel,
     isLoading,
     hasLoaded,
     loadError,
@@ -40,6 +44,9 @@ const AdminSettings: React.FC = () => {
       siteBaseUrl: state.siteBaseUrl,
       projectsPageEnabled: state.projectsPageEnabled,
       projectsNavHidden: state.projectsNavHidden,
+      ragChatPageEnabled: state.ragChatPageEnabled,
+      ragChatNavHidden: state.ragChatNavHidden,
+      ragChatAccessLevel: state.ragChatAccessLevel,
       isLoading: state.isLoading,
       hasLoaded: state.hasLoaded,
       loadError: state.loadError,
@@ -56,6 +63,9 @@ const AdminSettings: React.FC = () => {
   const [draftSiteBaseUrl, setDraftSiteBaseUrl] = useState(siteBaseUrl);
   const [draftProjectsPageEnabled, setDraftProjectsPageEnabled] = useState(projectsPageEnabled);
   const [draftProjectsNavHidden, setDraftProjectsNavHidden] = useState(projectsNavHidden);
+  const [draftRAGChatPageEnabled, setDraftRAGChatPageEnabled] = useState(ragChatPageEnabled);
+  const [draftRAGChatNavHidden, setDraftRAGChatNavHidden] = useState(ragChatNavHidden);
+  const [draftRAGChatAccessLevel, setDraftRAGChatAccessLevel] = useState<RAGChatAccessLevel>(ragChatAccessLevel);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const t = (key: Parameters<typeof translate>[1]) => translate(language, key);
@@ -75,7 +85,10 @@ const AdminSettings: React.FC = () => {
     setDraftSiteBaseUrl(siteBaseUrl);
     setDraftProjectsPageEnabled(projectsPageEnabled);
     setDraftProjectsNavHidden(projectsNavHidden);
-  }, [registrationEnabled, homeArticleLayout, homeCtaHidden, siteTitle, siteDescription, siteKeywords, siteBaseUrl, projectsPageEnabled, projectsNavHidden]);
+    setDraftRAGChatPageEnabled(ragChatPageEnabled);
+    setDraftRAGChatNavHidden(ragChatNavHidden);
+    setDraftRAGChatAccessLevel(ragChatAccessLevel);
+  }, [registrationEnabled, homeArticleLayout, homeCtaHidden, siteTitle, siteDescription, siteKeywords, siteBaseUrl, projectsPageEnabled, projectsNavHidden, ragChatPageEnabled, ragChatNavHidden, ragChatAccessLevel]);
 
   const hasChanges =
     draftRegistrationEnabled !== registrationEnabled ||
@@ -86,7 +99,10 @@ const AdminSettings: React.FC = () => {
     draftSiteKeywords !== siteKeywords ||
     draftSiteBaseUrl !== siteBaseUrl ||
     draftProjectsPageEnabled !== projectsPageEnabled ||
-    draftProjectsNavHidden !== projectsNavHidden;
+    draftProjectsNavHidden !== projectsNavHidden ||
+    draftRAGChatPageEnabled !== ragChatPageEnabled ||
+    draftRAGChatNavHidden !== ragChatNavHidden ||
+    draftRAGChatAccessLevel !== ragChatAccessLevel;
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -103,6 +119,9 @@ const AdminSettings: React.FC = () => {
         siteBaseUrl: draftSiteBaseUrl.trim(),
         projectsPageEnabled: draftProjectsPageEnabled,
         projectsNavHidden: draftProjectsNavHidden,
+        ragChatPageEnabled: draftRAGChatPageEnabled,
+        ragChatNavHidden: draftRAGChatNavHidden,
+        ragChatAccessLevel: draftRAGChatAccessLevel,
       });
       setNotice(t('settings.saved'));
     } catch (e: unknown) {
@@ -120,6 +139,9 @@ const AdminSettings: React.FC = () => {
     setDraftSiteBaseUrl(siteBaseUrl);
     setDraftProjectsPageEnabled(projectsPageEnabled);
     setDraftProjectsNavHidden(projectsNavHidden);
+    setDraftRAGChatPageEnabled(ragChatPageEnabled);
+    setDraftRAGChatNavHidden(ragChatNavHidden);
+    setDraftRAGChatAccessLevel(ragChatAccessLevel);
     setError('');
     setNotice('');
   };
@@ -199,6 +221,49 @@ const AdminSettings: React.FC = () => {
                         {draftProjectsNavHidden ? t('settings.navHidden') : t('settings.navVisible')}
                       </span>
                     </div>
+                  </div>
+                </div>
+                <div className="border-x border-b border-mountain-grey p-4">
+                  <div className="mb-4">
+                    <p className="text-sm font-bold tracking-widest text-ink">{t('settings.ragChatPage')}</p>
+                    <p className="mt-2 text-xs leading-relaxed text-ink-light opacity-80">{t('settings.ragChatPageDesc')}</p>
+                  </div>
+                  <div className="grid gap-4 md:grid-cols-3 md:items-end">
+                    <div className="flex items-center gap-3">
+                      <Switch
+                        checked={draftRAGChatPageEnabled}
+                        onCheckedChange={setDraftRAGChatPageEnabled}
+                        disabled={isLoading}
+                        label={t('settings.ragChatPage')}
+                      />
+                      <span className="text-xs tracking-widest text-ink-light">
+                        {draftRAGChatPageEnabled ? t('settings.enabled') : t('settings.disabled')}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <Switch
+                        checked={!draftRAGChatNavHidden}
+                        onCheckedChange={(next) => setDraftRAGChatNavHidden(!next)}
+                        disabled={isLoading}
+                        label={t('settings.navVisible')}
+                      />
+                      <span className="text-xs tracking-widest text-ink-light">
+                        {draftRAGChatNavHidden ? t('settings.navHidden') : t('settings.navVisible')}
+                      </span>
+                    </div>
+                    <label className="block text-sm text-ink-light">
+                      <span className="mb-2 block tracking-widest">{t('settings.ragChatAccess')}</span>
+                      <select
+                        value={draftRAGChatAccessLevel}
+                        onChange={(event) => setDraftRAGChatAccessLevel(event.target.value as RAGChatAccessLevel)}
+                        disabled={isLoading}
+                        className="w-full border border-mountain-grey bg-transparent px-3 py-2 text-ink outline-hidden focus:border-ochre disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        <option value="guest">{t('settings.ragAccessGuest')}</option>
+                        <option value="user">{t('settings.ragAccessUser')}</option>
+                        <option value="editor">{t('settings.ragAccessEditor')}</option>
+                      </select>
+                    </label>
                   </div>
                 </div>
               </div>

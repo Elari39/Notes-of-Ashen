@@ -35,9 +35,51 @@ export interface SiteSettings {
   siteBaseUrl: string;
   projectsPageEnabled: boolean;
   projectsNavHidden: boolean;
+  /** RAG 问答页是否对外开放；未返回时前端按关闭处理。 */
+  ragChatPageEnabled?: boolean;
+  /** RAG 问答页是否在前台导航中显示。 */
+  ragChatNavHidden?: boolean;
+  /** 访问 /ask 所需的最低角色。 */
+  ragChatAccessLevel?: RAGChatAccessLevel;
 }
 
 export type HomeArticleLayout = 'standard' | 'alternating';
+
+export type RAGChatAccessLevel = 'guest' | 'user' | 'editor';
+
+export type RAGChatMessageRole = 'user' | 'assistant';
+
+export interface RAGChatSource {
+  articleId: number;
+  title: string;
+  /** 后端可返回绝对 URL；缺失时前端回退到 /article/:articleId。 */
+  url?: string;
+  snippet?: string;
+}
+
+export interface RAGChatMessage {
+  id: string;
+  sessionId?: string;
+  role: RAGChatMessageRole;
+  content: string;
+  sources?: RAGChatSource[];
+  /** 引用文章仍公开但正文已更新；旧回答保留，旧片段不再展示。 */
+  sourcesUpdated?: boolean;
+  /** 客户端主动停止或流式上游意外中断时的局部回答。 */
+  incomplete?: boolean;
+  hiddenAt?: string;
+  createdAt: string;
+}
+
+export interface RAGChatSession {
+  id: string;
+  title: string;
+  sourceEpoch?: number;
+  expiresAt?: string;
+  createdAt: string;
+  updatedAt: string;
+  messages?: RAGChatMessage[];
+}
 
 export interface ProjectItem {
   id: string;

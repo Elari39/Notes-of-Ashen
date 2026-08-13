@@ -19,6 +19,9 @@ func TestSchemaReady(t *testing.T) {
 		{name: "all runtime fields exist", want: true},
 		{name: "a required table is missing", omitTable: "media_assets", want: false},
 		{name: "a required migrated field is missing", omitTable: "articles", omitColumn: "like_count", want: false},
+		{name: "rag migration table is missing", omitTable: "rag_chat_sessions", want: false},
+		{name: "rag migration field is missing", omitTable: "rag_chat_messages", omitColumn: "sources", want: false},
+		{name: "rag rebuild lease field is missing", omitTable: "rag_index_state", omitColumn: "rebuild_lease_token", want: false},
 	}
 
 	for _, tt := range tests {

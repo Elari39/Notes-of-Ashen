@@ -19,6 +19,7 @@ import { resolvePublicFeatureRoute } from './store/siteSettingsPolicy';
 import { safeSessionStorage } from './utils/storage';
 import {
   AdminAISettings,
+  AdminRAGSettings,
   AdminArticles,
   AdminCategories,
   AdminDashboard,
@@ -29,6 +30,7 @@ import {
   AdminTags,
   AdminUsers,
   Archive,
+  Ask,
   ArticleDetail,
   ArticleEditor,
   ArticlePreview,
@@ -62,10 +64,11 @@ const withRouteSuspense = (element: ReactElement, variant: SuspenseVariant = 'pa
 
 function App() {
   const initializePreferences = usePreferenceStore((state) => state.initializePreferences);
-  const { fetchSettings: fetchSiteSettings, projectsPageEnabled } = useSiteSettingsStore(
+  const { fetchSettings: fetchSiteSettings, projectsPageEnabled, ragChatPageEnabled } = useSiteSettingsStore(
     useShallow((state) => ({
       fetchSettings: state.fetchSettings,
       projectsPageEnabled: state.projectsPageEnabled,
+      ragChatPageEnabled: state.ragChatPageEnabled,
     })),
   );
   const initializeAuth = useAuthStore((state) => state.initializeAuth);
@@ -109,6 +112,14 @@ function App() {
           <Route path="archive" element={withRouteSuspense(<Archive />)} />
           <Route path="search" element={withRouteSuspense(<Search />)} />
           <Route
+            path="ask"
+            element={(
+              <PublicFeatureRoute enabled={ragChatPageEnabled}>
+                {withRouteSuspense(<Ask />)}
+              </PublicFeatureRoute>
+            )}
+          />
+          <Route
             path="projects"
             element={(
               <PublicFeatureRoute enabled={projectsPageEnabled}>
@@ -141,6 +152,7 @@ function App() {
                 <Route path="logs" element={withRouteSuspense(<AdminLogs />, 'admin')} />
                 <Route path="settings" element={withRouteSuspense(<AdminSettings />, 'admin')} />
                 <Route path="ai-settings" element={withRouteSuspense(<AdminAISettings />, 'admin')} />
+                <Route path="rag-settings" element={withRouteSuspense(<AdminRAGSettings />, 'admin')} />
                 <Route path="projects" element={withRouteSuspense(<AdminProjectsContent />, 'admin')} />
                 <Route path="system" element={withRouteSuspense(<AdminSystem />, 'admin')} />
               </Route>
@@ -199,10 +211,11 @@ const PublicFeatureRoute = ({ enabled, children }: { enabled: boolean; children:
 const TrafficReporter = () => {
   const location = useLocation();
   const previousPublicPath = useRef('');
-  const { hasLoaded: siteSettingsLoaded, projectsPageEnabled } = useSiteSettingsStore(
+  const { hasLoaded: siteSettingsLoaded, projectsPageEnabled, ragChatPageEnabled } = useSiteSettingsStore(
     useShallow((state) => ({
       hasLoaded: state.hasLoaded,
       projectsPageEnabled: state.projectsPageEnabled,
+      ragChatPageEnabled: state.ragChatPageEnabled,
     })),
   );
 
@@ -211,7 +224,7 @@ const TrafficReporter = () => {
     if (ignoredTrafficPrefixes.some((prefix) => location.pathname === prefix || location.pathname.startsWith(`${prefix}/`))) {
       return;
     }
-    if (isDisabledFeaturePath(location.pathname, siteSettingsLoaded, projectsPageEnabled)) {
+    if (isDisabledFeaturePath(location.pathname, siteSettingsLoaded, projectsPageEnabled, ragChatPageEnabled)) {
       return;
     }
     const duplicateKey = `traffic:${path}`;
@@ -233,7 +246,7 @@ const TrafficReporter = () => {
       articleId: articleMatch ? Number(articleMatch[1]) : undefined,
       referrer,
     }).catch(() => undefined);
-  }, [location.pathname, location.search, projectsPageEnabled, siteSettingsLoaded]);
+  }, [location.pathname, location.search, projectsPageEnabled, ragChatPageEnabled, siteSettingsLoaded]);
 
   return null;
 };
@@ -242,9 +255,11 @@ const isDisabledFeaturePath = (
   pathname: string,
   siteSettingsLoaded: boolean,
   projectsPageEnabled: boolean,
+  ragChatPageEnabled: boolean,
 ) => {
   if (!siteSettingsLoaded) {
-    return pathname === '/projects';
+    return pathname === '/projects' || pathname === '/ask';
   }
-  return pathname === '/projects' && !projectsPageEnabled;
+  return (pathname === '/projects' && !projectsPageEnabled)
+    || (pathname === '/ask' && !ragChatPageEnabled);
 };

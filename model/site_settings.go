@@ -21,16 +21,21 @@ const (
 	SiteBaseURLKey         = "site_base_url"
 	ProjectsPageEnabledKey = "projects_page_enabled"
 	ProjectsNavHiddenKey   = "projects_nav_hidden"
-	ProjectsTitleKey       = "projects_title"
-	ProjectsSubtitleKey    = "projects_subtitle"
-	ProjectsItemsKey       = "projects_items_json"
-	AIEnabledKey           = "ai_enabled"
-	AIAPIFormatKey         = "ai_api_format"
-	AIBaseURLKey           = "ai_base_url"
-	AIAPIKeyCipherKey      = "ai_api_key_cipher"
-	AIModelKey             = "ai_model"
-	AIFirstByteTimeoutKey  = "ai_first_byte_timeout_seconds"
-	AINonStreamTimeoutKey  = "ai_non_stream_timeout_seconds"
+	// RAG 页面开关属于公开站点设置；连接信息和密钥仍由 RAGSettings 单独读取，
+	// 绝不可通过 SiteSettings 暴露给前台。
+	RAGChatPageEnabledKey = "rag_chat_page_enabled"
+	RAGChatNavHiddenKey   = "rag_chat_nav_hidden"
+	RAGChatAccessLevelKey = "rag_chat_access_level"
+	ProjectsTitleKey      = "projects_title"
+	ProjectsSubtitleKey   = "projects_subtitle"
+	ProjectsItemsKey      = "projects_items_json"
+	AIEnabledKey          = "ai_enabled"
+	AIAPIFormatKey        = "ai_api_format"
+	AIBaseURLKey          = "ai_base_url"
+	AIAPIKeyCipherKey     = "ai_api_key_cipher"
+	AIModelKey            = "ai_model"
+	AIFirstByteTimeoutKey = "ai_first_byte_timeout_seconds"
+	AINonStreamTimeoutKey = "ai_non_stream_timeout_seconds"
 
 	HomeArticleLayoutStandard    = "standard"
 	HomeArticleLayoutAlternating = "alternating"
@@ -56,6 +61,9 @@ type SiteSettings struct {
 	SiteBaseURL         string
 	ProjectsPageEnabled bool
 	ProjectsNavHidden   bool
+	RAGChatPageEnabled  bool
+	RAGChatNavHidden    bool
+	RAGChatAccessLevel  string
 }
 
 type AISettings struct {
@@ -130,6 +138,7 @@ func (s *Store) SiteSettings(ctx context.Context) (*SiteSettings, error) {
 	keys := []string{
 		RegistrationEnabledKey, HomeArticleLayoutKey, HomeCTAHiddenKey, SiteTitleKey, SiteDescriptionKey,
 		SiteKeywordsKey, SiteBaseURLKey, ProjectsPageEnabledKey, ProjectsNavHiddenKey,
+		RAGChatPageEnabledKey, RAGChatNavHiddenKey, RAGChatAccessLevelKey,
 	}
 	values, err := s.GetSettingsBatch(ctx, keys)
 	if err != nil {
@@ -157,6 +166,9 @@ func (s *Store) SiteSettings(ctx context.Context) (*SiteSettings, error) {
 		SiteBaseURL:         getString(SiteBaseURLKey, ""),
 		ProjectsPageEnabled: getBool(ProjectsPageEnabledKey, false),
 		ProjectsNavHidden:   getBool(ProjectsNavHiddenKey, true),
+		RAGChatPageEnabled:  getBool(RAGChatPageEnabledKey, false),
+		RAGChatNavHidden:    getBool(RAGChatNavHiddenKey, true),
+		RAGChatAccessLevel:  NormalizeRAGChatAccessLevel(getString(RAGChatAccessLevelKey, "guest")),
 	}, nil
 }
 
@@ -273,7 +285,7 @@ func (s *Store) UpdateSiteSettings(ctx context.Context, settings SiteSettings) e
 	}
 	_, err := s.db.ExecContext(ctx, `
 INSERT INTO site_settings (setting_key, setting_value)
-VALUES (?, ?), (?, ?), (?, ?), (?, ?), (?, ?), (?, ?), (?, ?), (?, ?), (?, ?)
+	VALUES (?, ?), (?, ?), (?, ?), (?, ?), (?, ?), (?, ?), (?, ?), (?, ?), (?, ?), (?, ?), (?, ?), (?, ?)
 ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)`,
 		RegistrationEnabledKey, value,
 		HomeArticleLayoutKey, NormalizeHomeArticleLayout(settings.HomeArticleLayout),
@@ -283,7 +295,10 @@ ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)`,
 		SiteKeywordsKey, settings.SiteKeywords,
 		SiteBaseURLKey, settings.SiteBaseURL,
 		ProjectsPageEnabledKey, boolSettingValue(settings.ProjectsPageEnabled),
-		ProjectsNavHiddenKey, boolSettingValue(settings.ProjectsNavHidden))
+		ProjectsNavHiddenKey, boolSettingValue(settings.ProjectsNavHidden),
+		RAGChatPageEnabledKey, boolSettingValue(settings.RAGChatPageEnabled),
+		RAGChatNavHiddenKey, boolSettingValue(settings.RAGChatNavHidden),
+		RAGChatAccessLevelKey, NormalizeRAGChatAccessLevel(settings.RAGChatAccessLevel))
 	return err
 }
 
@@ -372,6 +387,17 @@ func NormalizeAIAPIFormat(apiFormat string) string {
 		return AIAPIFormatOpenAI
 	default:
 		return DefaultAIAPIFormat
+	}
+}
+
+// NormalizeRAGChatAccessLevel 限制公开问答页最低角色。管理员天然高于 editor，
+// 因此设置层只需存 guest/user/editor 三个门槛。
+func NormalizeRAGChatAccessLevel(level string) string {
+	switch strings.ToLower(strings.TrimSpace(level)) {
+	case "user", "editor":
+		return strings.ToLower(strings.TrimSpace(level))
+	default:
+		return "guest"
 	}
 }
 

@@ -1,6 +1,9 @@
 package types
 
-import "time"
+import (
+	"encoding/json"
+	"time"
+)
 
 type TokenPair struct {
 	AccessToken string `json:"accessToken"`
@@ -64,6 +67,9 @@ type SiteSettingsResp struct {
 	SiteBaseURL                   string `json:"siteBaseUrl"`
 	ProjectsPageEnabled           bool   `json:"projectsPageEnabled"`
 	ProjectsNavHidden             bool   `json:"projectsNavHidden"`
+	RAGChatPageEnabled            bool   `json:"ragChatPageEnabled"`
+	RAGChatNavHidden              bool   `json:"ragChatNavHidden"`
+	RAGChatAccessLevel            string `json:"ragChatAccessLevel"`
 }
 
 type UpdateSiteSettingsReq struct {
@@ -76,6 +82,9 @@ type UpdateSiteSettingsReq struct {
 	SiteBaseURL         *string `json:"siteBaseUrl,optional"`
 	ProjectsPageEnabled *bool   `json:"projectsPageEnabled,optional"`
 	ProjectsNavHidden   *bool   `json:"projectsNavHidden,optional"`
+	RAGChatPageEnabled  *bool   `json:"ragChatPageEnabled,optional"`
+	RAGChatNavHidden    *bool   `json:"ragChatNavHidden,optional"`
+	RAGChatAccessLevel  *string `json:"ragChatAccessLevel,optional"`
 }
 
 type ProjectItem struct {
@@ -246,6 +255,78 @@ type AIModelTestReq struct {
 type AIModelTestResp struct {
 	Model     string `json:"model"`
 	LatencyMs int64  `json:"latencyMs"`
+}
+
+// RAGSettingsResp 从不返回 API Key 明文；configured/needsUpdate 仅表示密钥状态。
+type RAGSettingsResp struct {
+	Enabled              bool   `json:"enabled"`
+	ChatBaseURL          string `json:"chatBaseUrl"`
+	EmbeddingBaseURL     string `json:"embeddingBaseUrl"`
+	RerankURL            string `json:"rerankUrl"`
+	APIKeyConfigured     bool   `json:"apiKeyConfigured"`
+	APIKeyNeedsUpdate    bool   `json:"apiKeyNeedsUpdate"`
+	ChatModel            string `json:"chatModel"`
+	EmbeddingModel       string `json:"embeddingModel"`
+	EmbeddingDimensions  int    `json:"embeddingDimensions"`
+	RerankModel          string `json:"rerankModel"`
+	HistoryRetentionDays int    `json:"historyRetentionDays"`
+}
+
+type UpdateRAGSettingsReq struct {
+	Enabled              bool    `json:"enabled"`
+	ChatBaseURL          *string `json:"chatBaseUrl,optional"`
+	EmbeddingBaseURL     *string `json:"embeddingBaseUrl,optional"`
+	RerankURL            *string `json:"rerankUrl,optional"`
+	APIKey               string  `json:"apiKey,optional"`
+	ClearAPIKey          bool    `json:"clearApiKey,optional"`
+	ChatModel            *string `json:"chatModel,optional"`
+	EmbeddingModel       *string `json:"embeddingModel,optional"`
+	EmbeddingDimensions  *int    `json:"embeddingDimensions,optional"`
+	RerankModel          *string `json:"rerankModel,optional"`
+	HistoryRetentionDays *int    `json:"historyRetentionDays,optional"`
+}
+
+// RAGTestReq 只接受测试类别，始终使用已保存的加密 RAG 配置。
+type RAGTestReq struct {
+	Kind string `json:"kind"`
+}
+type RAGTestResp struct {
+	LatencyMs           int64  `json:"latencyMs"`
+	Message             string `json:"message,omitempty"`
+	EmbeddingDimensions int    `json:"embeddingDimensions,omitempty"`
+}
+type RAGStatusResp struct {
+	Status          string `json:"status"`
+	Enabled         bool   `json:"enabled"`
+	Configured      bool   `json:"configured"`
+	QueueDepth      uint64 `json:"queueDepth,omitempty"`
+	IndexedArticles uint64 `json:"indexedArticles,omitempty"`
+	IndexedChunks   uint64 `json:"indexedChunks,omitempty"`
+	LastError       string `json:"lastError,omitempty"`
+}
+
+type RAGChatStreamReq struct {
+	Question  string `json:"question"`
+	SessionID string `json:"sessionId,optional"`
+}
+type RAGChatMessageResp struct {
+	ID             string          `json:"id"`
+	SessionID      string          `json:"sessionId"`
+	Role           string          `json:"role"`
+	Content        string          `json:"content"`
+	Sources        json.RawMessage `json:"sources,omitempty"`
+	SourcesUpdated bool            `json:"sourcesUpdated,omitempty"`
+	HiddenAt       *time.Time      `json:"hiddenAt,omitempty"`
+	CreatedAt      time.Time       `json:"createdAt"`
+}
+type RAGChatSessionResp struct {
+	ID          string               `json:"id"`
+	Title       string               `json:"title"`
+	SourceEpoch uint64               `json:"sourceEpoch,omitempty"`
+	ExpiresAt   *time.Time           `json:"expiresAt,omitempty"`
+	CreatedAt   time.Time            `json:"createdAt"`
+	UpdatedAt   time.Time            `json:"updatedAt"`
+	Messages    []RAGChatMessageResp `json:"messages,omitempty"`
 }
 
 type ArticleListReq struct {

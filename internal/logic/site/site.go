@@ -100,6 +100,15 @@ func siteSettingsForUpdate(currentSettings model.SiteSettings, req types.UpdateS
 	homeCTAHidden := boolForUpdate(currentSettings.HomeCTAHidden, req.HomeCtaHidden)
 	projectsPageEnabled := boolForUpdate(currentSettings.ProjectsPageEnabled, req.ProjectsPageEnabled)
 	projectsNavHidden := boolForUpdate(currentSettings.ProjectsNavHidden, req.ProjectsNavHidden)
+	ragChatPageEnabled := boolForUpdate(currentSettings.RAGChatPageEnabled, req.RAGChatPageEnabled)
+	ragChatNavHidden := boolForUpdate(currentSettings.RAGChatNavHidden, req.RAGChatNavHidden)
+	ragChatAccessLevel := model.NormalizeRAGChatAccessLevel(currentSettings.RAGChatAccessLevel)
+	if req.RAGChatAccessLevel != nil {
+		ragChatAccessLevel = strings.ToLower(strings.TrimSpace(*req.RAGChatAccessLevel))
+	}
+	if ragChatAccessLevel != "guest" && ragChatAccessLevel != "user" && ragChatAccessLevel != "editor" {
+		return model.SiteSettings{}, errors.BadRequest("ragChatAccessLevel is invalid")
+	}
 	return model.SiteSettings{
 		RegistrationEnabled: registrationEnabled,
 		HomeArticleLayout:   layout,
@@ -110,6 +119,9 @@ func siteSettingsForUpdate(currentSettings model.SiteSettings, req types.UpdateS
 		SiteBaseURL:         siteBaseURL,
 		ProjectsPageEnabled: projectsPageEnabled,
 		ProjectsNavHidden:   projectsNavHidden,
+		RAGChatPageEnabled:  ragChatPageEnabled,
+		RAGChatNavHidden:    ragChatNavHidden,
+		RAGChatAccessLevel:  ragChatAccessLevel,
 	}, nil
 }
 
@@ -184,6 +196,9 @@ func siteSettingsResp(settings *model.SiteSettings, forceRegistrationEnabled boo
 		SiteBaseURL:                   settings.SiteBaseURL,
 		ProjectsPageEnabled:           settings.ProjectsPageEnabled,
 		ProjectsNavHidden:             settings.ProjectsNavHidden,
+		RAGChatPageEnabled:            settings.RAGChatPageEnabled,
+		RAGChatNavHidden:              settings.RAGChatNavHidden,
+		RAGChatAccessLevel:            settings.RAGChatAccessLevel,
 	}
 }
 

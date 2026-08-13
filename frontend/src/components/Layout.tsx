@@ -43,10 +43,12 @@ const Layout: React.FC = () => {
       resetAccentColor: state.resetAccentColor,
     })),
   );
-  const { projectsPageEnabled, projectsNavHidden } = useSiteSettingsStore(
+  const { projectsPageEnabled, projectsNavHidden, ragChatPageEnabled, ragChatNavHidden } = useSiteSettingsStore(
     useShallow((state) => ({
       projectsPageEnabled: state.projectsPageEnabled,
       projectsNavHidden: state.projectsNavHidden,
+      ragChatPageEnabled: state.ragChatPageEnabled,
+      ragChatNavHidden: state.ragChatNavHidden,
     })),
   );
   const navigate = useNavigate();
@@ -359,6 +361,9 @@ const Layout: React.FC = () => {
             <PreloadNavLink to="/" end className={desktopLinkClass}>{t('nav.home')}</PreloadNavLink>
             <PreloadNavLink to="/archive" preload={routeLoaders.archive} className={desktopLinkClass}>{t('nav.archive')}</PreloadNavLink>
             <PreloadNavLink to="/search" preload={routeLoaders.search} className={desktopLinkClass}>{t('nav.search')}</PreloadNavLink>
+            {ragChatPageEnabled && !ragChatNavHidden && (
+              <PreloadNavLink to="/ask" preload={routeLoaders.ask} className={desktopLinkClass}>{t('nav.ask')}</PreloadNavLink>
+            )}
             {projectsPageEnabled && !projectsNavHidden && (
               <PreloadNavLink to="/projects" preload={routeLoaders.projects} className={desktopLinkClass}>{t('nav.projects')}</PreloadNavLink>
             )}
@@ -404,6 +409,9 @@ const Layout: React.FC = () => {
             <PreloadNavLink to="/" end onClick={closeMobileMenu} className={mobileLinkClass}>{t('nav.home')}</PreloadNavLink>
             <PreloadNavLink to="/archive" preload={routeLoaders.archive} onClick={closeMobileMenu} className={mobileLinkClass}>{t('nav.archive')}</PreloadNavLink>
             <PreloadNavLink to="/search" preload={routeLoaders.search} onClick={closeMobileMenu} className={mobileLinkClass}>{t('nav.search')}</PreloadNavLink>
+            {ragChatPageEnabled && !ragChatNavHidden && (
+              <PreloadNavLink to="/ask" preload={routeLoaders.ask} onClick={closeMobileMenu} className={mobileLinkClass}>{t('nav.ask')}</PreloadNavLink>
+            )}
             {projectsPageEnabled && !projectsNavHidden && (
               <PreloadNavLink to="/projects" preload={routeLoaders.projects} onClick={closeMobileMenu} className={mobileLinkClass}>{t('nav.projects')}</PreloadNavLink>
             )}

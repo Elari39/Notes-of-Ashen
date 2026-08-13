@@ -26,14 +26,16 @@ type BackupArticle struct {
 }
 
 type BackupSnapshot struct {
-	Users       []User           `json:"users"`
-	Settings    []BackupSetting  `json:"settings"`
-	Categories  []Category       `json:"categories"`
-	Tags        []Tag            `json:"tags"`
-	Projects    []ProjectItem    `json:"projects"`
-	Articles    []BackupArticle  `json:"articles"`
-	Versions    []ArticleVersion `json:"versions"`
-	MediaAssets []MediaAsset     `json:"mediaAssets"`
+	Users           []User           `json:"users"`
+	Settings        []BackupSetting  `json:"settings"`
+	Categories      []Category       `json:"categories"`
+	Tags            []Tag            `json:"tags"`
+	Projects        []ProjectItem    `json:"projects"`
+	Articles        []BackupArticle  `json:"articles"`
+	Versions        []ArticleVersion `json:"versions"`
+	MediaAssets     []MediaAsset     `json:"mediaAssets"`
+	RAGChatSessions []RAGChatSession `json:"ragChatSessions"`
+	RAGChatMessages []RAGChatMessage `json:"ragChatMessages"`
 }
 
 func (s *Store) ExportBackup(ctx context.Context) (*BackupSnapshot, error) {
@@ -67,6 +69,14 @@ func (s *Store) ExportBackup(ctx context.Context) (*BackupSnapshot, error) {
 	if snapshot.MediaAssets, err = backupMedia(ctx, tx); err != nil {
 		return nil, err
 	}
+	// RAG 同步任务和索引状态都是可再生派生数据，故意不进入备份；仅保留
+	// 已登录用户的私有会话与消息历史。
+	if snapshot.RAGChatSessions, err = backupRAGChatSessions(ctx, tx); err != nil {
+		return nil, err
+	}
+	if snapshot.RAGChatMessages, err = backupRAGChatMessages(ctx, tx); err != nil {
+		return nil, err
+	}
 	if err := tx.Commit(); err != nil {
 		return nil, err
 	}
@@ -91,7 +101,9 @@ func backupUsers(ctx context.Context, tx *sql.Tx) ([]User, error) {
 }
 
 func backupSettings(ctx context.Context, tx *sql.Tx) ([]BackupSetting, error) {
-	rows, err := tx.QueryContext(ctx, `SELECT setting_key, setting_value FROM site_settings WHERE setting_key NOT IN (?, ?) ORDER BY setting_key`, "ai_api_key_cipher", BackupRestoreMarkerKey)
+	// 密钥绝不随备份导出。RAG 的 URL、模型等非敏感连接配置可以保留，恢复后
+	// 仍会主动关闭 RAG，要求管理员重新录入密钥并触发重建。
+	rows, err := tx.QueryContext(ctx, `SELECT setting_key, setting_value FROM site_settings WHERE setting_key NOT IN (?, ?, ?) ORDER BY setting_key`, AIAPIKeyCipherKey, RAGAPIKeyCipherKey, BackupRestoreMarkerKey)
 	if err != nil {
 		return nil, err
 	}
@@ -251,6 +263,44 @@ func backupMedia(ctx context.Context, tx *sql.Tx) ([]MediaAsset, error) {
 	return items, rows.Err()
 }
 
+func backupRAGChatSessions(ctx context.Context, tx *sql.Tx) ([]RAGChatSession, error) {
+	// 游客会话只属于浏览器内存；即使旧版本意外留下 NULL user_id 的记录，
+	// 也不能把它们混入可跨设备恢复的私有历史。过期会话同样不应借由备份
+	// 延长保留期；每日清理尚未运行时，这层筛选仍能守住导出边界。
+	rows, err := tx.QueryContext(ctx, `SELECT id, user_id, title, source_epoch, expires_at, created_at, updated_at FROM rag_chat_sessions WHERE user_id IS NOT NULL AND (expires_at IS NULL OR expires_at > NOW(6)) ORDER BY created_at, id`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := make([]RAGChatSession, 0)
+	for rows.Next() {
+		item, err := scanRAGChatSession(rows)
+		if err != nil {
+			return nil, err
+		}
+		items = append(items, *item)
+	}
+	return items, rows.Err()
+}
+
+func backupRAGChatMessages(ctx context.Context, tx *sql.Tx) ([]RAGChatMessage, error) {
+	// 与会话导出的条件保持一致，避免意外的游客或已过期会话留下孤立消息。
+	rows, err := tx.QueryContext(ctx, `SELECT m.id, m.session_id, m.role, m.content, m.sources, m.hidden_at, m.created_at FROM rag_chat_messages m JOIN rag_chat_sessions s ON s.id = m.session_id WHERE s.user_id IS NOT NULL AND (s.expires_at IS NULL OR s.expires_at > NOW(6)) ORDER BY m.id`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := make([]RAGChatMessage, 0)
+	for rows.Next() {
+		item, err := scanRAGChatMessage(rows)
+		if err != nil {
+			return nil, err
+		}
+		items = append(items, *item)
+	}
+	return items, rows.Err()
+}
+
 func (s *Store) RestoreBackup(ctx context.Context, snapshot BackupSnapshot) error {
 	return s.restoreBackup(ctx, snapshot, "")
 }
@@ -271,7 +321,14 @@ func (s *Store) restoreBackup(ctx context.Context, snapshot BackupSnapshot, rest
 		return err
 	}
 	defer tx.Rollback()
-	deletes := []string{"DELETE FROM refresh_tokens", "DELETE FROM operation_logs", "DELETE FROM traffic_content_daily_visitors", "DELETE FROM traffic_content_daily_stats", "DELETE FROM traffic_referer_stats", "DELETE FROM traffic_daily_visitors", "DELETE FROM traffic_daily_stats", "DELETE FROM article_likes", "DELETE FROM project_tags", "DELETE FROM article_tags", "DELETE FROM article_versions", "DELETE FROM projects", "DELETE FROM media_assets", "DELETE FROM articles", "DELETE FROM categories", "DELETE FROM tags", "DELETE FROM site_settings", "DELETE FROM users"}
+	previousRAGEpoch, err := ragIndexEpochForRestore(ctx, tx)
+	if err != nil {
+		return err
+	}
+	// rag_chat_messages -> rag_chat_sessions -> users 存在外键；必须先删除子表，
+	// 否则替换 users 时会被历史会话阻塞。同步任务和索引状态不恢复，后续会
+	// 以新的 epoch 标记为 needs_rebuild。
+	deletes := []string{"DELETE FROM refresh_tokens", "DELETE FROM operation_logs", "DELETE FROM traffic_content_daily_visitors", "DELETE FROM traffic_content_daily_stats", "DELETE FROM traffic_referer_stats", "DELETE FROM traffic_daily_visitors", "DELETE FROM traffic_daily_stats", "DELETE FROM article_likes", "DELETE FROM project_tags", "DELETE FROM article_tags", "DELETE FROM article_versions", "DELETE FROM projects", "DELETE FROM media_assets", "DELETE FROM rag_chat_messages", "DELETE FROM rag_chat_sessions", "DELETE FROM rag_sync_jobs", "DELETE FROM rag_index_state", "DELETE FROM articles", "DELETE FROM categories", "DELETE FROM tags", "DELETE FROM site_settings", "DELETE FROM users"}
 	for _, query := range deletes {
 		if _, err := tx.ExecContext(ctx, query); err != nil {
 			return err
@@ -331,19 +388,25 @@ func (s *Store) restoreBackup(ctx context.Context, snapshot BackupSnapshot, rest
 			return err
 		}
 	}
-	settings := make(map[string]string, len(snapshot.Settings)+2)
-	for _, item := range snapshot.Settings {
-		if item.Key != "ai_api_key_cipher" && item.Key != BackupRestoreMarkerKey {
-			settings[item.Key] = item.Value
+	for _, session := range snapshot.RAGChatSessions {
+		if _, err := tx.ExecContext(ctx, `INSERT INTO rag_chat_sessions(id,user_id,title,source_epoch,expires_at,created_at,updated_at) VALUES(?,?,?,?,?,?,?)`, session.ID, nullableUint64(session.UserID), session.Title, session.SourceEpoch, nullableTime(session.ExpiresAt), session.CreatedAt, session.UpdatedAt); err != nil {
+			return err
 		}
 	}
-	settings["ai_enabled"] = "false"
-	settings["ai_api_key_cipher"] = ""
+	for _, message := range snapshot.RAGChatMessages {
+		if _, err := tx.ExecContext(ctx, `INSERT INTO rag_chat_messages(id,session_id,role,content,sources,hidden_at,created_at) VALUES(?,?,?,?,?,?,?)`, message.ID, message.SessionID, message.Role, message.Content, nullableJSON(message.Sources), nullableTime(message.HiddenAt), message.CreatedAt); err != nil {
+			return err
+		}
+	}
+	settings := restoredSettings(snapshot.Settings)
 	now := time.Now()
 	for key, value := range settings {
 		if _, err := tx.ExecContext(ctx, `INSERT INTO site_settings(setting_key,setting_value,created_at,updated_at) VALUES(?,?,?,?)`, key, value, now, now); err != nil {
 			return err
 		}
+	}
+	if err := resetRAGIndexStateAfterRestore(ctx, tx, previousRAGEpoch); err != nil {
+		return err
 	}
 	if restoreMarker != "" {
 		if err := insertBackupRestoreMarker(ctx, tx, restoreMarker, now); err != nil {
@@ -351,6 +414,49 @@ func (s *Store) restoreBackup(ctx context.Context, snapshot BackupSnapshot, rest
 		}
 	}
 	return tx.Commit()
+}
+
+// restoredSettings drops archive-internal and secret values, then applies the
+// safe post-restore defaults. RAG providers may only be used again after an
+// administrator explicitly enters a fresh key and enables both the engine and
+// public chat page.
+func restoredSettings(items []BackupSetting) map[string]string {
+	settings := make(map[string]string, len(items)+7)
+	for _, item := range items {
+		if item.Key == AIAPIKeyCipherKey || item.Key == RAGAPIKeyCipherKey || item.Key == BackupRestoreMarkerKey {
+			continue
+		}
+		settings[item.Key] = item.Value
+	}
+	settings[AIEnabledKey] = "false"
+	settings[AIAPIKeyCipherKey] = ""
+	settings[RAGEnabledKey] = "false"
+	settings[RAGAPIKeyCipherKey] = ""
+	settings[RAGChatPageEnabledKey] = "false"
+	settings[RAGChatNavHiddenKey] = "true"
+	// 以安全默认角色保存，避免旧快照缺失该设置时后续误以 editor 门槛开放。
+	settings[RAGChatAccessLevelKey] = NormalizeRAGChatAccessLevel(settings[RAGChatAccessLevelKey])
+	return settings
+}
+
+func ragIndexEpochForRestore(ctx context.Context, tx *sql.Tx) (uint64, error) {
+	var epoch uint64
+	err := tx.QueryRowContext(ctx, `SELECT epoch FROM rag_index_state WHERE id = 1 FOR UPDATE`).Scan(&epoch)
+	if errors.Is(err, sql.ErrNoRows) {
+		return 0, nil
+	}
+	if err != nil {
+		return 0, err
+	}
+	return epoch, nil
+}
+
+func resetRAGIndexStateAfterRestore(ctx context.Context, tx *sql.Tx, previousEpoch uint64) error {
+	if previousEpoch == ^uint64(0) {
+		return errors.New("rag index epoch overflow")
+	}
+	_, err := tx.ExecContext(ctx, `INSERT INTO rag_index_state(id,status,epoch,embedding_fingerprint,last_error,indexed_article_count,indexed_chunk_count,started_at,completed_at) VALUES(?,?,?,?,?,?,?,?,?)`, 1, RAGIndexStatusNeedsRebuild, previousEpoch+1, "", nil, 0, 0, nil, nil)
+	return err
 }
 
 func insertBackupRestoreMarker(ctx context.Context, tx *sql.Tx, marker string, now time.Time) error {
