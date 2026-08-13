@@ -22,6 +22,8 @@ import { getErrorMessage } from '../utils/error';
 import { useSEO } from '../utils/seo';
 
 const QUESTION_LIMIT = 4_000;
+// 距底部小于该像素数时视为“正在跟随底部”，流式更新才自动滚动。
+const SCROLL_STICK_THRESHOLD = 96;
 
 const Ask: React.FC = () => {
   const language = usePreferenceStore((state) => state.language);
@@ -45,7 +47,9 @@ const Ask: React.FC = () => {
   const activeUserIDRef = useRef<number | undefined>(user?.id);
   // SSE 的 meta/done 事件可能在 React 状态提交前到达；保留即时值以便首次提问能写入会话列表。
   const sessionIdRef = useRef<string | undefined>();
-  const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
+  // 用户上翻阅读时暂停自动跟随，滚回底部附近后恢复，避免生成内容时被强制拉到底部。
+  const stickToBottomRef = useRef(true);
   const confirm = useConfirm();
   const t = useCallback((key: Parameters<typeof translate>[1]) => translate(language, key), [language]);
   const canAccess = isChatAccessAllowed(accessLevel, user?.role);
@@ -101,8 +105,16 @@ const Ask: React.FC = () => {
   }, [canAccess, user?.id]);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ block: 'end', behavior: streaming ? 'auto' : 'smooth' });
-  }, [messages, streaming]);
+    const container = scrollContainerRef.current;
+    if (!container || !stickToBottomRef.current) return;
+    container.scrollTop = container.scrollHeight;
+  }, [messages]);
+
+  const handleScroll = () => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+    stickToBottomRef.current = container.scrollHeight - container.scrollTop - container.clientHeight < SCROLL_STICK_THRESHOLD;
+  };
 
   useEffect(() => () => {
     controllerRef.current?.abort();
@@ -140,6 +152,7 @@ const Ask: React.FC = () => {
       const session = normalizeSession(response.data);
       sessionIdRef.current = session.id;
       setSessionId(session.id);
+      stickToBottomRef.current = true;
       setMessages(session.messages ?? []);
     } catch (requestError) {
       if (!controller.signal.aborted) {
@@ -174,6 +187,57 @@ const Ask: React.FC = () => {
     }
   };
 
+  /**
+   * 执行一次流式问答并写入指定 assistant 消息。提交新问题与重试共用，
+   * 保证 Abort、会话摘要更新、错误标记等行为完全一致。
+   */
+  const runStream = async (question: string, assistantId: string) => {
+    const controller = new AbortController();
+    controllerRef.current = controller;
+    setError('');
+    setStreaming(true);
+    setStreamingAssistantId(assistantId);
+
+    try {
+      await streamRAGChat(
+        { question, sessionId: sessionIdRef.current },
+        {
+          onEvent: (streamEvent) => {
+            // Abort 后仍可能有已缓冲事件送达；不允许旧请求污染新会话。
+            if (controller.signal.aborted || controllerRef.current !== controller) return;
+            handleStreamEvent(
+              streamEvent,
+              assistantId,
+              setMessages,
+              (nextSessionId) => {
+                sessionIdRef.current = nextSessionId;
+                setSessionId(nextSessionId);
+              },
+              (message) => setError(message),
+            );
+          },
+        },
+        controller.signal,
+      );
+      if (user && !controller.signal.aborted) {
+        // SSE 完成后只更新列表摘要，避免再取整段消息打断当前流式内容。
+        setSessions((current) => upsertLocalSession(current, sessionIdRef.current, question));
+      }
+    } catch (requestError) {
+      if (!controller.signal.aborted) {
+        setMessages((current) => markAssistantIncomplete(current, assistantId));
+        setError(getErrorMessage(requestError, t('ragChat.sendError')));
+      }
+    } finally {
+      // 停止后用户可以立刻发起下一轮；旧请求结束时不能反向关闭新请求的流式状态。
+      if (controllerRef.current === controller) {
+        controllerRef.current = null;
+        setStreaming(false);
+        setStreamingAssistantId(undefined);
+      }
+    }
+  };
+
   const submitQuestion = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const normalizedQuestion = question.trim();
@@ -202,52 +266,28 @@ const Ask: React.FC = () => {
     };
     // 新一轮请求前清除上一次的即时会话 ID，避免停止首轮生成后把下一轮写入孤儿会话。
     sessionIdRef.current = sessionId;
-    const controller = new AbortController();
-    controllerRef.current = controller;
+    stickToBottomRef.current = true;
     setMessages((current) => [...current, localUserMessage, localAssistantMessage]);
     setQuestion('');
-    setError('');
-    setStreaming(true);
-    setStreamingAssistantId(localAssistantId);
+    await runStream(normalizedQuestion, localAssistantId);
+  };
 
-    try {
-      await streamRAGChat(
-        { question: normalizedQuestion, sessionId },
-        {
-          onEvent: (streamEvent) => {
-            // Abort 后仍可能有已缓冲事件送达；不允许旧请求污染新会话。
-            if (controller.signal.aborted || controllerRef.current !== controller) return;
-            handleStreamEvent(
-              streamEvent,
-              localAssistantId,
-              setMessages,
-              (nextSessionId) => {
-                sessionIdRef.current = nextSessionId;
-                setSessionId(nextSessionId);
-              },
-              (message) => setError(message),
-            );
-          },
-        },
-        controller.signal,
-      );
-      if (user && !controller.signal.aborted) {
-        // SSE 完成后只更新列表摘要，避免再取整段消息打断当前流式内容。
-        setSessions((current) => upsertLocalSession(current, sessionIdRef.current, normalizedQuestion));
-      }
-    } catch (requestError) {
-      if (!controller.signal.aborted) {
-        setMessages((current) => markAssistantIncomplete(current, localAssistantId));
-        setError(getErrorMessage(requestError, t('ragChat.sendError')));
-      }
-    } finally {
-      // 停止后用户可以立刻发起下一轮；旧请求结束时不能反向关闭新请求的流式状态。
-      if (controllerRef.current === controller) {
-        controllerRef.current = null;
-        setStreaming(false);
-        setStreamingAssistantId(undefined);
-      }
-    }
+  /** 重新生成失败或被中断的回答：找回对应的用户问题并重新发起流式请求。 */
+  const retryAnswer = (assistantId: string) => {
+    if (streaming) return;
+    const index = messages.findIndex((message) => message.id === assistantId);
+    if (index < 0) return;
+    const userMessage = [...messages.slice(0, index)].reverse().find((message) => message.role === 'user');
+    if (!userMessage) return;
+    const question = userMessage.content;
+    // 清空旧回答与引用，等待新的流式结果；中断/失败轮次未保存到会话，不会重复。
+    setMessages((current) => current.map((message) => (
+      message.id === assistantId
+        ? { ...message, content: '', sources: [], sourcesUpdated: false, incomplete: false }
+        : message
+    )));
+    stickToBottomRef.current = true;
+    void runStream(question, assistantId);
   };
 
   const stopStreaming = () => {
@@ -289,11 +329,15 @@ const Ask: React.FC = () => {
 
   return (
     <div className="editorial-container w-full">
-      <section className="relative overflow-hidden rounded-xl bg-surface-soft px-6 py-10 md:px-10 md:py-12">
-        <div className="absolute left-0 top-8 h-24 w-px bg-ochre opacity-60" />
-        <p className="text-xs tracking-[0.32em] text-ochre">{t('ragChat.kicker')}</p>
-        <h1 className="mt-4 editorial-page-title">{t('ragChat.title')}</h1>
-        <p className="mt-4 max-w-2xl text-sm leading-loose tracking-wide text-ink-light">{t('ragChat.subtitle')}</p>
+      <section className="relative overflow-hidden rounded-xl bg-surface-soft px-5 py-4 md:px-6 md:py-5">
+        <div className="absolute left-0 top-3 bottom-3 w-px bg-ochre opacity-60" />
+        <div className="flex flex-col gap-1.5 md:flex-row md:items-baseline md:justify-between md:gap-6">
+          <div className="flex items-baseline gap-3">
+            <p className="text-[0.65rem] tracking-[0.32em] text-ochre">{t('ragChat.kicker')}</p>
+            <h1 className="font-display text-2xl leading-tight text-ink md:text-3xl">{t('ragChat.title')}</h1>
+          </div>
+          <p className="text-xs leading-relaxed tracking-wide text-ink-light md:max-w-md md:text-right">{t('ragChat.subtitle')}</p>
+        </div>
       </section>
 
       <div className="mt-8 grid gap-6 xl:grid-cols-[16rem_minmax(0,1fr)]">
@@ -345,7 +389,11 @@ const Ask: React.FC = () => {
         )}
 
         <section className="min-w-0 rounded-xl border border-hairline bg-paper">
-          <div className="max-h-[min(62vh,54rem)] min-h-[24rem] overflow-y-auto p-5 md:p-7">
+          <div
+            ref={scrollContainerRef}
+            onScroll={handleScroll}
+            className="max-h-[min(62vh,54rem)] min-h-[24rem] overflow-y-auto p-5 md:p-7"
+          >
             {sessionLoading ? (
               <PagePendingState variant="inline" label={t('ragChat.historyLoading')} />
             ) : messages.length === 0 ? (
@@ -358,9 +406,14 @@ const Ask: React.FC = () => {
             ) : (
               <div className="space-y-7">
                 {messages.map((message) => (
-                  <ChatMessageCard key={message.id} message={message} streaming={message.id === streamingAssistantId} t={t} />
+                  <ChatMessageCard
+                    key={message.id}
+                    message={message}
+                    streaming={message.id === streamingAssistantId}
+                    t={t}
+                    onRetry={retryAnswer}
+                  />
                 ))}
-                <div ref={messagesEndRef} />
               </div>
             )}
           </div>
@@ -407,12 +460,49 @@ const ChatMessageCard = ({
   message,
   streaming,
   t,
+  onRetry,
 }: {
   message: RAGChatMessage;
   streaming: boolean;
   t: (key: Parameters<typeof translate>[1]) => string;
+  onRetry?: (assistantId: string) => void;
 }) => {
   const isAssistant = message.role === 'assistant';
+  const [copied, setCopied] = useState(false);
+  const copyTimerRef = useRef<number | undefined>(undefined);
+
+  useEffect(() => () => {
+    if (copyTimerRef.current) {
+      window.clearTimeout(copyTimerRef.current);
+    }
+  }, []);
+
+  const copyAnswer = async () => {
+    try {
+      if (navigator.clipboard?.writeText) {
+        try {
+          await navigator.clipboard.writeText(message.content);
+        } catch {
+          // 本地开发环境或非安全上下文可能拒绝异步剪贴板，继续使用兼容路径。
+          copyWithLegacyApi(message.content);
+        }
+      } else {
+        copyWithLegacyApi(message.content);
+      }
+      setCopied(true);
+      if (copyTimerRef.current) {
+        window.clearTimeout(copyTimerRef.current);
+      }
+      copyTimerRef.current = window.setTimeout(() => setCopied(false), 1600);
+    } catch {
+      setCopied(false);
+    }
+  };
+
+  // 流式开始时参考文章先于回答到达；回答内容为空时暂不展示，
+  // 避免“切片先出现、页面直接跳到底部”的错位观感。
+  const showSources = (message.sources?.length ?? 0) > 0 && !(streaming && !message.content);
+
   return (
     <article className={isAssistant ? '' : 'ml-auto max-w-3xl'}>
       <p className={`mb-2 text-xs font-bold tracking-widest ${isAssistant ? 'text-ochre' : 'text-ink-light'}`}>
@@ -433,13 +523,40 @@ const ChatMessageCard = ({
           ) : null}
           {message.sourcesUpdated && <InlineNotice message={t('ragChat.sourcesUpdated')} tone="warning" icon className="mt-4" />}
           {message.incomplete && <InlineNotice message={t('ragChat.interrupted')} tone="warning" icon className="mt-4" />}
-          {(message.sources?.length ?? 0) > 0 && (
+          {showSources && (
             <SourceList sources={message.sources ?? []} hideSnippets={Boolean(message.sourcesUpdated)} t={t} />
+          )}
+          {!streaming && (message.content || message.incomplete) && (
+            <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-hairline pt-3">
+              {message.incomplete && (
+                <Button size="sm" variant="subtle" onClick={() => onRetry?.(message.id)}>
+                  {t('ragChat.retry')}
+                </Button>
+              )}
+              {message.content && (
+                <Button size="sm" variant="subtle" onClick={() => void copyAnswer()}>
+                  {copied ? t('ragChat.copied') : t('ragChat.copy')}
+                </Button>
+              )}
+            </div>
           )}
         </div>
       ) : (
-        <div className="rounded-lg bg-ink px-4 py-3 text-sm leading-7 text-on-dark">
-          <div className="whitespace-pre-wrap">{message.content}</div>
+        <div>
+          <div className="rounded-lg bg-ink px-4 py-3 text-sm leading-7 text-on-dark">
+            <div className="whitespace-pre-wrap">{message.content}</div>
+          </div>
+          {!streaming && message.content && (
+            <div className="mt-1.5 flex justify-end">
+              <button
+                type="button"
+                onClick={() => void copyAnswer()}
+                className="text-xs text-muted transition-colors hover:text-ink"
+              >
+                {copied ? t('ragChat.copied') : t('ragChat.copy')}
+              </button>
+            </div>
+          )}
         </div>
       )}
     </article>
@@ -607,6 +724,28 @@ const createLocalID = (): string => {
     return crypto.randomUUID();
   }
   return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+};
+
+/** 非安全上下文下 navigator.clipboard 不可用时的复制兜底。 */
+const copyWithLegacyApi = (text: string) => {
+  const input = document.createElement('textarea');
+  input.value = text;
+  input.setAttribute('readonly', '');
+  input.style.position = 'fixed';
+  input.style.top = '0';
+  input.style.left = '-9999px';
+  input.style.opacity = '0';
+  input.style.pointerEvents = 'none';
+  document.body.appendChild(input);
+  try {
+    input.focus();
+    input.select();
+    if (!document.execCommand('copy')) {
+      throw new Error('copy failed');
+    }
+  } finally {
+    input.remove();
+  }
 };
 
 export default Ask;
