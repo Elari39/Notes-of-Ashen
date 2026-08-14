@@ -66,6 +66,15 @@ export const createIdentity = (prefix: string): TestIdentity => {
   };
 };
 
+// 固定管理员身份：serial 组重试时用户表已非空（首个注册豁免失效），
+// 随机账号无法再注册为 admin；固定凭据允许重跑时直接登录同一管理员，
+// 保证 78 行测试与整个 serial 组的重试均可全绿。
+export const FIXED_ADMIN_IDENTITY: TestIdentity = {
+  account: 'e2eadmin',
+  email: 'e2eadmin@example.test',
+  password: 'NoaE2E!fixed-admin',
+};
+
 const captchaIDFromResponse = async (response: APIResponse): Promise<string> => {
   const data = await readEnvelope<{ captchaId?: string }>(response, 'Captcha request');
   if (!data.captchaId) {
@@ -74,7 +83,7 @@ const captchaIDFromResponse = async (response: APIResponse): Promise<string> => 
   return data.captchaId;
 };
 
-export const loginThroughUI = async (page: Page, identity: TestIdentity): Promise<void> => {
+export const loginThroughUI = async (page: Page, identity: TestIdentity): Promise<CurrentUser> => {
   const captchaResponse = page.waitForResponse((response) => apiPathMatches(response, '/auth/captcha', 'POST'));
   await page.goto('/login');
   const captchaID = await captchaIDFromResponse(await captchaResponse);
@@ -85,8 +94,9 @@ export const loginThroughUI = async (page: Page, identity: TestIdentity): Promis
   await page.getByLabel('Captcha', { exact: true }).fill(captchaCode);
   const currentUserResponse = page.waitForResponse((response) => apiPathMatches(response, '/users/me', 'GET'));
   await page.getByRole('button', { name: 'Sign In', exact: true }).click();
-  await readEnvelope<CurrentUser>(await currentUserResponse, 'Login user lookup');
+  const user = await readEnvelope<CurrentUser>(await currentUserResponse, 'Login user lookup');
   await page.waitForURL((url) => url.pathname === '/');
+  return user;
 };
 
 export const registerThroughUI = async (

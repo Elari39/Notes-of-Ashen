@@ -12,6 +12,7 @@ import {
 } from './helpers/env';
 import {
   createIdentity,
+  FIXED_ADMIN_IDENTITY,
   loginThroughUI,
   matchesAPIPath,
   preparePage,
@@ -76,11 +77,24 @@ test.describe.serial('真实 Compose 前端关键路径', () => {
   };
 
   test('首次注册管理员并在刷新后恢复会话', async ({ page }) => {
-    admin = createIdentity('e2eadmin');
+    // 固定凭据：正常流程（用户表为空）注册为 admin；serial 组重试时用户表已非空、
+    // 首个注册豁免失效，改走登录路径复用同一管理员，保证重跑可全绿。
+    admin = { ...FIXED_ADMIN_IDENTITY };
     await preparePage(page);
 
-    const registeredUser = await registerThroughUI(page, admin);
-    expect(registeredUser.role).toBe('admin');
+    // registrationEmailCodeRequired=false 仅在"用户表为空且邮箱服务未启用"时成立
+    // （首个注册豁免）；为 true 说明管理员已存在（serial 重跑场景）。
+    const settingsResponse = page.waitForResponse((response) => matchesAPIPath(response, '/site/settings', 'GET'));
+    await page.goto('/register');
+    const settings = await successData<{ registrationEmailCodeRequired?: boolean }>(
+      await settingsResponse,
+      'Site settings lookup',
+    );
+
+    const currentUser = settings.registrationEmailCodeRequired === false
+      ? await registerThroughUI(page, admin)
+      : await loginThroughUI(page, admin);
+    expect(currentUser.role).toBe('admin');
 
     const firstCookie = storageRefreshCookie(await page.context().storageState());
     const refreshResponse = page.waitForResponse((response) => matchesAPIPath(response, '/auth/refresh', 'POST'));

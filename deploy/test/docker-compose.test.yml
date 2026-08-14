@@ -6,6 +6,10 @@ services:
     environment:
       PRERENDER_ENABLED: "0"
       PRERENDER_TOKEN: ""
+    volumes:
+      # 覆盖镜像内生产限流配置（10r/s + burst 20）：E2E 多上下文并发的会话恢复
+      # refresh 瞬时高峰会触发限流（503）并打断会话流程，测试环境放宽限流。
+      - ./deploy/test/nginx/10-limits-test.conf:/etc/nginx/conf.d/10-limits.conf:ro
 
   api:
     restart: "no"
