@@ -573,9 +573,9 @@ const ChatMessageCard = ({
     }
   };
 
-  // 流式开始时参考文章先于回答到达；回答内容为空时暂不展示，
-  // 避免“切片先出现、页面直接跳到底部”的错位观感。
-  const showSources = (message.sources?.length ?? 0) > 0 && !(streaming && !message.content);
+  // 参考文章（RAG 切片）先于正文到达；若紧随首个 delta 就展示，来源会抢占视觉焦点、
+  // 正文反在其上方逐字增长。改为生成结束（或中断）后统一展示在正文下方。
+  const showSources = (message.sources?.length ?? 0) > 0 && !streaming;
 
   return (
     <article className={isAssistant ? '' : 'ml-auto max-w-3xl'}>
