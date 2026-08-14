@@ -549,6 +549,11 @@ const zh = {
   'ragChat.editorRequired': '此问答页仅对编辑和管理员开放。',
   'ragChat.accessDenied': '你暂时没有访问此问答页的权限。',
   'ragChat.signIn': '去登录',
+  'ragChat.showHistory': '展开记录',
+  'ragChat.hideHistory': '收起记录',
+  'ragChat.historySearch': '搜索会话…',
+  'ragChat.historySearchEmpty': '没有匹配的会话。',
+  'ragChat.backToBottom': '回到底部',
 
   'ragSettings.title': 'RAG 知识库配置',
   'ragSettings.loading': '正在载入知识库配置…',
@@ -1397,6 +1402,11 @@ const en: Record<TranslationKey, string> = {
   'ragChat.editorRequired': 'This Q&A page is available to editors and administrators only.',
   'ragChat.accessDenied': 'You do not currently have permission to access this Q&A page.',
   'ragChat.signIn': 'Sign in',
+  'ragChat.showHistory': 'Show history',
+  'ragChat.hideHistory': 'Hide history',
+  'ragChat.historySearch': 'Search conversations…',
+  'ragChat.historySearchEmpty': 'No matching conversations.',
+  'ragChat.backToBottom': 'Back to bottom',
 
   'ragSettings.title': 'RAG Knowledge Base',
   'ragSettings.loading': 'Loading knowledge-base settings…',

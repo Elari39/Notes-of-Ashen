@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useReducedMotion } from 'framer-motion';
 import Button from '../components/ui/Button';
 import EmptyState from '../components/ui/EmptyState';
 import InlineNotice from '../components/InlineNotice';
@@ -20,10 +21,13 @@ import { useSiteSettingsStore } from '../store/siteSettings';
 import type { RAGChatMessage, RAGChatSession, RAGChatSource } from '../types';
 import { getErrorMessage } from '../utils/error';
 import { useSEO } from '../utils/seo';
+import { safeLocalStorage } from '../utils/storage';
 
 const QUESTION_LIMIT = 4_000;
 // 距底部小于该像素数时视为“正在跟随底部”，流式更新才自动滚动。
 const SCROLL_STICK_THRESHOLD = 96;
+// 历史记录折叠状态持久化 key（纯 UI 偏好，无隐私内容）。
+const HISTORY_COLLAPSED_KEY = 'notesOfAshen.ask.historyCollapsed';
 
 const Ask: React.FC = () => {
   const language = usePreferenceStore((state) => state.language);
@@ -42,6 +46,9 @@ const Ask: React.FC = () => {
   const [streamingAssistantId, setStreamingAssistantId] = useState<string>();
   const [error, setError] = useState('');
   const [historyError, setHistoryError] = useState('');
+  const [historyCollapsed, setHistoryCollapsed] = useState(readInitialHistoryCollapsed);
+  const [historyQuery, setHistoryQuery] = useState('');
+  const [atBottom, setAtBottom] = useState(true);
   const controllerRef = useRef<AbortController | null>(null);
   const sessionRequestRef = useRef<AbortController | null>(null);
   const activeUserIDRef = useRef<number | undefined>(user?.id);
@@ -51,6 +58,7 @@ const Ask: React.FC = () => {
   // 用户上翻阅读时暂停自动跟随，滚回底部附近后恢复，避免生成内容时被强制拉到底部。
   const stickToBottomRef = useRef(true);
   const confirm = useConfirm();
+  const shouldReduceMotion = useReducedMotion();
   const t = useCallback((key: Parameters<typeof translate>[1]) => translate(language, key), [language]);
   const canAccess = isChatAccessAllowed(accessLevel, user?.role);
   // 即使 guest 可访问，也要先恢复登录态：否则已登录用户在刷新页后的首次提问会被误作游客会话。
@@ -114,6 +122,7 @@ const Ask: React.FC = () => {
     const container = scrollContainerRef.current;
     if (!container) return;
     stickToBottomRef.current = container.scrollHeight - container.scrollTop - container.clientHeight < SCROLL_STICK_THRESHOLD;
+    setAtBottom(stickToBottomRef.current);
   };
 
   useEffect(() => () => {
@@ -126,6 +135,12 @@ const Ask: React.FC = () => {
     [sessions],
   );
 
+  const filteredSessionItems = useMemo(() => {
+    const query = historyQuery.trim().toLowerCase();
+    if (!query) return sessionItems;
+    return sessionItems.filter((item) => item.title.toLowerCase().includes(query));
+  }, [historyQuery, sessionItems]);
+
   const startNewChat = () => {
     controllerRef.current?.abort();
     controllerRef.current = null;
@@ -137,6 +152,22 @@ const Ask: React.FC = () => {
     setError('');
     setSessionLoading(false);
     setStreamingAssistantId(undefined);
+  };
+
+  const toggleHistory = () => {
+    setHistoryCollapsed((current) => {
+      const next = !current;
+      safeLocalStorage.setItem(HISTORY_COLLAPSED_KEY, next ? '1' : '0');
+      return next;
+    });
+  };
+
+  const scrollToBottom = () => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+    stickToBottomRef.current = true;
+    setAtBottom(true);
+    container.scrollTo({ top: container.scrollHeight, behavior: shouldReduceMotion ? 'auto' : 'smooth' });
   };
 
   const loadSession = async (nextSessionId: string) => {
@@ -340,14 +371,11 @@ const Ask: React.FC = () => {
         </div>
       </section>
 
-      <div className="mt-8 grid gap-6 xl:grid-cols-[16rem_minmax(0,1fr)]">
-        {user && (
-          <aside className="rounded-xl border border-hairline bg-paper p-4 xl:sticky xl:top-24 xl:h-fit">
-            <div className="flex items-center justify-between gap-3 border-b border-hairline pb-3">
+      <div className={`mt-8 grid gap-6 ${user && !historyCollapsed ? 'xl:grid-cols-[16rem_minmax(0,1fr)]' : 'xl:grid-cols-[minmax(0,1fr)]'}`}>
+        {user && !historyCollapsed && (
+          <aside id="rag-history-panel" className="rounded-xl border border-hairline bg-paper p-4 xl:sticky xl:top-24 xl:h-fit">
+            <div className="border-b border-hairline pb-3">
               <h2 className="text-xs font-bold tracking-widest text-ink">{t('ragChat.history')}</h2>
-              <Button size="sm" variant="subtle" disabled={streaming} onClick={startNewChat}>
-                {t('ragChat.newChat')}
-              </Button>
             </div>
             <InlineNotice message={historyError} className="mt-3" />
             {sessionsLoading ? (
@@ -355,66 +383,110 @@ const Ask: React.FC = () => {
             ) : sessionItems.length === 0 ? (
               <p className="py-5 text-xs leading-relaxed text-ink-light">{t('ragChat.historyEmpty')}</p>
             ) : (
-              <ul className="mt-3 max-h-72 space-y-1 overflow-y-auto xl:max-h-[calc(100vh-17rem)]">
-                {sessionItems.map((item) => (
-                  <li key={item.id}>
-                    <div className={`group flex items-center gap-1 rounded-md ${item.id === sessionId ? 'bg-surface-soft' : 'hover:bg-surface-soft'}`}>
-                      <button
-                        type="button"
-                        onClick={() => void loadSession(item.id)}
-                        disabled={streaming || sessionLoading}
-                        className="min-w-0 flex-1 px-3 py-2.5 text-left text-sm text-ink disabled:cursor-not-allowed disabled:opacity-60"
-                        title={item.title}
-                      >
-                        <span className="block truncate">{item.title || t('ragChat.newChat')}</span>
-                        <span className="mt-1 block text-[0.65rem] tracking-wide text-muted">
-                          {formatSessionDate(item.updatedAt, language)}
-                        </span>
-                      </button>
-                      <button
-                        type="button"
-                        aria-label={`${t('ragChat.deleteSession')}: ${item.title}`}
-                        disabled={streaming}
-                        onClick={(event) => void removeSession(event, item)}
-                        className="mr-1 flex h-9 w-9 shrink-0 items-center justify-center rounded text-muted opacity-80 transition-colors hover:bg-paper hover:text-ember disabled:cursor-not-allowed disabled:opacity-40"
-                      >
-                        ×
-                      </button>
-                    </div>
-                  </li>
-                ))}
-              </ul>
+              <>
+                <input
+                  type="search"
+                  value={historyQuery}
+                  onChange={(event) => setHistoryQuery(event.target.value)}
+                  placeholder={t('ragChat.historySearch')}
+                  aria-label={t('ragChat.historySearch')}
+                  className="mt-3 w-full rounded-md border border-mountain-grey bg-paper px-3 py-2 text-sm text-ink outline-hidden placeholder:text-muted focus:border-ochre"
+                />
+                {filteredSessionItems.length === 0 ? (
+                  <p className="py-4 text-xs leading-relaxed text-ink-light">{t('ragChat.historySearchEmpty')}</p>
+                ) : (
+                  <ul className="mt-3 max-h-72 space-y-1 overflow-y-auto xl:max-h-[calc(100vh-17rem)]">
+                    {filteredSessionItems.map((item) => (
+                      <li key={item.id}>
+                        <div className={`group flex items-center gap-1 rounded-md ${item.id === sessionId ? 'bg-surface-soft' : 'hover:bg-surface-soft'}`}>
+                          <button
+                            type="button"
+                            onClick={() => void loadSession(item.id)}
+                            disabled={streaming || sessionLoading}
+                            className="min-w-0 flex-1 px-3 py-2.5 text-left text-sm text-ink disabled:cursor-not-allowed disabled:opacity-60"
+                            title={item.title}
+                          >
+                            <span className="block truncate">{item.title || t('ragChat.newChat')}</span>
+                            <span className="mt-1 block text-[0.65rem] tracking-wide text-muted">
+                              {formatSessionDate(item.updatedAt, language)}
+                            </span>
+                          </button>
+                          <button
+                            type="button"
+                            aria-label={`${t('ragChat.deleteSession')}: ${item.title}`}
+                            disabled={streaming}
+                            onClick={(event) => void removeSession(event, item)}
+                            className="mr-1 flex h-9 w-9 shrink-0 items-center justify-center rounded text-muted opacity-80 transition-colors hover:bg-paper hover:text-ember disabled:cursor-not-allowed disabled:opacity-40"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </>
             )}
           </aside>
         )}
 
         <section className="min-w-0 rounded-xl border border-hairline bg-paper">
-          <div
-            ref={scrollContainerRef}
-            onScroll={handleScroll}
-            className="max-h-[min(62vh,54rem)] min-h-[24rem] overflow-y-auto p-5 md:p-7"
-          >
-            {sessionLoading ? (
-              <PagePendingState variant="inline" label={t('ragChat.historyLoading')} />
-            ) : messages.length === 0 ? (
-              <EmptyState
-                illustration="ink-drop"
-                title={t('ragChat.emptyTitle')}
-                description={t('ragChat.emptyDesc')}
-                className="min-h-[22rem] bg-transparent"
-              />
-            ) : (
-              <div className="space-y-7">
-                {messages.map((message) => (
-                  <ChatMessageCard
-                    key={message.id}
-                    message={message}
-                    streaming={message.id === streamingAssistantId}
-                    t={t}
-                    onRetry={retryAnswer}
-                  />
-                ))}
-              </div>
+          {user && (
+            <div className="flex items-center justify-between gap-3 border-b border-hairline px-4 py-2.5 md:px-5">
+              <Button size="sm" variant="ghost" disabled={streaming} onClick={startNewChat}>
+                {t('ragChat.newChat')}
+              </Button>
+              <Button
+                size="sm"
+                variant="subtle"
+                onClick={toggleHistory}
+                aria-expanded={!historyCollapsed}
+                aria-controls="rag-history-panel"
+              >
+                {historyCollapsed ? t('ragChat.showHistory') : t('ragChat.hideHistory')}
+              </Button>
+            </div>
+          )}
+          <div className="relative">
+            <div
+              ref={scrollContainerRef}
+              onScroll={handleScroll}
+              className="max-h-[min(62vh,54rem)] min-h-[24rem] overflow-y-auto p-5 md:p-7"
+            >
+              {sessionLoading ? (
+                <PagePendingState variant="inline" label={t('ragChat.historyLoading')} />
+              ) : messages.length === 0 ? (
+                <EmptyState
+                  illustration="ink-drop"
+                  title={t('ragChat.emptyTitle')}
+                  description={t('ragChat.emptyDesc')}
+                  className="min-h-[22rem] bg-transparent"
+                />
+              ) : (
+                <div className="space-y-7">
+                  {messages.map((message) => (
+                    <ChatMessageCard
+                      key={message.id}
+                      message={message}
+                      streaming={message.id === streamingAssistantId}
+                      language={language}
+                      t={t}
+                      onRetry={retryAnswer}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+            {!atBottom && messages.length > 0 && (
+              <button
+                type="button"
+                onClick={scrollToBottom}
+                aria-label={t('ragChat.backToBottom')}
+                title={t('ragChat.backToBottom')}
+                className="absolute bottom-4 right-4 z-10 flex h-10 w-10 items-center justify-center rounded-full border border-mountain-grey bg-paper text-ink shadow-[0_8px_30px_rgba(0,0,0,0.12)] transition-colors hover:border-ochre hover:text-ochre"
+              >
+                <span className="text-lg leading-none" aria-hidden="true">↓</span>
+              </button>
             )}
           </div>
           <div className="border-t border-hairline bg-surface-soft/50 p-4 md:p-5">
@@ -459,11 +531,13 @@ const Ask: React.FC = () => {
 const ChatMessageCard = ({
   message,
   streaming,
+  language,
   t,
   onRetry,
 }: {
   message: RAGChatMessage;
   streaming: boolean;
+  language: 'zh' | 'en';
   t: (key: Parameters<typeof translate>[1]) => string;
   onRetry?: (assistantId: string) => void;
 }) => {
@@ -505,9 +579,16 @@ const ChatMessageCard = ({
 
   return (
     <article className={isAssistant ? '' : 'ml-auto max-w-3xl'}>
-      <p className={`mb-2 text-xs font-bold tracking-widest ${isAssistant ? 'text-ochre' : 'text-ink-light'}`}>
-        {isAssistant ? t('ragChat.assistant') : t('ragChat.you')}
-      </p>
+      <div className="mb-2 flex items-baseline justify-between gap-3">
+        <p className={`text-xs font-bold tracking-widest ${isAssistant ? 'text-ochre' : 'text-ink-light'}`}>
+          {isAssistant ? t('ragChat.assistant') : t('ragChat.you')}
+        </p>
+        {formatMessageTime(message.createdAt, language) && (
+          <time dateTime={message.createdAt} className="shrink-0 text-[0.65rem] tracking-wide text-muted">
+            {formatMessageTime(message.createdAt, language)}
+          </time>
+        )}
+      </div>
       {message.hiddenAt ? (
         <InlineNotice message={t('ragChat.unavailable')} tone="warning" icon />
       ) : isAssistant ? (
@@ -543,7 +624,7 @@ const ChatMessageCard = ({
         </div>
       ) : (
         <div>
-          <div className="rounded-lg bg-ink px-4 py-3 text-sm leading-7 text-on-dark">
+          <div className="rounded-lg bg-surface-dark px-4 py-3 text-sm leading-7 text-on-dark">
             <div className="whitespace-pre-wrap">{message.content}</div>
           </div>
           {!streaming && message.content && (
@@ -717,6 +798,20 @@ const formatSessionDate = (value: string, language: 'zh' | 'en'): string => {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '';
   return new Intl.DateTimeFormat(getDateLocale(language), { month: 'short', day: 'numeric' }).format(date);
+};
+
+const formatMessageTime = (value: string, language: 'zh' | 'en'): string => {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return new Intl.DateTimeFormat(getDateLocale(language), { hour: '2-digit', minute: '2-digit' }).format(date);
+};
+
+/** 历史记录折叠的初始值：优先读取本地偏好；无偏好时桌面默认展开、窄屏默认收起。 */
+const readInitialHistoryCollapsed = (): boolean => {
+  const stored = safeLocalStorage.getItem(HISTORY_COLLAPSED_KEY);
+  if (stored === '1') return true;
+  if (stored === '0') return false;
+  return typeof window !== 'undefined' && window.matchMedia('(min-width: 1280px)').matches ? false : true;
 };
 
 const createLocalID = (): string => {
