@@ -626,8 +626,11 @@ function Assert-ApiMigrationHealth {
     } catch {
         throw "迁移完成后 API /healthz JSON 无法解析：$($_.Exception.Message)"
     }
-    if ($report.status -ne "ok" -or $null -eq $report.checks -or $report.checks.schema.status -ne "up") {
-        throw "迁移完成后 API schema 健康检查异常：$($response.Content)"
+    # /healthz 只输出整体状态（{"status":"ok"}），依赖明细已收敛到鉴权接口
+    # GET /api/v1/admin/system/health；schema 一致性仍由 Assert-MigrationState
+    # 在 DB 层（schema_migrations 元数据与执行记录）直接校验，此处仅验证整体 readiness。
+    if ($report.status -ne "ok") {
+        throw "迁移完成后 API 整体健康检查异常：$($response.Content)"
     }
 }
 
