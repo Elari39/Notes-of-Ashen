@@ -315,12 +315,17 @@ func ImportMarkdownHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 }
 
 func parseMarkdownUpload(w http.ResponseWriter, r *http.Request) (string, []byte, error) {
+	if r.ContentLength > maxMarkdownUploadBytes+1024 {
+		// 先排空请求体再响应，避免 nginx 因上游提前关闭误报 502。
+		_, _ = io.Copy(io.Discard, r.Body)
+		return "", nil, apperrors.RequestEntityTooLarge("markdown file is too large")
+	}
 	r.Body = http.MaxBytesReader(w, r.Body, maxMarkdownUploadBytes+1024)
 	if err := r.ParseMultipartForm(maxMarkdownUploadBytes); err != nil {
 		if r.MultipartForm != nil {
 			_ = r.MultipartForm.RemoveAll()
 		}
-		return "", nil, apperrors.BadRequest("markdown file is invalid")
+		return "", nil, apperrors.RequestEntityTooLarge("markdown file is invalid or too large")
 	}
 	if r.MultipartForm != nil {
 		defer r.MultipartForm.RemoveAll()
@@ -339,7 +344,7 @@ func parseMarkdownUpload(w http.ResponseWriter, r *http.Request) (string, []byte
 		return "", nil, err
 	}
 	if len(raw) > maxMarkdownUploadBytes {
-		return "", nil, apperrors.BadRequest("markdown file is too large")
+		return "", nil, apperrors.RequestEntityTooLarge("markdown file is too large")
 	}
 	return filename, raw, nil
 }

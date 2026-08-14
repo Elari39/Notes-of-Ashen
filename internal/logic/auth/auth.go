@@ -193,6 +193,11 @@ func Register(ctx context.Context, svcCtx *svc.ServiceContext, req types.Registe
 	return pair, nil
 }
 
+// dummyPasswordHash 用于未知账号登录时执行一次等开销的 bcrypt 比较，抹平
+// "账号不存在"与"密码错误"之间的响应时间差异（用户枚举时序侧信道）。
+// 内容无关紧要，仅要求与注册使用的 cost 一致（DefaultCost）。
+var dummyPasswordHash = []byte("$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy")
+
 func Login(ctx context.Context, svcCtx *svc.ServiceContext, req types.LoginReq, meta types.RequestMeta) (*types.TokenPair, error) {
 	req.Account = trim(req.Account)
 	// 注册时邮箱已 NormalizeEmail 落库为小写，登录含 @ 时按邮箱归一化，避免大小写/前后空格导致 email 分支匹配失败。
@@ -214,6 +219,8 @@ func Login(ctx context.Context, svcCtx *svc.ServiceContext, req types.LoginReq, 
 	user, err := svcCtx.Store.FindUserByAccountOrEmail(ctx, req.Account)
 	if err != nil {
 		if errors.Is(err, model.ErrNotFound) {
+			// 与密码错误分支保持一致的 bcrypt 开销，避免响应时间泄露账号是否存在。
+			_ = bcrypt.CompareHashAndPassword(dummyPasswordHash, []byte(req.Password))
 			return nil, apperrors.Unauthorized("account or password is incorrect")
 		}
 		return nil, err

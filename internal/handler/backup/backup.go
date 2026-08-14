@@ -65,9 +65,15 @@ func RestoreHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 			return
 		}
 		maxBytes := svcCtx.Config.Backup.EffectiveMaxUploadBytes()
+		if r.ContentLength > maxBytes+1<<20 {
+			// 先排空请求体再响应，避免 nginx 因上游提前关闭误报 502。
+			_, _ = io.Copy(io.Discard, r.Body)
+			response.ErrorCtx(r.Context(), w, apperrors.RequestEntityTooLarge("backup upload is too large"))
+			return
+		}
 		r.Body = http.MaxBytesReader(w, r.Body, maxBytes+1<<20)
 		if err := r.ParseMultipartForm(1 << 20); err != nil {
-			response.ErrorCtx(r.Context(), w, apperrors.BadRequest("backup upload is invalid"))
+			response.ErrorCtx(r.Context(), w, apperrors.RequestEntityTooLarge("backup upload is invalid or too large"))
 			return
 		}
 		if r.MultipartForm != nil {

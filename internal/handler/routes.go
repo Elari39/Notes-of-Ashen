@@ -137,11 +137,11 @@ func RegisterHandlers(server *rest.Server, svcCtx *svc.ServiceContext) {
 		{Method: http.MethodPut, Path: "/api/v1/admin/site/projects", Handler: authRequired(sitehandler.UpdateProjectsPageHandler(svcCtx))},
 	})
 
-	// 媒体上传允许使用其独立的文件大小上限，其余管理接口仍使用 go-zero 的默认请求体限制。
-	server.AddRoute(
-		rest.Route{Method: http.MethodPost, Path: "/api/v1/admin/media", Handler: authRequired(mediahandler.UploadHandler(svcCtx))},
-		rest.WithMaxBytes(mediahandler.UploadRequestLimit(svcCtx)),
-	)
+	// 请求体上限由各 handler 自带的 ParseLimited / MaxBytesReader 管理（框架全局
+	// MaxBytes 中间件已在 main 关闭），媒体上传路由与其他路由统一注册。
+	server.AddRoutes([]rest.Route{
+		{Method: http.MethodPost, Path: "/api/v1/admin/media", Handler: authRequired(mediahandler.UploadHandler(svcCtx))},
+	})
 }
 
 func middlewareForwardedOptions(svcCtx *svc.ServiceContext) basehandler.ForwardedOptions {

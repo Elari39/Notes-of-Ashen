@@ -1,4 +1,4 @@
-﻿# Notes of Ashen
+# Notes of Ashen
 
 `Notes of Ashen` 是一个前后端分离的个人博客系统。后端使用 Go 与 go-zero 风格组织代码，前端使用 React、TypeScript、Vite 与 Tailwind CSS 构建页面，部署侧提供 Docker Compose、Nginx 与 1Panel 友好的运行方案。
 
@@ -202,7 +202,7 @@ docker compose -f docker-compose.yml -f docker-compose.external-redis.yml up -d 
 - 使用与 API 相同的镜像和 `APP_DATABASE_DSN` 执行 `-migrate-only`；Compose 部署会自动完成此步骤。数据库账号必须具有创建/变更表和索引的权限。
 - 不再手动按文件执行 SQL。迁移器会以 MySQL advisory lock 串行执行 `000001` 至最新版本，记录文件名、SHA-256、耗时和失败信息；已发布的编号文件不可修改，修复只能新增更高版本的前向迁移。
 - 旧库首次纳入迁移管理前必须备份。历史链包含清理无效头像、清理孤儿文章版本和删除 `traffic_geo_*` 表等前向破坏性操作；回滚依赖备份恢复。
-- 可使用 `docker compose logs migrate` 查看结果；若 API 的 `/healthz` 显示 schema 检查失败，其中会给出缺失版本或校验和漂移信息。
+- 可使用 `docker compose logs migrate` 查看结果；若 API 的 `/healthz` 返回 503 / `degraded`，说明 schema 检查失败，缺失版本或校验和漂移详情见迁移日志或鉴权接口 `GET /api/v1/admin/system/health`。
 - 改用远程 Redis、RabbitMQ 时，确认防火墙和安全组允许 1Panel 服务器访问，避免对公网裸露。
 - 如果 MySQL DSN 或 RabbitMQ URL 的密码包含 `@`、`:`、`/`、`?`、`#` 等 URL 分隔符，请先做 URL 转义，或使用不含这些分隔符的强随机密码。
 
@@ -299,7 +299,7 @@ Docker Compose 使用 `goblog_media_data` 同时挂载到 API 的 `/data/media`�
 
 媒体仅接受 JPEG、PNG、GIF、WebP 和 AVIF，按内容 SHA-256 保存和去重。上传先写入隐藏暂存文件，元数据成功后再原子发布；删除先移入隐藏隔离区，数据库失败时恢复，进程中断残留会在后续媒体操作中按数据库状态恢复或清理。后台 `editor/admin` 可浏览与上传，只有 `admin` 可删除；被文章、历史版本、作品或头像引用的媒体不会被删除。
 
-Web 入口的 `GET /healthz` 代理到 API readiness，会反映数据库、Redis 和 schema 状态；`GET /livez` 仅表示 Nginx 静态入口存活。监控与负载均衡应使用 `/healthz` 判断应用是否可接流量。
+Web 入口的 `GET /healthz` 代理到 API readiness，反映数据库、Redis 和 schema 是否就绪（仅输出整体状态，不泄露依赖明细）；`GET /livez` 仅表示 Nginx 静态入口存活。监控与负载均衡应使用 `/healthz` 判断应用是否可接流量。
 
 “内容分析”从 `traffic_content_daily_stats` 新表部署后开始累计页面和文章级 PV/UV，无法从旧的文章总浏览量可靠回填。用于 UV 去重的访客哈希明细会定期清理，每日聚合长期保留；UV 使用服务端 IP、User-Agent 与校验后的匿名 Visitor ID 组合哈希，同一 NAT 下的不同浏览器可区分，清理/缺失 Visitor ID 时回退到 IP/UA；不保存原始 IP、Visitor ID、设备、浏览器和地域信息。
 

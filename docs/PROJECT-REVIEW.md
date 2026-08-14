@@ -47,7 +47,7 @@
 | Docker 依赖 | MySQL、Redis、RabbitMQ、Meilisearch 均为 healthy |
 | 一次性任务 | `migrate`、`config-check` 均 Exit 0 |
 | 存活检查 | `GET /livez` 返回 204 |
-| 就绪检查 | `GET /healthz` 返回 200，`db`、`redis`、`schema` 均为 `up` |
+| 就绪检查 | `GET /healthz` 返回 200（仅输出整体状态，不泄露依赖明细）；明细见鉴权接口 `GET /api/v1/admin/system/health` |
 | 权限检查 | 未授权访问 `GET /api/v1/admin/stats` 返回 401 |
 | 注销公开语义 | 匿名 `POST /api/v1/auth/logout` 返回 200，并清理 Refresh Cookie |
 | 站点设置 | `GET /api/v1/site/settings` 当前返回 `siteBaseUrl: ""` |

@@ -40,6 +40,10 @@ func TooManyRequests(message string) *CodeError {
 	return New(42900, message, http.StatusTooManyRequests)
 }
 
+func RequestEntityTooLarge(message string) *CodeError {
+	return New(41300, message, http.StatusRequestEntityTooLarge)
+}
+
 func ServiceUnavailable(message string) *CodeError {
 	return New(50300, message, http.StatusServiceUnavailable)
 }

@@ -128,10 +128,6 @@ type backupRestoreResponse struct {
 
 type healthReport struct {
 	Status string `json:"status"`
-	Checks map[string]struct {
-		Status string `json:"status"`
-		Error  string `json:"error"`
-	} `json:"checks"`
 }
 
 func TestCoreHealthAndSchema(t *testing.T) {
@@ -184,15 +180,6 @@ func TestCoreHealthAndSchema(t *testing.T) {
 	if report.Status != "ok" {
 		t.Fatalf("健康检查整体状态 = %q，期望 ok", report.Status)
 	}
-	for _, name := range []string{"db", "redis", "schema"} {
-		check, ok := report.Checks[name]
-		if !ok {
-			t.Fatalf("健康检查缺少 %s 检查项", name)
-		}
-		if check.Status != "up" {
-			t.Fatalf("健康检查 %s 状态 = %q，错误 = %q", name, check.Status, check.Error)
-		}
-	}
 	assertCompleteMigrationMetadata(t, h.appDB)
 
 	const restoreColumn = "ALTER TABLE media_assets ADD COLUMN alt_text VARCHAR(255) NOT NULL DEFAULT '' AFTER height"
@@ -220,7 +207,7 @@ func TestCoreHealthAndSchema(t *testing.T) {
 	if err := json.Unmarshal(degraded.body, &degradedReport); err != nil {
 		t.Fatalf("解析 schema 缺失后的健康检查响应失败: %v", err)
 	}
-	if degradedReport.Status != "degraded" || degradedReport.Checks["schema"].Status != "down" {
+	if degradedReport.Status != "degraded" {
 		t.Fatalf("schema 缺失后的健康检查未降级: %#v", degradedReport)
 	}
 }
@@ -840,7 +827,7 @@ func (h *harness) apiRedisHealthy(ctx context.Context) error {
 	if err := json.Unmarshal(result.body, &report); err != nil {
 		return fmt.Errorf("解析 API 健康检查失败: %w", err)
 	}
-	if report.Status != "ok" || report.Checks["redis"].Status != "up" {
+	if report.Status != "ok" {
 		return fmt.Errorf("API Redis 健康状态未恢复")
 	}
 	return nil

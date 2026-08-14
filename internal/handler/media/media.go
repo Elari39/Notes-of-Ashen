@@ -41,9 +41,15 @@ func ListHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 func UploadHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		maxBytes := svcCtx.Config.Media.EffectiveMaxUploadBytes()
+		if r.ContentLength > UploadRequestLimit(svcCtx) {
+			// 先排空请求体再响应，避免 nginx 因上游提前关闭误报 502。
+			_, _ = io.Copy(io.Discard, r.Body)
+			response.ErrorCtx(r.Context(), w, apperrors.RequestEntityTooLarge("media upload is invalid or too large"))
+			return
+		}
 		r.Body = http.MaxBytesReader(w, r.Body, UploadRequestLimit(svcCtx))
 		if err := r.ParseMultipartForm(maxBytes); err != nil {
-			response.ErrorCtx(r.Context(), w, apperrors.BadRequest("media upload is invalid or too large"))
+			response.ErrorCtx(r.Context(), w, apperrors.RequestEntityTooLarge("media upload is invalid or too large"))
 			return
 		}
 		if r.MultipartForm != nil {

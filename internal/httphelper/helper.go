@@ -3,6 +3,7 @@ package httphelper
 import (
 	"crypto/tls"
 	"errors"
+	"io"
 	"net"
 	"net/http"
 	"regexp"
@@ -107,14 +108,18 @@ func Parse(r *http.Request, v interface{}) error {
 func ParseLimited(w http.ResponseWriter, r *http.Request, v interface{}, maxBytes int64) error {
 	if maxBytes > 0 {
 		if r.ContentLength > maxBytes {
-			return apperrors.BadRequest("request body is too large")
+			// 先排空请求体再响应：nginx 只有完成向上游转发 body 后才能回传响应，
+			// 直接关闭连接会被 nginx 误判为 upstream 提前关闭而返回 502。
+			_, _ = io.Copy(io.Discard, r.Body)
+			return apperrors.RequestEntityTooLarge("request body is too large")
 		}
 		r.Body = http.MaxBytesReader(w, r.Body, maxBytes)
 	}
 	if err := httpx.Parse(r, v); err != nil {
 		var maxBytesErr *http.MaxBytesError
 		if errors.As(err, &maxBytesErr) {
-			return apperrors.BadRequest("request body is too large")
+			_, _ = io.Copy(io.Discard, r.Body)
+			return apperrors.RequestEntityTooLarge("request body is too large")
 		}
 		return apperrors.BadRequest("invalid request body or parameters")
 	}

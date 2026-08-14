@@ -20,8 +20,9 @@ func TestAIAssistHandlerRejectsOversizedRequestBody(t *testing.T) {
 
 	AIAssistHandler(nil).ServeHTTP(rec, req)
 
-	if rec.Code != http.StatusBadRequest {
-		t.Fatalf("status = %d, want %d; body=%s", rec.Code, http.StatusBadRequest, rec.Body.String())
+	// 大请求体统一返回 413（含 code=41300），而非 400。
+	if rec.Code != http.StatusRequestEntityTooLarge {
+		t.Fatalf("status = %d, want %d; body=%s", rec.Code, http.StatusRequestEntityTooLarge, rec.Body.String())
 	}
 }
 

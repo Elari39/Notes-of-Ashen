@@ -83,6 +83,10 @@ func main() {
 	// go-zero 的内置访问日志会在 5xx 时转储完整请求，其中可能包含认证凭证和 API Key。
 	// 关闭内置实现，统一使用项目的安全访问日志中间件。
 	c.RestConf.Middlewares.Log = false
+	// go-zero 默认在 ContentLength 超限时直接写 413 而不读取请求体，nginx 转发中的
+	// 请求会因上游提前关闭被误判为 502。请求体上限改由各 handler 的
+	// ParseLimited / MaxBytesReader 统一管理（响应前会排空请求体），故关闭框架中间件。
+	c.RestConf.Middlewares.MaxBytes = false
 	server := rest.MustNewServer(c.RestConf)
 
 	ctx := svc.NewServiceContext(c)

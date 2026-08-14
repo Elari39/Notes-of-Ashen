@@ -16,10 +16,10 @@ type HealthStatus struct {
 	Error  string `json:"error,omitempty"`
 }
 
-// HealthReport 是 /healthz 的响应体。
+// HealthReport 是 /healthz 的响应体。为减少对公网的信息泄露，只暴露整体状态，
+// 不输出各依赖明细；管理员可经鉴权接口 GET /api/v1/admin/system/health 查看完整检查项。
 type HealthReport struct {
-	Status string                  `json:"status"` // 整体：所有必需依赖 up 时为 "ok"，否则 "degraded"
-	Checks map[string]HealthStatus `json:"checks"`
+	Status string `json:"status"` // 整体：所有必需依赖 up 时为 "ok"，否则 "degraded"
 }
 
 const healthCheckTimeout = 2 * time.Second
@@ -52,7 +52,7 @@ func Health(ctx context.Context, svcCtx *svc.ServiceContext) *HealthReport {
 	if !allUp {
 		overall = "degraded"
 	}
-	return &HealthReport{Status: overall, Checks: checks}
+	return &HealthReport{Status: overall}
 }
 
 func pingDB(ctx context.Context, svcCtx *svc.ServiceContext) HealthStatus {

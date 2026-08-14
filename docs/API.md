@@ -103,7 +103,7 @@ API 访问日志仅记录方法、路径、状态码、耗时、可信客户端 
 GET /healthz
 ```
 
-无需鉴权。返回 JSON 格式的健康报告，`Content-Type: application/json`。全部依赖与运行时数据库结构正常时返回 `200 OK`，响应体 `{"status":"ok","checks":{"db":{"status":"up"},"redis":{"status":"up"},"schema":{"status":"up"},...}}`；存在依赖不可用或表/字段迁移缺失时返回 `503 Service Unavailable`，`status` 为 `"degraded"`，对应 `checks` 条目中 `status` 为 `"down"` 并附带 `error` 字段。用于容器 healthcheck / 负载均衡 readiness 探活。注意 `/healthz` 为手写 handler，不使用统一 `{ code, message, data }` 响应封装，也未在 `api/notes-of-ashen.api` 中声明（详见该文件头注释）。
+无需鉴权。返回 JSON 格式的健康报告，`Content-Type: application/json`。全部依赖与运行时数据库结构正常时返回 `200 OK`，响应体 `{"status":"ok"}`；存在依赖不可用或表/字段迁移缺失时返回 `503 Service Unavailable`，`status` 为 `"degraded"`。出于信息收敛，公网 `/healthz` 只暴露整体状态，不输出各依赖明细；管理员可通过鉴权接口 `GET /api/v1/admin/system/health` 查看完整检查项。用于容器 healthcheck / 负载均衡 readiness 探活。注意 `/healthz` 为手写 handler，不使用统一 `{ code, message, data }` 响应封装，也未在 `api/notes-of-ashen.api` 中声明（详见该文件头注释）。
 
 Docker Web 入口同样公开 `/healthz` 并精确代理到上述 API 探针；`GET /livez` 返回 `204 No Content`，只表示 Nginx 静态入口存活，不代表数据库等依赖已就绪。
 

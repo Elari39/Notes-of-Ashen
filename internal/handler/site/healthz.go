@@ -10,7 +10,7 @@ import (
 	"notes-of-ashen/internal/svc"
 )
 
-// HealthzHandler 暴露 /healthz，返回各依赖存活状态。
+// HealthzHandler 暴露 /healthz，返回整体存活状态（不输出依赖明细，避免信息泄露）。
 // 无需鉴权，供 Docker healthcheck 与部署探针使用。
 func HealthzHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {

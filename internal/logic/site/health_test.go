@@ -4,7 +4,6 @@ import (
 	"context"
 	"net/http"
 	"regexp"
-	"strings"
 	"testing"
 
 	"github.com/DATA-DOG/go-sqlmock"
@@ -32,13 +31,6 @@ func TestHealthReportsMissingSchemaAsReadinessFailure(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{"table_name", "column_name"}))
 
 	report := Health(context.Background(), &svc.ServiceContext{Store: model.NewStore(db)})
-	schema := report.Checks["schema"]
-	if schema.Status != "down" {
-		t.Fatalf("schema status = %q, want down", schema.Status)
-	}
-	if schema.Error != schemaMigrationRequiredMessage {
-		t.Fatalf("schema error = %q, want %q", schema.Error, schemaMigrationRequiredMessage)
-	}
 	if report.Status != "degraded" {
 		t.Fatalf("report status = %q, want degraded", report.Status)
 	}
@@ -62,13 +54,6 @@ func TestHealthReportsMissingMigrationVersionAsReadinessFailure(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{"version", "name", "checksum"}))
 
 	report := Health(context.Background(), &svc.ServiceContext{Store: model.NewStore(db)})
-	schema := report.Checks["schema"]
-	if schema.Status != "down" {
-		t.Fatalf("schema status = %q, want down", schema.Status)
-	}
-	if !strings.Contains(schema.Error, "missing migration versions") || !strings.Contains(schema.Error, "000001") {
-		t.Fatalf("schema error = %q, want concrete missing migration version", schema.Error)
-	}
 	if report.Status != "degraded" {
 		t.Fatalf("report status = %q, want degraded", report.Status)
 	}
