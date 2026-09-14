@@ -5,6 +5,9 @@
 .agents/
 .claude/
 .codex/
+.mimosa/
+.zcode/
+.docker/
 .gitignore
 **/.gitignore
 .dockerignore
@@ -70,11 +73,15 @@ coverage.out
 *.prof
 __debug_bin*
 .air
+**/.gocache
+**/.gopath
 vendor
 
 # 数据库备份与转储
 data
 **/data
+backups
+security-audit
 *_backup.sql
 *_dump.sql
 *.backup.sql
@@ -119,6 +126,8 @@ lerna-debug.log*
 *.code-workspace
 
 # 临时文件
+**/.tmp
+**/.temp
 *.tmp
 *.temp
 *.bak

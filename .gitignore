@@ -95,6 +95,10 @@ compose.override.yml
 .docker/
 deploy/release-history.local.jsonl
 
+# 本地编码工具状态
+/.mimosa/
+/.zcode/
+
 # IDE 与系统文件
 .idea/
 .vscode/
@@ -132,5 +136,6 @@ temp/
 *~
 *.pid
 
-# 线上安全审计（本地测试产物，不上传）
+# 本地审查报告与测试产物（不上传）
 security-audit/
+/docs/PROJECT-REVIEW-*.local.md
