@@ -256,7 +256,7 @@ const Search: React.FC = () => {
 
   return (
     <div className="editorial-container w-full">
-      <section className="relative overflow-hidden rounded-xl bg-surface-soft px-6 py-12 md:px-12 md:py-16">
+      <section className="search-hero relative overflow-hidden rounded-xl bg-surface-soft px-6 py-12 md:px-12 md:py-16">
         <div className="absolute left-0 top-8 h-24 w-px bg-ochre opacity-60"></div>
         <div className="absolute bottom-8 right-0 h-24 w-px bg-ochre opacity-40"></div>
 

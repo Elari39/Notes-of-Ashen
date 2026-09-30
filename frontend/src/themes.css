@@ -1,0 +1,343 @@
+/* 风格与 data-theme 明暗模式正交；不覆盖用户的内联强调色。 */
+@layer base {
+  :root[data-style='soft-brutalism'] {
+    --font-display: Inter, "Noto Sans SC", "Microsoft YaHei", system-ui, sans-serif;
+    --canvas: #f7f3e8;
+    --surface-soft: #f0eadb;
+    --surface-card: #fffaf0;
+    --surface-strong: #e9dfce;
+    --surface-dark: #242321;
+    --surface-dark-soft: #34322e;
+    --ink: #242321;
+    --body: #49453e;
+    --muted: #595248;
+    --hairline: #c9bfad;
+    --ochre: #85412b;
+    --on-accent: #fffaf0;
+    --on-dark: #fffaf0;
+    --on-dark-soft: #cec7bb;
+    --paper-muted: #f7f3e8f5;
+    --style-lilac: #dfd4f1;
+    --style-peach: #f2c3a3;
+    --style-mint: #dde8d5;
+    --style-outline: #242321;
+    --inline-code-bg: #85412b12;
+    --inline-code-border: #85412b36;
+    --radius-sm: 5px;
+    --radius-md: 8px;
+    --radius-lg: 10px;
+    --radius-xl: 12px;
+    --shadow-xs: 2px 2px 0 #242321;
+    --shadow-sm: 4px 4px 0 #242321;
+    --shadow-md: 6px 6px 0 #242321;
+    --shadow-lg: 6px 6px 0 #242321;
+  }
+
+  :root[data-style='soft-brutalism'][data-theme='dark'] {
+    --canvas: #20201f;
+    --surface-soft: #2a2926;
+    --surface-card: #2f2e2a;
+    --surface-strong: #3f3a32;
+    --surface-dark: #141413;
+    --surface-dark-soft: #232220;
+    --ink: #f5eedf;
+    --body: #ded6c9;
+    --muted: #b6ac9e;
+    --hairline: #635b50;
+    --ochre: #edaa80;
+    --on-accent: #242321;
+    --paper-muted: #20201ff5;
+    --style-lilac: #3b334d;
+    --style-peach: #4a352b;
+    --style-mint: #303e32;
+    --style-outline: #b8ae9d;
+    --inline-code-bg: #edaa8024;
+    --inline-code-border: #edaa8055;
+    --shadow-xs: 2px 2px 0 #080808;
+    --shadow-sm: 4px 4px 0 #080808;
+    --shadow-md: 6px 6px 0 #080808;
+    --shadow-lg: 6px 6px 0 #080808;
+  }
+
+  :root[data-style='japanese-paper'] {
+    --font-display: "Cormorant Garamond", "Noto Serif SC", "Songti SC", SimSun, serif;
+    --canvas: #f6f2e9;
+    --surface-soft: #eee8db;
+    --surface-card: #faf7ef;
+    --surface-strong: #e4dccb;
+    --surface-dark: #343630;
+    --surface-dark-soft: #45473e;
+    --ink: #32312d;
+    --body: #514c43;
+    --muted: #6d6456;
+    --hairline: #d4cbb9;
+    --ochre: #a94335;
+    --on-accent: #fff8ee;
+    --on-dark: #f6f2e9;
+    --on-dark-soft: #cbc8b9;
+    --paper-muted: #f6f2e9f5;
+    --style-paper-line: #b7a68a0c;
+    --inline-code-bg: #a9433510;
+    --inline-code-border: #a9433530;
+    --radius-xs: 1px;
+    --radius-sm: 2px;
+    --radius-md: 2px;
+    --radius-lg: 3px;
+    --radius-xl: 3px;
+    --shadow-xs: 0 1px 0 #b7a68a38;
+    --shadow-sm: 0 3px 10px #55452b0a;
+    --shadow-md: 0 8px 24px #55452b0e;
+    --shadow-lg: 0 12px 36px #55452b18;
+  }
+
+  :root[data-style='japanese-paper'][data-theme='dark'] {
+    --canvas: #24251f;
+    --surface-soft: #2d2e27;
+    --surface-card: #292b24;
+    --surface-strong: #3e4036;
+    --surface-dark: #171913;
+    --surface-dark-soft: #24261f;
+    --ink: #eee8da;
+    --body: #d3cbbb;
+    --muted: #b1a793;
+    --hairline: #4c4e40;
+    --ochre: #e29380;
+    --on-accent: #24251f;
+    --paper-muted: #24251ff5;
+    --style-paper-line: #c8c0a508;
+    --inline-code-bg: #e2938020;
+    --inline-code-border: #e2938045;
+    --shadow-xs: 0 1px 0 #00000038;
+    --shadow-sm: 0 3px 10px #00000015;
+    --shadow-md: 0 8px 24px #00000025;
+    --shadow-lg: 0 12px 36px #00000040;
+  }
+
+  :root[data-style='swiss'] {
+    --font-display: Inter, "Noto Sans SC", "Microsoft YaHei", system-ui, sans-serif;
+    --canvas: #f5f5f0;
+    --surface-soft: #ebebe5;
+    --surface-card: #f5f5f0;
+    --surface-strong: #ddddd5;
+    --surface-dark: #171717;
+    --surface-dark-soft: #282828;
+    --ink: #171717;
+    --body: #3c3c39;
+    --muted: #656560;
+    --hairline: #c4c4bb;
+    --ochre: #b8371e;
+    --on-accent: #ffffff;
+    --on-dark: #f5f5f0;
+    --on-dark-soft: #c4c4bb;
+    --paper-muted: #f5f5f0f5;
+    --inline-code-bg: #b8371e10;
+    --inline-code-border: #b8371e30;
+    --radius-xs: 0px;
+    --radius-sm: 0px;
+    --radius-md: 0px;
+    --radius-lg: 0px;
+    --radius-xl: 0px;
+    --shadow-xs: none;
+    --shadow-sm: none;
+    --shadow-md: none;
+    --shadow-lg: 0 8px 32px #17171718;
+  }
+
+  :root[data-style='swiss'][data-theme='dark'] {
+    --canvas: #181818;
+    --surface-soft: #222222;
+    --surface-card: #181818;
+    --surface-strong: #373737;
+    --surface-dark: #0a0a0a;
+    --surface-dark-soft: #1f1f1f;
+    --ink: #f1f1e9;
+    --body: #d3d3cd;
+    --muted: #aaa9a0;
+    --hairline: #484842;
+    --ochre: #ff987e;
+    --on-accent: #171717;
+    --paper-muted: #181818f5;
+    --inline-code-bg: #ff987e24;
+    --inline-code-border: #ff987e45;
+    --shadow-lg: 0 8px 32px #00000050;
+  }
+}
+
+/* 命名的组件挂点高于工具类，避免依赖 Tailwind 类字符串或 !important。 */
+.home-article-index { display: none; }
+
+.theme-style-option[aria-pressed='true'] {
+  border-color: var(--ochre);
+  box-shadow: inset 0 0 0 1px var(--ochre);
+  background: var(--surface-soft);
+}
+
+.theme-style-preview {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  height: 58px;
+  padding: 10px;
+  overflow: hidden;
+  border: 1px solid #d5cebf;
+  border-radius: 3px;
+  color: #242321;
+  background: #f7f3e8;
+}
+
+.theme-style-preview-heading {
+  display: flex;
+  align-items: baseline;
+  gap: 3px;
+  font: 26px/1 "Cormorant Garamond", SimSun, serif;
+}
+.theme-style-preview-heading > span { font-size: 16px; }
+.theme-style-preview-card {
+  display: grid;
+  align-content: center;
+  gap: 5px;
+  width: 42%;
+  height: 34px;
+  padding: 7px;
+  background: #242321;
+}
+.theme-style-preview-card i { height: 2px; background: #f7f3e8; }
+.theme-style-preview-card i:last-child { width: 65%; }
+.theme-style-preview[data-preview-style='soft-brutalism'] { border: 2px solid #242321; border-radius: 5px; }
+.theme-style-preview[data-preview-style='soft-brutalism'] .theme-style-preview-heading { font-family: Inter, sans-serif; font-weight: 600; }
+.theme-style-preview[data-preview-style='soft-brutalism'] .theme-style-preview-card { border: 1px solid #242321; border-radius: 3px; box-shadow: 2px 2px 0 #242321; background: #dfd4f1; }
+.theme-style-preview[data-preview-style='soft-brutalism'] i { background: #514364; }
+.theme-style-preview[data-preview-style='japanese-paper'] { border-block: 3px double #c9beaa; background: #f6f2e9; }
+.theme-style-preview[data-preview-style='japanese-paper'] .theme-style-preview-heading { color: #a94335; }
+.theme-style-preview[data-preview-style='japanese-paper'] .theme-style-preview-card { border-left: 1px solid #a94335; background: #eee8db; }
+.theme-style-preview[data-preview-style='japanese-paper'] i { background: #9b8e76; }
+.theme-style-preview[data-preview-style='swiss'] { border: 0; border-top: 3px solid #171717; border-radius: 0; background: #f5f5f0; }
+.theme-style-preview[data-preview-style='swiss'] .theme-style-preview-heading { font-family: Inter, sans-serif; font-weight: 600; letter-spacing: -2px; }
+.theme-style-preview[data-preview-style='swiss'] .theme-style-preview-card { background: #c43d22; }
+
+:root:is([data-style='soft-brutalism'], [data-style='swiss']) :is(h1, h2, h3, .font-display) {
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: -0.035em;
+  line-height: 1.22;
+}
+
+:root:is([data-style='soft-brutalism'], [data-style='japanese-paper'], [data-style='swiss']) .home-feature h2 {
+  font-size: clamp(1.6rem, 2.5vw, 2.4rem);
+  line-height: 1.35;
+}
+
+:root:is([data-style='soft-brutalism'], [data-style='japanese-paper'], [data-style='swiss']) .home-article-card h3 {
+  overflow-wrap: anywhere;
+  line-height: 1.4;
+}
+
+:root:is([data-style='soft-brutalism'], [data-style='japanese-paper'], [data-style='swiss']) .reading-title {
+  font-size: clamp(2rem, 4vw, 3.25rem);
+  overflow-wrap: anywhere;
+  line-height: 1.35;
+}
+
+:root:is([data-style='soft-brutalism'], [data-style='japanese-paper']) .home-page { padding-right: 6px; }
+
+/* 柔和新粗野：粉彩印刷卡、明确的描边与实心偏移阴影。 */
+:root[data-style='soft-brutalism'] .site-header { border-bottom: 2px solid var(--style-outline); }
+:root[data-style='soft-brutalism'] .site-mark { border: 1.5px solid var(--style-outline); border-radius: 6px; color: var(--ink); background: var(--style-lilac); box-shadow: 2px 2px 0 var(--style-outline); }
+:root[data-style='soft-brutalism'] .home-hero-intro {
+  align-items: flex-start;
+  padding: clamp(1.25rem, 3vw, 2.5rem);
+  border: 2px solid var(--style-outline);
+  border-radius: var(--radius-xl);
+  background-image: radial-gradient(var(--hairline) 0.7px, transparent 0.7px);
+  background-size: 12px 12px;
+  box-shadow: var(--shadow-sm);
+}
+:root[data-style='soft-brutalism'] .home-hero-intro > .editorial-kicker {
+  border: 1.5px solid var(--style-outline);
+  border-radius: 4px;
+  padding: 6px 10px;
+  color: var(--ink);
+  background: var(--style-mint);
+  letter-spacing: 0.08em;
+}
+:root[data-style='soft-brutalism'] #home-hero-title { font-size: clamp(2.5rem, 5vw, 4.5rem); }
+:root[data-style='soft-brutalism'] .home-feature {
+  --surface-dark: var(--style-lilac);
+  --on-dark: var(--ink);
+  --on-dark-soft: var(--body);
+  border: 2px solid var(--style-outline);
+  box-shadow: var(--shadow-sm);
+}
+:root:is([data-style='soft-brutalism'], [data-style='japanese-paper']) .home-feature-meta { border-color: color-mix(in srgb, var(--ink) 22%, transparent); }
+:root:is([data-style='soft-brutalism'], [data-style='japanese-paper']) .home-feature-skeleton { background: color-mix(in srgb, var(--ink) 12%, transparent); }
+:root[data-style='soft-brutalism'] .home-article-card { border: 2px solid var(--style-outline); box-shadow: var(--shadow-sm); }
+:root[data-style='soft-brutalism'] :is(.editorial-card, .archive-history-panel, .search-hero, .reading-toc, .form-panel) { border: 2px solid var(--style-outline); box-shadow: var(--shadow-xs); }
+:root[data-style='soft-brutalism'] .home-article-card:nth-child(3n + 2) { background: var(--style-mint); }
+:root[data-style='soft-brutalism'] .home-article-card:nth-child(3n) { background: var(--style-peach); }
+:root[data-style='soft-brutalism'] :is(.theme-action, .ui-button--primary, .ui-button--ghost) {
+  border: 2px solid var(--style-outline);
+  box-shadow: 3px 3px 0 var(--style-outline);
+  transition: translate var(--dur-fast), box-shadow var(--dur-fast), background-color var(--dur-fast);
+}
+:root[data-style='soft-brutalism'] :is(.theme-action, .ui-button--primary, .ui-button--ghost):active:not(:disabled) { translate: 2px 2px; box-shadow: 1px 1px 0 var(--style-outline); }
+:root[data-style='soft-brutalism'] :is(.theme-category, .ui-tag) { border: 1px solid var(--style-outline); border-radius: 4px; }
+:root[data-style='soft-brutalism'] .home-cta { --on-accent: var(--ink); background: var(--style-peach); border: 2px solid var(--style-outline); box-shadow: var(--shadow-sm); }
+:root[data-style='soft-brutalism'] .site-footer { border-top: 2px solid var(--style-outline); }
+
+/* 日式纸本：装订细线、朱色印记和有呼吸感的书页。 */
+:root[data-style='japanese-paper'] .site-shell {
+  background-image: repeating-linear-gradient(90deg, transparent 0, transparent 5px, var(--style-paper-line) 6px, transparent 7px);
+}
+:root[data-style='japanese-paper'] .site-header { border-bottom: 3px double var(--hairline); }
+:root[data-style='japanese-paper'] .site-mark { border: 1px solid var(--ochre); border-radius: 2px; color: var(--ochre); background: transparent; }
+:root[data-style='japanese-paper'] .home-hero { border-block: 3px double var(--hairline); padding-block: 2rem; }
+:root[data-style='japanese-paper'] .home-hero-intro { align-items: flex-start; padding-inline: clamp(0.75rem, 3vw, 2.5rem); }
+:root[data-style='japanese-paper'] .home-hero-intro > .editorial-kicker { border-left: 2px solid var(--ochre); padding-left: 12px; letter-spacing: 0.2em; }
+:root[data-style='japanese-paper'] #home-hero-title { letter-spacing: 0.08em; line-height: 1.35; }
+:root[data-style='japanese-paper'] .home-feature {
+  --surface-dark: var(--surface-card);
+  --on-dark: var(--ink);
+  --on-dark-soft: var(--muted);
+  border: 1px solid var(--hairline);
+  border-left: 3px double var(--hairline);
+  box-shadow: 5px 5px 0 var(--surface-soft), 6px 6px 0 var(--hairline);
+}
+:root[data-style='japanese-paper'] .home-article-card { border: 1px solid var(--hairline); border-top: 3px double var(--hairline); box-shadow: none; }
+:root[data-style='japanese-paper'] .home-article-index { display: block; margin-bottom: 1rem; color: var(--ochre); font: 0.75rem/1.4 "JetBrains Mono", monospace; letter-spacing: 0.14em; }
+:root[data-style='japanese-paper'] .theme-category { border: 1px solid var(--hairline); border-radius: 2px; background: transparent; }
+:root[data-style='japanese-paper'] .home-cta { --on-accent: var(--ink); border-block: 3px double var(--hairline); background: var(--surface-soft); }
+:root[data-style='japanese-paper'] .site-footer { --on-dark: var(--ink); --on-dark-soft: var(--muted); border-top: 3px double var(--hairline); background: var(--surface-soft); }
+:root[data-style='japanese-paper'] .article-markdown.prose :where(blockquote) { border-left-width: 1px; background: var(--surface-soft); }
+:root[data-style='japanese-paper'] .reading-header { padding-bottom: 1.5rem; border-bottom: 3px double var(--hairline); }
+:root[data-style='japanese-paper'] .reading-toc { border-block: 3px double var(--hairline); }
+
+/* 瑞士平面：左对齐、无衬线字阶、明确的横向分隔与编号。 */
+:root[data-style='swiss'] .site-header { border-bottom: 2px solid var(--ink); }
+:root[data-style='swiss'] .site-mark { border-radius: 0; background: var(--ochre); color: var(--on-accent); }
+:root[data-style='swiss'] .home-hero { align-items: start; border-top: 6px solid var(--ink); padding-top: 1.5rem; }
+:root[data-style='swiss'] .home-hero-intro { padding-top: 0; }
+:root[data-style='swiss'] #home-hero-title { font-size: clamp(2.75rem, 5.8vw, 5rem); letter-spacing: -0.06em; }
+:root[data-style='swiss'] .home-feature { min-height: 0; border-top: 6px solid var(--ochre); }
+:root[data-style='swiss'] .home-feature > div > a { padding-top: 2rem; }
+:root[data-style='swiss'] .home-section-heading { border-bottom: 2px solid var(--ink); }
+:root[data-style='swiss'] .home-article-card { border: 0; border-top: 2px solid var(--ink); box-shadow: none; }
+:root[data-style='swiss'] .home-article-card:hover { transform: none; background: var(--surface-soft); }
+:root[data-style='swiss'] .home-article-index { display: block; margin-bottom: 1.25rem; font: 500 1.5rem/1 Inter, sans-serif; color: var(--ochre); letter-spacing: -0.05em; }
+:root[data-style='swiss'] .theme-category { border-radius: 0; padding-inline: 0; background: transparent; text-decoration: underline; text-underline-offset: 4px; }
+:root[data-style='swiss'] .home-cta { border-top: 6px solid var(--ink); }
+:root[data-style='swiss'] .site-footer { border-top: 6px solid var(--ochre); }
+:root[data-style='swiss'] .article-markdown.prose :where(h2) { border-top: 2px solid var(--ink); }
+:root[data-style='swiss'] .article-markdown.prose :where(blockquote) { border-left: 4px solid var(--ochre); background: var(--surface-soft); }
+:root[data-style='swiss'] .reading-header { padding-bottom: 1.5rem; border-bottom: 2px solid var(--ink); }
+:root[data-style='swiss'] :is(.archive-history-panel, .search-hero, .reading-toc) { border-top: 3px solid var(--ink); }
+
+@media (prefers-reduced-motion: reduce) {
+  :root[data-style='soft-brutalism'] :is(.theme-action, .ui-button--primary, .ui-button--ghost),
+  :root[data-style='soft-brutalism'] :is(.theme-action, .ui-button--primary, .ui-button--ghost):active:not(:disabled) { transition: none; translate: none; }
+}
+
+@media (max-width: 639px) {
+  :root:is([data-style='soft-brutalism'], [data-style='japanese-paper']) .home-feature { min-height: 18rem; }
+  :root[data-style='japanese-paper'] .home-hero { padding-block: 1.25rem; }
+}

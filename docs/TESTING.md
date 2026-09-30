@@ -4,6 +4,8 @@
 
 完整集成测试使用真实的 Nginx、API、MySQL 和 Redis。运行前需要 Docker Compose、Go、pnpm，以及已安装前端依赖；脚本不会读取仓库或用户目录中的 `.env`。
 
+Go 工具链应与 `go.mod` 声明的 1.25 系列保持一致。本机默认 Go 1.27.1 与当前 gRPC / `golang.org/x/net` 组合存在 `http2.TrailerPrefix` 编译兼容问题；在 PowerShell 中可先设置 `$env:GOTOOLCHAIN='go1.25.0'`，再执行单元测试、`go vet` 和集成脚本。升级工具链需单独验证，不应通过关闭检查或修改依赖缓存绕过编译失败。
+
 ```powershell
 pwsh -File scripts/test-integration.ps1 -Suite core
 pwsh -File scripts/test-integration.ps1 -Suite extended
@@ -35,6 +37,20 @@ pwsh -File scripts/test-integration.ps1 -Suite extended
 测试环境固定关闭邮件、RabbitMQ、Meilisearch 与 Prerender；仅在该环境设置 `APP_AUTH_COOKIE_SECURE=false`，使 HTTP loopback Chromium 能验证 Refresh Token Cookie。生产 Compose 配置不受影响。
 
 首次在新机器执行时，脚本会安装 Playwright Chromium 与 WebKit。CI 已预装浏览器时，可在调用前设置 `E2E_SKIP_BROWSER_INSTALL=1`。
+
+## 主题专项回归
+
+`frontend/e2e/theme-preferences.spec.ts` 在三个浏览器项目中验证四种风格的明暗切换、刷新持久化、默认色与自定义色、系统明暗变化、异常或不可用存储、中英文界面、320px 窄屏布局，以及加载／失败／重试／空状态。三种新主题的默认文字与常用背景还需满足 4.5:1 对比度。
+
+已有本地 Web 服务时，可在 `frontend/` 目录单独运行：
+
+```powershell
+$env:E2E_WEB_BASE_URL='http://127.0.0.1:1270'
+$env:E2E_ARTIFACT_DIR='../tmp/theme-e2e'
+pnpm exec playwright test e2e/theme-preferences.spec.ts
+```
+
+专项用例拦截公共 API，使用固定的长标题与 Markdown 内容，不写入预览站点数据；其结果不等同于后端集成测试。完整 `core` / `extended` 脚本会同时运行专项用例和 `critical-path.spec.ts` 中的真实认证、发布、媒体及权限链路，不能以专项用例替代现有集成检查。桌面 Chromium 按既有规则跳过移动端专用用例，该用例在两个移动浏览器项目执行。
 
 ## 前端构建与包体积
 

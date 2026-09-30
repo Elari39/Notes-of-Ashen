@@ -19,6 +19,8 @@ import { useSEO } from '../utils/seo';
 import { routeLoaders } from '../routes/lazyRoutes';
 import { trapFocus } from '../utils/focusTrap';
 import { routeUsesOwnSEO } from '../utils/routeSeo';
+import ThemeStylePicker from './ThemeStylePicker';
+import { themeStyleAccents } from '../store/themeStyles';
 
 const Layout: React.FC = () => {
   const { user, logout } = useAuthStore(useShallow((state) => ({ user: state.user, logout: state.logout })));
@@ -26,6 +28,7 @@ const Layout: React.FC = () => {
     language,
     themePreference,
     effectiveTheme,
+    themeStyle,
     accentColor,
     setLanguage,
     setThemePreference,
@@ -36,6 +39,7 @@ const Layout: React.FC = () => {
       language: state.language,
       themePreference: state.themePreference,
       effectiveTheme: state.effectiveTheme,
+      themeStyle: state.themeStyle,
       accentColor: state.accentColor,
       setLanguage: state.setLanguage,
       setThemePreference: state.setThemePreference,
@@ -198,10 +202,10 @@ const Layout: React.FC = () => {
       initial={{ opacity: 0, y: -6 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.2, ease: 'easeOut' }}
-      className={`z-50 rounded-xl border border-hairline bg-paper p-5 text-left shadow-lg ${
+      className={`preference-panel z-50 rounded-xl border border-hairline bg-paper p-5 text-left shadow-lg ${
         variant === 'mobile'
           ? 'fixed left-4 right-4 top-24 max-h-[calc(100dvh-7rem-env(safe-area-inset-bottom))] overflow-y-auto pb-[env(safe-area-inset-bottom)] md:hidden'
-          : 'absolute right-0 top-full mt-3 hidden w-[min(21rem,calc(100vw-3rem))] md:block'
+          : 'absolute right-0 top-full mt-3 hidden max-h-[calc(100dvh-6rem)] w-[min(24rem,calc(100vw-3rem))] overflow-y-auto md:block'
       }`}
     >
       <div className="border-b border-mountain-grey/60 pb-3">
@@ -210,17 +214,19 @@ const Layout: React.FC = () => {
           {t('preferences.subtitle')}
         </p>
         <p className="mt-2 text-[11px] tracking-[0.18em] text-ochre">
-          {formatText(t('preferences.current'), { value: `${currentLanguageLabel} / ${currentThemeLabel}` })}
+          {formatText(t('preferences.current'), { value: `${t(`preferences.style.${themeStyle}`)} / ${currentThemeLabel}` })}
         </p>
       </div>
 
       <div className="mt-4 space-y-4">
+        <ThemeStylePicker />
         <div>
           <p className="mb-2 text-xs tracking-widest text-ink-light">{t('preferences.languageTitle')}</p>
           <div className="grid grid-cols-2 overflow-hidden rounded-md border border-hairline bg-surface-soft p-1">
             <button
               type="button"
               onClick={() => setLanguage('zh')}
+              aria-pressed={language === 'zh'}
               className={`min-h-11 rounded-sm px-3 py-2 text-sm transition-colors ${language === 'zh' ? 'bg-surface-dark text-on-dark' : 'text-muted hover:text-ink'}`}
             >
               {t('preferences.languageZh')}
@@ -228,6 +234,7 @@ const Layout: React.FC = () => {
             <button
               type="button"
               onClick={() => setLanguage('en')}
+              aria-pressed={language === 'en'}
               className={`min-h-11 rounded-sm px-3 py-2 text-sm transition-colors ${language === 'en' ? 'bg-surface-dark text-on-dark' : 'text-muted hover:text-ink'}`}
             >
               {t('preferences.languageEn')}
@@ -242,6 +249,7 @@ const Layout: React.FC = () => {
               type="button"
               aria-label={t('toggle.themeToLight')}
               onClick={() => setThemePreference('light')}
+              aria-pressed={themePreference === 'light'}
               className={`min-h-11 rounded-sm px-2 py-2 text-sm transition-colors ${themePreference === 'light' ? 'bg-surface-dark text-on-dark' : 'text-muted hover:text-ink'}`}
             >
               {t('preferences.themeLight')}
@@ -250,6 +258,7 @@ const Layout: React.FC = () => {
               type="button"
               aria-label={t('toggle.themeToDark')}
               onClick={() => setThemePreference('dark')}
+              aria-pressed={themePreference === 'dark'}
               className={`min-h-11 rounded-sm px-2 py-2 text-sm transition-colors ${themePreference === 'dark' ? 'bg-surface-dark text-on-dark' : 'text-muted hover:text-ink'}`}
             >
               {t('preferences.themeDark')}
@@ -257,6 +266,7 @@ const Layout: React.FC = () => {
             <button
               type="button"
               onClick={() => setThemePreference('system')}
+              aria-pressed={themePreference === 'system'}
               className={`min-h-11 rounded-sm px-2 py-2 text-sm transition-colors ${themePreference === 'system' ? 'bg-surface-dark text-on-dark' : 'text-muted hover:text-ink'}`}
             >
               {t('preferences.themeSystem')}
@@ -269,7 +279,7 @@ const Layout: React.FC = () => {
           <div className="flex items-center gap-3 rounded-md border border-hairline bg-surface-soft px-3 py-2">
             <input
               type="color"
-              value={accentColor || '#cc785c'}
+              value={accentColor || themeStyleAccents[themeStyle][effectiveTheme]}
               onChange={(event) => setAccentColor(event.target.value)}
               aria-label={t('preferences.accentTitle')}
               className="h-8 w-10 cursor-pointer border-0 bg-transparent p-0"
@@ -329,13 +339,13 @@ const Layout: React.FC = () => {
   );
 
   return (
-    <div className="flex min-h-screen flex-col bg-paper font-sans text-ink transition-colors duration-page">
+    <div className="site-shell flex min-h-screen flex-col bg-paper font-sans text-ink transition-colors duration-page">
       <Toaster />
       <RequestProgressBar />
-      <header ref={headerRef} className="sticky top-0 z-[95] h-16 border-b border-hairline bg-[var(--paper-muted)] px-4 backdrop-blur-xl md:px-8 lg:px-12">
+      <header ref={headerRef} className="site-header sticky top-0 z-[95] h-16 border-b border-hairline bg-[var(--paper-muted)] px-4 backdrop-blur-xl md:px-8 lg:px-12">
         <div className="editorial-container flex h-full items-center justify-between gap-4">
           <Link to="/" className="group flex min-h-11 items-center gap-3 text-ink transition-colors hover:text-ochre">
-            <span aria-hidden="true" className="relative flex h-7 w-7 items-center justify-center rounded-full bg-surface-dark text-sm text-on-dark transition-transform duration-base group-hover:rotate-12">✣</span>
+            <span aria-hidden="true" className="site-mark relative flex h-7 w-7 items-center justify-center rounded-full bg-surface-dark text-sm text-on-dark transition-transform duration-base group-hover:rotate-12">✣</span>
             <span className="font-display text-2xl leading-none tracking-[-0.02em] md:text-[1.75rem]">
               {t('brand.name')}
             </span>
@@ -471,7 +481,7 @@ const Layout: React.FC = () => {
         </AnimatePresence>
       </main>
 
-      <footer className="mt-8 bg-surface-dark px-4 py-14 text-on-dark-soft md:px-8 md:py-16 lg:px-12">
+      <footer className="site-footer mt-8 bg-surface-dark px-4 py-14 text-on-dark-soft md:px-8 md:py-16 lg:px-12">
         <div className="editorial-container grid gap-10 md:grid-cols-[1.4fr_1fr] md:items-end">
           <div>
             <p className="font-display text-4xl leading-tight text-on-dark md:text-5xl">{t('brand.nameEn')}</p>

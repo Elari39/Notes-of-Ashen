@@ -85,6 +85,7 @@ const Button = React.forwardRef<HTMLElement, ButtonProps>((props, ref) => {
   } = props;
 
   const composed = [
+    `ui-button ui-button--${variant}`,
     baseClass,
     variantClass[variant],
     sizeClass[size],

@@ -38,7 +38,7 @@ export default {
       },
       fontFamily: {
         sans: ['Inter', '"Noto Sans SC"', '"Microsoft YaHei"', 'system-ui', 'sans-serif'],
-        display: ['"Cormorant Garamond"', '"Noto Serif SC"', '"Songti SC"', 'SimSun', 'serif'],
+        display: ['var(--font-display)'],
         serif: ['"Cormorant Garamond"', '"Noto Serif SC"', '"Songti SC"', 'SimSun', 'serif'],
         mono: ['"JetBrains Mono"', '"SFMono-Regular"', 'Consolas', 'monospace'],
       },

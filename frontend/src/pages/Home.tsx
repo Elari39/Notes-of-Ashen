@@ -130,10 +130,10 @@ const Home: React.FC = () => {
   };
 
   return (
-    <div className="editorial-container w-full space-y-14 md:space-y-20">
+    <div className="home-page editorial-container w-full space-y-14 md:space-y-20">
       {shouldShowHero && (
-        <section className="grid items-stretch gap-6 py-2 lg:grid-cols-2 lg:gap-10 lg:py-6" aria-labelledby="home-hero-title">
-          <div className="flex min-w-0 flex-col justify-center py-4 lg:py-8">
+        <section className="home-hero grid items-stretch gap-6 py-2 lg:grid-cols-2 lg:gap-10 lg:py-6" aria-labelledby="home-hero-title">
+          <div className="home-hero-intro flex min-w-0 flex-col justify-center py-4 lg:py-8">
             <p className="editorial-kicker">{t('home.heroKicker')}</p>
             <h1 id="home-hero-title" className="mt-5 max-w-3xl break-words font-display text-4xl font-normal leading-[1.04] tracking-[-0.03em] text-ink [text-wrap:balance] sm:mt-6 sm:text-5xl lg:text-[4rem]">
               {displaySiteTitle}
@@ -145,7 +145,7 @@ const Home: React.FC = () => {
               {articles.length > 0 && (
                 <a
                   href="#latest-notes"
-                  className="inline-flex min-h-11 items-center rounded-md bg-ochre px-5 py-2.5 text-sm font-medium text-on-accent transition-[filter] hover:brightness-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ochre"
+                  className="theme-action inline-flex min-h-11 items-center rounded-md bg-ochre px-5 py-2.5 text-sm font-medium text-on-accent transition-[filter] hover:brightness-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ochre"
                 >
                   {t('home.heroBrowse')} <span aria-hidden="true" className="ml-2">↓</span>
                 </a>
@@ -153,16 +153,16 @@ const Home: React.FC = () => {
               <PreloadLink
                 to="/search"
                 preload={routeLoaders.search}
-                className="inline-flex min-h-11 items-center rounded-md border border-hairline bg-paper px-5 py-2.5 text-sm font-medium text-ink transition-colors hover:border-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ochre"
+                className="theme-action inline-flex min-h-11 items-center rounded-md border border-hairline bg-paper px-5 py-2.5 text-sm font-medium text-ink transition-colors hover:border-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ochre"
               >
                 {t('nav.search')}
               </PreloadLink>
             </div>
           </div>
 
-          <div className={`relative overflow-hidden rounded-xl bg-surface-dark p-6 text-on-dark shadow-sm transition-[min-height] duration-slow sm:p-7 md:p-9 ${heroPanelHeight}`}>
+          <div className={`home-feature relative overflow-hidden rounded-xl bg-surface-dark p-6 text-on-dark shadow-sm transition-[min-height] duration-slow sm:p-7 md:p-9 ${heroPanelHeight}`}>
             <div className="flex h-full flex-col">
-              <div className="flex items-start justify-between gap-3 border-b border-white/10 pb-5 text-xs font-medium tracking-[0.16em] text-on-dark-soft sm:gap-4 sm:tracking-[0.18em]">
+              <div className="home-feature-meta flex items-start justify-between gap-3 border-b border-white/10 pb-5 text-xs font-medium tracking-[0.16em] text-on-dark-soft sm:gap-4 sm:tracking-[0.18em]">
                 <span className="max-w-[9rem] leading-5 sm:max-w-none">{t('home.featuredLabel')}</span>
                 {loading && articles.length === 0 ? (
                   <span aria-label={t('common.loadingArticles')} className="text-right">…</span>
@@ -173,10 +173,10 @@ const Home: React.FC = () => {
 
               {loading && !featuredArticle ? (
                 <div className="mt-auto space-y-4 pt-10 sm:space-y-5 sm:pt-12" aria-hidden="true">
-                  <div className="h-3 w-28 animate-pulse rounded-full bg-white/10"></div>
-                  <div className="h-12 w-full animate-pulse rounded-md bg-white/10"></div>
-                  <div className="h-12 w-4/5 animate-pulse rounded-md bg-white/10"></div>
-                  <div className="h-4 w-2/3 animate-pulse rounded-full bg-white/10"></div>
+                  <div className="home-feature-skeleton h-3 w-28 animate-pulse rounded-full bg-white/10"></div>
+                  <div className="home-feature-skeleton h-12 w-full animate-pulse rounded-md bg-white/10"></div>
+                  <div className="home-feature-skeleton h-12 w-4/5 animate-pulse rounded-md bg-white/10"></div>
+                  <div className="home-feature-skeleton h-4 w-2/3 animate-pulse rounded-full bg-white/10"></div>
                 </div>
               ) : error && !featuredArticle ? (
                 <div className="mt-auto pt-10" role="alert">
@@ -233,7 +233,7 @@ const Home: React.FC = () => {
 
       {shouldShowLatestSection && (
       <section id="latest-notes" className="scroll-mt-24 space-y-8 sm:space-y-10" aria-labelledby="latest-notes-title">
-        <div className="flex flex-col items-start justify-between gap-3 border-b border-hairline pb-5 sm:flex-row sm:items-end sm:gap-6">
+        <div className="home-section-heading flex flex-col items-start justify-between gap-3 border-b border-hairline pb-5 sm:flex-row sm:items-end sm:gap-6">
           <div>
             <p className="editorial-kicker">{t('home.journalKicker')}</p>
             <NotesHeading id="latest-notes-title" className="mt-3 editorial-section-title">{t('home.latestTitle')}</NotesHeading>
@@ -300,7 +300,7 @@ const Home: React.FC = () => {
                   return (
                     <article
                       key={article.id}
-                      className={`group relative overflow-hidden rounded-lg border border-hairline bg-surface-card shadow-xs transition-[transform,box-shadow] duration-base hover:-translate-y-0.5 hover:shadow-sm motion-reduce:transform-none ${homeArticleLayout === 'alternating' ? `flex flex-col items-stretch md:min-h-72 md:flex-row ${shouldReverse ? 'md:flex-row-reverse' : ''}` : 'flex flex-col'}`}
+                      className={`home-article-card group relative overflow-hidden rounded-lg border border-hairline bg-surface-card shadow-xs transition-[transform,box-shadow] duration-base hover:-translate-y-0.5 hover:shadow-sm motion-reduce:transform-none ${homeArticleLayout === 'alternating' ? `flex flex-col items-stretch md:min-h-72 md:flex-row ${shouldReverse ? 'md:flex-row-reverse' : ''}` : 'flex flex-col'}`}
                     >
                       {shouldShowCover && (
                         <div className={`relative aspect-[16/9] w-full shrink-0 overflow-hidden ${homeArticleLayout === 'alternating' ? 'md:h-auto md:w-[42%] md:aspect-auto' : ''}`}>
@@ -317,7 +317,8 @@ const Home: React.FC = () => {
                         </div>
                       )}
 
-                      <div className="flex flex-1 flex-col justify-between p-5 sm:p-6 md:p-8">
+                      <div className="home-article-body flex min-w-0 flex-1 flex-col justify-between p-5 sm:p-6 md:p-8">
+                        <span className="home-article-index" aria-hidden="true">{String((page - 1) * size + index + 1).padStart(2, '0')}</span>
                         <PreloadLink
                           to={`/article/${article.id}`}
                           preload={routeLoaders.articleDetail}
@@ -346,7 +347,7 @@ const Home: React.FC = () => {
                               {article.category && (
                                 <Link
                                   to={`/?categoryId=${article.category.id}`}
-                                  className="inline-flex min-h-11 items-center rounded-full bg-paper px-4 py-2 font-medium text-ink transition-colors hover:text-ochre focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ochre"
+                                  className="theme-category inline-flex min-h-11 items-center rounded-full bg-paper px-4 py-2 font-medium text-ink transition-colors hover:text-ochre focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ochre"
                                 >
                                   {article.category.name}
                                 </Link>
@@ -382,7 +383,7 @@ const Home: React.FC = () => {
       )}
 
       {!homeCtaHidden && !loading && !error && articles.length > 0 && (
-        <section aria-labelledby="home-cta-title" className="rounded-lg bg-ochre px-6 py-10 text-on-accent md:px-12 md:py-14 lg:px-16 lg:py-16">
+        <section aria-labelledby="home-cta-title" className="home-cta rounded-lg bg-ochre px-6 py-10 text-on-accent md:px-12 md:py-14 lg:px-16 lg:py-16">
           <div className="grid gap-8 lg:grid-cols-[1fr_auto] lg:items-end">
             <div>
               <p className="text-xs font-medium tracking-[0.18em]">{t('home.ctaKicker')}</p>

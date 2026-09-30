@@ -265,7 +265,7 @@ const ArticleDetail: React.FC = () => {
         <article className="min-w-0 w-full">
           {loading && <PagePendingState variant="inline" label={t('common.loadingArticle')} />}
           <InlineNotice message={error} className="mb-6" />
-          <header className="mb-14">
+          <header className="reading-header mb-14">
             {coverUrl && (
               <div className={`relative mb-12 w-full overflow-hidden rounded-xl ${isCoverHidden ? 'h-28 md:h-32' : 'h-72 md:h-[28rem]'}`}>
                 {isCoverHidden ? (
@@ -298,7 +298,7 @@ const ArticleDetail: React.FC = () => {
             )}
 
             <p className="editorial-kicker mb-5">{t('articleDetail.kicker')}</p>
-            <h1 className="mb-7 font-display text-5xl leading-[1.02] tracking-[-0.035em] text-ink md:text-6xl">
+            <h1 className="reading-title mb-7 font-display text-5xl leading-[1.02] tracking-[-0.035em] text-ink md:text-6xl">
               {article.title}
             </h1>
 
@@ -443,7 +443,7 @@ const ArticleTOC: React.FC<{
   const t = (key: Parameters<typeof translate>[1]) => translate(language, key);
 
   return (
-    <aside className={`rounded-lg bg-surface-soft p-5 ${className}`.trim()} aria-label={t('articleToc.title')}>
+    <aside className={`reading-toc rounded-lg bg-surface-soft p-5 ${className}`.trim()} aria-label={t('articleToc.title')}>
       <div className="mb-3 flex items-center justify-between gap-3">
         <h2 className="font-display text-xl text-ink">{t('articleToc.title')}</h2>
         <button

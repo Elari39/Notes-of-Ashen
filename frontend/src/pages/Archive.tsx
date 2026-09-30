@@ -117,7 +117,7 @@ const Archive: React.FC = () => {
         <h1 className="mt-5 editorial-page-title">{t('nav.archive')}</h1>
       </header>
 
-      <section aria-labelledby="archive-history-title" className="overflow-hidden rounded-xl border border-hairline bg-paper shadow-sm">
+      <section aria-labelledby="archive-history-title" className="archive-history-panel overflow-hidden rounded-xl border border-hairline bg-paper shadow-sm">
         <div className="border-b border-hairline px-5 py-7 sm:px-7 md:px-8 md:py-8">
           <div aria-hidden="true" className="mb-5 flex items-center gap-3">
             <span className="h-px w-10 bg-ochre" />

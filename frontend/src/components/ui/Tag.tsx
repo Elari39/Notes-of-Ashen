@@ -48,6 +48,7 @@ const Tag: React.FC<TagProps> = ({
   return (
     <span
       className={[
+        'ui-tag',
         baseClass,
         toneClass[tone],
         sizeClass[size],
