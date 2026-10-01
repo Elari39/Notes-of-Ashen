@@ -21,7 +21,7 @@ import {
   type TestIdentity,
   updateUserRole,
 } from './helpers/auth';
-import { expireIssuedAccessTokens, readLoginCaptcha, seedRegisterEmailCode } from './helpers/redis';
+import { expireIssuedAccessTokens, readLoginCaptcha, seedRegisterEmailCode, waitForLoginQuota } from './helpers/redis';
 
 type ApiEnvelope<T> = {
   code: number;
@@ -77,8 +77,8 @@ test.describe.serial('真实 Compose 前端关键路径', () => {
   };
 
   test('首次注册管理员并在刷新后恢复会话', async ({ page }) => {
-    // 固定凭据：正常流程（用户表为空）注册为 admin；serial 组重试时用户表已非空、
-    // 首个注册豁免失效，改走登录路径复用同一管理员，保证重跑可全绿。
+    // 固定凭据：空库注册为 admin；手动复用隔离环境时登录已有管理员。
+    // 测试是否通过仍由下面的真实认证与权限断言决定，不自动重试失败用例。
     admin = { ...FIXED_ADMIN_IDENTITY };
     await preparePage(page);
 
@@ -324,6 +324,7 @@ test.describe.serial('真实 Compose 前端关键路径', () => {
   });
 
   test('真实会话失效后登录返回原后台路径', async ({ page }) => {
+    await waitForLoginQuota(2);
     await preparePage(page);
     await loginThroughUI(page, admin);
     await page.goto('/admin/articles');

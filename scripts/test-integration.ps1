@@ -964,6 +964,9 @@ try {
             # 密码保护 Redis 的停止/重启恢复已在 redis-auth 核心阶段覆盖；此处保留其余扩展故障注入。
             Invoke-GoIntegrationTests -Pattern "^TestExtended(ConcurrentRegistrationAndRefreshRotation|BackupDatabaseStageFailure)$"
         }
+        Invoke-Stage -Name "strict-nginx" -Ordinal 11 -ComposeOverrides @((Join-Path $repoRoot "deploy/test/docker-compose.strict.yml")) -TestCommand {
+            Invoke-GoIntegrationTests -Pattern "^TestStrictNginxRateLimitStatus$"
+        }
     }
 
     $runSucceeded = $true

@@ -66,9 +66,8 @@ export const createIdentity = (prefix: string): TestIdentity => {
   };
 };
 
-// 固定管理员身份：serial 组重试时用户表已非空（首个注册豁免失效），
-// 随机账号无法再注册为 admin；固定凭据允许重跑时直接登录同一管理员，
-// 保证 78 行测试与整个 serial 组的重试均可全绿。
+// 固定的隔离测试身份：手动复用环境时可以登录已创建的管理员。
+// 不属于生产凭据，也不用于将失败测试自动重试成通过。
 export const FIXED_ADMIN_IDENTITY: TestIdentity = {
   account: 'e2eadmin',
   email: 'e2eadmin@example.test',

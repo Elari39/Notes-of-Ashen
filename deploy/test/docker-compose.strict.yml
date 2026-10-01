@@ -1,0 +1,5 @@
+# 与 docker-compose.test.yml 叠加，恢复原生产 10r/s 限流配置。
+services:
+  web:
+    volumes:
+      - ./deploy/nginx/10-limits.conf:/etc/nginx/conf.d/10-limits.conf:ro

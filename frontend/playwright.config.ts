@@ -15,7 +15,8 @@ export default defineConfig({
   fullyParallel: false,
   workers: 1,
   forbidOnly: Boolean(process.env.CI),
-  retries: process.env.CI ? 1 : 0,
+  // 首次失败必须使门禁失败，CI 不能通过重试掩盖不稳定结果。
+  retries: 0,
   timeout: 90_000,
   expect: {
     timeout: 15_000,

@@ -32,6 +32,24 @@ export const readLoginCaptcha = (captchaID: string): Promise<string> => readCapt
 
 export const readRegisterCaptcha = (captchaID: string): Promise<string> => readCaptcha('register', captchaID);
 
+// 多个串行场景共享同一 IP。开始两次登录的场景前，等待前序场景占用的
+// 真实 5 次/分钟窗口释放额度；不删除计数、不重试登录、不更改限流配置。
+export const waitForLoginQuota = async (requests: number): Promise<void> => {
+  const waitMs = await withRedis(async (client) => {
+    let wait = 0;
+    for (const key of await client.keys('rate_limit:auth_login:*')) {
+      const count = Number(await client.get(key));
+      if (count + requests > 5) {
+        const ttl = await client.pTTL(key);
+        if (ttl === -1 || ttl > 60_000) throw new Error('Unexpected login rate-limit window');
+        wait = Math.max(wait, ttl);
+      }
+    }
+    return wait;
+  });
+  if (waitMs > 0) await new Promise((resolve) => setTimeout(resolve, waitMs + 50));
+};
+
 // 隔离环境的真实服务端失效注入；不改签名、接口响应或限流配置。
 export const expireIssuedAccessTokens = async (): Promise<number> => {
   const cutoff = Math.floor(Date.now() / 1000);
