@@ -334,7 +334,7 @@ const MermaidCodeBlock: React.FC<MermaidCodeBlockProps> = ({ code }) => {
   );
 
   return (
-    <div className="article-code-shell article-mermaid-shell">
+    <div className="article-code-shell article-mermaid-shell not-prose">
       <MarkdownCodeToolbar code={code} language="mermaid" actions={modeActions} />
       {mode === 'diagram' && !renderFailed ? (
         <div

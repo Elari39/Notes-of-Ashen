@@ -34,6 +34,7 @@ import { safeLocalStorage } from '../../utils/storage';
 import { editorDraftKey } from '../../utils/editorDraft';
 import { useAuthStore } from '../../store/auth';
 import MediaPicker from '../../components/admin/MediaPicker';
+import { insertMediaMarkdown } from '../../utils/mediaMarkdown';
 import { getReadingStats } from '../../utils/readingStats';
 import {
   MAX_AI_FULL_ARTICLE_CONTENT_BYTES,
@@ -898,11 +899,11 @@ const ArticleEditor: React.FC = () => {
     const textarea = textareaRef.current;
     const start = textarea?.selectionStart ?? content.length;
     const end = textarea?.selectionEnd ?? start;
-    const markdown = `![${asset.altText || asset.originalName.replace(/\.[^.]+$/, '')}](${asset.url})`;
-    setContent(`${content.slice(0, start)}${markdown}${content.slice(end)}`);
+    const inserted = insertMediaMarkdown(content, start, end, asset);
+    setContent(inserted.content);
     window.requestAnimationFrame(() => {
       textarea?.focus();
-      textarea?.setSelectionRange(start + markdown.length, start + markdown.length);
+      textarea?.setSelectionRange(inserted.cursor, inserted.cursor);
     });
   };
 

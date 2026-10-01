@@ -375,7 +375,7 @@
     -webkit-box-decoration-break: clone;
   }
 
-  .article-markdown.prose :where(h1, h2, h3, h4, h5, h6) {
+  .article-markdown.prose :where(h1, h2, h3, h4, h5, h6):not(:where(.not-prose, .not-prose *)) {
     color: var(--ink);
     font-family: var(--font-display);
     font-weight: 400;
@@ -383,46 +383,46 @@
     letter-spacing: -0.02em;
   }
 
-  .article-markdown.prose :where(h2) {
+  .article-markdown.prose :where(h2):not(:where(.not-prose, .not-prose *)) {
     margin-top: 3.2rem;
     padding-top: 1.6rem;
     border-top: 1px solid color-mix(in srgb, var(--ochre) 22%, transparent);
   }
 
-  .article-markdown.prose :where(h3) {
+  .article-markdown.prose :where(h3):not(:where(.not-prose, .not-prose *)) {
     margin-top: 2.4rem;
   }
 
-  .article-markdown.prose :where(p) {
+  .article-markdown.prose :where(p):not(:where(.not-prose, .not-prose *)) {
     color: var(--body);
     font-family: Inter, "Noto Sans SC", "Microsoft YaHei", system-ui, sans-serif;
     line-height: 1.9;
   }
 
-  .article-markdown.prose :where(a) {
+  .article-markdown.prose :where(a):not(:where(.not-prose, .not-prose *)) {
     color: var(--ochre);
     text-decoration: none;
     border-bottom: 1px solid color-mix(in srgb, var(--ochre) 38%, transparent);
     transition: color 180ms ease, border-color 180ms ease;
   }
 
-  .article-markdown.prose :where(a:hover) {
+  .article-markdown.prose :where(a:hover):not(:where(.not-prose, .not-prose *)) {
     color: var(--ink);
     border-color: var(--ochre);
   }
 
-  .article-markdown.prose :where(strong) {
+  .article-markdown.prose :where(strong):not(:where(.not-prose, .not-prose *)) {
     color: var(--ink);
   }
 
-  .article-markdown.prose :where(hr) {
+  .article-markdown.prose :where(hr):not(:where(.not-prose, .not-prose *)) {
     margin: 3.4rem 0;
     border: 0;
     height: 1px;
     background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--ochre) 38%, transparent), transparent);
   }
 
-  .article-markdown.prose :where(blockquote) {
+  .article-markdown.prose :where(blockquote):not(:where(.not-prose, .not-prose *)) {
     margin: 2rem 0;
     border-left: 3px solid var(--ochre);
     background: linear-gradient(90deg, var(--paper-soft), transparent);
@@ -431,30 +431,30 @@
     padding: 0.5rem 0 0.5rem 1.35rem;
   }
 
-  .article-markdown.prose :where(blockquote p) {
+  .article-markdown.prose :where(blockquote p):not(:where(.not-prose, .not-prose *)) {
     margin: 0.65rem 0;
   }
 
-  .article-markdown.prose :where(ul, ol) {
+  .article-markdown.prose :where(ul, ol):not(:where(.not-prose, .not-prose *)) {
     color: var(--body);
     font-family: Inter, "Noto Sans SC", "Microsoft YaHei", system-ui, sans-serif;
   }
 
-  .article-markdown.prose :where(li)::marker {
+  .article-markdown.prose :where(li):not(:where(.not-prose, .not-prose *))::marker {
     color: color-mix(in srgb, var(--ochre) 64%, transparent);
   }
 
-  .article-markdown.prose :where(input[type='checkbox']) {
+  .article-markdown.prose :where(input[type='checkbox']):not(:where(.not-prose, .not-prose *)) {
     accent-color: var(--ochre);
     margin-right: 0.55rem;
   }
 
-  .article-markdown.prose :where(img) {
+  .article-markdown.prose :where(img):not(:where(.not-prose, .not-prose *)) {
     max-width: 100%;
     height: auto;
   }
 
-  .article-markdown.prose :where(img.article-image-clickable) {
+  .article-markdown.prose :where(img.article-image-clickable):not(:where(.not-prose, .not-prose *)) {
     display: block;
     margin: 2rem auto;
     border: 1px solid var(--inline-code-border);
@@ -463,13 +463,13 @@
     transition: transform 180ms ease, box-shadow 180ms ease, filter 180ms ease;
   }
 
-  .article-markdown.prose :where(img.article-image-clickable:hover) {
+  .article-markdown.prose :where(img.article-image-clickable:hover):not(:where(.not-prose, .not-prose *)) {
     transform: translateY(-1px);
     box-shadow: 0 12px 30px rgba(26, 26, 26, 0.12);
     filter: saturate(1.04);
   }
 
-  .article-markdown.prose :where(img.article-image-clickable:focus-visible) {
+  .article-markdown.prose :where(img.article-image-clickable:focus-visible):not(:where(.not-prose, .not-prose *)) {
     outline: 2px solid var(--ochre);
     outline-offset: 4px;
   }
@@ -791,16 +791,16 @@
     font-size: 0.94rem;
   }
 
-  .article-markdown.prose :where(thead) {
+  .article-markdown.prose :where(thead):not(:where(.not-prose, .not-prose *)) {
     background: var(--table-head);
   }
 
-  .article-markdown.prose :where(th) {
+  .article-markdown.prose :where(th):not(:where(.not-prose, .not-prose *)) {
     color: var(--ink);
     font-weight: 700;
   }
 
-  .article-markdown.prose :where(th, td) {
+  .article-markdown.prose :where(th, td):not(:where(.not-prose, .not-prose *)) {
     border: 0;
     border-right: 1px solid var(--mountain-grey);
     border-bottom: 1px solid var(--mountain-grey);
@@ -808,24 +808,24 @@
     vertical-align: top;
   }
 
-  .article-markdown.prose :where(th:last-child, td:last-child) {
+  .article-markdown.prose :where(th:last-child, td:last-child):not(:where(.not-prose, .not-prose *)) {
     border-right: 0;
   }
 
-  .article-markdown.prose :where(tr:last-child td) {
+  .article-markdown.prose :where(tr:last-child td):not(:where(.not-prose, .not-prose *)) {
     border-bottom: 0;
   }
 
-  .article-markdown.prose :where(tbody tr:nth-child(2n)) {
+  .article-markdown.prose :where(tbody tr:nth-child(2n)):not(:where(.not-prose, .not-prose *)) {
     background: var(--table-row);
   }
 
-  .article-markdown.prose :where(.katex) {
+  .article-markdown.prose :where(.katex):not(:where(.not-prose, .not-prose *)) {
     color: var(--ink);
     font-size: 1.02em;
   }
 
-  .article-markdown.prose :where(.katex-display) {
+  .article-markdown.prose :where(.katex-display):not(:where(.not-prose, .not-prose *)) {
     margin: 2rem 0;
     overflow-x: auto;
     overflow-y: hidden;
@@ -1052,7 +1052,7 @@
     animation: none;
   }
 
-  .article-markdown.prose :where(img.article-image-clickable),
+  .article-markdown.prose :where(img.article-image-clickable):not(:where(.not-prose, .not-prose *)),
   .image-lightbox__image {
     transition: none;
   }
