@@ -16,29 +16,48 @@ const (
 	articleListCacheTTL    = 2 * time.Minute
 )
 
+type cachedArticleList struct {
+	Response   types.ArticleListResp `json:"response"`
+	ValidUntil time.Time             `json:"validUntil"`
+}
+
 func cacheablePublicArticleList(req types.ArticleListReq, filterRole string, filterUserID uint64, query string) bool {
 	return filterRole == "" && filterUserID == 0 && query == ""
 }
 
 func publicArticleListCacheKey(req types.ArticleListReq, page, size int, status string) string {
-	return appcache.HashKey(articleListCachePrefix, page, size, status, req.CategoryID, req.TagID)
+	return appcache.HashKey(articleListCachePrefix+"v2:", page, size, status, req.CategoryID, req.TagID)
 }
 
 func getCachedArticleList(ctx context.Context, svcCtx *svc.ServiceContext, key string) (*types.ArticleListResp, bool) {
-	var resp types.ArticleListResp
+	var resp cachedArticleList
 	hit, err := svcCtx.Cache.Get(ctx, key, &resp)
 	if err != nil {
 		logx.Errorf("article list cache read failed: %v", err)
 		return nil, false
 	}
-	if !hit {
+	if !hit || !time.Now().Before(resp.ValidUntil) {
 		return nil, false
 	}
-	return &resp, true
+	return &resp.Response, true
 }
 
-func setCachedArticleList(ctx context.Context, svcCtx *svc.ServiceContext, key string, resp *types.ArticleListResp) {
-	if err := svcCtx.Cache.Set(ctx, key, resp, articleListCacheTTL); err != nil {
+func articleListCacheDeadline(started time.Time, nextPublication *time.Time) time.Time {
+	deadline := started.Add(articleListCacheTTL)
+	if nextPublication != nil && nextPublication.Before(deadline) {
+		deadline = *nextPublication
+	}
+	return deadline
+}
+
+func setCachedArticleList(ctx context.Context, svcCtx *svc.ServiceContext, key string, resp *types.ArticleListResp, deadline time.Time) {
+	// Redis 的非正 TTL 表示永久存储；到点或查询失败时必须直接不写缓存。
+	ttl := time.Until(deadline)
+	if ttl <= 0 {
+		return
+	}
+	entry := cachedArticleList{Response: *resp, ValidUntil: deadline}
+	if err := svcCtx.Cache.Set(ctx, key, entry, ttl); err != nil {
 		logx.Errorf("article list cache write failed: %v", err)
 	}
 }

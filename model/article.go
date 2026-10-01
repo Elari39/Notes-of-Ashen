@@ -506,6 +506,18 @@ func (s *Store) ListArticles(ctx context.Context, filter ArticleFilter) ([]Artic
 	return items, total, rows.Err()
 }
 
+// NextScheduledArticlePublication bounds caches built after since. Query this
+// before reading the list so a publication crossed during that read cannot be
+// missed when deciding whether the result is still safe to cache.
+func (s *Store) NextScheduledArticlePublication(ctx context.Context, since time.Time) (*time.Time, error) {
+	var next sql.NullTime
+	err := s.db.QueryRowContext(ctx, "SELECT MIN(scheduled_at) FROM articles WHERE status = 'published' AND scheduled_at > ?", since).Scan(&next)
+	if err != nil {
+		return nil, err
+	}
+	return timeFromNull(next), nil
+}
+
 func (s *Store) ListPublicArticles(ctx context.Context, limit int) ([]Article, error) {
 	if limit < 1 {
 		limit = 20

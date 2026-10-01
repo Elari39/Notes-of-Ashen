@@ -104,6 +104,16 @@ func listWithFilter(ctx context.Context, svcCtx *svc.ServiceContext, req types.A
 			return cached, nil
 		}
 	}
+	var cacheDeadline time.Time
+	if svcCtx.Cache != nil && cacheablePublicArticleList(req, filter.Role, filter.UserID, query) {
+		started := time.Now()
+		next, err := svcCtx.Store.NextScheduledArticlePublication(ctx, started)
+		if err != nil {
+			logx.Errorf("article scheduled publication lookup failed; list will not be cached: %v", err)
+		} else {
+			cacheDeadline = articleListCacheDeadline(started, next)
+		}
+	}
 	items, total, err := svcCtx.Store.ListArticles(ctx, model.ArticleFilter{
 		UserID:     filter.UserID,
 		Role:       filter.Role,
@@ -124,7 +134,7 @@ func listWithFilter(ctx context.Context, svcCtx *svc.ServiceContext, req types.A
 		if cacheStatus == "" {
 			cacheStatus = "published"
 		}
-		setCachedArticleList(ctx, svcCtx, publicArticleListCacheKey(req, page, size, cacheStatus), out)
+		setCachedArticleList(ctx, svcCtx, publicArticleListCacheKey(req, page, size, cacheStatus), out, cacheDeadline)
 	}
 	return out, nil
 }
