@@ -9,7 +9,6 @@ import { usePreferenceStore } from './store/preferences';
 import { useSiteSettingsStore } from './store/siteSettings';
 import { useAuthStore } from './store/auth';
 import { useShallow } from 'zustand/react/shallow';
-import { TooltipProvider } from './components/ui/Tooltip';
 import ConfirmDialogHost from './components/ui/ConfirmDialogHost';
 import InlineNotice from './components/InlineNotice';
 import Button from './components/ui/Button';
@@ -105,7 +104,7 @@ function App() {
   }, [initializeAuth]);
 
   return (
-    <TooltipProvider delayDuration={300}>
+    <>
       <ScrollRestoration />
       <TrafficReporter />
       <Routes>
@@ -165,7 +164,7 @@ function App() {
         </Route>
       </Routes>
       <ConfirmDialogHost />
-    </TooltipProvider>
+    </>
   )
 }
 

@@ -12,7 +12,7 @@ export type TooltipProps = {
 };
 
 /**
- * 提示气泡。需要在 App 根部挂 <TooltipPrimitive.Provider />。
+ * 提示气泡。在实际使用它的功能入口挂 TooltipProvider，避免没有气泡的首屏加载定位库。
  */
 const Tooltip: React.FC<TooltipProps> = ({
   content,

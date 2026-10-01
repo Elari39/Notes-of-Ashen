@@ -66,7 +66,7 @@
 
 ## 后端约定
 
-- Go 版本以 `go.mod` 为准，当前为 Go `1.25.0`。
+- Go 版本以 `go.mod` 为准，当前为 Go `1.27.1`。
 - 模块名：`notes-of-ashen`。
 - 使用 go-zero REST，入口加载 `etc/notes-of-ashen.yaml` 后调用 `Config.ApplyEnv()` 覆盖环境变量。
 - Handler 保持简洁，只做请求解析、鉴权上下文读取、调用 logic、返回响应。
@@ -98,7 +98,7 @@
 ## 前端约定
 
 - 前端位于 `frontend/`。
-- 使用 React 18、TypeScript、Vite 5、Tailwind CSS、Zustand、Axios。
+- 使用 React 18、TypeScript、Vite 6、Tailwind CSS、Zustand、Axios。
 - 严格使用 `pnpm`，不要使用 `npm` 或 `yarn`。
 - 优先函数式组件和 Hooks。
 - 优先复用现有组件、store、API 封装和工具函数。

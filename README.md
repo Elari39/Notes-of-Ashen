@@ -1,6 +1,6 @@
 # Notes of Ashen
 
-![Go](https://img.shields.io/badge/Go-1.25-00ADD8?logo=go&logoColor=white)
+![Go](https://img.shields.io/badge/Go-1.27-00ADD8?logo=go&logoColor=white)
 ![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=black)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript&logoColor=white)
 ![Vite](https://img.shields.io/badge/Vite-5-646CFF?logo=vite&logoColor=white)
@@ -66,8 +66,8 @@ flowchart LR
 
 ## 技术栈
 
-- 后端：Go 1.25、go-zero REST、MySQL 8.4、Redis 7.4、JWT、bcrypt；可选 Meilisearch 1.13、Qdrant 1.16 + DashScope、RabbitMQ 4。
-- 前端：React 18、TypeScript、Vite 5、Tailwind CSS 4、Zustand、Axios、Framer Motion、ECharts、react-markdown、KaTeX、Mermaid。
+- 后端：Go 1.27、go-zero REST、MySQL 8.4、Redis 7.4、JWT、bcrypt；可选 Meilisearch 1.13、Qdrant 1.16 + DashScope、RabbitMQ 4。
+- 前端：React 18、TypeScript、Vite 6、Tailwind CSS 4、Zustand、Axios、Framer Motion、ECharts、react-markdown、KaTeX、Mermaid。
 - 部署：Docker Compose（镜像 digest 锁定）、Nginx、1Panel。
 
 ## 快速开始
