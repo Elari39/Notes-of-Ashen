@@ -113,6 +113,7 @@ func DeleteHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 
 func FileHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Cache-Control", "no-store")
 		var path struct {
 			Key string `path:"key"`
 		}
@@ -130,7 +131,6 @@ func FileHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 			http.NotFound(w, r)
 			return
 		}
-		w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		http.ServeFile(w, r, filePath)
 	}

@@ -90,7 +90,7 @@ const AdminMedia: React.FC = () => {
   };
 
   const remove = async (item: MediaAsset) => {
-    const accepted = await confirm({ title: t('media.confirmDelete'), tone: 'danger' });
+    const accepted = await confirm({ title: t('media.confirmDelete'), description: t('media.deleteCacheNotice'), tone: 'danger' });
     if (!accepted) return;
     setBusy(item.id);
     setError('');

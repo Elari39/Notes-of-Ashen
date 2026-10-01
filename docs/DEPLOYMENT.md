@@ -191,9 +191,28 @@ Qdrant 不映射宿主机端口，只允许 API 通过 Compose 内部网络访�
 
 ### 媒体、内容分析与系统工具
 
-Docker Compose 使用 `goblog_media_data` 同时挂载到 API 的 `/data/media`（可写）和 Web 的 `/usr/share/nginx/media`（只读）。Nginx 以 `/media/` 提供不可变长期缓存；不要在 Web 容器内直接修改媒体文件。非 Docker 开发使用 `Media.RootDir` 或 `APP_MEDIA_ROOT`，并由 Vite 将 `/media` 代理到 API。
+Docker Compose 使用 `goblog_media_data` 同时挂载到 API 的 `/data/media`（可写）和 Web 的 `/usr/share/nginx/media`（只读）。Nginx 与 API 对 `/media/` 返回 `Cache-Control: no-store`，Nginx 在媒体目录关闭文件描述符缓存，Service Worker 不缓存媒体；Vite 带 hash 的程序资源仍长期缓存。不要在 Web 容器内直接修改媒体文件。非 Docker 开发使用 `Media.RootDir` 或 `APP_MEDIA_ROOT`，并由 Vite 将 `/media` 代理到 API。
 
 媒体仅接受 JPEG、PNG、GIF、WebP 和 AVIF，按内容 SHA-256 保存和去重。上传先写入隐藏暂存文件，元数据成功后再原子发布；删除先移入隐藏隔离区，数据库失败时恢复，进程中断残留会在后续媒体操作中按数据库状态恢复或清理。后台 `editor/admin` 可浏览与上传，只有 `admin` 可删除；被文章、历史版本、作品或头像引用的媒体不会被删除。
+
+上传、删除及其暂存恢复共用媒体卷的操作系统文件锁，进程退出自动释放。升级时先停止旧 API，再启动新版本，避免旧版本绕过文件锁；共享卷必须支持操作系统文件锁，锁操作失败会拒绝媒体写入。隐藏的 `.operations.lock` 文件应保留，不手动删除。
+
+#### 媒体缓存升级与撤回
+
+旧版本曾发送一年的 `immutable`，修改源站响应头无法清除已经缓存的内容。部署本次策略时，需要 CDN 管理员完成以下步骤：
+
+1. 对 `/media/*` 设置缓存绕过规则，取消强制 Edge TTL／Cache Everything 等覆盖源站 `no-store` 的规则。
+2. 对既有媒体执行相应缓存清除；针对单张误上传图片，至少按包含协议和域名的原始 URL 清除。若曾使用不同主机名或自定义缓存键，覆盖这些变体。具备按前缀清除能力时可清除媒体前缀；避免未经确认清除整个站点缓存。
+3. 上传本轮专用图片，读取原 URL 后删除，再读取完全相同的 URL，确认 `404`、`Cache-Control: no-store` 且没有旧的 CDN `HIT`。添加随机查询参数只验证新缓存键，不能代替原 URL 撤回验证。
+4. 确认浏览器已激活新版 Service Worker，旧版 shell 缓存会在激活时清理。无法保证清除读者自行保存的文件或尚未更新应用的离线副本。
+
+没有 CDN 管理权限时，源站策略可独立部署，但旧缓存撤回必须记录为未完成。
+
+#### Cloudflare 与 CSP
+
+默认 CSP 的脚本来源保持 `self`。若 Cloudflare 自动注入 Web Analytics beacon 或其他内联辅助脚本，会出现 CSP 拒绝。站点未依赖这些脚本时，在 Cloudflare 管理端关闭 Web Analytics 自动注入，并检查是否启用了 Rocket Loader、邮箱地址混淆等脚本注入功能。若确实需要某项功能，应逐项验证其脚本 URL、内联代码及 CSP nonce/hash 集成，不能直接添加 `unsafe-inline` 或通配来源。
+
+调整后用未登录和已登录浏览器核对最终 HTML、CSP 响应头及控制台；源站配置检查不能证明 CDN 注入已停止。
 
 Web 入口的 `GET /healthz` 代理到 API readiness，反映数据库、Redis 和 schema 是否就绪（仅输出整体状态，不泄露依赖明细）；`GET /livez` 仅表示 Nginx 静态入口存活。监控与负载均衡应使用 `/healthz` 判断应用是否可接流量。
 
