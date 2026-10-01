@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { useNavigate, Link, useLocation, type Location } from 'react-router-dom';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { login } from '../api/auth';
 import { useAuthStore } from '../store/auth';
 import { shouldNavigateAfterAuth } from '../store/authPolicy';
@@ -13,6 +13,7 @@ import { translate } from '../i18n';
 import { useFormValidation, type FieldRules } from '../hooks/useFormValidation';
 import { useSubmit } from '../hooks/useSubmit';
 import { useShallow } from 'zustand/react/shallow';
+import { resolveAuthRedirect } from '../utils/authRedirect';
 
 const Login: React.FC = () => {
   const language = usePreferenceStore((state) => state.language);
@@ -36,11 +37,9 @@ const Login: React.FC = () => {
     })),
   );
   const t = (key: Parameters<typeof translate>[1]) => translate(language, key);
-  const from = (location.state as { from?: Location } | null)?.from;
-	const passwordChanged = Boolean((location.state as { passwordChanged?: boolean } | null)?.passwordChanged);
-  const redirectTo = from && from.pathname !== '/login'
-    ? `${from.pathname}${from.search}${from.hash}`
-    : '/';
+  const from = (location.state as { from?: unknown } | null)?.from;
+  const passwordChanged = Boolean((location.state as { passwordChanged?: boolean } | null)?.passwordChanged);
+  const redirectTo = resolveAuthRedirect(from);
 
   const rules = useMemo<FieldRules<{ account: string; password: string }>>(() => ({
     account: [{ type: 'required' }],
@@ -64,11 +63,14 @@ const Login: React.FC = () => {
   });
 
   useEffect(() => {
+    // The exit animation keeps this page mounted briefly after navigation.
+    // Its new global location has no login state; do not navigate again to '/'.
+    if (!/^\/login\/?$/i.test(location.pathname)) return;
     if (!shouldNavigateAfterAuth({ accessToken, user, isInitialized, isFetching })) {
       return;
     }
     navigate(redirectTo, { replace: true });
-  }, [accessToken, isFetching, isInitialized, navigate, redirectTo, user]);
+  }, [accessToken, isFetching, isInitialized, location.pathname, navigate, redirectTo, user]);
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();

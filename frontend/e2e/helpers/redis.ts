@@ -32,6 +32,13 @@ export const readLoginCaptcha = (captchaID: string): Promise<string> => readCapt
 
 export const readRegisterCaptcha = (captchaID: string): Promise<string> => readCaptcha('register', captchaID);
 
+// 隔离环境的真实服务端失效注入；不改签名、接口响应或限流配置。
+export const expireIssuedAccessTokens = async (): Promise<number> => {
+  const cutoff = Math.floor(Date.now() / 1000);
+  await withRedis((client) => client.set('auth:access:not-before', String(cutoff), { EX: 120 }));
+  return cutoff;
+};
+
 export const seedRegisterEmailCode = async (email: string, code: string): Promise<void> => {
   const normalizedEmail = email.trim().toLowerCase();
   if (!normalizedEmail || !code.trim()) {

@@ -21,7 +21,7 @@ import {
   type TestIdentity,
   updateUserRole,
 } from './helpers/auth';
-import { seedRegisterEmailCode } from './helpers/redis';
+import { expireIssuedAccessTokens, readLoginCaptcha, seedRegisterEmailCode } from './helpers/redis';
 
 type ApiEnvelope<T> = {
   code: number;
@@ -137,7 +137,7 @@ test.describe.serial('真实 Compose 前端关键路径', () => {
       await page.getByTestId('article-editor-slug').fill(slug);
       await page.getByTestId('article-editor-status').selectOption('published');
       await page.getByRole('checkbox', { name: /Generate summary on save/i }).uncheck();
-      await page.getByTestId('article-editor-content').fill('The E2E article body starts here.');
+      await page.getByTestId('article-editor-content').fill('The E2E article body starts here.\n\n```mermaid\nflowchart LR\nA[Audit] --> B[Cleanup]\n```');
 
       await page.getByTestId('article-editor-media-insert').click();
       await expect(page.getByRole('dialog', { name: 'Media Library', exact: true })).toBeVisible();
@@ -164,6 +164,39 @@ test.describe.serial('真实 Compose 前端关键路径', () => {
       await context.close();
     }
   });
+
+  for (const style of ['editorial', 'soft-brutalism', 'japanese-paper', 'swiss']) {
+    for (const mode of ['light', 'dark']) {
+      test(`真实文章 Mermaid 对比度：${style}/${mode}`, async ({ page }) => {
+        if (!publishedArticle) throw new Error('Missing real article fixture');
+        await page.addInitScript(({ style, mode }) => {
+          localStorage.setItem('notesOfAshen.themeStyle', style);
+          localStorage.setItem('notesOfAshen.theme', mode);
+        }, { style, mode });
+        await page.goto(`/article/${publishedArticle.id}`);
+        await expect(page.locator('.article-mermaid-panel')).toHaveAttribute('aria-busy', 'false');
+        await expect(page.locator('.article-mermaid-controls')).toBeVisible();
+        const colors = await page.locator('.article-mermaid-stage svg .node').filter({ hasText: 'Audit' }).evaluate((node) => {
+          const label = node.querySelector('.nodeLabel p');
+          const rect = node.querySelector('rect');
+          if (!label || !rect) throw new Error('Rendered Mermaid label/background missing');
+          const foreground = getComputedStyle(label).color;
+          const background = getComputedStyle(rect).fill;
+          const luminance = (color: string) => {
+            const values = color.match(/[\d.]+/g)?.slice(0, 3).map(Number);
+            if (!values || values.length !== 3) throw new Error(`Invalid color: ${color}`);
+            return values.map((value) => value / 255).map((v) => v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4)
+              .reduce((sum, value, i) => sum + value * [0.2126, 0.7152, 0.0722][i], 0);
+          };
+          const a = luminance(foreground);
+          const b = luminance(background);
+          return { foreground, background, contrast: (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05) };
+        });
+        await test.info().attach('mermaid-contrast', { body: JSON.stringify(colors), contentType: 'application/json' });
+        expect(colors.contrast).toBeGreaterThanOrEqual(4.5);
+      });
+    }
+  }
 
   test('管理员改为 editor 后，editor 只能访问文章后台', async ({ browser, request }) => {
     const editor = createIdentity('e2eeditor');
@@ -287,6 +320,68 @@ test.describe.serial('真实 Compose 前端关键路径', () => {
       expect(refreshResponse.status()).toBe(401);
     } finally {
       await context.close();
+    }
+  });
+
+  test('真实会话失效后登录返回原后台路径', async ({ page }) => {
+    await preparePage(page);
+    await loginThroughUI(page, admin);
+    await page.goto('/admin/articles');
+    await expect(page.getByRole('heading', { name: 'Articles', exact: true })).toBeVisible();
+    const logout = await page.context().request.post(apiV1URL('/auth/logout'), { data: {} });
+    expect(logout.status()).toBe(200);
+    const cutoff = await expireIssuedAccessTokens();
+    const captcha = page.waitForResponse((response) => matchesAPIPath(response, '/auth/captcha', 'POST'));
+    await page.getByRole('link', { name: 'Users', exact: true }).click();
+    await expect(page).toHaveURL(/\/login$/);
+    expect(await page.evaluate(() => window.history.state.usr.from)).toBe('/admin/users');
+    const { captchaId } = await successData<{ captchaId: string }>(await captcha, 'Expired-session captcha');
+    await page.getByLabel('Account or email', { exact: true }).fill(admin.account);
+    await page.getByLabel('Password', { exact: true }).fill(admin.password);
+    await page.getByLabel('Captcha', { exact: true }).fill(await readLoginCaptcha(captchaId));
+    // 新令牌必须晚于服务端的失效秒，不缩短失效窗口或修改认证检查。
+    await page.waitForTimeout(Math.max(0, (cutoff + 1) * 1000 - Date.now()));
+    const login = page.waitForResponse((response) => matchesAPIPath(response, '/auth/login', 'POST'));
+    await page.getByRole('button', { name: 'Sign In', exact: true }).click();
+    await successData(await login, 'Login after session expiry');
+    await expect(page).toHaveURL(/\/admin\/users$/);
+    await expect(page.getByRole('heading', { name: 'Users', exact: true })).toBeVisible();
+    adminStorageState = await page.context().storageState();
+  });
+
+  test('真实删除文章后，读者离线刷新不能恢复已撤回内容', async ({ browser, request }) => {
+    if (!publishedArticle) throw new Error('Missing real article fixture');
+    const reader = await browser.newContext();
+    const page = await reader.newPage();
+    try {
+      await preparePage(page);
+      await page.goto(`/article/${publishedArticle.id}`);
+      await page.evaluate(() => navigator.serviceWorker.ready);
+      await page.reload();
+      await expect(page.getByRole('heading', { name: publishedArticle.title, exact: true })).toBeVisible();
+      const detailPath = `/api/v1/articles/${publishedArticle.id}`;
+      const hasCachedDetail = () => page.evaluate(async (path) => {
+        for (const name of await caches.keys()) {
+          if (name.endsWith(':articles') && await (await caches.open(name)).match(path)) return true;
+        }
+        return false;
+      }, detailPath);
+      await expect.poll(hasCachedDetail).toBe(true);
+      const token = await refreshAccessToken(request, requireAdminState());
+      const deleted = await request.delete(apiV1URL(`/articles/${publishedArticle.id}`), { headers: { Authorization: `Bearer ${token}` } });
+      expect(deleted.status()).toBe(200);
+      expect((await deleted.json() as ApiEnvelope<unknown>).code).toBe(0);
+      const detail = page.waitForResponse((response) => matchesAPIPath(response, `/articles/${publishedArticle!.id}`, 'GET'));
+      await page.reload();
+      expect((await detail).status()).toBe(404);
+      await expect.poll(hasCachedDetail).toBe(false);
+      await reader.setOffline(true);
+      await page.reload();
+      await expect(page.getByRole('main')).toBeVisible();
+      await expect(page.getByRole('heading', { name: publishedArticle.title, exact: true })).toHaveCount(0);
+      expect(await hasCachedDetail()).toBe(false);
+    } finally {
+      await reader.close();
     }
   });
 });

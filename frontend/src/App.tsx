@@ -83,6 +83,9 @@ function App() {
   useEffect(() => {
     setSessionExpiredHandler(() => {
       const current = locationRef.current;
+      // Another failed request or the route guard may already have navigated.
+      // Preserve the first return address while the outgoing page unmounts.
+      if (/^\/login\/?$/i.test(current.pathname)) return;
       const from = `${current.pathname}${current.search}${current.hash}`;
       navigate('/login', { state: { from }, replace: true });
     });

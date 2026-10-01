@@ -28,7 +28,11 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ allowedRoles }) => {
   }
 
   if (!accessToken || !user) {
-    return <Navigate to="/login" replace state={{ from: location }} />;
+    // AnimatePresence can keep the outgoing protected subtree mounted after
+    // navigation. It must not replace the original return path with /login.
+    if (/^\/login\/?$/i.test(location.pathname)) return null;
+    const from = `${location.pathname}${location.search}${location.hash}`;
+    return <Navigate to="/login" replace state={{ from }} />;
   }
 
   if (allowedRoles && !allowedRoles.includes(user.role)) {

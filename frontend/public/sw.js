@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'notes-of-ashen-v1';
+const CACHE_VERSION = 'notes-of-ashen-v2';
 const SHELL_CACHE = `${CACHE_VERSION}:shell`;
 const ARTICLE_CACHE = `${CACHE_VERSION}:articles`;
 const SHELL_ASSETS = ['/', '/index.html', '/favicon.svg', '/favicon.png', '/pwa-192.png', '/pwa-512.png', '/manifest.webmanifest'];
@@ -41,7 +41,8 @@ self.addEventListener('fetch', (event) => {
   }
   if (url.pathname.startsWith('/api/v1/admin')
     || url.pathname.startsWith('/api/v1/auth')
-    || url.pathname.startsWith('/api/v1/users')) {
+    || url.pathname.startsWith('/api/v1/users')
+    || url.pathname.startsWith('/media/')) {
     return;
   }
 
@@ -75,13 +76,9 @@ const cacheFirst = async (request, cacheName) => {
 
 const networkFirst = async (request, cacheName) => {
   const cache = await caches.open(cacheName);
+  let response;
   try {
-    const response = await fetch(request);
-    if (response.ok) {
-      await cache.put(request, response.clone());
-      await trimCache(cacheName, 24);
-    }
-    return response;
+    response = await fetch(request);
   } catch {
     const cached = await cache.match(request);
     if (cached) {
@@ -89,6 +86,14 @@ const networkFirst = async (request, cacheName) => {
     }
     throw new Error('offline and no cached response');
   }
+  if ([401, 403, 404, 410].includes(response.status)) {
+    // 明确撤回或权限失效不能像网络故障一样恢复旧内容；同时失效查询参数变体。
+    await cache.delete(request, { ignoreSearch: true });
+  } else if (response.ok) {
+    await cache.put(request, response.clone());
+    await trimCache(cacheName, 24);
+  }
+  return response;
 };
 
 const navigationFallback = async (request) => {
