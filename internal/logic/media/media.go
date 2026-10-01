@@ -87,6 +87,18 @@ func Upload(ctx context.Context, svcCtx *svc.ServiceContext, originalName, altTe
 	}
 	sum := sha256.Sum256(data)
 	hash := hex.EncodeToString(sum[:])
+	root, err := mediaRoot(svcCtx)
+	if err != nil {
+		return nil, err
+	}
+	unlock, err := lockMediaOperations(ctx, root)
+	if err != nil {
+		return nil, err
+	}
+	defer unlock()
+	// 恢复与整个数据库/文件事务使用同一把跨进程锁。先恢复，再去重，
+	// 避免返回上一次崩溃后尚未发布文件的元数据。
+	recoverMediaStaging(ctx, svcCtx, root)
 	if existing, err := svcCtx.Store.FindMediaAssetBySHA256(ctx, hash); err == nil {
 		resp := mediaResp(*existing)
 		return &resp, nil
@@ -95,11 +107,6 @@ func Upload(ctx context.Context, svcCtx *svc.ServiceContext, originalName, altTe
 	}
 
 	storageKey := hash + format.storageExtension
-	root, err := mediaRoot(svcCtx)
-	if err != nil {
-		return nil, err
-	}
-	recoverMediaStaging(ctx, svcCtx, root)
 	stagedPath, err := stageUpload(root, storageKey, data)
 	if err != nil {
 		return nil, err
@@ -214,6 +221,11 @@ func Delete(ctx context.Context, svcCtx *svc.ServiceContext, id uint64) error {
 	if err != nil {
 		return err
 	}
+	unlock, err := lockMediaOperations(ctx, root)
+	if err != nil {
+		return err
+	}
+	defer unlock()
 	recoverMediaStaging(ctx, svcCtx, root)
 	item, err := svcCtx.Store.FindMediaAsset(ctx, id)
 	if err != nil {
@@ -347,6 +359,9 @@ func publishStagedUpload(root, key, stagedPath string) error {
 	return nil
 }
 
+// recoverMediaStaging requires lockMediaOperations for this root. Holding the
+// lock proves that every staged operation belongs to a finished/crashed writer,
+// including writers in other processes sharing this media volume.
 func recoverMediaStaging(ctx context.Context, svcCtx *svc.ServiceContext, root string) {
 	entries, err := os.ReadDir(root)
 	if err != nil {
