@@ -856,6 +856,21 @@ function Invoke-GoIntegrationTests {
     }
 }
 
+function Invoke-MySQLModelTests {
+    param([Parameter(Mandatory)]$Runtime)
+
+    # 只在本轮隔离 MySQL 创建入口库，测试自身使用随机库名并执行生产迁移。
+    Invoke-MySQLQuery -Runtime $Runtime -Query "CREATE DATABASE IF NOT EXISTS noa_integration_test CHARACTER SET utf8mb4" | Out-Null
+    $snapshot = @{}
+    try {
+        Set-EnvironmentValue -Snapshot $snapshot -Name 'APP_TEST_DATABASE_DSN' -Value "root:$($Runtime.MySQLRootPassword)@tcp(127.0.0.1:$($Runtime.MySQLPort))/noa_integration_test?charset=utf8mb4&parseTime=true&loc=Local"
+        & go test ./model -run '^TestMySQL' -count=1 -v
+        if ($LASTEXITCODE -ne 0) { throw "真实 MySQL 并发模型测试失败（退出码 $LASTEXITCODE）。" }
+    } finally {
+        Restore-Environment -Snapshot $snapshot
+    }
+}
+
 function Invoke-BrowserIntegrationTests {
     param(
         [Parameter(Mandatory)][string]$Project
@@ -900,6 +915,7 @@ try {
         Assert-RedisPasswordMode -Runtime $runtime
         Assert-MigrationState -Runtime $runtime
         Assert-ApiMigrationHealth -Runtime $runtime
+        Invoke-MySQLModelTests -Runtime $runtime
         Invoke-GoIntegrationTests -Pattern "^TestCore"
     }
     # 两份已固定历史 schema 都通过 Compose 的 migrate 依赖链自动升级，而非由测试直接导入 SQL。

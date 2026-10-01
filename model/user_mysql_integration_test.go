@@ -2,6 +2,7 @@ package model
 
 import (
 	"context"
+	"crypto/rand"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -12,6 +13,8 @@ import (
 	"time"
 
 	"github.com/go-sql-driver/mysql"
+	"notes-of-ashen/deploy/mysql/migrations"
+	"notes-of-ashen/internal/migration"
 )
 
 func testMySQLStore(t *testing.T) *Store {
@@ -32,26 +35,42 @@ func testMySQLStore(t *testing.T) *Store {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = db.Close() })
-	if _, err = db.Exec(`DROP TABLE IF EXISTS users`); err != nil {
+	// 使用生产迁移建立本轮专用数据库，避免手写夹具与真实事务涉及的表漂移。
+	// 不重置调用方给出的库；测试账号需有创建/删除隔离数据库的权限。
+	database := "noa_users_" + strings.ToLower(rand.Text()) + "_test"
+	if _, err = db.ExecContext(t.Context(), "CREATE DATABASE `"+database+"` CHARACTER SET utf8mb4"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err = db.Exec(`CREATE TABLE users (id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, account VARCHAR(64) NOT NULL UNIQUE, password_hash VARCHAR(128) NOT NULL, email VARCHAR(128) NOT NULL UNIQUE, avatar_url VARCHAR(255) DEFAULT '', nickname VARCHAR(64) DEFAULT '', role VARCHAR(20) DEFAULT 'user', status VARCHAR(20) DEFAULT 'active', token_version BIGINT UNSIGNED NOT NULL DEFAULT 0, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, INDEX idx_users_role_status_id (role,status,id)) ENGINE=InnoDB`); err != nil {
+	t.Cleanup(func() {
+		if _, err := db.Exec("DROP DATABASE `" + database + "`"); err != nil {
+			t.Errorf("drop isolated MySQL test database: %v", err)
+		}
+	})
+	cfg.DBName = database
+	migrationDB, err := migration.Open(cfg.FormatDSN())
+	if err != nil {
 		t.Fatal(err)
 	}
-	return &Store{db: db}
+	defer migrationDB.Close()
+	if err := migration.Run(t.Context(), migrationDB, migrations.FS); err != nil {
+		t.Fatal(err)
+	}
+	testDB, err := Open(cfg.FormatDSN(), 20, 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = testDB.Close() })
+	return &Store{db: testDB}
 }
 
 func TestMySQLConcurrentFirstRegistrationCreatesOneAdmin(t *testing.T) {
 	store := testMySQLStore(t)
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 	defer cancel()
 	var wg sync.WaitGroup
 	errs := make(chan error, 2)
-	for i := 0; i < 2; i++ {
-		i := i
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+	for i := range 2 {
+		wg.Go(func() {
 			errs <- store.WithUserRegistrationLock(ctx, func(ctx context.Context, tx *UserRegistrationTx) error {
 				count, err := tx.CountUsers(ctx)
 				if err != nil {
@@ -64,7 +83,7 @@ func TestMySQLConcurrentFirstRegistrationCreatesOneAdmin(t *testing.T) {
 				_, err = tx.CreateUser(ctx, UserCreate{Account: fmt.Sprintf("user%d", i), PasswordHash: "hash", Email: fmt.Sprintf("u%d@example.com", i), Role: role})
 				return err
 			})
-		}()
+		})
 	}
 	wg.Wait()
 	close(errs)
@@ -84,22 +103,22 @@ func TestMySQLConcurrentFirstRegistrationCreatesOneAdmin(t *testing.T) {
 
 func TestMySQLConcurrentAdminDisableKeepsOneActive(t *testing.T) {
 	store := testMySQLStore(t)
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 	defer cancel()
 	for i := 1; i <= 2; i++ {
 		if _, err := store.db.Exec(`INSERT INTO users(account,password_hash,email,role,status) VALUES(?,?,?,'admin','active')`, fmt.Sprintf("admin%d", i), "hash", fmt.Sprintf("a%d@example.com", i)); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := store.db.Exec(`INSERT INTO refresh_tokens(user_id,token_hash,expires_at) VALUES(?,?,?)`, i, fmt.Sprintf("session%d", i), time.Now().Add(time.Hour)); err != nil {
 			t.Fatal(err)
 		}
 	}
 	var wg sync.WaitGroup
 	errs := make(chan error, 2)
 	for _, p := range [][2]uint64{{1, 2}, {2, 1}} {
-		p := p
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			errs <- store.UpdateUserStatusSafely(ctx, p[0], p[1], "disabled")
-		}()
+		})
 	}
 	wg.Wait()
 	close(errs)
@@ -124,5 +143,18 @@ func TestMySQLConcurrentAdminDisableKeepsOneActive(t *testing.T) {
 	}
 	if active != 1 {
 		t.Fatalf("active admin count = %d, want 1", active)
+	}
+	var revoked, valid, versioned int
+	if err := store.db.QueryRow(`SELECT COUNT(*) FROM refresh_tokens r JOIN users u ON u.id=r.user_id WHERE u.status='disabled' AND r.revoked_at IS NOT NULL`).Scan(&revoked); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.db.QueryRow(`SELECT COUNT(*) FROM refresh_tokens r JOIN users u ON u.id=r.user_id WHERE u.status='active' AND r.revoked_at IS NULL`).Scan(&valid); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.db.QueryRow(`SELECT COUNT(*) FROM users WHERE status='disabled' AND token_version=1`).Scan(&versioned); err != nil {
+		t.Fatal(err)
+	}
+	if revoked != 1 || valid != 1 || versioned != 1 {
+		t.Fatalf("session invariants: revoked=%d valid=%d versioned=%d, want 1/1/1", revoked, valid, versioned)
 	}
 }
