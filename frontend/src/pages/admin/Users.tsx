@@ -97,8 +97,8 @@ const AdminUsers: React.FC = () => {
 
   return (
     <div>
-      <div className="mb-8 border-b border-mountain-grey pb-4">
-        <h3 className="text-2xl font-bold text-ink tracking-widest">{t('admin.users')}</h3>
+      <div className="page-heading mb-8 border-b border-mountain-grey pb-4">
+        <h1 className="text-2xl font-bold text-ink tracking-widest">{t('admin.users')}</h1>
       </div>
 
       <InlineNotice message={error} className="mb-6" />

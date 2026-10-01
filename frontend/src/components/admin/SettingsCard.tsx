@@ -17,7 +17,7 @@ const SettingsCard = ({
   className = '',
   contentClassName = '',
 }: SettingsCardProps) => (
-  <section className={`border border-mountain-grey bg-[var(--paper-soft)] p-5 ${className}`.trim()}>
+  <section className={`settings-card rounded-lg border border-mountain-grey bg-[var(--paper-soft)] p-5 ${className}`.trim()}>
     <div className={`flex flex-col gap-4 ${action ? 'md:flex-row md:items-center md:justify-between' : ''}`.trim()}>
       <div>
         <h4 className="text-base font-bold tracking-widest text-ink">{title}</h4>

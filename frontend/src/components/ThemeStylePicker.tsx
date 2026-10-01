@@ -14,7 +14,7 @@ const ThemeStylePicker = () => {
       <p id={labelId} className="mb-2 text-xs tracking-widest text-ink-light">
         {translate(language, 'preferences.styleTitle')}
       </p>
-      <div className="grid grid-cols-2 gap-2">
+      <div className="theme-style-grid grid grid-cols-2 gap-2">
         {themeStyles.map((style) => (
           <button
             key={style}
@@ -22,7 +22,7 @@ const ThemeStylePicker = () => {
             aria-pressed={themeStyle === style}
             aria-label={translate(language, `preferences.style.${style}`)}
             onClick={() => setThemeStyle(style)}
-            className="theme-style-option min-w-0 rounded-md border border-hairline p-2 text-left transition-colors hover:border-ink"
+            className="theme-style-option min-h-11 min-w-0 rounded-md border border-hairline p-2 text-left transition-colors hover:border-ink"
           >
             <span className="theme-style-preview" data-preview-style={style} aria-hidden="true">
               <span className="theme-style-preview-heading">Aa<span>札</span></span>

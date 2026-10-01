@@ -179,8 +179,8 @@ const AdminProjectsContent: React.FC = () => {
 
   return (
     <div>
-      <div className="mb-8 flex flex-col gap-4 border-b border-mountain-grey pb-4 md:flex-row md:items-center md:justify-between">
-        <h3 className="text-2xl font-bold tracking-widest text-ink">{t('projectAdmin.title')}</h3>
+      <div className="page-heading mb-8 flex flex-col gap-4 border-b border-mountain-grey pb-4 md:flex-row md:items-center md:justify-between">
+        <h1 className="text-2xl font-bold tracking-widest text-ink">{t('projectAdmin.title')}</h1>
         {!isLoading && (
           <button
             type="button"

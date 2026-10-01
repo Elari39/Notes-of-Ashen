@@ -71,33 +71,44 @@ const AdminLayout: React.FC = () => {
 
   return (
     <div className="editorial-container flex w-full flex-col gap-5 lg:flex-row lg:gap-6">
-      <aside className="w-full shrink-0 rounded-xl bg-surface-dark p-4 text-on-dark lg:sticky lg:top-24 lg:min-h-[calc(100vh-8rem)] lg:w-56 lg:self-start lg:p-5">
+      <aside className="admin-sidebar w-full shrink-0 rounded-xl bg-surface-dark p-4 text-on-dark lg:sticky lg:top-24 lg:w-56 lg:self-start lg:p-5">
         <div className="mb-4 flex items-center gap-3 md:mb-8">
           <span aria-hidden="true" className="text-xl text-ochre">✣</span>
           <h2 className="font-display text-2xl text-on-dark">{t('admin.title')}</h2>
         </div>
-        <nav className="flex gap-2 overflow-x-auto whitespace-nowrap pb-1 lg:flex-col lg:overflow-visible lg:whitespace-normal lg:pb-0">
-          <PreloadNavLink to="/admin/dashboard" preload={routeLoaders.adminDashboard} className={navLinkClass}>
-            {t('admin.dashboard')}
-          </PreloadNavLink>
-          <PreloadNavLink to="/admin/articles" preload={routeLoaders.adminArticles} className={navLinkClass}>
-            {t('admin.articles')}
-          </PreloadNavLink>
-          <PreloadNavLink to="/admin/categories" preload={routeLoaders.adminCategories} className={navLinkClass}>
-            {t('admin.categories')}
-          </PreloadNavLink>
-          <PreloadNavLink to="/admin/tags" preload={routeLoaders.adminTags} className={navLinkClass}>
-            {t('admin.tags')}
-          </PreloadNavLink>
-          <PreloadNavLink to="/admin/media" preload={routeLoaders.adminMedia} className={navLinkClass}>
-            {t('admin.media')}
-          </PreloadNavLink>
-          <PreloadNavLink to="/admin/analytics" preload={routeLoaders.adminAnalytics} className={navLinkClass}>
-            {t('admin.analytics')}
-          </PreloadNavLink>
-          <div className="hidden h-3 lg:block"></div>
+        <nav className="admin-navigation" aria-label={t('admin.title')}>
+          <section className="admin-nav-group" aria-labelledby="admin-group-content">
+            <h3 id="admin-group-content">{t('admin.group.content')}</h3>
+            <PreloadNavLink to="/admin/articles" preload={routeLoaders.adminArticles} className={navLinkClass}>
+              {t('admin.articles')}
+            </PreloadNavLink>
+            <PreloadNavLink to="/admin/categories" preload={routeLoaders.adminCategories} className={navLinkClass}>
+              {t('admin.categories')}
+            </PreloadNavLink>
+            <PreloadNavLink to="/admin/tags" preload={routeLoaders.adminTags} className={navLinkClass}>
+              {t('admin.tags')}
+            </PreloadNavLink>
+            <PreloadNavLink to="/admin/media" preload={routeLoaders.adminMedia} className={navLinkClass}>
+              {t('admin.media')}
+            </PreloadNavLink>
+            {user?.role === 'admin' && projectsPageEnabled && (
+              <PreloadNavLink to="/admin/projects" preload={routeLoaders.adminProjectsContent} className={navLinkClass}>
+                {t('admin.projects')}
+              </PreloadNavLink>
+            )}
+          </section>
+          <section className="admin-nav-group" aria-labelledby="admin-group-analytics">
+            <h3 id="admin-group-analytics">{t('admin.group.analytics')}</h3>
+            <PreloadNavLink to="/admin/dashboard" preload={routeLoaders.adminDashboard} className={navLinkClass}>
+              {t('admin.dashboard')}
+            </PreloadNavLink>
+            <PreloadNavLink to="/admin/analytics" preload={routeLoaders.adminAnalytics} className={navLinkClass}>
+              {t('admin.analytics')}
+            </PreloadNavLink>
+          </section>
           {user?.role === 'admin' && (
-            <>
+            <section className="admin-nav-group" aria-labelledby="admin-group-system">
+              <h3 id="admin-group-system">{t('admin.group.system')}</h3>
               <PreloadNavLink to="/admin/users" preload={routeLoaders.adminUsers} className={navLinkClass}>
                 {t('admin.users')}
               </PreloadNavLink>
@@ -116,19 +127,14 @@ const AdminLayout: React.FC = () => {
               <PreloadNavLink to="/admin/system" preload={routeLoaders.adminSystem} className={navLinkClass}>
                 {t('admin.system')}
               </PreloadNavLink>
-              {projectsPageEnabled && (
-                <PreloadNavLink to="/admin/projects" preload={routeLoaders.adminProjectsContent} className={navLinkClass}>
-                  {t('admin.projects')}
-                </PreloadNavLink>
-              )}
-            </>
+            </section>
           )}
         </nav>
       </aside>
 
       <div className="admin-workspace min-w-0 flex-grow rounded-xl bg-surface-soft p-4 sm:p-6 lg:p-8">
         {breadcrumbSegments.length > 0 && (
-          <nav aria-label={t('common.breadcrumb')} className="mb-7 hidden flex-wrap items-center gap-1.5 text-xs text-muted md:flex">
+          <nav aria-label={t('common.breadcrumb')} className="mb-5 flex flex-wrap items-center gap-1.5 text-xs text-muted md:flex">
             {breadcrumbSegments.map((seg, idx) => {
               const isLast = idx === breadcrumbSegments.length - 1;
               return (

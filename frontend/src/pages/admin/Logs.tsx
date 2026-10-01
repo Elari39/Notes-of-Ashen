@@ -122,7 +122,7 @@ const AdminLogs: React.FC = () => {
       <div className="mb-6 border-b border-mountain-grey pb-4">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <h3 className="text-2xl font-bold tracking-widest text-ink">{t('admin.logs')}</h3>
+            <h1 className="text-2xl font-bold tracking-widest text-ink">{t('admin.logs')}</h1>
             <p className="mt-2 text-sm text-ink-light">{t('logs.subtitle')}</p>
           </div>
           <p className="text-xs tracking-widest text-ink-light">

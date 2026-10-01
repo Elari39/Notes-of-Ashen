@@ -148,8 +148,8 @@ const AdminSettings: React.FC = () => {
 
   return (
     <div>
-      <div className="mb-8 border-b border-mountain-grey pb-4">
-        <h3 className="text-2xl font-bold tracking-widest text-ink">{t('admin.settings')}</h3>
+      <div className="page-heading mb-8 border-b border-mountain-grey pb-4">
+        <h1 className="text-2xl font-bold tracking-widest text-ink">{t('admin.settings')}</h1>
       </div>
 
       {hasLoaded && <InlineNotice message={error} className="mb-6" />}

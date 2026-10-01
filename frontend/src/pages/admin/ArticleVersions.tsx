@@ -131,8 +131,8 @@ const ArticleVersions: React.FC = () => {
 
   return (
     <div>
-      <div className="mb-8 flex flex-col gap-3 border-b border-mountain-grey pb-4 sm:flex-row sm:items-center sm:justify-between">
-        <h3 className="text-2xl font-bold tracking-widest text-ink">{t('articleVersion.title')}</h3>
+      <div className="page-heading mb-8 flex flex-col gap-3 border-b border-mountain-grey pb-4 sm:flex-row sm:items-center sm:justify-between">
+        <h1 className="text-2xl font-bold tracking-widest text-ink">{t('articleVersion.title')}</h1>
         {id && <Link to={`/admin/editor/${id}`} className="text-sm tracking-widest text-ochre">{t('articleVersion.backToEditor')}</Link>}
       </div>
 

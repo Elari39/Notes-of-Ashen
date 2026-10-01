@@ -47,7 +47,7 @@ const Switch: React.FC<SwitchProps> = ({
       aria-label={label}
       aria-describedby={ariaDescribedBy}
       className={[
-        'relative inline-flex shrink-0 items-center rounded-full border transition-colors duration-fast ease-paper',
+        'ui-switch relative inline-flex shrink-0 items-center rounded-full border transition-colors duration-fast ease-paper',
         'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ochre',
         sizeRail[size],
         'data-[state=checked]:border-ochre data-[state=checked]:bg-ochre',
@@ -60,7 +60,7 @@ const Switch: React.FC<SwitchProps> = ({
     >
       <SwitchPrimitive.Thumb
         className={[
-          'pointer-events-none ml-0.5 inline-block rounded-full transform bg-[var(--on-accent)] transition-transform duration-fast ease-paper',
+          'pointer-events-none ml-0.5 inline-block rounded-full transform bg-[var(--on-accent)] data-[state=unchecked]:bg-ink transition-transform duration-fast ease-paper',
           sizeThumb[size],
         ].join(' ')}
       />

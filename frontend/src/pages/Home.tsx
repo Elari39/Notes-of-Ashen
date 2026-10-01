@@ -1,19 +1,20 @@
 import React, { useEffect, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import Pagination from '../components/Pagination';
 import InlineNotice from '../components/InlineNotice';
 import PagePendingState from '../components/RoutePending';
 import ArticleCardSkeleton from '../components/ArticleCardSkeleton';
 import EmptyState from '../components/ui/EmptyState';
 import Button from '../components/ui/Button';
-import Tag from '../components/ui/Tag';
+import HomeArticleCard from '../components/HomeArticleCard';
 import { PreloadLink } from '../components/PreloadLink';
 import { getErrorMessage } from '../utils/error';
-import { formatArticleCount, formatText, getDateLocale, translate } from '../i18n';
+import { formatArticleCount, getDateLocale, translate } from '../i18n';
 import { usePreferenceStore } from '../store/preferences';
 import { getArticles } from '../api/article';
 import { Article } from '../types';
 import { normalizeCoverUrl } from '../utils/cover';
+import { selectHomeArticles } from '../utils/homeArticles';
 import {
   DEFAULT_SITE_DESCRIPTION,
   DEFAULT_SITE_TITLE,
@@ -32,8 +33,8 @@ const Home: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [total, setTotal] = useState(0);
   const [error, setError] = useState('');
-  const [coverErrors, setCoverErrors] = useState<Record<number, boolean>>({});
   const [retryVersion, setRetryVersion] = useState(0);
+  const [coverErrors, setCoverErrors] = useState<Record<number, boolean>>({});
   const size = 10;
   const t = (key: Parameters<typeof translate>[1]) => translate(language, key);
   const page = parsePositiveInt(searchParams.get('page'), 1);
@@ -41,8 +42,7 @@ const Home: React.FC = () => {
   const tagId = parsePositiveInt(searchParams.get('tagId'), 0);
   const hasActiveFilters = Boolean(categoryId || tagId);
   const shouldShowHero = page === 1 && !hasActiveFilters;
-  const featuredArticle = shouldShowHero ? articles[0] : undefined;
-  const listArticles = articles;
+  const { featuredArticle, listArticles } = selectHomeArticles(articles, shouldShowHero);
   const NotesHeading = shouldShowHero ? 'h2' : 'h1';
   const normalizedSiteTitle = siteTitle.trim();
   const normalizedSiteDescription = siteDescription.trim();
@@ -53,10 +53,10 @@ const Home: React.FC = () => {
     ? t('home.defaultSiteDescription')
     : normalizedSiteDescription;
   const articleCountLabel = formatArticleCount(language, total);
-  const shouldShowLatestSection = !shouldShowHero || articles.length > 0;
+  const shouldShowLatestSection = !shouldShowHero || listArticles.length > 0 || total > size;
   const heroPanelHeight = loading || featuredArticle
-    ? 'min-h-[20rem] sm:min-h-[22rem] lg:min-h-[28rem]'
-    : 'min-h-[16rem] sm:min-h-[18rem]';
+    ? 'min-h-[16rem]'
+    : 'min-h-[12rem]';
 
   useEffect(() => {
     const controller = new AbortController();
@@ -75,8 +75,8 @@ const Home: React.FC = () => {
           return;
         }
         setArticles(res.data.items || []);
-        setTotal(res.data.total || 0);
         setCoverErrors({});
+        setTotal(res.data.total || 0);
       } catch (err) {
         if (!controller.signal.aborted) {
           setError(getErrorMessage(err, translate(language, 'home.loadError')));
@@ -110,30 +110,15 @@ const Home: React.FC = () => {
     updateParams({ categoryId: undefined, tagId: undefined, page: undefined });
   };
 
-  const handleCoverError = (articleId: number) => {
-    setCoverErrors((current) => ({ ...current, [articleId]: true }));
-  };
-
-  const handleCoverLoad = (articleId: number) => {
-    setCoverErrors((current) => {
-      if (!current[articleId]) {
-        return current;
-      }
-      const next = { ...current };
-      delete next[articleId];
-      return next;
-    });
-  };
-
   const handleRetry = () => {
     setRetryVersion((version) => version + 1);
   };
 
   return (
-    <div className="home-page editorial-container w-full space-y-14 md:space-y-20">
+    <div className="home-page editorial-container w-full space-y-10 md:space-y-12">
       {shouldShowHero && (
-        <section className="home-hero grid items-stretch gap-6 py-2 lg:grid-cols-2 lg:gap-10 lg:py-6" aria-labelledby="home-hero-title">
-          <div className="home-hero-intro flex min-w-0 flex-col justify-center py-4 lg:py-8">
+        <section className="home-hero grid gap-6" aria-labelledby="home-hero-title">
+          <div className="home-hero-intro min-w-0 py-2">
             <p className="editorial-kicker">{t('home.heroKicker')}</p>
             <h1 id="home-hero-title" className="mt-5 max-w-3xl break-words font-display text-4xl font-normal leading-[1.04] tracking-[-0.03em] text-ink [text-wrap:balance] sm:mt-6 sm:text-5xl lg:text-[4rem]">
               {displaySiteTitle}
@@ -142,7 +127,7 @@ const Home: React.FC = () => {
               {displaySiteDescription}
             </p>
             <div className="mt-7 flex flex-wrap gap-3 sm:mt-9">
-              {articles.length > 0 && (
+              {listArticles.length > 0 && (
                 <a
                   href="#latest-notes"
                   className="theme-action inline-flex min-h-11 items-center rounded-md bg-ochre px-5 py-2.5 text-sm font-medium text-on-accent transition-[filter] hover:brightness-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ochre"
@@ -172,7 +157,7 @@ const Home: React.FC = () => {
               </div>
 
               {loading && !featuredArticle ? (
-                <div className="mt-auto space-y-4 pt-10 sm:space-y-5 sm:pt-12" aria-hidden="true">
+                <div className="mt-auto space-y-4 pt-10 sm:space-y-5 sm:pt-6" aria-hidden="true">
                   <div className="home-feature-skeleton h-3 w-28 animate-pulse rounded-full bg-white/10"></div>
                   <div className="home-feature-skeleton h-12 w-full animate-pulse rounded-md bg-white/10"></div>
                   <div className="home-feature-skeleton h-12 w-4/5 animate-pulse rounded-md bg-white/10"></div>
@@ -196,7 +181,7 @@ const Home: React.FC = () => {
                 <PreloadLink
                   to={`/article/${featuredArticle.id}`}
                   preload={routeLoaders.articleDetail}
-                  className="group flex min-w-0 flex-1 flex-col justify-end pt-10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ochre sm:pt-12"
+                  className="home-feature-link group flex min-w-0 flex-1 flex-col justify-end pt-5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ochre sm:pt-6"
                 >
                   <div className="mb-5 flex flex-wrap items-center gap-3 text-xs text-on-dark-soft">
                     {featuredArticle.isPinned && (
@@ -282,92 +267,13 @@ const Home: React.FC = () => {
           <>
             {listArticles.length > 0 && (
               <div className={homeArticleLayout === 'alternating' ? 'space-y-6' : 'grid gap-5 md:grid-cols-2 lg:gap-6 xl:grid-cols-3'}>
-                {listArticles.map((article, index) => {
-                  const coverUrl = normalizeCoverUrl(article.coverUrl);
-                  const isCoverHidden = Boolean(coverUrl && coverErrors[article.id]);
-                  const shouldShowCover = Boolean(coverUrl && !isCoverHidden);
-                  const visibleCoverCountBefore = listArticles
-                    .slice(0, index)
-                    .filter((item) => {
-                      const itemCoverUrl = normalizeCoverUrl(item.coverUrl);
-                      return Boolean(itemCoverUrl && !coverErrors[item.id]);
-                    }).length;
-                  const shouldReverse = homeArticleLayout === 'alternating' && shouldShowCover && visibleCoverCountBefore % 2 === 1;
-                  const titleClass = homeArticleLayout === 'alternating'
-                    ? 'text-3xl md:text-4xl'
-                    : 'text-[1.65rem] lg:text-[1.75rem]';
-
-                  return (
-                    <article
-                      key={article.id}
-                      className={`home-article-card group relative overflow-hidden rounded-lg border border-hairline bg-surface-card shadow-xs transition-[transform,box-shadow] duration-base hover:-translate-y-0.5 hover:shadow-sm motion-reduce:transform-none ${homeArticleLayout === 'alternating' ? `flex flex-col items-stretch md:min-h-72 md:flex-row ${shouldReverse ? 'md:flex-row-reverse' : ''}` : 'flex flex-col'}`}
-                    >
-                      {shouldShowCover && (
-                        <div className={`relative aspect-[16/9] w-full shrink-0 overflow-hidden ${homeArticleLayout === 'alternating' ? 'md:h-auto md:w-[42%] md:aspect-auto' : ''}`}>
-                          <img
-                            src={coverUrl}
-                            alt=""
-                            loading="lazy"
-                            decoding="async"
-                            onError={() => handleCoverError(article.id)}
-                            onLoad={() => handleCoverLoad(article.id)}
-                            className="h-full w-full object-cover opacity-90 transition-[opacity,transform] duration-slow group-hover:scale-[1.015] group-hover:opacity-100 motion-reduce:transform-none motion-reduce:transition-none"
-                          />
-                          <div className="pointer-events-none absolute inset-0 bg-[var(--cover-wash-subtle)]"></div>
-                        </div>
-                      )}
-
-                      <div className="home-article-body flex min-w-0 flex-1 flex-col justify-between p-5 sm:p-6 md:p-8">
-                        <span className="home-article-index" aria-hidden="true">{String((page - 1) * size + index + 1).padStart(2, '0')}</span>
-                        <PreloadLink
-                          to={`/article/${article.id}`}
-                          preload={routeLoaders.articleDetail}
-                          className="block rounded-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ochre"
-                        >
-                          <h3 className={`mb-4 font-display font-normal leading-[1.08] tracking-[-0.02em] text-ink transition-colors duration-base group-hover:text-ochre ${titleClass}`}>
-                            {article.title}
-                          </h3>
-                          {article.summary && (
-                            <p className="mb-7 line-clamp-3 whitespace-pre-line text-sm leading-7 text-body">
-                              {article.summary}
-                            </p>
-                          )}
-                        </PreloadLink>
-
-                        <div className="space-y-4 text-xs text-muted">
-                          <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-                            {article.isPinned && <Tag tone="ochre" size="sm">{t('common.pinned')}</Tag>}
-                            <span>{new Date(article.publishedAt || article.createdAt).toLocaleDateString(getDateLocale(language), { year: 'numeric', month: 'long', day: 'numeric' })}</span>
-                            <span>{t('common.views')} {article.viewCount}</span>
-                            <span>{formatText(t('reading.minutes'), { count: article.readingTimeMinutes })}</span>
-                          </div>
-
-                          {(article.category || (article.tags && article.tags.length > 0)) && (
-                            <div className="flex flex-wrap items-center gap-2">
-                              {article.category && (
-                                <Link
-                                  to={`/?categoryId=${article.category.id}`}
-                                  className="theme-category inline-flex min-h-11 items-center rounded-full bg-paper px-4 py-2 font-medium text-ink transition-colors hover:text-ochre focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ochre"
-                                >
-                                  {article.category.name}
-                                </Link>
-                              )}
-                              {article.tags?.map((tag) => (
-                                <Link
-                                  key={tag.id}
-                                  to={`/?tagId=${tag.id}`}
-                                  className="inline-flex min-h-11 items-center rounded-full px-3 py-2 transition-colors before:mr-1 before:content-['#'] before:opacity-40 hover:text-ochre focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ochre"
-                                >
-                                  {tag.name}
-                                </Link>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </article>
-                  );
-                })}
+                {listArticles.map((article, index) => (
+                  <HomeArticleCard key={`${article.id}:${article.coverUrl}`} article={article} layout={homeArticleLayout}
+                    coverFailed={Boolean(coverErrors[article.id])}
+                    reverseCover={listArticles.slice(0, index).filter((item) => normalizeCoverUrl(item.coverUrl) && !coverErrors[item.id]).length % 2 === 1}
+                    onCoverError={(id) => setCoverErrors((current) => ({ ...current, [id]: true }))}
+                    position={(page - 1) * size + articles.findIndex((item) => item.id === article.id) + 1} />
+                ))}
               </div>
             )}
 

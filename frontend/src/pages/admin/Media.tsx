@@ -109,7 +109,7 @@ const AdminMedia: React.FC = () => {
       <header className="mb-8 flex flex-col gap-4 border-b border-hairline pb-5 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="editorial-kicker">{t('admin.media')}</p>
-          <h3 className="mt-3 text-4xl text-ink">{t('media.title')}</h3>
+          <h1 className="mt-3 text-4xl text-ink">{t('media.title')}</h1>
           <p className="mt-2 text-sm text-muted">{t('media.subtitle')}</p>
           <p className="mt-2 text-xs text-muted">{t('media.uploadHint')}</p>
         </div>

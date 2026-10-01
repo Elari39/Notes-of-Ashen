@@ -65,7 +65,7 @@ const AdminDashboard: React.FC = () => {
     <div>
       <div className="mb-8 border-b border-hairline pb-5">
         <p className="editorial-kicker mb-3">{t('dashboard.kicker')}</p>
-        <h3 className="text-4xl text-ink">{t('dashboard.title')}</h3>
+        <h1 className="text-4xl text-ink">{t('dashboard.title')}</h1>
       </div>
 
       <InlineNotice message={error} className="mb-6" />
@@ -132,6 +132,7 @@ const TrafficOverview: React.FC<{
   language: Language;
 }> = ({ trend, referers, todayPv, todayUv, language }) => {
   const t = (key: Parameters<typeof translate>[1]) => translate(language, key);
+  const themeStyle = usePreferenceStore((state) => state.themeStyle);
   const effectiveTheme = usePreferenceStore((state) => state.effectiveTheme);
   const accentColor = usePreferenceStore((state) => state.accentColor);
   const sourceTotal = referers.reduce((sum, item) => sum + item.pv, 0);
@@ -245,7 +246,7 @@ const TrafficOverview: React.FC<{
     return () => {
       active = false;
     };
-  }, [trend, language, effectiveTheme, accentColor, highlightedSeries, pvLabel, uvLabel]);
+  }, [trend, language, effectiveTheme, themeStyle, accentColor, highlightedSeries, pvLabel, uvLabel]);
 
   // 卸载清理：dispose 实例并移除 resize 监听。实例在数据 effect 中懒创建，
   // 故通过 ref 在卸载时取最新 handler，仅依赖 [] 保证组件卸载时执行一次。

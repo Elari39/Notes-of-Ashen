@@ -928,8 +928,8 @@ const ArticleEditor: React.FC = () => {
 
   return (
     <div className="flex min-w-0 flex-col">
-      <div className="flex justify-between items-center mb-6 pb-4 border-b border-mountain-grey">
-        <h3 className="text-2xl font-bold text-ink tracking-widest">{isEdit ? t('articleEditor.editTitle') : t('articleEditor.newTitle')}</h3>
+      <div className="page-heading flex justify-between items-center mb-6 pb-4 border-b border-mountain-grey">
+        <h1 className="text-2xl font-bold text-ink tracking-widest">{isEdit ? t('articleEditor.editTitle') : t('articleEditor.newTitle')}</h1>
         <div className="flex items-center gap-3">
           <div className="relative">
             <button
@@ -1200,7 +1200,7 @@ const ArticleEditor: React.FC = () => {
         <span className="text-xs">{t('articleEditor.generateSummaryHint')}</span>
       </label>
 
-      <div className="grid min-w-0 grid-cols-1 gap-6 lg:grid-cols-2">
+      <div className="editor-panels grid min-w-0 grid-cols-1 gap-6 xl:grid-cols-2">
         <div className="flex h-[clamp(28rem,60vh,46rem)] min-w-0 flex-col border border-mountain-grey p-4">
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2 border-b border-hairline pb-3 text-xs text-muted">
             <span>

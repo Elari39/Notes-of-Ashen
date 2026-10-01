@@ -58,8 +58,8 @@ const Projects: React.FC = () => {
   };
 
   return (
-    <div className="editorial-container w-full space-y-10">
-      <section className="max-w-3xl py-6 md:py-10">
+    <div className="projects-page editorial-container w-full space-y-10">
+      <section className="public-page-intro max-w-3xl py-3 md:py-5">
         <p className="mb-3 text-xs uppercase tracking-[0.28em] text-ochre">
           {t('projects.kicker')}
         </p>

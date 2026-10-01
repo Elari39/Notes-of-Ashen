@@ -1,0 +1,149 @@
+/* Bright decorative colors are separate from readable foreground accents. */
+@layer base {
+  :root[data-style='neo-brutalism'] {
+    --font-display: Inter, "Noto Sans SC", "Microsoft YaHei", sans-serif;
+    --canvas: #fffdf2;
+    --surface-soft: #f3f0e4;
+    --surface-card: #fffdf2;
+    --surface-strong: #e4dfcf;
+    --surface-dark: #171717;
+    --surface-dark-soft: #292929;
+    --ink: #171717;
+    --body: #343434;
+    --muted: #555247;
+    --hairline: #171717;
+    --ochre: #183db5;
+    --on-accent: #ffffff;
+    --on-dark: #fffdf2;
+    --on-dark-soft: #d5d2c6;
+    --paper-muted: #fffdf2f5;
+    --style-outline: #171717;
+    --style-yellow: #ffe548;
+    --style-blue: #3155e7;
+    --style-red: #ef493b;
+    --accent-teal: #176651;
+    --inline-code-bg: #183db512;
+    --inline-code-border: #183db545;
+    --radius-xs: 0px;
+    --radius-sm: 0px;
+    --radius-md: 2px;
+    --radius-lg: 2px;
+    --radius-xl: 2px;
+    --shadow-xs: 2px 2px 0 #171717;
+    --shadow-sm: 4px 4px 0 #171717;
+    --shadow-md: 6px 6px 0 #171717;
+    --shadow-lg: 8px 8px 0 #171717;
+  }
+  :root[data-style='neo-brutalism'][data-theme='dark'] {
+    --canvas: #191919;
+    --surface-soft: #242424;
+    --surface-card: #282828;
+    --surface-strong: #383838;
+    --ink: #fffdf2;
+    --body: #e6e2d7;
+    --muted: #c0bcb1;
+    --hairline: #a5a296;
+    --ochre: #a9c1ff;
+    --on-accent: #171717;
+    --paper-muted: #191919f5;
+    --style-outline: #e5e1d4;
+    --accent-teal: #9cdbc4;
+    --inline-code-bg: #a9c1ff20;
+    --inline-code-border: #a9c1ff55;
+  }
+  :root[data-style='dark-academia'] {
+    --font-display: "Cormorant Garamond", "Noto Serif SC", "Songti SC", SimSun, serif;
+    --canvas: #f2e8d5;
+    --surface-soft: #e9ddc6;
+    --surface-card: #f6eddc;
+    --surface-strong: #dbccb0;
+    --surface-dark: #241d16;
+    --surface-dark-soft: #342a20;
+    --ink: #2a2118;
+    --body: #493b2c;
+    --muted: #62513c;
+    --hairline: #ae9875;
+    --ochre: #704719;
+    --on-accent: #fff6e5;
+    --on-dark: #f4e7cc;
+    --on-dark-soft: #ccb995;
+    --paper-muted: #f2e8d5f5;
+    --accent-teal: #365842;
+    --inline-code-bg: #70471912;
+    --inline-code-border: #70471938;
+    --radius-xs: 2px;
+    --radius-sm: 3px;
+    --radius-md: 4px;
+    --radius-lg: 5px;
+    --radius-xl: 6px;
+    --shadow-xs: 0 2px 3px #38251512;
+    --shadow-sm: 0 5px 14px #38251518;
+    --shadow-md: 0 10px 28px #38251520;
+    --shadow-lg: 0 20px 48px #38251530;
+  }
+  :root[data-style='dark-academia'][data-theme='dark'] {
+    --canvas: #1c1813;
+    --surface-soft: #29221a;
+    --surface-card: #30271e;
+    --surface-strong: #443727;
+    --surface-dark: #14110e;
+    --surface-dark-soft: #282017;
+    --ink: #f4e7cc;
+    --body: #ddccb0;
+    --muted: #c3ae8c;
+    --hairline: #796246;
+    --ochre: #ddbd80;
+    --on-accent: #241d16;
+    --paper-muted: #1c1813f5;
+    --accent-teal: #afc1a0;
+    --inline-code-bg: #ddbd8018;
+    --inline-code-border: #ddbd8050;
+    --shadow-xs: 0 2px 3px #00000030;
+    --shadow-sm: 0 5px 14px #00000038;
+    --shadow-md: 0 10px 28px #00000048;
+    --shadow-lg: 0 20px 48px #00000058;
+  }
+}
+
+:root[data-style='neo-brutalism'] :is(h1, h2, h3, .font-display) { font-weight: 750; }
+:root[data-style='neo-brutalism'] :is(.home-feature, .home-article-card, .editorial-card, .form-panel, .search-hero, .archive-history-panel, .reading-toc, .settings-card, .admin-sidebar, .ui-modal-panel) {
+  border: 3px solid var(--style-outline);
+  box-shadow: var(--shadow-sm);
+}
+:root[data-style='neo-brutalism'] .home-feature { border-top: 8px solid var(--style-yellow); }
+:root[data-style='neo-brutalism'][data-theme='light'] .home-feature {
+  --surface-dark: var(--style-yellow);
+  --on-dark: #171717;
+  --on-dark-soft: #343434;
+  border: 3px solid #171717;
+}
+:root[data-style='neo-brutalism'][data-theme='light'] .home-feature-meta { border-color: #171717; }
+:root[data-style='neo-brutalism'][data-theme='light'] .home-feature-skeleton { background: #17171720; }
+:root[data-style='neo-brutalism'] .home-article-card:nth-child(3n + 1) { border-top: 6px solid var(--style-blue); }
+:root[data-style='neo-brutalism'] .home-article-card:nth-child(3n + 2) { border-top: 6px solid var(--style-red); }
+:root[data-style='neo-brutalism'] .home-article-card:nth-child(3n) { border-top: 6px solid var(--style-yellow); }
+:root[data-style='neo-brutalism'] :is(.theme-action, .ui-button--primary, .ui-button--ghost) {
+  border: 2px solid var(--style-outline);
+  box-shadow: 3px 3px 0 var(--style-outline);
+}
+:root[data-style='neo-brutalism'] :is(.theme-action, .ui-button--primary, .ui-button--ghost):active:not(:disabled) { translate: 2px 2px; box-shadow: 1px 1px 0 var(--style-outline); }
+:root[data-style='neo-brutalism'] :is(.site-header, .home-section-heading) { border-bottom: 3px solid var(--style-outline); }
+:root[data-style='neo-brutalism'] .site-mark { background: var(--style-yellow); color: #171717; border: 2px solid #171717; }
+:root[data-style='neo-brutalism'] .home-cta { border: 3px solid var(--style-outline); }
+:root[data-style='neo-brutalism'] .home-article-index { display: block; font: 700 0.85rem/1.5 "JetBrains Mono", monospace; margin-bottom: 1rem; color: var(--muted); }
+:root[data-style='dark-academia'] :is(.home-feature, .reading-header, .home-section-heading, .archive-history-panel) { border-block: 3px double var(--hairline); }
+:root[data-style='dark-academia'] :is(.home-article-card, .editorial-card, .form-panel, .search-hero, .reading-toc, .settings-card, .admin-sidebar, .ui-modal-panel) { border: 1px solid var(--hairline); box-shadow: var(--shadow-sm); }
+:root[data-style='dark-academia'] .site-header { border-bottom: 3px double var(--hairline); }
+:root[data-style='dark-academia'] .site-mark { background: var(--surface-dark); color: var(--on-dark); border: 1px solid var(--hairline); }
+:root[data-style='dark-academia'] .home-article-index { display: block; font: 0.75rem/1.5 "JetBrains Mono", monospace; color: var(--muted); margin-bottom: 1rem; }
+:root[data-style='dark-academia'] .article-markdown.prose :where(blockquote) { border-left: 3px double var(--ochre); background: var(--surface-soft); }
+:root[data-style='dark-academia'] .site-footer { border-top: 3px double var(--hairline); }
+.theme-style-preview[data-preview-style='neo-brutalism'] { background: #ffe548; border: 2px solid #171717; border-radius: 0; }
+.theme-style-preview[data-preview-style='neo-brutalism'] .theme-style-preview-heading { font-family: Inter, sans-serif; font-weight: 800; }
+.theme-style-preview[data-preview-style='neo-brutalism'] .theme-style-preview-card { background: #3155e7; box-shadow: 3px 3px 0 #171717; border: 2px solid #171717; }
+.theme-style-preview[data-preview-style='dark-academia'] { background: #241d16; color: #ddbd80; border: 3px double #ae9875; }
+.theme-style-preview[data-preview-style='dark-academia'] .theme-style-preview-card { background: #f2e8d5; border-left: 3px solid #ae9875; }
+.theme-style-preview[data-preview-style='dark-academia'] i { background: #704719; }
+@media (prefers-reduced-motion: reduce) {
+  :root[data-style='neo-brutalism'] :is(.theme-action, .ui-button--primary, .ui-button--ghost):active:not(:disabled) { translate: none; }
+}

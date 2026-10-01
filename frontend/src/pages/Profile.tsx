@@ -151,7 +151,7 @@ const Profile: React.FC = () => {
   };
 
   return (
-    <div className="editorial-container w-full">
+    <div className="profile-page editorial-container w-full">
       <header className="mb-10 max-w-3xl">
         <p className="editorial-kicker">{t('profile.kicker')}</p>
         <h1 className="mt-4 editorial-page-title">{t('profile.title')}</h1>

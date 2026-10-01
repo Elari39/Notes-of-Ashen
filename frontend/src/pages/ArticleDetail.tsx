@@ -265,7 +265,7 @@ const ArticleDetail: React.FC = () => {
         <article className="min-w-0 w-full">
           {loading && <PagePendingState variant="inline" label={t('common.loadingArticle')} />}
           <InlineNotice message={error} className="mb-6" />
-          <header className="reading-header mb-14">
+          <header className="reading-header mb-8 pb-6 border-b border-hairline">
             {coverUrl && (
               <div className={`relative mb-12 w-full overflow-hidden rounded-xl ${isCoverHidden ? 'h-28 md:h-32' : 'h-72 md:h-[28rem]'}`}>
                 {isCoverHidden ? (
@@ -298,7 +298,7 @@ const ArticleDetail: React.FC = () => {
             )}
 
             <p className="editorial-kicker mb-5">{t('articleDetail.kicker')}</p>
-            <h1 className="reading-title mb-7 font-display text-5xl leading-[1.02] tracking-[-0.035em] text-ink md:text-6xl">
+            <h1 className="reading-title mb-5 font-display text-5xl leading-[1.02] tracking-[-0.035em] text-ink md:text-6xl">
               {article.title}
             </h1>
 

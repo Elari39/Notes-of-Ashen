@@ -217,7 +217,7 @@ const AdminSystem: React.FC = () => {
     <div>
       <header className="mb-8 border-b border-hairline pb-5">
         <p className="editorial-kicker">{t('admin.system')}</p>
-        <h3 className="mt-3 text-4xl text-ink">{t('system.title')}</h3>
+        <h1 className="mt-3 text-4xl text-ink">{t('system.title')}</h1>
         <p className="mt-2 text-sm text-muted">{t('system.subtitle')}</p>
       </header>
 

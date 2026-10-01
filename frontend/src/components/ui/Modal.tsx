@@ -54,9 +54,9 @@ const Modal: React.FC<ModalProps> = ({
             if (!closeOnOverlayClick) e.preventDefault();
           }}
           className={[
-            'fixed left-1/2 top-1/2 z-[121] w-[calc(100vw-2rem)] -translate-x-1/2 -translate-y-1/2',
+            'ui-modal-panel fixed left-1/2 top-1/2 z-[121] w-[calc(100vw-2rem)] -translate-x-1/2 -translate-y-1/2',
             sizeClass[size],
-            'overflow-hidden rounded-xl border border-hairline bg-paper shadow-lg',
+            'max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-xl border border-hairline bg-paper shadow-lg',
             'focus:outline-hidden',
           ].join(' ')}
         >

@@ -83,7 +83,7 @@ const AdminAnalytics: React.FC = () => {
     <div>
       <header className="mb-8 border-b border-hairline pb-5">
         <p className="editorial-kicker">{t('admin.analytics')}</p>
-        <h3 className="mt-3 text-4xl text-ink">{t('analytics.title')}</h3>
+        <h1 className="mt-3 text-4xl text-ink">{t('analytics.title')}</h1>
         <p className="mt-2 text-sm text-muted">{t('analytics.subtitle')}</p>
       </header>
 
@@ -212,6 +212,7 @@ const Panel = ({ title, children }: { title: string; children: React.ReactNode }
 
 const TrendChart = ({ data }: { data: Array<{ date: string; pv: number; uv: number }> }) => {
   const language = usePreferenceStore((state) => state.language);
+  const themeStyle = usePreferenceStore((state) => state.themeStyle);
   const effectiveTheme = usePreferenceStore((state) => state.effectiveTheme);
   const accentColor = usePreferenceStore((state) => state.accentColor);
   const t = (key: Parameters<typeof translate>[1]) => translate(language, key);
@@ -305,7 +306,7 @@ const TrendChart = ({ data }: { data: Array<{ date: string; pv: number; uv: numb
         window.removeEventListener('resize', resize);
       }
     };
-  }, [data, effectiveTheme, accentColor, highlightedSeries, pvLabel, uvLabel]);
+  }, [data, effectiveTheme, themeStyle, accentColor, highlightedSeries, pvLabel, uvLabel]);
 
   useEffect(() => () => {
     chartRef.current?.dispose();

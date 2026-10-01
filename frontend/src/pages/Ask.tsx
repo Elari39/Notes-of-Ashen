@@ -343,7 +343,7 @@ const Ask: React.FC = () => {
         ? t('ragChat.editorRequired')
         : t('ragChat.accessDenied');
     return (
-      <div className="editorial-container w-full max-w-3xl">
+      <div className="ask-page editorial-container w-full max-w-3xl">
         <InlineNotice
           message={accessMessage}
           tone="warning"
@@ -359,8 +359,8 @@ const Ask: React.FC = () => {
   }
 
   return (
-    <div className="editorial-container w-full">
-      <section className="relative overflow-hidden rounded-xl bg-surface-soft px-5 py-4 md:px-6 md:py-5">
+    <div className="ask-page editorial-container w-full">
+      <section className="public-page-intro relative overflow-hidden rounded-xl bg-surface-soft px-5 py-4 md:px-6 md:py-5">
         <div className="absolute left-0 top-3 bottom-3 w-px bg-ochre opacity-60" />
         <div className="flex flex-col gap-1.5 md:flex-row md:items-baseline md:justify-between md:gap-6">
           <div className="flex items-baseline gap-3">

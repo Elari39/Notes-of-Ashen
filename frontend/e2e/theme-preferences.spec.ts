@@ -19,11 +19,13 @@ const themes = [
   { id: 'soft-brutalism', label: '柔和新粗野', light: '#85412b', dark: '#edaa80' },
   { id: 'japanese-paper', label: '日式纸本', light: '#a94335', dark: '#e29380' },
   { id: 'swiss', label: '瑞士平面', light: '#b8371e', dark: '#ff987e' },
+  { id: 'neo-brutalism', label: '经典新粗野', light: '#183db5', dark: '#a9c1ff' },
+  { id: 'dark-academia', label: '暗色书房', light: '#704719', dark: '#ddbd80' },
 ] as const;
 
 const installFixtures = async (page: Page) => {
-  const state: { mode: 'ready' | 'empty' | 'error'; layout: HomeArticleLayout; release?: Promise<void> } = {
-    mode: 'ready', layout: 'standard',
+  const state: { mode: 'ready' | 'empty' | 'error'; layout: HomeArticleLayout; release?: Promise<void>; items: Article[] } = {
+    mode: 'ready', layout: 'standard', items: [article, { ...article, id: 2, title: '另一篇札记', isPinned: false }],
   };
   await page.route('**/api/v1/**', async (route) => {
     const path = new URL(route.request().url()).pathname.replace('/api/v1', '');
@@ -46,8 +48,10 @@ const installFixtures = async (page: Page) => {
       if (state.mode === 'error') {
         return route.fulfill({ status: 503, json: { code: 503, message: '主题测试：文章暂不可用' } });
       }
-      const items = state.mode === 'empty' ? [] : [article];
-      return ok({ items, total: items.length, page: 1, size: 10 });
+      const all = state.mode === 'empty' ? [] : state.items;
+      const currentPage = Number(new URL(route.request().url()).searchParams.get('page') || 1);
+      const items = all.slice((currentPage - 1) * 10, currentPage * 10);
+      return ok({ items, total: all.length, page: currentPage, size: 10 });
     }
     if (path === '/articles/1') return ok(article);
     if (path === '/articles/1/context') return ok({ related: [] });
@@ -59,6 +63,8 @@ const installFixtures = async (page: Page) => {
 };
 
 const openPreferences = async (page: Page) => {
+  // The preference store can set html attributes before React mounts the mobile navigation.
+  await expect(page.getByRole('banner')).toBeVisible();
   const menu = page.getByRole('button', { name: '打开菜单', exact: true });
   if (await menu.isVisible()) await menu.click();
   await page.getByRole('button', { name: '打开语言和主题设置', exact: true }).click();
@@ -101,7 +107,7 @@ for (const theme of themes) {
       await expect(page.locator('html')).toHaveAttribute('data-style', theme.id);
       await expect(page.locator('html')).toHaveAttribute('data-theme', mode);
       await expect(page.locator('.home-feature h2')).toHaveText(article.title);
-      await expect(page.locator('#home-hero-title')).toHaveCSS('font-family', theme.id === 'swiss' || theme.id === 'soft-brutalism' ? /Inter/ : /Cormorant Garamond/);
+      await expect(page.locator('#home-hero-title')).toHaveCSS('font-family', theme.id === 'swiss' || theme.id === 'soft-brutalism' || theme.id === 'neo-brutalism' ? /Inter/ : /Cormorant Garamond/);
       if (theme.id === 'soft-brutalism') await expect(page.locator('.home-feature')).toHaveCSS('border-top-width', '2px');
       if (theme.id === 'swiss') await expect(page.locator('.home-feature')).toHaveCSS('border-top-width', '6px');
       await expectNoOverflow(page);
@@ -119,7 +125,7 @@ test('自定义强调色跨风格与刷新保留，重置回当前风格默认�
   let panel = await openPreferences(page);
   await panel.getByLabel('主题色', { exact: true }).fill('#446688');
   await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute('content', '#446688');
-  for (const theme of themes.slice(1)) {
+  for (const theme of themes) {
     await panel.getByRole('button', { name: theme.label, exact: true }).click();
     await expect(panel.getByLabel('主题色', { exact: true })).toHaveValue('#446688');
     await expect.poll(() => page.locator('html').evaluate((el) => el.style.getPropertyValue('--ochre'))).toBe('#446688');
@@ -130,11 +136,11 @@ test('自定义强调色跨风格与刷新保留，重置回当前风格默认�
   panel = await openPreferences(page);
   await expect(panel.getByLabel('主题色', { exact: true })).toHaveValue('#446688');
   await panel.getByRole('button', { name: '重置', exact: true }).click();
-  await expect(panel.getByLabel('主题色', { exact: true })).toHaveValue('#ff987e');
-  await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute('content', '#ff987e');
+  await expect(panel.getByLabel('主题色', { exact: true })).toHaveValue('#ddbd80');
+  await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute('content', '#ddbd80');
   await closePreferences(page);
   await page.reload();
-  await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute('content', '#ff987e');
+  await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute('content', '#ddbd80');
 });
 
 test('旧偏好与无效风格安全回退，系统明暗不会覆盖显式选择', async ({ page }) => {
@@ -180,17 +186,17 @@ test('浏览器存储不可用时仍能切换风格', async ({ page }) => {
   expect(errors).toEqual([]);
 });
 
-test('320px 窄屏下三种风格的中英文、列表和正文不横向溢出', async ({ page }) => {
-  const state = await installFixtures(page);
-  await page.setViewportSize({ width: 320, height: 740 });
-  for (const theme of themes.slice(1)) {
+for (const theme of themes) {
+  test(`320px 窄屏 ${theme.label} 的中英文、列表和正文不横向溢出`, async ({ page }) => {
+    const state = await installFixtures(page);
+    await page.setViewportSize({ width: 320, height: 740 });
     for (const layout of ['standard', 'alternating'] as const) {
       state.layout = layout;
       await page.goto('/');
       const panel = await openPreferences(page);
       await panel.getByRole('button', { name: theme.label, exact: true }).click();
       await panel.getByRole('button', { name: 'English', exact: true }).click();
-      await expect(page.getByRole('button', { name: theme.id === 'swiss' ? 'Swiss' : theme.id === 'japanese-paper' ? 'Japanese Paper' : 'Soft Brutalism', exact: true })).toBeVisible();
+      await expect(page.getByRole('button', { name: ({ swiss: 'Swiss', 'japanese-paper': 'Japanese Paper', 'soft-brutalism': 'Soft Brutalism', 'neo-brutalism': 'Neo-brutalism', 'dark-academia': 'Dark Academia', editorial: 'Editorial' })[theme.id], exact: true })).toBeVisible();
       await expectNoOverflow(page);
       await panel.getByRole('button', { name: '中文', exact: true }).click();
       await closePreferences(page);
@@ -208,12 +214,12 @@ test('320px 窄屏下三种风格的中英文、列表和正文不横向溢出',
     await page.goto('/search');
     await expect(page.getByRole('combobox')).toBeVisible();
     await expectNoOverflow(page);
-  }
-});
+  });
+}
 
-test('三种风格在加载、失败、重试及空状态下均保留可用操作', async ({ page }) => {
+test('全部风格在加载、失败、重试及空状态下均保留可用操作', async ({ page }) => {
   const state = await installFixtures(page);
-  for (const theme of themes.slice(1)) {
+  for (const theme of themes) {
     let release: () => void = () => undefined;
     state.release = new Promise<void>((resolve) => { release = resolve; });
     state.mode = 'error';
@@ -245,7 +251,7 @@ test('新主题的默认文字与常用背景满足 4.5:1 对比度', async ({ p
       .map((value) => value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4);
     return channels[0] * 0.2126 + channels[1] * 0.7152 + channels[2] * 0.0722;
   };
-  for (const theme of themes.slice(1)) {
+  for (const theme of themes.filter((theme) => theme.id !== 'editorial')) {
     for (const mode of ['light', 'dark'] as const) {
       await panel.getByRole('button', { name: theme.label, exact: true }).click();
       await panel.getByRole('button', { name: mode === 'light' ? '切换为浅色模式' : '切换为深色模式' }).click();
@@ -266,4 +272,112 @@ test('新主题的默认文字与常用背景满足 4.5:1 对比度', async ({ p
       }
     }
   }
+});
+
+
+test('首页主推去重，单篇不显示空列表，分页与筛选保留完整文章', async ({ page }) => {
+  const state = await installFixtures(page);
+  state.items = [article];
+  await page.goto('/');
+  await expect(page.locator('.home-feature h2')).toHaveText(article.title);
+  await expect(page.locator('.home-article-card')).toHaveCount(0);
+  await expect(page.locator('#latest-notes')).toHaveCount(0);
+  for (const layout of ['standard', 'alternating'] as const) {
+    state.layout = layout;
+    state.items = Array.from({ length: 11 }, (_, index) => ({ ...article, id: index + 1, title: `文章 ${index + 1}` }));
+    await page.goto('/');
+    await expect(page.locator('.home-feature h2')).toHaveText('文章 1');
+    await expect(page.locator('.home-article-card')).toHaveCount(9);
+    await expect(page.locator('.home-article-card').getByRole('heading', { name: '文章 1', exact: true })).toHaveCount(0);
+    await page.goto('/?page=2');
+    await expect(page.locator('.home-feature')).toHaveCount(0);
+    await expect(page.locator('.home-article-card')).toHaveCount(1);
+    await expect(page.locator('.home-article-card h3')).toHaveText('文章 11');
+    await page.goto('/?categoryId=1');
+    await expect(page.locator('.home-feature')).toHaveCount(0);
+    await expect(page.locator('.home-article-card')).toHaveCount(10);
+    await page.goBack();
+    await expect(page.locator('.home-article-card h3')).toHaveText('文章 11');
+  }
+});
+
+for (const theme of themes) {
+  test(`坏封面降级、桌面和平板布局：${theme.label}`, async ({ page }, testInfo) => {
+    const state = await installFixtures(page);
+    state.items[1].coverUrl = 'https://fixtures.notes.test/broken-cover.png';
+    let failedCoverRequests = 0;
+  await page.route('**/broken-cover.png', (route) => {
+    failedCoverRequests += 1;
+    return route.fulfill({ status: 404, body: '' });
+  });
+    for (const mode of ['light', 'dark']) {
+      await page.goto('/');
+      const panel = await openPreferences(page);
+      await panel.getByRole('button', { name: theme.label, exact: true }).click();
+      await panel.getByRole('button', { name: mode === 'light' ? '切换为浅色模式' : '切换为深色模式' }).click();
+      await closePreferences(page);
+      for (const width of [768, 1440]) {
+        await page.setViewportSize({ width, height: 1000 });
+        await page.locator('.home-article-card').scrollIntoViewIfNeeded();
+        await expect.poll(() => failedCoverRequests).toBeGreaterThan(0);
+        await expect(page.locator('.home-article-card img')).toHaveCount(0);
+        await expect(page.locator('.home-article-card h3')).toHaveText('另一篇札记');
+        await expectNoOverflow(page);
+        await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
+        await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
+        await page.screenshot({ path: testInfo.outputPath(`${theme.id}-${mode}-${width}.png`), fullPage: true });
+      }
+    }
+  });
+}
+
+
+test('新主题的自定义强调色保持主按钮文字可读，偏好可由键盘退出', async ({ page }) => {
+  await installFixtures(page);
+  await page.goto('/');
+  const panel = await openPreferences(page);
+  for (const label of ['经典新粗野', '暗色书房']) {
+    await panel.getByRole('button', { name: label, exact: true }).click();
+    for (const color of ['#000000', '#ffffff', '#446688']) {
+      await panel.getByLabel('主题色', { exact: true }).fill(color);
+      const ratio = await page.locator('html').evaluate((el) => {
+        const css = getComputedStyle(el);
+        const luminance = (hex: string) => {
+          const values = [1, 3, 5].map((offset) => parseInt(hex.slice(offset, offset + 2), 16) / 255)
+            .map((value) => value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4);
+          return values[0] * 0.2126 + values[1] * 0.7152 + values[2] * 0.0722;
+        };
+        const fg = luminance(css.getPropertyValue('--on-accent').trim());
+        const bg = luminance(css.getPropertyValue('--ochre').trim());
+        return (Math.max(fg, bg) + 0.05) / (Math.min(fg, bg) + 0.05);
+      });
+      expect(ratio).toBeGreaterThanOrEqual(4.5);
+    }
+  }
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('dialog', { name: '语言与主题' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: '打开语言和主题设置', exact: true })).toBeFocused();
+});
+
+
+test('交错布局只按可用封面交替，文字卡片与坏图不打断节奏', async ({ page }) => {
+  const state = await installFixtures(page);
+  state.layout = 'alternating';
+  state.items = [article,
+    { ...article, id: 2, title: '左侧封面', coverUrl: 'https://fixtures.notes.test/cover.svg' },
+    { ...article, id: 3, title: '文字札记' },
+    { ...article, id: 4, title: '坏图札记', coverUrl: 'https://fixtures.notes.test/broken.svg' },
+    { ...article, id: 5, title: '右侧封面', coverUrl: 'https://fixtures.notes.test/cover.svg' },
+  ];
+  await page.route('**/cover.svg', (route) => route.fulfill({ contentType: 'image/svg+xml', body: '<svg xmlns="http://www.w3.org/2000/svg" width="160" height="90"><rect width="160" height="90" fill="#ccbbaa"/></svg>' }));
+  await page.route('**/broken.svg', (route) => route.fulfill({ status: 404, body: '' }));
+  await page.setViewportSize({ width: 1280, height: 1000 });
+  await page.goto('/');
+  const left = page.locator('.home-article-card').filter({ has: page.getByRole('heading', { name: '左侧封面', exact: true }) });
+  const right = page.locator('.home-article-card').filter({ has: page.getByRole('heading', { name: '右侧封面', exact: true }) });
+  await right.scrollIntoViewIfNeeded();
+  await expect(page.locator('.home-article-card img')).toHaveCount(2);
+  await expect(left).toHaveCSS('flex-direction', 'row');
+  await expect(right).toHaveCSS('flex-direction', 'row-reverse');
+  await expectNoOverflow(page);
 });

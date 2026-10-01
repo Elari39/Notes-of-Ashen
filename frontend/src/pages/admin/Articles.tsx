@@ -204,8 +204,8 @@ const AdminArticles: React.FC = () => {
 
   return (
     <div>
-      <div className="mb-8 flex flex-col gap-3 border-b border-mountain-grey pb-4 sm:flex-row sm:items-center sm:justify-between">
-        <h3 className="text-2xl font-bold text-ink tracking-widest">{t('admin.articles')}</h3>
+      <div className="page-heading mb-8 flex flex-col gap-3 border-b border-mountain-grey pb-4 sm:flex-row sm:items-center sm:justify-between">
+        <h1 className="text-2xl font-bold text-ink tracking-widest">{t('admin.articles')}</h1>
         <div className="flex flex-wrap gap-3">
           <input ref={fileInputRef} type="file" accept=".md,text/markdown,text/plain" onChange={handleImport} className="hidden" />
           <button
@@ -223,7 +223,7 @@ const AdminArticles: React.FC = () => {
 
       <InlineNotice message={error} className="mb-6" />
 
-      <form onSubmit={handleFilterSubmit} className="grid grid-cols-1 gap-3 mb-8 md:grid-cols-5">
+      <form onSubmit={handleFilterSubmit} className="admin-filter-panel grid grid-cols-1 gap-3 mb-8 md:grid-cols-5">
         <input
           value={keyword}
           onChange={(event) => setKeyword(event.target.value)}

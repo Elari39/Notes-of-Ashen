@@ -165,7 +165,7 @@ test.describe.serial('真实 Compose 前端关键路径', () => {
     }
   });
 
-  for (const style of ['editorial', 'soft-brutalism', 'japanese-paper', 'swiss']) {
+  for (const style of ['editorial', 'soft-brutalism', 'japanese-paper', 'swiss', 'neo-brutalism', 'dark-academia']) {
     for (const mode of ['light', 'dark']) {
       test(`真实文章 Mermaid 对比度：${style}/${mode}`, async ({ page }) => {
         if (!publishedArticle) throw new Error('Missing real article fixture');
@@ -194,6 +194,57 @@ test.describe.serial('真实 Compose 前端关键路径', () => {
         });
         await test.info().attach('mermaid-contrast', { body: JSON.stringify(colors), contentType: 'application/json' });
         expect(colors.contrast).toBeGreaterThanOrEqual(4.5);
+      });
+    }
+  }
+
+  for (const style of ['neo-brutalism', 'dark-academia']) {
+    for (const mode of ['light', 'dark']) {
+      test(`新主题后台导航与页面布局：${style}/${mode}`, async ({ browser }, testInfo) => {
+        const context = await browser.newContext({
+          storageState: requireAdminState(),
+          viewport: testInfo.project.use.viewport,
+          isMobile: testInfo.project.use.isMobile,
+          hasTouch: testInfo.project.use.hasTouch,
+          deviceScaleFactor: testInfo.project.use.deviceScaleFactor,
+          userAgent: testInfo.project.use.userAgent,
+        });
+        await context.addInitScript(({ style, mode }) => {
+          localStorage.setItem('notesOfAshen.themeStyle', style);
+          localStorage.setItem('notesOfAshen.theme', mode);
+          localStorage.setItem('notesOfAshen.language', 'en');
+        }, { style, mode });
+        const page = await context.newPage();
+        const errors: string[] = [];
+        page.on('pageerror', (error) => errors.push(error.message));
+        try {
+          for (const route of ['articles', 'categories', 'tags', 'media', 'dashboard', 'analytics', 'users', 'logs', 'settings', 'ai-settings', 'rag-settings', 'system']) {
+            await page.goto(`/admin/${route}`);
+            await expect(page.locator('.admin-workspace')).toBeVisible();
+            await expect(page.locator('#admin-group-content')).toBeVisible();
+            await expect(page.locator('#admin-group-system')).toBeVisible();
+            await expect(page.locator('.admin-workspace h1')).toBeVisible();
+            await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
+            await page.screenshot({ path: testInfo.outputPath(`${route}.png`), fullPage: true });
+            if (route === 'settings') {
+              const toggle = page.getByRole('switch', { name: 'Continue Exploring Module', exact: true });
+              await expect(toggle).toBeEnabled();
+              const initial = await toggle.getAttribute('aria-checked');
+              for (const expected of [initial === 'true' ? 'false' : 'true', initial]) {
+                await toggle.click();
+                const saved = page.waitForResponse((response) => matchesAPIPath(response, '/admin/site/settings', 'PUT'));
+                await page.getByRole('button', { name: 'Save', exact: true }).click();
+                await successData(await saved, 'Save site presentation settings');
+                await page.reload();
+                await expect(toggle).toHaveAttribute('aria-checked', expected || 'false');
+              }
+            }
+          }
+          expect(errors).toEqual([]);
+        } finally {
+          adminStorageState = await context.storageState();
+          await context.close();
+        }
       });
     }
   }
