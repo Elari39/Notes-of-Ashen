@@ -20,6 +20,8 @@ import { routeLoaders } from '../routes/lazyRoutes';
 import { trapFocus } from '../utils/focusTrap';
 import { routeUsesOwnSEO } from '../utils/routeSeo';
 import ThemeStylePicker from './ThemeStylePicker';
+import navWitchLight from '../assets/brand/nav-witch-light.png?no-inline';
+import navWitchDark from '../assets/brand/nav-witch-dark.png?no-inline';
 import { themeStyleAccents } from '../store/themeStyles';
 
 const Layout: React.FC = () => {
@@ -345,7 +347,14 @@ const Layout: React.FC = () => {
       <header ref={headerRef} className="site-header sticky top-0 z-[95] h-16 border-b border-hairline bg-[var(--paper-muted)] px-4 backdrop-blur-xl md:px-8 lg:px-12">
         <div className="editorial-container flex h-full items-center justify-between gap-4">
           <Link to="/" className="group flex min-h-11 items-center gap-3 text-ink transition-colors hover:text-ochre">
-            <span aria-hidden="true" className="site-mark relative flex h-7 w-7 items-center justify-center rounded-full bg-surface-dark text-sm text-on-dark transition-transform duration-base group-hover:rotate-12">✣</span>
+            <img
+              src={effectiveTheme === 'dark' ? navWitchDark : navWitchLight}
+              alt=""
+              aria-hidden="true"
+              width={36}
+              height={36}
+              className="site-brand-mark h-9 w-9 shrink-0 object-contain"
+            />
             <span className="font-display text-2xl leading-none tracking-[-0.02em] md:text-[1.75rem]">
               {t('brand.name')}
             </span>

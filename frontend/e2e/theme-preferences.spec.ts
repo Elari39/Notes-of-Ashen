@@ -99,6 +99,9 @@ for (const theme of themes) {
       await expect(panel.getByRole('button', { name: theme.label, exact: true })).toHaveAttribute('aria-pressed', 'true');
       await expect(page.locator('html')).toHaveAttribute('data-style', theme.id);
       await expect(page.locator('html')).toHaveAttribute('data-theme', mode);
+      await expect(page.locator('.site-brand-mark')).toHaveAttribute('src', new RegExp(`nav-witch-${mode}`));
+      await expect.poll(() => page.locator('.site-brand-mark').evaluate((el) => el instanceof HTMLImageElement && el.complete && el.naturalWidth > 0)).toBe(true);
+      await expect(page.locator('link[rel="icon"][type="image/svg+xml"]')).toHaveAttribute('href', '/favicon.svg?v=moon-quill-1');
       await expect.poll(() => page.locator('html').evaluate((el) => getComputedStyle(el).getPropertyValue('--ochre').trim())).toBe(theme[mode]);
       await expect(panel.getByLabel('主题色', { exact: true })).toHaveValue(theme[mode]);
       await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute('content', theme[mode]);

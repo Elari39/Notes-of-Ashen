@@ -1,7 +1,7 @@
 const CACHE_VERSION = 'notes-of-ashen-v2';
 const SHELL_CACHE = `${CACHE_VERSION}:shell`;
 const ARTICLE_CACHE = `${CACHE_VERSION}:articles`;
-const SHELL_ASSETS = ['/', '/index.html', '/favicon.svg', '/favicon.png', '/pwa-192.png', '/pwa-512.png', '/manifest.webmanifest'];
+const SHELL_ASSETS = ['/', '/index.html', '/favicon.svg?v=moon-quill-1', '/favicon.png?v=moon-quill-1', '/pwa-192.png', '/pwa-512.png', '/manifest.webmanifest'];
 const ARTICLE_DETAIL_RE = /^\/api\/v1\/articles\/\d+$/;
 
 self.addEventListener('install', (event) => {
