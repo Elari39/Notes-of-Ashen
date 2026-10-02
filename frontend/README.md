@@ -89,8 +89,13 @@ $env:E2E_WEB_BASE_URL = 'http://127.0.0.1:3000'
 pnpm exec playwright test e2e/theme-preferences.spec.ts
 # 在仓库根目录执行真实隔离 Compose 集成测试
 .\scripts\test-integration.ps1 -Suite core
+.\scripts\test-integration.ps1 -Suite extended
 ```
 
 主题测试覆盖六套风格的明暗切换、存储降级、中英文窄屏、首页分页与去重、坏封面、失败重试、对比度以及截图。真实集成测试独立验证认证、权限、文章发布、媒体、会话和离线撤回，并检查新主题下的后台页面及 Mermaid。浏览器项目保持 Chromium、移动 Chromium 与移动 WebKit，失败重试为零；截图检查不替代行为断言。Vite 大 chunk 警告需如实记录，不能通过放宽预算或删除断言让验证通过。
+
+文章撤回回归在三个浏览器中均验证真实发布、删除、404 与详情缓存失效。随后桌面和移动 Chromium 使用 `setOffline(true)`；WebKit 因 [Playwright #42775](https://github.com/microsoft/playwright/issues/42775) 改用仅绑定本机随机端口的测试代理，切断该读者会话到 `E2E_WEB_BASE_URL` 的连接。代理不返回模拟页面或 HTTP 错误响应，也不影响管理员请求和其他测试。三者均要求未缓存请求发生网络失败、刷新由真实 Service Worker 返回页面、错误状态出现且撤回内容不再恢复。
+
+WebKit 的条件是源站不可达，浏览器仍可能报告 `navigator.onLine=true`，因此该结果不证明 WebKit 的离线标志模拟已修复；历史失败记录保持不变。完整回归需运行上面的 `core` 和 `extended` 套件，不能只筛选依赖前序注册、发布数据的撤回用例。代理的转发、在途中断、新连接拒绝和清理行为由 `pnpm test` 覆盖。
 
 本轮实际执行结果、失败记录与环境复现说明见 [UI_VERIFICATION.md](UI_VERIFICATION.md)。
