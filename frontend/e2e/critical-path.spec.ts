@@ -22,6 +22,7 @@ import {
   updateUserRole,
 } from './helpers/auth';
 import { expireIssuedAccessTokens, readLoginCaptcha, seedRegisterEmailCode, waitForLoginQuota } from './helpers/redis';
+import { createNetworkCutProxy } from './helpers/networkCutProxy';
 
 type ApiEnvelope<T> = {
   code: number;
@@ -401,15 +402,20 @@ test.describe.serial('真实 Compose 前端关键路径', () => {
     adminStorageState = await page.context().storageState();
   });
 
-  test('真实删除文章后，读者离线刷新不能恢复已撤回内容', async ({ browser, request }) => {
+  test('真实删除文章后，网络不可用时刷新不能恢复已撤回内容', async ({ browser, browserName, request }) => {
     if (!publishedArticle) throw new Error('Missing real article fixture');
-    const reader = await browser.newContext();
-    const page = await reader.newPage();
+    // WebKit 的离线标志会阻断 SW 本地响应：https://github.com/microsoft/playwright/issues/42775
+    // 该浏览器改为切断读者到源站的连接；Chromium 继续验证 setOffline(true)。
+    const proxy = browserName === 'webkit' ? await createNetworkCutProxy(e2eEnv.webBaseUrl) : undefined;
+    let reader: Awaited<ReturnType<typeof browser.newContext>> | undefined;
     try {
+      reader = await browser.newContext({ baseURL: proxy?.origin || e2eEnv.webBaseUrl });
+      const page = await reader.newPage();
       await preparePage(page);
       await page.goto(`/article/${publishedArticle.id}`);
       await page.evaluate(() => navigator.serviceWorker.ready);
       await page.reload();
+      await page.waitForFunction(() => Boolean(navigator.serviceWorker.controller));
       await expect(page.getByRole('heading', { name: publishedArticle.title, exact: true })).toBeVisible();
       const detailPath = `/api/v1/articles/${publishedArticle.id}`;
       const hasCachedDetail = () => page.evaluate(async (path) => {
@@ -427,13 +433,31 @@ test.describe.serial('真实 Compose 前端关键路径', () => {
       await page.reload();
       expect((await detail).status()).toBe(404);
       await expect.poll(hasCachedDetail).toBe(false);
-      await reader.setOffline(true);
-      await page.reload();
+      await expect.poll(() => page.evaluate(async () => Boolean(await caches.match('/index.html')))).toBe(true);
+      if (proxy) proxy.disconnect();
+      else await reader.setOffline(true);
+      // /healthz 不经过 SW 缓存，必须真实发生网络失败，不能把 HTTP 错误当作断网。
+      expect(await page.evaluate(async () => {
+        try {
+          await fetch(`/healthz?network-cut=${Date.now()}`, { cache: 'no-store' });
+          return false;
+        } catch {
+          return true;
+        }
+      })).toBe(true);
+      const navigation = await page.reload();
+      expect(navigation?.status()).toBe(200);
+      expect(navigation?.fromServiceWorker()).toBe(true);
       await expect(page.getByRole('main')).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Retry', exact: true })).toBeVisible();
       await expect(page.getByRole('heading', { name: publishedArticle.title, exact: true })).toHaveCount(0);
       expect(await hasCachedDetail()).toBe(false);
     } finally {
-      await reader.close();
+      try {
+        await reader?.close();
+      } finally {
+        await proxy?.close();
+      }
     }
   });
 });
